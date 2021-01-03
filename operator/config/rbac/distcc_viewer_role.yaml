@@ -1,0 +1,20 @@
+# permissions for end users to view distccs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: distcc-viewer-role
+rules:
+- apiGroups:
+  - kdistcc.io
+  resources:
+  - distccs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kdistcc.io
+  resources:
+  - distccs/status
+  verbs:
+  - get

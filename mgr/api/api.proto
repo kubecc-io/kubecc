@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+option go_package = "proto;api";
+
+service Api {
+  rpc Status (StatusRequest) returns (StatusResponse);
+}
+
+message StatusRequest {
+
+}
+
+message Agent {
+  uint32 Port = 1;
+}
+
+message StatusResponse {
+  repeated Agent Agents = 1;
+}

@@ -1,0 +1,32 @@
+apiVersion: kdistcc.io/v1
+kind: Distcc
+metadata:
+  name: distcc-sample
+spec:
+  nodes:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: allow-distcc
+              operator: In
+              values: 
+                - "true"
+    resources:
+      requests:
+        memory: 500Mi
+        cpu: 2
+      limits:
+        memory: 1Gi
+        cpu: 4
+  image: "docker.io/alpine:latest"
+  command:
+    - "tail"
+    - "-f"
+    - "/dev/null"
+  ports:
+  - name: test
+    containerPort: 1234
+    protocol: TCP
+
+        
