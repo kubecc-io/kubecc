@@ -74,10 +74,13 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object paths="./..."
 
 # Build the docker image
-docker: test
+docker: #test
 	#docker buildx build -t ${IMG} --platform=linux/arm64,linux/amd64 . --push
 	docker buildx build -t ${IMG} --platform=linux/amd64 . --push
 
+images: 
+	cd images/distcc-agent && make
+	
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen:

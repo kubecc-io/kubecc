@@ -22,6 +22,11 @@ type DistccSpec struct {
 	Image   string             `json:"image"`
 	Command []string           `json:"command"`
 	Ports   []v1.ContainerPort `json:"ports"`
+
+	// +kubebuilder:validation:Enum:=traefik
+	IngressStrategy string `json:"ingressStrategy"`
+	TLSStrategy     string `json:"tlsStrategy"`
+	Hostname        string `json:"hostname"`
 }
 
 // DistccStatus defines the observed state of Distcc

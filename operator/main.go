@@ -24,6 +24,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -31,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	mydomainv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
-	"github.com/cobalt77/kube-distcc-operator/controllers"
+	kdistccv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
+	"github.com/cobalt77/kube-distcc-operator/controllers/distcc"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -43,8 +44,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
-	utilruntime.Must(mydomainv1.AddToScheme(scheme))
+	utilruntime.Must(kdistccv1.AddToScheme(scheme))
+	utilruntime.Must(traefikv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -78,7 +79,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.DistccReconciler{
+	if err = (&distcc.DistccReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("distcc"),
 		Scheme: mgr.GetScheme(),
