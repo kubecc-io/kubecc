@@ -40,7 +40,13 @@ spec:
                 items:
                   type: string
                 type: array
+              hostname:
+                type: string
               image:
+                type: string
+              ingressStrategy:
+                enum:
+                - traefik
                 type: string
               nodes:
                 properties:
@@ -314,11 +320,16 @@ spec:
                   - containerPort
                   type: object
                 type: array
+              tlsStrategy:
+                type: string
             required:
             - command
+            - hostname
             - image
+            - ingressStrategy
             - nodes
             - ports
+            - tlsStrategy
             type: object
           status:
             description: DistccStatus defines the observed state of Distcc
