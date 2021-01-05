@@ -18,10 +18,9 @@ type DistccSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Nodes   NodeConfig         `json:"nodes"`
-	Image   string             `json:"image"`
-	Command []string           `json:"command"`
-	Ports   []v1.ContainerPort `json:"ports"`
+	Nodes      NodeConfig `json:"nodes"`
+	AgentImage string     `json:"agentImage"`
+	MgrImage   string     `json:"mgrImage"`
 
 	// +kubebuilder:validation:Enum:=traefik
 	IngressStrategy string `json:"ingressStrategy"`

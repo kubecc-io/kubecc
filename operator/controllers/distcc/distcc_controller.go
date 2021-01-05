@@ -8,13 +8,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/cobalt77/kube-distcc-operator/controllers/tools"
+	"github.com/cobalt77/kube-distcc/operator/controllers/tools"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
+	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
 )
 
 // DistccReconciler reconciles a Distcc object
@@ -28,6 +28,7 @@ type DistccReconciler struct {
 // +kubebuilder:rbac:groups=kdistcc.io,resources=distccs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kdistcc.io,resources=distccs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutetcps,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -53,10 +54,12 @@ func (r *DistccReconciler) Reconcile(
 
 	result, recErr = tools.ReconcileAndAggregate(
 		log, ctx, distcc,
-		r.reconcileDaemonSet,
+		r.reconcileAgents,
 		r.reconcileMgr,
-		r.reconcileServices,
-		r.reconcileIngressRoutes,
+		r.reconcileAgentServices,
+		r.reconcileMgrService,
+		r.reconcileAgentIngress,
+		r.reconcileMgrIngress,
 	)
 	if result.Requeue && result.RequeueAfter == 0 {
 		log.Info("=> Requeueing...")
@@ -77,6 +80,7 @@ func (r *DistccReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).
+		Owns(&traefikv1alpha1.IngressRoute{}).
 		Owns(&traefikv1alpha1.IngressRouteTCP{}).
 		Complete(r)
 }

@@ -19,17 +19,10 @@ spec:
       limits:
         memory: 1Gi
         cpu: 4
-  image: "docker.io/alpine:latest"
-  command:
-    - "tail"
-    - "-f"
-    - "/dev/null"
-  ports:
-  - name: distcc
-    containerPort: 3632
-    protocol: TCP
+  agentImage: ---/kdistcc/agent:testing
+  mgrImage: ---/kdistcc/mgr:testing
   ingressStrategy: traefik
   tlsStrategy: cert-manager
-  hostname: ...
+  hostname: ---
 
         

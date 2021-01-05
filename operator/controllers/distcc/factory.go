@@ -3,7 +3,7 @@ package distcc
 import (
 	"fmt"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
+	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"github.com/traefik/traefik/v2/pkg/types"
 	appsv1 "k8s.io/api/apps/v1"
@@ -21,7 +21,7 @@ func (r *DistccReconciler) makeMgr(distcc *kdistccv1.Distcc) *appsv1.Deployment 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "distcc-mgr",
-			Namespace: distcc.Namespace,
+			Namespace: "kdistcc-operator-system", // todo
 			Labels: map[string]string{
 				"kdistcc.io/distcc_cr": distcc.Name,
 			},
@@ -38,11 +38,12 @@ func (r *DistccReconciler) makeMgr(distcc *kdistccv1.Distcc) *appsv1.Deployment 
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:    "distcc-mgr",
-							Image:   "docker.io/alpine:latest",
-							Command: []string{"tail", "-f", "/dev/null"},
+							Name:            "distcc-mgr",
+							Image:           distcc.Spec.MgrImage,
+							ImagePullPolicy: v1.PullAlways,
 							Ports: []v1.ContainerPort{
 								{
+
 									Name:          "grpc",
 									ContainerPort: 9090,
 									Protocol:      v1.ProtocolTCP,
@@ -58,7 +59,32 @@ func (r *DistccReconciler) makeMgr(distcc *kdistccv1.Distcc) *appsv1.Deployment 
 	return dep
 }
 
-func (r *DistccReconciler) makeService(distcc *kdistccv1.Distcc, pod *v1.Pod) *v1.Service {
+func (r *DistccReconciler) makeMgrService(distcc *kdistccv1.Distcc) *v1.Service {
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "distcc-mgr",
+			Namespace: "kdistcc-operator-system",
+		},
+		Spec: v1.ServiceSpec{
+			Selector: map[string]string{
+				"app":                  "distcc-mgr",
+				"kdistcc.io/distcc_cr": distcc.Name,
+			},
+			Type: v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "grpc",
+					Protocol: v1.ProtocolTCP,
+					Port:     9090,
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(distcc, svc, r.Scheme)
+	return svc
+}
+
+func (r *DistccReconciler) makeAgentService(distcc *kdistccv1.Distcc, pod *v1.Pod) *v1.Service {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod.Name,
@@ -116,7 +142,47 @@ func (r *DistccReconciler) tlsForServices(
 	}
 }
 
-func (r *DistccReconciler) makeIngressRoute(
+func (r *DistccReconciler) makeMgrIngressRoute(
+	distcc *kdistccv1.Distcc,
+) *traefikv1alpha1.IngressRoute {
+	rt := &traefikv1alpha1.IngressRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "distcc-mgr",
+			Namespace: "kdistcc-operator-system",
+		},
+		Spec: traefikv1alpha1.IngressRouteSpec{
+			EntryPoints: []string{"websecure"},
+			Routes: []traefikv1alpha1.Route{
+				{
+					Kind:  "Rule",
+					Match: fmt.Sprintf("Host(`%s`)", distcc.Spec.Hostname),
+					Services: []traefikv1alpha1.Service{
+						{
+							LoadBalancerSpec: traefikv1alpha1.LoadBalancerSpec{
+								Name:      "distcc-mgr",
+								Namespace: "kdistcc-operator-system",
+								Kind:      "Service",
+								Port:      9090,
+							},
+						},
+					},
+				},
+			},
+			TLS: &traefikv1alpha1.TLS{
+				SecretName: "kdistcc-tls",
+				Domains: []types.Domain{
+					{
+						Main: distcc.Spec.Hostname,
+					},
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(distcc, rt, r.Scheme)
+	return rt
+}
+
+func (r *DistccReconciler) makeAgentIngressRoute(
 	distcc *kdistccv1.Distcc,
 	services *v1.ServiceList,
 ) *traefikv1alpha1.IngressRouteTCP {
@@ -163,11 +229,10 @@ func (r *DistccReconciler) makeDaemonSet(distcc *kdistccv1.Distcc) *appsv1.Daemo
 					},
 					Containers: []v1.Container{
 						{
-							Name:      "distcc-agent",
-							Image:     distcc.Spec.Image,
-							Command:   distcc.Spec.Command,
-							Ports:     distcc.Spec.Ports,
-							Resources: distcc.Spec.Nodes.Resources,
+							Name:            "distcc-agent",
+							Image:           distcc.Spec.AgentImage,
+							ImagePullPolicy: v1.PullAlways,
+							Resources:       distcc.Spec.Nodes.Resources,
 						},
 					},
 				},

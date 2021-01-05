@@ -11,7 +11,8 @@ message StatusRequest {
 }
 
 message Agent {
-  uint32 Port = 1;
+  string Address = 1;
+  int32 Port = 2;
 }
 
 message StatusResponse {
