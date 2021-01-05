@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
-	"github.com/cobalt77/kube-distcc-operator/controllers/distcc"
+	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
+	"github.com/cobalt77/kube-distcc/operator/controllers/distcc"
 	// +kubebuilder:scaffold:imports
 )
 

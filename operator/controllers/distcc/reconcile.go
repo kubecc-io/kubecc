@@ -3,8 +3,9 @@ package distcc
 import (
 	"context"
 	"reflect"
+	"time"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc-operator/api/v1"
+	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
 	"github.com/go-logr/logr"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -22,16 +23,17 @@ func (r *DistccReconciler) reconcileMgr(
 	obj client.Object,
 ) (ctrl.Result, error) {
 	log.Info("Checking mgr pod")
+	distcc := obj.(*kdistccv1.Distcc)
 
 	found := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      "distcc-mgr",
-		Namespace: obj.GetNamespace(),
+		Namespace: "kdistcc-operator-system",
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
-			"Name", obj.GetName(),
-			"Namespace", obj.GetNamespace(),
+			"Name", "distcc-mgr",
+			"Namespace", "kdistcc-operator-system",
 		).Info("Creating a new Deployment")
 		ds := r.makeMgr(obj.(*kdistccv1.Distcc))
 		err := r.Create(ctx, ds)
@@ -45,16 +47,60 @@ func (r *DistccReconciler) reconcileMgr(
 		log.Error(err, "Failed to get Deployment")
 		return ctrl.Result{}, err
 	}
+
+	container := &found.Spec.Template.Spec.Containers[0]
+	if container.Image != distcc.Spec.MgrImage {
+		log.Info("> Updating mgr image")
+		container.Image = distcc.Spec.MgrImage
+		err := r.Update(ctx, found)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
 	return ctrl.Result{}, nil
 }
 
-func (r *DistccReconciler) reconcileServices(
+func (r *DistccReconciler) reconcileMgrService(
+	log logr.Logger,
+	ctx context.Context,
+	obj client.Object,
+) (ctrl.Result, error) {
+	log.Info("Checking mgr service")
+	distcc := obj.(*kdistccv1.Distcc)
+	found := &v1.Service{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      "distcc-mgr",
+		Namespace: "kdistcc-operator-system",
+	}, found)
+	if err != nil && errors.IsNotFound(err) {
+		log.WithValues(
+			"Name", "distcc-mgr",
+			"Namespace", "kdistcc-operator-system",
+		).Info("Creating a new Service")
+		ds := r.makeMgrService(distcc)
+		err := r.Create(ctx, ds)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create Service")
+			return ctrl.Result{}, err
+		}
+		// Created successfully
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Service")
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DistccReconciler) reconcileAgentServices(
 	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
 
-	log.Info("Checking services")
+	log.Info("Checking agent services")
 	/*
 		- Get all distcc-agent pods
 		- For each pod, ensure there is a matching service with the same name
@@ -91,7 +137,7 @@ func (r *DistccReconciler) reconcileServices(
 				"Name", pod.Name,
 				"Namespace", pod.Namespace,
 			).Info("Creating a new Service")
-			ds := r.makeService(distcc, &pod)
+			ds := r.makeAgentService(distcc, &pod)
 			err := r.Create(ctx, ds)
 			if err != nil && !errors.IsAlreadyExists(err) {
 				log.Error(err, "Failed to create Service")
@@ -108,7 +154,48 @@ func (r *DistccReconciler) reconcileServices(
 	return ctrl.Result{Requeue: needRequeue}, svcCreateErr
 }
 
-func (r *DistccReconciler) reconcileIngressRoutes(
+func (r *DistccReconciler) reconcileMgrIngress(
+	log logr.Logger,
+	ctx context.Context,
+	obj client.Object,
+) (ctrl.Result, error) {
+	log.Info("Checking mgr ingress")
+
+	distcc := obj.(*kdistccv1.Distcc)
+
+	found := &v1.Service{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      "distcc-mgr",
+		Namespace: "kdistcc-operator-system",
+	}, found)
+	if err != nil {
+		log.Info("> Not reconciling mgr ingress, mgr is not healthy. Retrying in 10s")
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
+
+	ingressRoute := &traefikv1alpha1.IngressRoute{}
+	err = r.Get(ctx, types.NamespacedName{
+		Name:      "distcc-mgr",
+		Namespace: "kdistcc-operator-system",
+	}, ingressRoute)
+	if err != nil && errors.IsNotFound(err) {
+		log.Info("> Creating mgr ingress route")
+		route := r.makeMgrIngressRoute(distcc)
+		err = r.Create(ctx, route)
+		if err != nil {
+			log.Error(err, "Failed to create ingress route")
+			return ctrl.Result{}, err
+		}
+		// Created successfully
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get ingress route")
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *DistccReconciler) reconcileAgentIngress(
 	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
@@ -147,7 +234,7 @@ func (r *DistccReconciler) reconcileIngressRoutes(
 	}, route)
 	if err != nil && errors.IsNotFound(err) {
 		log.Info("Creating new IngressRouteTCP")
-		rt := r.makeIngressRoute(distcc, svcList)
+		rt := r.makeAgentIngressRoute(distcc, svcList)
 		err := r.Create(ctx, rt)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create IngressRouteTCP")
@@ -190,7 +277,7 @@ func (r *DistccReconciler) reconcileIngressRoutes(
 	return ctrl.Result{Requeue: needsRequeue}, nil
 }
 
-func (r *DistccReconciler) reconcileDaemonSet(
+func (r *DistccReconciler) reconcileAgents(
 	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
@@ -232,19 +319,9 @@ func (r *DistccReconciler) reconcileDaemonSet(
 	}
 
 	container := &found.Spec.Template.Spec.Containers[0]
-	if container.Image != distcc.Spec.Image {
+	if container.Image != distcc.Spec.AgentImage {
 		log.Info("> Container image changed")
-		container.Image = distcc.Spec.Image
-		needsUpdate = true
-	}
-	if !reflect.DeepEqual(container.Command, distcc.Spec.Command) {
-		log.Info("> Container command changed")
-		container.Command = distcc.Spec.Command
-		needsUpdate = true
-	}
-	if !reflect.DeepEqual(container.Ports, distcc.Spec.Ports) {
-		log.Info("> Container ports changed")
-		container.Ports = distcc.Spec.Ports
+		container.Image = distcc.Spec.AgentImage
 		needsUpdate = true
 	}
 	if needsUpdate {
