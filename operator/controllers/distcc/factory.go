@@ -163,6 +163,7 @@ func (r *DistccReconciler) makeMgrIngressRoute(
 								Namespace: "kdistcc-operator-system",
 								Kind:      "Service",
 								Port:      9090,
+								Scheme:    "h2c",
 							},
 						},
 					},
