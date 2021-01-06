@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kube-distcc/mgr/api"
-	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
+	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -49,7 +49,7 @@ func (s *server) Status(ctx context.Context, _ *api.StatusRequest) (*api.StatusR
 
 	ns := namespace()
 
-	distccs := &kdistccv1.DistccList{}
+	distccs := &kdcv1alpha1.DistccList{}
 	err := client.
 		RESTClient().
 		Get().

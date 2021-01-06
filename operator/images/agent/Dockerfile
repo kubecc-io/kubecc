@@ -18,7 +18,6 @@ RUN \
     echo $PATH && ls -al /usr/sbin && \
   # export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
-
     # DEBIAN_FRONTEND=noninteractive apt-get install --reinstall -y dpkg && \
   # apt install -y python3 && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y python3-dev && \

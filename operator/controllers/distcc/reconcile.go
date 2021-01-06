@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
+	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
 	"github.com/go-logr/logr"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -23,7 +23,7 @@ func (r *DistccReconciler) reconcileMgr(
 	obj client.Object,
 ) (ctrl.Result, error) {
 	log.Info("Checking mgr pod")
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 
 	found := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{
@@ -35,7 +35,7 @@ func (r *DistccReconciler) reconcileMgr(
 			"Name", "distcc-mgr",
 			"Namespace", "kdistcc-operator-system",
 		).Info("Creating a new Deployment")
-		ds := r.makeMgr(obj.(*kdistccv1.Distcc))
+		ds := r.makeMgr(obj.(*kdcv1alpha1.Distcc))
 		err := r.Create(ctx, ds)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create Deployment")
@@ -67,7 +67,7 @@ func (r *DistccReconciler) reconcileMgrService(
 	obj client.Object,
 ) (ctrl.Result, error) {
 	log.Info("Checking mgr service")
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      "distcc-mgr",
@@ -105,7 +105,7 @@ func (r *DistccReconciler) reconcileAgentServices(
 		- Get all distcc-agent pods
 		- For each pod, ensure there is a matching service with the same name
 	*/
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 
 	podList := &corev1.PodList{}
 	listOpts := []client.ListOption{
@@ -161,7 +161,7 @@ func (r *DistccReconciler) reconcileMgrIngress(
 ) (ctrl.Result, error) {
 	log.Info("Checking mgr ingress")
 
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
@@ -206,7 +206,7 @@ func (r *DistccReconciler) reconcileAgentIngress(
 		- For each service, ensure there is a matching route
 	*/
 
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 
 	// Get services
 
@@ -289,7 +289,7 @@ func (r *DistccReconciler) reconcileAgents(
 		Name:      "distcc-agent",
 		Namespace: obj.GetNamespace(),
 	}, found)
-	distcc := obj.(*kdistccv1.Distcc)
+	distcc := obj.(*kdcv1alpha1.Distcc)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
 			"Name", obj.GetName(),
