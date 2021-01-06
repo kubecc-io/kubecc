@@ -14,7 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
+	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
 )
 
 // DistccReconciler reconciles a Distcc object
@@ -41,7 +41,7 @@ func (r *DistccReconciler) Reconcile(
 	log := r.Log.WithValues("distcc", req.NamespacedName)
 	log.Info("Starting reconcile")
 
-	distcc := &kdistccv1.Distcc{}
+	distcc := &kdcv1alpha1.Distcc{}
 	err := r.Get(ctx, req.NamespacedName, distcc)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -76,7 +76,7 @@ func (r *DistccReconciler) Reconcile(
 // SetupWithManager sets up the controller with the Manager.
 func (r *DistccReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kdistccv1.Distcc{}).
+		For(&kdcv1alpha1.Distcc{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).

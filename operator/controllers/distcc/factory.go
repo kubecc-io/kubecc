@@ -3,7 +3,7 @@ package distcc
 import (
 	"fmt"
 
-	kdistccv1 "github.com/cobalt77/kube-distcc/operator/api/v1"
+	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"github.com/traefik/traefik/v2/pkg/types"
 	appsv1 "k8s.io/api/apps/v1"
@@ -12,7 +12,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *DistccReconciler) makeMgr(distcc *kdistccv1.Distcc) *appsv1.Deployment {
+func (r *DistccReconciler) makeMgr(distcc *kdcv1alpha1.Distcc) *appsv1.Deployment {
 	labels := map[string]string{
 		"app":                  "distcc-mgr",
 		"kdistcc.io/distcc_cr": distcc.Name,
@@ -59,7 +59,7 @@ func (r *DistccReconciler) makeMgr(distcc *kdistccv1.Distcc) *appsv1.Deployment 
 	return dep
 }
 
-func (r *DistccReconciler) makeMgrService(distcc *kdistccv1.Distcc) *v1.Service {
+func (r *DistccReconciler) makeMgrService(distcc *kdcv1alpha1.Distcc) *v1.Service {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "distcc-mgr",
@@ -84,7 +84,7 @@ func (r *DistccReconciler) makeMgrService(distcc *kdistccv1.Distcc) *v1.Service 
 	return svc
 }
 
-func (r *DistccReconciler) makeAgentService(distcc *kdistccv1.Distcc, pod *v1.Pod) *v1.Service {
+func (r *DistccReconciler) makeAgentService(distcc *kdcv1alpha1.Distcc, pod *v1.Pod) *v1.Service {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod.Name,
@@ -105,7 +105,7 @@ func (r *DistccReconciler) makeAgentService(distcc *kdistccv1.Distcc, pod *v1.Po
 }
 
 func (r *DistccReconciler) routesForServices(
-	distcc *kdistccv1.Distcc,
+	distcc *kdcv1alpha1.Distcc,
 	services *v1.ServiceList,
 ) (list []traefikv1alpha1.RouteTCP) {
 	list = make([]traefikv1alpha1.RouteTCP, len(services.Items))
@@ -125,7 +125,7 @@ func (r *DistccReconciler) routesForServices(
 }
 
 func (r *DistccReconciler) tlsForServices(
-	distcc *kdistccv1.Distcc,
+	distcc *kdcv1alpha1.Distcc,
 	services *v1.ServiceList,
 ) *traefikv1alpha1.TLSTCP {
 	return &traefikv1alpha1.TLSTCP{
@@ -143,7 +143,7 @@ func (r *DistccReconciler) tlsForServices(
 }
 
 func (r *DistccReconciler) makeMgrIngressRoute(
-	distcc *kdistccv1.Distcc,
+	distcc *kdcv1alpha1.Distcc,
 ) *traefikv1alpha1.IngressRoute {
 	rt := &traefikv1alpha1.IngressRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -183,7 +183,7 @@ func (r *DistccReconciler) makeMgrIngressRoute(
 }
 
 func (r *DistccReconciler) makeAgentIngressRoute(
-	distcc *kdistccv1.Distcc,
+	distcc *kdcv1alpha1.Distcc,
 	services *v1.ServiceList,
 ) *traefikv1alpha1.IngressRouteTCP {
 	rt := &traefikv1alpha1.IngressRouteTCP{
@@ -202,7 +202,7 @@ func (r *DistccReconciler) makeAgentIngressRoute(
 	return rt
 }
 
-func (r *DistccReconciler) makeDaemonSet(distcc *kdistccv1.Distcc) *appsv1.DaemonSet {
+func (r *DistccReconciler) makeDaemonSet(distcc *kdcv1alpha1.Distcc) *appsv1.DaemonSet {
 	labels := map[string]string{
 		"app":                  "distcc-agent",
 		"kdistcc.io/distcc_cr": distcc.Name,

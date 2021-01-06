@@ -1,4 +1,4 @@
-apiVersion: kdistcc.io/v1
+apiVersion: kdistcc.io/v1alpha1
 kind: Distcc
 metadata:
   name: distcc-sample
