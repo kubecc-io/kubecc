@@ -37,7 +37,7 @@ COPY --from=builder /tmp/distcc-3.3.5/distccd /usr/bin
 COPY --from=builder /tmp/distcc-3.3.5/distcc /usr/bin
 
 RUN echo '#!/bin/sh \n\
-distccd --no-detach --daemon --allow 10.0.0.0/8 --enable-tcp-insecure --verbose --user distcc "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh \
+distccd --no-detach --daemon --allow 0.0.0.0/0 --enable-tcp-insecure --verbose --user distcc "$@"' > /entrypoint.sh && chmod +x /entrypoint.sh \
  && useradd distcc
 
 ENTRYPOINT [ "/entrypoint.sh" ]

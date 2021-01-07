@@ -45,8 +45,8 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func (s *server) Status(ctx context.Context, _ *api.StatusRequest) (*api.StatusResponse, error) {
-	log.Info("=> Handling status request")
+func (s *server) Status(ctx context.Context, req *api.StatusRequest) (*api.StatusResponse, error) {
+	log.WithField("cmd", req.Command).Info("=> Handling status request")
 
 	cl, err := client.New(config, client.Options{Scheme: scheme})
 	if err != nil {
@@ -88,7 +88,7 @@ func (s *server) Status(ctx context.Context, _ *api.StatusRequest) (*api.StatusR
 			}
 			response.Agents = append(response.Agents, &api.Agent{
 				Address: svc.Spec.ExternalName,
-				Port:    443,
+				Port:    3632,
 			})
 		}
 	}
