@@ -111,7 +111,7 @@ func (r *DistccReconciler) routesForServices(
 	list = make([]traefikv1alpha1.RouteTCP, len(services.Items))
 	for i, svc := range services.Items {
 		list[i] = traefikv1alpha1.RouteTCP{
-			Match: fmt.Sprintf("HostSNI(`%s`)", svc.Spec.ExternalName),
+			Match: fmt.Sprintf("HostSNI(`*`)"),
 			Services: []traefikv1alpha1.ServiceTCP{
 				{
 					Name:      svc.Name,
@@ -193,9 +193,24 @@ func (r *DistccReconciler) makeAgentIngressRoute(
 			Namespace: distcc.Namespace,
 		},
 		Spec: traefikv1alpha1.IngressRouteTCPSpec{
-			EntryPoints: []string{"websecure"},
-			Routes:      r.routesForServices(distcc, services),
-			TLS:         r.tlsForServices(distcc, services),
+			EntryPoints: []string{"distcc"},
+			Routes: []traefikv1alpha1.RouteTCP{
+				{
+					Match: "HostSNI(`*`)",
+					Services: func() (ls []traefikv1alpha1.ServiceTCP) {
+						ls = make([]traefikv1alpha1.ServiceTCP, len(services.Items))
+						for i, svc := range services.Items {
+							ls[i] = traefikv1alpha1.ServiceTCP{
+								Name:      svc.Name,
+								Namespace: svc.Namespace,
+								Port:      3632,
+							}
+						}
+						return
+					}(),
+				},
+			},
+			//	TLS:         r.tlsForServices(distcc, services),
 		},
 	}
 

@@ -7,7 +7,7 @@ service Api {
 }
 
 message StatusRequest {
-
+  string Command = 1;
 }
 
 message Agent {

@@ -251,28 +251,28 @@ func (r *DistccReconciler) reconcileAgentIngress(
 	}
 
 	needsRequeue := false
-	if routes := r.routesForServices(distcc, svcList); !reflect.DeepEqual(route.Spec.Routes, routes) {
-		log.Info("> Updating routes to match services")
-		route.Spec.Routes = routes
-		err := r.Update(ctx, route)
-		if err != nil {
-			log.Error(err, "Failed to update routes")
-			return ctrl.Result{}, err
-		}
-		// Updated successfully
-		needsRequeue = true
-	}
-	if tls := r.tlsForServices(distcc, svcList); !reflect.DeepEqual(route.Spec.TLS, tls) {
-		log.Info("> Updating TLS to match services")
-		route.Spec.TLS = tls
-		err := r.Update(ctx, route)
-		if err != nil {
-			log.Error(err, "Failed to update TLS")
-			return ctrl.Result{}, err
-		}
-		// Updated successfully
-		needsRequeue = true
-	}
+	// if routes := r.routesForServices(distcc, svcList); !reflect.DeepEqual(route.Spec.Routes, routes) {
+	// 	log.Info("> Updating routes to match services")
+	// 	route.Spec.Routes = routes
+	// 	err := r.Update(ctx, route)
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to update routes")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	// Updated successfully
+	// 	needsRequeue = true
+	// }
+	// if tls := r.tlsForServices(distcc, svcList); !reflect.DeepEqual(route.Spec.TLS, tls) {
+	// 	log.Info("> Updating TLS to match services")
+	// 	route.Spec.TLS = tls
+	// 	err := r.Update(ctx, route)
+	// 	if err != nil {
+	// 		log.Error(err, "Failed to update TLS")
+	// 		return ctrl.Result{}, err
+	// 	}
+	// 	// Updated successfully
+	// 	needsRequeue = true
+	// }
 
 	return ctrl.Result{Requeue: needsRequeue}, nil
 }
