@@ -4,7 +4,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/cobalt77/kube-distcc/agent/cmd"
+	"github.com/cobalt77/kube-cc/agent/cmd"
 )
 
 func main() {

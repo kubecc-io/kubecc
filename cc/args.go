@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	types "github.com/cobalt77/kube-distcc/types"
+	types "github.com/cobalt77/kube-cc/types"
 
 	log "github.com/sirupsen/logrus"
 )

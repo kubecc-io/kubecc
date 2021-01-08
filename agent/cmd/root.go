@@ -12,7 +12,7 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "kdc-agent",
-	Short: "kube-distcc agent",
+	Short: "kube-cc agent",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

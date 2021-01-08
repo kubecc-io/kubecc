@@ -324,6 +324,107 @@ func (*ScheduleResponse) Descriptor() ([]byte, []int) {
 	return file_types_types_proto_rawDescGZIP(), []int{5}
 }
 
+type AgentInfo struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Arch     string `protobuf:"bytes,1,opt,name=Arch,proto3" json:"Arch,omitempty"`
+	Hostname string `protobuf:"bytes,2,opt,name=Hostname,proto3" json:"Hostname,omitempty"`
+	NumCpus  int32  `protobuf:"varint,3,opt,name=NumCpus,proto3" json:"NumCpus,omitempty"`
+}
+
+func (x *AgentInfo) Reset() {
+	*x = AgentInfo{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_types_types_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *AgentInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentInfo) ProtoMessage() {}
+
+func (x *AgentInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_types_types_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
+func (*AgentInfo) Descriptor() ([]byte, []int) {
+	return file_types_types_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *AgentInfo) GetArch() string {
+	if x != nil {
+		return x.Arch
+	}
+	return ""
+}
+
+func (x *AgentInfo) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *AgentInfo) GetNumCpus() int32 {
+	if x != nil {
+		return x.NumCpus
+	}
+	return 0
+}
+
+type Empty struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *Empty) Reset() {
+	*x = Empty{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_types_types_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Empty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Empty) ProtoMessage() {}
+
+func (x *Empty) ProtoReflect() protoreflect.Message {
+	mi := &file_types_types_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Empty.ProtoReflect.Descriptor instead.
+func (*Empty) Descriptor() ([]byte, []int) {
+	return file_types_types_proto_rawDescGZIP(), []int{7}
+}
+
 var File_types_types_proto protoreflect.FileDescriptor
 
 var file_types_types_proto_rawDesc = []byte{
@@ -348,22 +449,30 @@ var file_types_types_proto_rawDesc = []byte{
 	0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53,
 	0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0x11, 0x0a, 0x0f, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c,
 	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x12, 0x0a, 0x10, 0x53, 0x63, 0x68, 0x65,
-	0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x2e, 0x0a, 0x0a,
+	0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x55, 0x0a, 0x09,
+	0x41, 0x67, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x63,
+	0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x63, 0x68, 0x12, 0x1a, 0x0a,
+	0x08, 0x48, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x08, 0x48, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x4e, 0x75, 0x6d,
+	0x43, 0x70, 0x75, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x4e, 0x75, 0x6d, 0x43,
+	0x70, 0x75, 0x73, 0x22, 0x07, 0x0a, 0x05, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x32, 0x2e, 0x0a, 0x0a,
 	0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x20, 0x0a, 0x03, 0x52, 0x75,
 	0x6e, 0x12, 0x0b, 0x2e, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c,
 	0x2e, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x3b, 0x0a, 0x0b,
 	0x52, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x2c, 0x0a, 0x07, 0x43,
 	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65,
 	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c,
-	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x64, 0x0a, 0x03, 0x4d, 0x67, 0x72,
-	0x12, 0x2f, 0x0a, 0x08, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x12, 0x10, 0x2e, 0x53,
-	0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11,
-	0x2e, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43,
-	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e,
-	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x42,
-	0x0d, 0x5a, 0x0b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x85, 0x01, 0x0a, 0x03, 0x4d, 0x67,
+	0x72, 0x12, 0x2f, 0x0a, 0x08, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x12, 0x10, 0x2e,
+	0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
+	0x11, 0x2e, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e,
+	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10,
+	0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x12, 0x1f, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x0a, 0x2e, 0x41, 0x67,
+	0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x30,
+	0x01, 0x42, 0x0d, 0x5a, 0x0b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73,
+	0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -378,7 +487,7 @@ func file_types_types_proto_rawDescGZIP() []byte {
 	return file_types_types_proto_rawDescData
 }
 
-var file_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_types_types_proto_goTypes = []interface{}{
 	(*RunRequest)(nil),       // 0: RunRequest
 	(*RunResponse)(nil),      // 1: RunResponse
@@ -386,18 +495,22 @@ var file_types_types_proto_goTypes = []interface{}{
 	(*CompileResponse)(nil),  // 3: CompileResponse
 	(*ScheduleRequest)(nil),  // 4: ScheduleRequest
 	(*ScheduleResponse)(nil), // 5: ScheduleResponse
+	(*AgentInfo)(nil),        // 6: AgentInfo
+	(*Empty)(nil),            // 7: Empty
 }
 var file_types_types_proto_depIdxs = []int32{
 	0, // 0: LocalAgent.Run:input_type -> RunRequest
 	2, // 1: RemoteAgent.Compile:input_type -> CompileRequest
 	4, // 2: Mgr.Schedule:input_type -> ScheduleRequest
 	2, // 3: Mgr.Compile:input_type -> CompileRequest
-	1, // 4: LocalAgent.Run:output_type -> RunResponse
-	3, // 5: RemoteAgent.Compile:output_type -> CompileResponse
-	5, // 6: Mgr.Schedule:output_type -> ScheduleResponse
-	3, // 7: Mgr.Compile:output_type -> CompileResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	6, // 4: Mgr.Connect:input_type -> AgentInfo
+	1, // 5: LocalAgent.Run:output_type -> RunResponse
+	3, // 6: RemoteAgent.Compile:output_type -> CompileResponse
+	5, // 7: Mgr.Schedule:output_type -> ScheduleResponse
+	3, // 8: Mgr.Compile:output_type -> CompileResponse
+	7, // 9: Mgr.Connect:output_type -> Empty
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -481,6 +594,30 @@ func file_types_types_proto_init() {
 				return nil
 			}
 		}
+		file_types_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*AgentInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_types_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Empty); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -488,7 +625,7 @@ func file_types_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_types_types_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
@@ -660,6 +797,7 @@ var _RemoteAgent_serviceDesc = grpc.ServiceDesc{
 type MgrClient interface {
 	Schedule(ctx context.Context, in *ScheduleRequest, opts ...grpc.CallOption) (*ScheduleResponse, error)
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
+	Connect(ctx context.Context, in *AgentInfo, opts ...grpc.CallOption) (Mgr_ConnectClient, error)
 }
 
 type mgrClient struct {
@@ -688,10 +826,43 @@ func (c *mgrClient) Compile(ctx context.Context, in *CompileRequest, opts ...grp
 	return out, nil
 }
 
+func (c *mgrClient) Connect(ctx context.Context, in *AgentInfo, opts ...grpc.CallOption) (Mgr_ConnectClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Mgr_serviceDesc.Streams[0], "/Mgr/Connect", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &mgrConnectClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Mgr_ConnectClient interface {
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type mgrConnectClient struct {
+	grpc.ClientStream
+}
+
+func (x *mgrConnectClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // MgrServer is the server API for Mgr service.
 type MgrServer interface {
 	Schedule(context.Context, *ScheduleRequest) (*ScheduleResponse, error)
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
+	Connect(*AgentInfo, Mgr_ConnectServer) error
 }
 
 // UnimplementedMgrServer can be embedded to have forward compatible implementations.
@@ -703,6 +874,9 @@ func (*UnimplementedMgrServer) Schedule(context.Context, *ScheduleRequest) (*Sch
 }
 func (*UnimplementedMgrServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
+}
+func (*UnimplementedMgrServer) Connect(*AgentInfo, Mgr_ConnectServer) error {
+	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
 
 func RegisterMgrServer(s *grpc.Server, srv MgrServer) {
@@ -745,6 +919,27 @@ func _Mgr_Compile_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Mgr_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(AgentInfo)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MgrServer).Connect(m, &mgrConnectServer{stream})
+}
+
+type Mgr_ConnectServer interface {
+	Send(*Empty) error
+	grpc.ServerStream
+}
+
+type mgrConnectServer struct {
+	grpc.ServerStream
+}
+
+func (x *mgrConnectServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Mgr_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "Mgr",
 	HandlerType: (*MgrServer)(nil),
@@ -758,6 +953,12 @@ var _Mgr_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Mgr_Compile_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Connect",
+			Handler:       _Mgr_Connect_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "types/types.proto",
 }

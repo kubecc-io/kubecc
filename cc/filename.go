@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	types "github.com/cobalt77/kube-distcc/types"
+	types "github.com/cobalt77/kube-cc/types"
 )
 
 var sourceExtensions *types.StringSet = types.NewStringSet(

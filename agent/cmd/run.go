@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/cobalt77/kube-distcc/agent"
+	"github.com/cobalt77/kube-cc/agent"
 	"github.com/spf13/cobra"
 )
 

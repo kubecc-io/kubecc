@@ -4,8 +4,8 @@ import (
 	"context"
 	"net"
 
-	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
-	"github.com/cobalt77/kube-distcc/types"
+	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	"github.com/cobalt77/kube-cc/types"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
@@ -31,6 +31,13 @@ func (s *mgrServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+
+}
+
+func (s *mgrServer) Connect(
+	agentInfo *types.AgentInfo,
+	srv types.Mgr_ConnectServer,
+) error {
 
 }
 

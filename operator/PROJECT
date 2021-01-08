@@ -1,7 +1,7 @@
 domain: kdistcc.io
 layout: go.kubebuilder.io/v3
 projectName: kdistcc-operator
-repo: github.com/cobalt77/kube-distcc-operator
+repo: github.com/cobalt77/kube-cc-operator
 resources:
 - crdVersion: v1alpha1
   kind: Distcc
