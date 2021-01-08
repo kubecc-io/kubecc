@@ -14,7 +14,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	mydomainv1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	mydomainv1 "github.com/cobalt77/kubecc/operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -1,4 +1,4 @@
-module github.com/cobalt77/kube-cc
+module github.com/cobalt77/kubecc
 
 go 1.15
 

@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	kdcv1alpha1 "github.com/cobalt77/kubecc/operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
