@@ -7,13 +7,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/cobalt77/kube-cc/operator/controllers/tools"
+	"github.com/cobalt77/kubecc/operator/controllers/tools"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kccv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	kccv1alpha1 "github.com/cobalt77/kubecc/operator/api/v1alpha1"
 )
 
 // KubeccReconciler reconciles a Kubecc object

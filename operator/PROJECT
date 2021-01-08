@@ -1,7 +1,7 @@
 domain: kubecc.io
 layout: go.kubebuilder.io/v3
 projectName: kubecc-operator
-repo: github.com/cobalt77/kube-cc
+repo: github.com/cobalt77/kubecc
 resources:
 - crdVersion: v1alpha1
   kind: Kubecc

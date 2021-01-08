@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	kdcv1alpha1 "github.com/cobalt77/kubecc/operator/api/v1alpha1"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

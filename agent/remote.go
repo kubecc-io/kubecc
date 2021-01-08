@@ -9,8 +9,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/cobalt77/kube-cc/cc"
-	types "github.com/cobalt77/kube-cc/types"
+	"github.com/cobalt77/kubecc/cc"
+	types "github.com/cobalt77/kubecc/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
