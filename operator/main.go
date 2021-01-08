@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
-	"github.com/cobalt77/kube-cc/operator/controllers/distcc"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -72,19 +71,19 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "6281146e.kdistcc.io",
+		LeaderElectionID:       "6281146e.kubecc.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&distcc.DistccReconciler{
+	if err = (&kubecc.kubeccReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("distcc"),
+		Log:    ctrl.Log.WithName("controllers").WithName("kubecc"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "distcc")
+		setupLog.Error(err, "unable to create controller", "controller", "kubecc")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

@@ -13,8 +13,8 @@ type NodeConfig struct {
 	Resources    v1.ResourceRequirements `json:"resources"`
 }
 
-// DistccSpec defines the desired state of Distcc
-type DistccSpec struct {
+// KubeccSpec defines the desired state of Kubecc
+type KubeccSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
@@ -22,14 +22,11 @@ type DistccSpec struct {
 	AgentImage string     `json:"agentImage"`
 	MgrImage   string     `json:"mgrImage"`
 
-	// +kubebuilder:validation:Enum:=traefik
-	IngressStrategy string `json:"ingressStrategy"`
-	TLSStrategy     string `json:"tlsStrategy"`
-	Hostname        string `json:"hostname"`
+	Hostname string `json:"hostname"`
 }
 
-// DistccStatus defines the observed state of Distcc
-type DistccStatus struct {
+// KubeccStatus defines the observed state of Kubecc
+type KubeccStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -37,24 +34,24 @@ type DistccStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// Distcc is the Schema for the distccs API
-type Distcc struct {
+// Kubecc is the Schema for the kubeccs API
+type Kubecc struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DistccSpec   `json:"spec,omitempty"`
-	Status DistccStatus `json:"status,omitempty"`
+	Spec   KubeccSpec   `json:"spec,omitempty"`
+	Status KubeccStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// DistccList contains a list of Distcc
-type DistccList struct {
+// KubeccList contains a list of Kubecc
+type KubeccList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Distcc `json:"items"`
+	Items           []Kubecc `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Distcc{}, &DistccList{})
+	SchemeBuilder.Register(&Kubecc{}, &KubeccList{})
 }

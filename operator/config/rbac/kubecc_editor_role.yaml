@@ -1,13 +1,13 @@
-# permissions for end users to edit distccs.
+# permissions for end users to edit kubeccs.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: distcc-editor-role
+  name: kubecc-editor-role
 rules:
 - apiGroups:
-  - kdistcc.io
+  - kubecc.io
   resources:
-  - distccs
+  - kubeccs
   verbs:
   - create
   - delete
@@ -17,8 +17,8 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kdistcc.io
+  - kubecc.io
   resources:
-  - distccs/status
+  - kubeccs/status
   verbs:
   - get

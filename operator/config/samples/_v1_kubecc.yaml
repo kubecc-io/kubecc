@@ -1,14 +1,14 @@
-apiVersion: kdistcc.io/v1alpha1
-kind: Distcc
+apiVersion: kubecc.io/v1alpha1
+kind: Kubecc
 metadata:
-  name: distcc-sample
+  name: kubecc-sample
 spec:
   nodes:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
         nodeSelectorTerms:
           - matchExpressions:
-            - key: allow-distcc
+            - key: allow-kubecc
               operator: In
               values: 
                 - "true"
@@ -19,10 +19,8 @@ spec:
       limits:
         memory: 1Gi
         cpu: 4
-  agentImage: kdistcc/agent:testing
-  mgrImage: kdistcc/mgr:testing
-  ingressStrategy: traefik
-  tlsStrategy: cert-manager
-  hostname: distcc.example.com
+  agentImage: kubecc/agent:testing
+  mgrImage: kubecc/mgr:testing
+  hostname: kubecc.example.com
 
         
