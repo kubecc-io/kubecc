@@ -19,10 +19,10 @@ spec:
       limits:
         memory: 1Gi
         cpu: 4
-  agentImage: ---/kdistcc/agent:testing
-  mgrImage: ---/kdistcc/mgr:testing
+  agentImage: kdistcc/agent:testing
+  mgrImage: kdistcc/mgr:testing
   ingressStrategy: traefik
   tlsStrategy: cert-manager
-  hostname: ---
+  hostname: distcc.example.com
 
         
