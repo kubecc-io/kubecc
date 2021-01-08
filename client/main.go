@@ -12,7 +12,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/cobalt77/kube-distcc/mgr/api"
+	"github.com/cobalt77/kube-cc/mgr/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )

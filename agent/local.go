@@ -11,8 +11,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/cobalt77/kube-distcc/cc"
-	types "github.com/cobalt77/kube-distcc/types"
+	"github.com/cobalt77/kube-cc/cc"
+	types "github.com/cobalt77/kube-cc/types"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"

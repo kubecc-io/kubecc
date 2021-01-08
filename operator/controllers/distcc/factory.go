@@ -3,7 +3,7 @@ package distcc
 import (
 	"fmt"
 
-	kdcv1alpha1 "github.com/cobalt77/kube-distcc/operator/api/v1alpha1"
+	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"github.com/traefik/traefik/v2/pkg/types"
 	appsv1 "k8s.io/api/apps/v1"
