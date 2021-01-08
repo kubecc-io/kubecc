@@ -51,9 +51,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kdistcc.io
+  - kubecc.io
   resources:
-  - distccs
+  - kubeccs
   verbs:
   - create
   - delete
@@ -63,40 +63,16 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kdistcc.io
+  - kubecc.io
   resources:
-  - distccs/finalizers
+  - kubeccs/finalizers
   verbs:
   - update
 - apiGroups:
-  - kdistcc.io
+  - kubecc.io
   resources:
-  - distccs/status
+  - kubeccs/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - traefik.containo.us
-  resources:
-  - ingressroutes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - traefik.containo.us
-  resources:
-  - ingressroutetcps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch

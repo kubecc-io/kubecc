@@ -3,17 +3,18 @@ FROM golang:1.15 as builder
 
 WORKDIR /workspace
 
+# Copy the go source
 COPY . .
 
 # Build
-RUN cd operator \
- && CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build -o manager main.go
+RUN cd agent \
+ && CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build 
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=builder /workspace/operator/manager .
+COPY --from=builder /workspace/agent/agent .
 USER 65532:65532
 
-ENTRYPOINT ["/manager"]
+ENTRYPOINT ["/agent", "run"]

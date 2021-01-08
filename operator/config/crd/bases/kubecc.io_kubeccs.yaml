@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: distccs.kdistcc.io
+  name: kubeccs.kubecc.io
 spec:
-  group: kdistcc.io
+  group: kubecc.io
   names:
-    kind: Distcc
-    listKind: DistccList
-    plural: distccs
-    singular: distcc
+    kind: Kubecc
+    listKind: KubeccList
+    plural: kubeccs
+    singular: kubecc
   scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Distcc is the Schema for the distccs API
+        description: Kubecc is the Schema for the kubeccs API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,15 +34,11 @@ spec:
           metadata:
             type: object
           spec:
-            description: DistccSpec defines the desired state of Distcc
+            description: KubeccSpec defines the desired state of Kubecc
             properties:
               agentImage:
                 type: string
               hostname:
-                type: string
-              ingressStrategy:
-                enum:
-                - traefik
                 type: string
               mgrImage:
                 type: string
@@ -283,18 +279,14 @@ spec:
                 - nodeAffinity
                 - resources
                 type: object
-              tlsStrategy:
-                type: string
             required:
             - agentImage
             - hostname
-            - ingressStrategy
             - mgrImage
             - nodes
-            - tlsStrategy
             type: object
           status:
-            description: DistccStatus defines the observed state of Distcc
+            description: KubeccStatus defines the observed state of Kubecc
             type: object
         type: object
     served: true

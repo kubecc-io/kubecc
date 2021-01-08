@@ -1,4 +1,4 @@
-package agent
+package main
 
 import (
 	"github.com/mitchellh/go-homedir"
@@ -35,6 +35,6 @@ func InitConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		log.WithError(err).Error("Error reading config file")
+		log.WithError(err).Debug("Error reading config file")
 	}
 }

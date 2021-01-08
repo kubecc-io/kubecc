@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 
 	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
@@ -18,27 +19,32 @@ import (
 
 type mgrServer struct {
 	types.MgrServer
+
+	agents map[*types.AgentInfo]struct{}
 }
 
 func (s *mgrServer) Schedule(
 	ctx context.Context,
 	req *types.ScheduleRequest,
 ) (*types.ScheduleResponse, error) {
-
+	return nil, errors.New("Unimplemented")
 }
 
 func (s *mgrServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-
+	return nil, errors.New("Unimplemented")
 }
 
 func (s *mgrServer) Connect(
 	agentInfo *types.AgentInfo,
 	srv types.Mgr_ConnectServer,
 ) error {
-
+	s.agents[agentInfo] = struct{}{}
+	<-srv.Context().Done()
+	delete(s.agents, agentInfo)
+	return nil
 }
 
 var (
@@ -64,14 +70,14 @@ func init() {
 // 		log.Fatal(err)
 // 	}
 
-// 	distccs := &kdcv1alpha1.DistccList{}
-// 	err = cl.List(ctx, distccs, &client.ListOptions{})
+// 	kubeccs := &kdcv1alpha1.kubeccList{}
+// 	err = cl.List(ctx, kubeccs, &client.ListOptions{})
 // 	if err != nil {
 // 		return nil, err
 // 	}
 
-// 	if len(distccs.Items) == 0 {
-// 		log.Warning("No distccs found in the cluster")
+// 	if len(kubeccs.Items) == 0 {
+// 		log.Warning("No kubeccs found in the cluster")
 // 		return &api.StatusResponse{Agents: []*api.Agent{}}, nil
 // 	}
 
@@ -79,11 +85,11 @@ func init() {
 // 		Agents: []*api.Agent{},
 // 	}
 
-// 	for _, distcc := range distccs.Items {
+// 	for _, kubecc := range kubeccs.Items {
 // 		svcList := &v1.ServiceList{}
 // 		err = cl.List(ctx, svcList, &client.ListOptions{
 // 			LabelSelector: labels.SelectorFromSet(labels.Set{
-// 				"kdistcc.io/distcc_cr": distcc.Name,
+// 				"kkubecc.io/kubecc_cr": kubecc.Name,
 // 			}),
 // 		})
 
@@ -95,7 +101,7 @@ func init() {
 // 		for _, svc := range svcList.Items {
 // 			if svc.Spec.Type != v1.ServiceTypeExternalName {
 // 				return nil, errors.New(
-// 					"The distcc server appears to be improperly configured (wrong service type)")
+// 					"The kubecc server appears to be improperly configured (wrong service type)")
 // 			}
 // 			response.Agents = append(response.Agents, &api.Agent{
 // 				Address: svc.Spec.ExternalName,

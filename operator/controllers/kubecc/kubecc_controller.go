@@ -1,10 +1,9 @@
-package distcc
+package kubecc
 
 import (
 	"context"
 
 	"github.com/go-logr/logr"
-	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -14,35 +13,33 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	kdcv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
+	kccv1alpha1 "github.com/cobalt77/kube-cc/operator/api/v1alpha1"
 )
 
-// DistccReconciler reconciles a Distcc object
-type DistccReconciler struct {
+// KubeccReconciler reconciles a Kubecc object
+type KubeccReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=kdistcc.io,resources=distccs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=kdistcc.io,resources=distccs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=kdistcc.io,resources=distccs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutetcps,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
-func (r *DistccReconciler) Reconcile(
+func (r *KubeccReconciler) Reconcile(
 	ctx context.Context,
 	req ctrl.Request,
 ) (result ctrl.Result, recErr error) {
-	log := r.Log.WithValues("distcc", req.NamespacedName)
+	log := r.Log.WithValues("kubecc", req.NamespacedName)
 	log.Info("Starting reconcile")
 
-	distcc := &kdcv1alpha1.Distcc{}
-	err := r.Get(ctx, req.NamespacedName, distcc)
+	kubecc := &kccv1alpha1.Kubecc{}
+	err := r.Get(ctx, req.NamespacedName, kubecc)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Resource not found (may already be deleted)")
@@ -53,13 +50,11 @@ func (r *DistccReconciler) Reconcile(
 	}
 
 	result, recErr = tools.ReconcileAndAggregate(
-		log, ctx, distcc,
+		log, ctx, kubecc,
 		r.reconcileAgents,
+		//r.reconcileAgentServices,
 		r.reconcileMgr,
-		r.reconcileAgentServices,
 		r.reconcileMgrService,
-		r.reconcileAgentIngress,
-		r.reconcileMgrIngress,
 	)
 	if result.Requeue && result.RequeueAfter == 0 {
 		log.Info("=> Requeueing...")
@@ -74,13 +69,11 @@ func (r *DistccReconciler) Reconcile(
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DistccReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *KubeccReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&kdcv1alpha1.Distcc{}).
+		For(&kccv1alpha1.Kubecc{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).
-		Owns(&traefikv1alpha1.IngressRoute{}).
-		Owns(&traefikv1alpha1.IngressRouteTCP{}).
 		Complete(r)
 }
