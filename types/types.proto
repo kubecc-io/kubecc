@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+option go_package = "proto;types";
+
+service LocalAgent {
+  rpc Run(RunRequest) returns (RunResponse);
+}
+
+message RunRequest {
+  string WorkDir = 1;
+  string Command = 2;
+  repeated string Args = 3;
+  repeated string Env = 4;
+}
+
+message RunResponse {}
+
+service RemoteAgent {
+  rpc Compile(CompileRequest) returns (CompileResponse);
+}
+
+message CompileRequest {
+  string Command = 1;
+  repeated string Args = 2;
+  bytes PreprocessedSource = 3;
+}
+
+message CompileResponse {
+  bytes CompiledSource = 3;
+}
+
+
+service Mgr {
+  rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
+  rpc Compile(CompileRequest) returns (CompileResponse);
+}
+
+message ScheduleRequest {}
+message ScheduleResponse {}
+

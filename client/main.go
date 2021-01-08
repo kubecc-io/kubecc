@@ -20,7 +20,6 @@ import (
 func main() {
 	var (
 		agents string
-	//	fd     uintptr
 	)
 
 	var wg sync.WaitGroup
@@ -30,7 +29,7 @@ func main() {
 		defer wg.Done()
 
 		var conn *grpc.ClientConn
-		conn, err := grpc.Dial("distcc.kralicky.lan:443",
+		conn, err := grpc.Dial("---:443",
 			grpc.WithTransportCredentials(credentials.NewTLS(
 				&tls.Config{
 					InsecureSkipVerify: false,
