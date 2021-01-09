@@ -1,12 +1,76 @@
-all: agent mgr operator
+# Current Operator version
+VERSION ?= 0.0.1
+# Default bundle image tag
+BUNDLE_IMG ?= controller-bundle:$(VERSION)
+# Options for 'bundle-build'
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-agent:
-	docker buildx build -t ${KDISTCC_AGENT_IMAGE} --platform=linux/arm64 -f images/agent/Dockerfile . --push
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
-mgr:
-	docker buildx build -t ${KDISTCC_MGR_IMAGE} --platform=linux/amd64 -f images/mgr/Dockerfile . --push
+all: manager
 
-operator:
-	docker buildx build -t ${KDISTCC_IMAGE} --platform=linux/amd64 -f images/mgr/Dockerfile . --push
+# Run tests
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test: generate fmt vet manifests
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
-.PHONY: all agent mgr operator
+manager: generate fmt vet
+	go build -o bin/manager main.go
+
+run: generate fmt vet manifests
+	go run ./main.go
+
+install: manifests kustomize
+	kubectl kustomize config/crd | kubectl apply -f -
+
+uninstall: manifests kustomize
+	kubectl kustomize config/crd | kubectl delete -f -
+
+deploy: manifests kustomize
+	kubectl kustomize config/default | kubectl apply -f -
+
+undeploy:
+	kubectl kustomize config/default | kubectl delete -f -
+
+manifests: 
+	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+proto:
+	protoc pkg/types/types.proto --go_out=plugins=grpc,paths=source_relative:.
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+# Run go vet against code
+vet:
+	go vet ./...
+
+# Generate code
+generate: 
+	controller-gen object paths="./..."
+
+docker: #test
+	#docker buildx build -t ${IMG} --platform=linux/arm64,linux/amd64 -f ./Dockerfile .. --push
+	docker buildx build -t ${IMG} --platform=linux/amd64 -f ./Dockerfile .. --push
+
+# Generate bundle manifests and metadata, then validate generated files.
+.PHONY: bundle
+bundle: manifests kustomize
+	operator-sdk generate kustomize manifests -q
+	kubectl kustomize config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
+
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
