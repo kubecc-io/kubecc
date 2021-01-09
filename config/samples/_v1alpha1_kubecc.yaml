@@ -1,0 +1,26 @@
+apiVersion: kubecc.io/v1alpha1
+kind: Kubecc
+metadata:
+  name: kubecc-sample
+spec:
+  nodes:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: allow-kubecc
+              operator: In
+              values: 
+                - "true"
+    resources:
+      requests:
+        memory: 500Mi
+        cpu: 2
+      limits:
+        memory: 1Gi
+        cpu: 4
+  agentImage: gcr.io/kubecc/agent:testing
+  mgrImage: gcr.io/kubecc/mgr:testing
+  hostname: kubecc.example.com
+
+        
