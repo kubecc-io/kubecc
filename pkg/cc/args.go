@@ -212,7 +212,7 @@ func (info *ArgsInfo) Parse() {
 			case a == "-o":
 				info.FlagIndexMap[a] = i
 			}
-		} else {
+		} else if i > 0 {
 			// Non-option argument (filename, etc.)
 			if IsSourceFile(a) && IsActionOpt(info.Args[i-1]) {
 				log.Tracef("Found input file %s", a)
@@ -230,12 +230,17 @@ func (info *ArgsInfo) Parse() {
 				}
 				outputArg = a
 				info.OutputArgIndex = i
-			} else {
-				if info.Args[i-1] == "-o" {
-					log.Tracef("Found executable target %s", a)
-				} else {
-					log.Tracef("Found object link target %s", a)
+			} else if info.Args[i-1] == "-o" {
+				log.Tracef("Found executable target %s", a)
+				if outputArg != "" {
+					log.Warn("Found multiple executable targets, possible invalid arguments")
+					info.Mode = RunLocal
 				}
+				outputArg = a
+				info.OutputArgIndex = i
+
+			} else {
+				log.Tracef("Found object link target %s", a)
 			}
 		}
 	}

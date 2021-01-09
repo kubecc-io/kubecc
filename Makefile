@@ -14,7 +14,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
-all: manager
+all: generate manifests proto fmt vet 
 
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
@@ -23,19 +23,13 @@ test: generate fmt vet manifests
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
-manager: generate fmt vet
-	go build -o bin/manager main.go
-
-run: generate fmt vet manifests
-	go run ./main.go
-
-install: manifests kustomize
+install: manifests
 	kubectl kustomize config/crd | kubectl apply -f -
 
-uninstall: manifests kustomize
+uninstall: manifests
 	kubectl kustomize config/crd | kubectl delete -f -
 
-deploy: manifests kustomize
+deploy: manifests
 	kubectl kustomize config/default | kubectl apply -f -
 
 undeploy:
@@ -59,9 +53,17 @@ vet:
 generate: 
 	controller-gen object paths="./..."
 
-docker: #test
-	#docker buildx build -t ${IMG} --platform=linux/arm64,linux/amd64 -f ./Dockerfile .. --push
-	docker buildx build -t ${IMG} --platform=linux/amd64 -f ./Dockerfile .. --push
+agent:
+	docker buildx build -t gcr.io/kubecc/agent --platform=linux/arm64 -f ./images/agent/Dockerfile . --push
+
+scheduler:
+	docker buildx build -t gcr.io/kubecc/scheduler --platform=linux/amd64 -f ./images/scheduler/Dockerfile . --push
+
+manager:
+	docker buildx build -t gcr.io/kubecc/manager --platform=linux/amd64 -f ./images/manager/Dockerfile . --push
+
+docker: 
+	docker buildx bake -f bake.hcl --push
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle

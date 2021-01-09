@@ -14,25 +14,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *KubeccReconciler) reconcileMgr(
+func (r *KubeccReconciler) reconcileScheduler(
 	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking mgr pod")
+	log.Info("Checking scheduler pod")
 	kubecc := obj.(*v1alpha1.Kubecc)
 
 	found := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{
-		Name:      "kubecc-mgr",
+		Name:      "kubecc-scheduler",
 		Namespace: "kubecc-operator-system",
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
-			"Name", "kubecc-mgr",
+			"Name", "kubecc-scheduler",
 			"Namespace", "kubecc-operator-system",
-		).Info("Creating a new Deployment")
-		ds := r.makeMgr(obj.(*v1alpha1.Kubecc))
+		).Info("Creating scheduler Deployment")
+		ds := r.makeScheduler(obj.(*v1alpha1.Kubecc))
 		err := r.Create(ctx, ds)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create Deployment")
@@ -46,9 +46,9 @@ func (r *KubeccReconciler) reconcileMgr(
 	}
 
 	container := &found.Spec.Template.Spec.Containers[0]
-	if container.Image != kubecc.Spec.MgrImage {
-		log.Info("> Updating mgr image")
-		container.Image = kubecc.Spec.MgrImage
+	if container.Image != kubecc.Spec.SchedulerImage {
+		log.Info("> Updating scheduler image")
+		container.Image = kubecc.Spec.SchedulerImage
 		err := r.Update(ctx, found)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -58,24 +58,24 @@ func (r *KubeccReconciler) reconcileMgr(
 	return ctrl.Result{}, nil
 }
 
-func (r *KubeccReconciler) reconcileMgrService(
+func (r *KubeccReconciler) reconcileSchedulerService(
 	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking mgr service")
+	log.Info("Checking scheduler service")
 	kubecc := obj.(*v1alpha1.Kubecc)
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
-		Name:      "kubecc-mgr",
+		Name:      "kubecc-scheduler",
 		Namespace: "kkubecc-operator-system",
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
-			"Name", "kubecc-mgr",
+			"Name", "kubecc-scheduler",
 			"Namespace", "kkubecc-operator-system",
-		).Info("Creating a new Service")
-		ds := r.makeMgrService(kubecc)
+		).Info("Creating scheduler Service")
+		ds := r.makeSchedulerService(kubecc)
 		err := r.Create(ctx, ds)
 		if err != nil && !errors.IsAlreadyExists(err) {
 			log.Error(err, "Failed to create Service")
@@ -108,7 +108,7 @@ func (r *KubeccReconciler) reconcileAgents(
 		log.WithValues(
 			"Name", obj.GetName(),
 			"Namespace", obj.GetNamespace(),
-		).Info("Creating a new DaemonSet")
+		).Info("Creating agent DaemonSet")
 		ds := r.makeDaemonSet(kubecc)
 		err := r.Create(ctx, ds)
 		if err != nil && !errors.IsAlreadyExists(err) {

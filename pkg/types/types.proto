@@ -33,7 +33,7 @@ message CompileResponse {
 service Scheduler {
   rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(AgentInfo) returns (stream Empty);
+  rpc Connect(stream AgentInfo) returns (stream Empty);
 }
 
 message ScheduleRequest {}

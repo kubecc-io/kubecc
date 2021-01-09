@@ -8,16 +8,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *KubeccReconciler) makeMgr(kubecc *v1alpha1.Kubecc) *appsv1.Deployment {
+func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deployment {
 	labels := map[string]string{
-		"app":                 "kubecc-mgr",
+		"app":                 "kubecc-scheduler",
 		"kubecc.io/kubecc_cr": kubecc.Name,
 	}
 	replicas := int32(1)
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubecc-mgr",
-			Namespace: "kubecc-operator-system", // todo
+			Name:      "kubecc-scheduler",
+			Namespace: "kubecc-system", // todo
 			Labels: map[string]string{
 				"kubecc.io/kubecc_cr": kubecc.Name,
 			},
@@ -34,8 +34,8 @@ func (r *KubeccReconciler) makeMgr(kubecc *v1alpha1.Kubecc) *appsv1.Deployment {
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
-							Name:            "kubecc-mgr",
-							Image:           kubecc.Spec.MgrImage,
+							Name:            "kubecc-scheduler",
+							Image:           kubecc.Spec.SchedulerImage,
 							ImagePullPolicy: v1.PullAlways,
 							Ports: []v1.ContainerPort{
 								{
@@ -55,15 +55,15 @@ func (r *KubeccReconciler) makeMgr(kubecc *v1alpha1.Kubecc) *appsv1.Deployment {
 	return dep
 }
 
-func (r *KubeccReconciler) makeMgrService(kubecc *v1alpha1.Kubecc) *v1.Service {
+func (r *KubeccReconciler) makeSchedulerService(kubecc *v1alpha1.Kubecc) *v1.Service {
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "kubecc-mgr",
-			Namespace: "kubecc-operator-system",
+			Name:      "kubecc-scheduler",
+			Namespace: "kubecc-system",
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
-				"app":                 "kubecc-mgr",
+				"app":                 "kubecc-scheduler",
 				"kubecc.io/kubecc_cr": kubecc.Name,
 			},
 			Type: v1.ServiceTypeClusterIP,

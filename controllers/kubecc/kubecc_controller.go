@@ -53,8 +53,8 @@ func (r *KubeccReconciler) Reconcile(
 		log, ctx, kubecc,
 		r.reconcileAgents,
 		//r.reconcileAgentServices,
-		r.reconcileMgr,
-		r.reconcileMgrService,
+		r.reconcileScheduler,
+		r.reconcileSchedulerService,
 	)
 	if result.Requeue && result.RequeueAfter == 0 {
 		log.Info("=> Requeueing...")
