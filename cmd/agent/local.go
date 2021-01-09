@@ -10,9 +10,12 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
+	"syscall"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
@@ -35,18 +38,39 @@ func (s *localAgentServer) Run(
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
 	os.Chdir(req.WorkDir)
-
+	log.Trace("Running agent request")
 	info := cc.NewArgsInfo(req.Command, req.Args)
 	info.Parse()
-	outputPath := info.Args[info.OutputArgIndex]
+
+	var outputPath string
+	if info.OutputArgIndex >= 0 && info.OutputArgIndex < len(info.Args) {
+		outputPath = info.Args[info.OutputArgIndex]
+	}
 
 	if s.schedulerClient != nil {
+		log.Trace("No remote scheduler, running locally")
+
+		buf := new(bytes.Buffer)
 		// Always run locally
-		data, err := cc.Run(info)
+		data, err := cc.Run(info,
+			cc.WithLogOutput(buf),
+			cc.WithEnv(req.Env),
+			cc.WithWorkDir(req.WorkDir),
+		)
 		if err != nil {
-			return nil, err
+			log.WithError(err).Trace("Compiler error")
+			log.Debug(req.Command, req.Args, req.Env, req.WorkDir)
+			return nil, errors.New(string(buf.Bytes()))
 		}
-		ioutil.WriteFile(outputPath, data, 0644)
+		if outputPath != "" {
+			log.Tracef("Writing %s", outputPath)
+			err = ioutil.WriteFile(outputPath, data, 0777)
+			if err != nil {
+				log.WithError(err).Trace("Failed to write file")
+				return nil, err
+			}
+		}
+		log.WithError(err).Trace("Local run success")
 		return &types.RunResponse{}, nil
 	}
 
@@ -56,6 +80,7 @@ func (s *localAgentServer) Run(
 	switch opt := info.ActionOpt(); opt {
 	case cc.Compile:
 	case cc.GenAssembly:
+		log.Trace("Preprocessing")
 		info.SetActionOpt(cc.Preprocess)
 		var err error
 		preprocessedSource, err = cc.Run(info, cc.WithCompressOutput())
@@ -64,6 +89,7 @@ func (s *localAgentServer) Run(
 		}
 		info.SetActionOpt(opt)
 	case cc.Preprocess:
+		log.Trace("Preprocess requested originally")
 		f, err := os.Open(info.Args[info.InputArgIndex])
 		if err != nil {
 			return nil, err
@@ -94,24 +120,33 @@ func (s *localAgentServer) Run(
 			WithOutputStreams(outBuf, os.Stderr),
 		)
 		if _, ok := err.(*AllThreadsBusy); ok {
+			log.Trace("All threads busy")
+
 			_, err := s.schedulerClient.Schedule(
 				ctx, &types.ScheduleRequest{})
 			if err != nil {
+				log.Trace("Schedule failed")
 				// Schedule failed, try local again
 				continue
 			}
 			// Compile remote
 			info.RemoveLocalArgs()
+			log.Trace("Starting remote compile")
 			resp, err := s.schedulerClient.Compile(ctx, &types.CompileRequest{
 				Command:            info.Compiler,
 				Args:               info.Args,
 				PreprocessedSource: preprocessedSource,
 			})
 			if err != nil {
+				log.WithError(err).Trace("Remote compile failed")
 				return nil, err
 			}
-			f, err := os.Create(outputPath)
+			log.Trace("Remote compile success")
+			f, err := os.OpenFile(outputPath,
+				os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0777)
+
 			if err != nil {
+				log.WithError(err).Trace("Failed to write file")
 				return nil, err
 			}
 			reader, err := gzip.NewReader(bytes.NewReader(
@@ -122,6 +157,7 @@ func (s *localAgentServer) Run(
 			}
 			_, err = io.Copy(f, reader)
 			if err != nil {
+				log.WithError(err).Trace("Copy failed")
 				return nil, err
 			}
 			return &types.RunResponse{}, nil
@@ -130,13 +166,20 @@ func (s *localAgentServer) Run(
 	}
 }
 
-func startAgent() {
-	srv := grpc.NewServer()
+func startLocalAgent() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+	logFile, _ := os.Create("/tmp/agent.log")
+	log.SetOutput(logFile)
+	log.SetLevel(log.TraceLevel)
 	port := viper.GetInt("agentPort")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-	if err != nil {
-		log.Fatal(err)
-	}
+
+	srv := grpc.NewServer()
+
 	agent := &localAgentServer{}
 	types.RegisterLocalAgentServer(srv, agent)
 
@@ -170,25 +213,64 @@ func dispatchToAgent(cc *grpc.ClientConn) {
 	}
 	_, err = agent.Run(context.Background(), &types.RunRequest{
 		WorkDir: wd,
-		Args:    os.Args,
+		Command: os.Args[0],
+		Args:    os.Args[1:],
 		Env:     os.Environ(),
-	})
+	}, grpc.WaitForReady(true))
 	if err != nil {
-		log.Error(err)
+		log.Error("Dispatch error")
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	log.Info("Dispatch Success")
 	os.Exit(0)
 }
 
-func StartAgentOrDispatch() {
+func connectOrFork() {
 	port := viper.GetInt("agentPort")
+	// Test if the connection is open
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 
-	c, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port), grpc.WithInsecure())
-	if err != nil {
-		// No agent running, become the agent
-		startAgent()
-	} else {
-		// Connect to the local agent
-		dispatchToAgent(c)
+	if err == nil {
+		listener.Close()
+		log.Info("Starting agent")
+		self, err := os.Executable()
+		if err != nil {
+			log.Fatal(err)
+		}
+		orig, err := filepath.EvalSymlinks(self)
+		if err != nil {
+			log.Fatal(err)
+		}
+		workdir, err := os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = syscall.ForkExec(orig, []string{
+			"agent", "run", "--local",
+		}, &syscall.ProcAttr{
+			Dir: workdir,
+			Env: os.Environ(),
+			Sys: &syscall.SysProcAttr{
+				Setsid: true,
+			},
+			Files: []uintptr{
+				os.Stdin.Fd(),
+				os.Stdout.Fd(),
+				os.Stderr.Fd(),
+			},
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+
+	log.Info("Dispatching to agent")
+	// Connect to the local agent
+	c, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port),
+		grpc.WithInsecure())
+	if err != nil {
+		log.Fatal(err)
+	}
+	dispatchToAgent(c)
 }

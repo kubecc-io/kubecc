@@ -7,14 +7,12 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/keepalive"
 )
 
 type remoteAgentServer struct {
@@ -48,15 +46,10 @@ func agentInfo() *types.AgentInfo {
 	}
 }
 
-func connectToMgr() {
+func connectToScheduler() {
 	cc, err := grpc.Dial(
-		"kubecc-mgr.kubecc.svc.cluster.local:9090",
-		grpc.WithInsecure(),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                30 * time.Second,
-			Timeout:             10 * time.Second,
-			PermitWithoutStream: false,
-		}))
+		"kubecc-scheduler.kubecc-system.svc.cluster.local:9090",
+		grpc.WithInsecure())
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,13 +57,14 @@ func connectToMgr() {
 	ctx := context.Background()
 	for {
 		log.Info("Starting connection to the server")
-		connect, err := client.Connect(ctx, agentInfo(), grpc.WaitForReady(true))
+		stream, err := client.Connect(ctx, grpc.WaitForReady(true))
 		if err != nil {
 			log.Error(err)
 		}
 		log.Info("Connected to the server")
+		stream.Send(agentInfo())
 		for {
-			_, err := connect.Recv()
+			_, err := stream.Recv()
 			if err == io.EOF {
 				log.Info("EOF received from the server, retrying connection")
 				break
@@ -79,7 +73,7 @@ func connectToMgr() {
 	}
 }
 
-func StartRemoteAgent() {
+func startRemoteAgent() {
 	srv := grpc.NewServer()
 	port := viper.GetInt("agentPort")
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
@@ -89,7 +83,7 @@ func StartRemoteAgent() {
 	agent := &localAgentServer{}
 	types.RegisterLocalAgentServer(srv, agent)
 
-	go connectToMgr()
+	go connectToScheduler()
 
 	err = srv.Serve(listener)
 	if err != nil {

@@ -19,8 +19,8 @@ spec:
       limits:
         memory: 1Gi
         cpu: 4
-  agentImage: gcr.io/kubecc/agent:testing
-  mgrImage: gcr.io/kubecc/mgr:testing
+  agentImage: gcr.io/kubecc/agent
+  mgrImage: gcr.io/kubecc/mgr
   hostname: kubecc.example.com
 
         

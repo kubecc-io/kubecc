@@ -18,9 +18,9 @@ type KubeccSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Nodes      NodeConfig `json:"nodes"`
-	AgentImage string     `json:"agentImage"`
-	MgrImage   string     `json:"mgrImage"`
+	Nodes          NodeConfig `json:"nodes"`
+	AgentImage     string     `json:"agentImage"`
+	SchedulerImage string     `json:"schedulerImage"`
 
 	Hostname string `json:"hostname"`
 }

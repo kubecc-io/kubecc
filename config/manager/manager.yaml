@@ -29,9 +29,9 @@ spec:
         - /manager
         args:
         - --leader-elect
-        image: controller:latest
+        image: gcr.io/kubecc/manager
         imagePullPolicy: Always
-        name: operator
+        name: manager
         securityContext:
           allowPrivilegeEscalation: false
         livenessProbe:

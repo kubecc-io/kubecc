@@ -40,8 +40,6 @@ spec:
                 type: string
               hostname:
                 type: string
-              mgrImage:
-                type: string
               nodes:
                 properties:
                   nodeAffinity:
@@ -279,11 +277,13 @@ spec:
                 - nodeAffinity
                 - resources
                 type: object
+              schedulerImage:
+                type: string
             required:
             - agentImage
             - hostname
-            - mgrImage
             - nodes
+            - schedulerImage
             type: object
           status:
             description: KubeccStatus defines the observed state of Kubecc

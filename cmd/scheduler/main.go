@@ -38,12 +38,23 @@ func (s *schedulerServer) Compile(
 }
 
 func (s *schedulerServer) Connect(
-	agentInfo *types.AgentInfo,
 	srv types.Scheduler_ConnectServer,
 ) error {
+	log.Info("Agent connecting...")
+	agentInfo, err := srv.Recv()
+	if err != nil {
+		return err
+	}
+	lg := log.WithFields(log.Fields{
+		"name": agentInfo.Hostname,
+		"arch": agentInfo.Arch,
+		"cpus": agentInfo.NumCpus,
+	})
+	lg.Info("Agent connected")
 	s.agents[agentInfo] = struct{}{}
 	<-srv.Context().Done()
 	delete(s.agents, agentInfo)
+	lg.Info("Agent disconnected")
 	return nil
 }
 
@@ -59,63 +70,10 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-// func (s *mgrServer) Status(
-// 	ctx context.Context,
-// 	req *types.StatusRequest,
-// ) (*types.StatusResponse, error) {
-// 	log.WithField("cmd", req.Command).Info("=> Handling status request")
-
-// 	cl, err := client.New(config, client.Options{Scheme: scheme})
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-
-// 	kubeccs := &kdcv1alpha1.kubeccList{}
-// 	err = cl.List(ctx, kubeccs, &client.ListOptions{})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	if len(kubeccs.Items) == 0 {
-// 		log.Warning("No kubeccs found in the cluster")
-// 		return &api.StatusResponse{Agents: []*api.Agent{}}, nil
-// 	}
-
-// 	response := &api.StatusResponse{
-// 		Agents: []*api.Agent{},
-// 	}
-
-// 	for _, kubecc := range kubeccs.Items {
-// 		svcList := &v1.ServiceList{}
-// 		err = cl.List(ctx, svcList, &client.ListOptions{
-// 			LabelSelector: labels.SelectorFromSet(labels.Set{
-// 				"kkubecc.io/kubecc_cr": kubecc.Name,
-// 			}),
-// 		})
-
-// 		if err != nil {
-// 			log.Error(err)
-// 			continue
-// 		}
-
-// 		for _, svc := range svcList.Items {
-// 			if svc.Spec.Type != v1.ServiceTypeExternalName {
-// 				return nil, errors.New(
-// 					"The kubecc server appears to be improperly configured (wrong service type)")
-// 			}
-// 			response.Agents = append(response.Agents, &api.Agent{
-// 				Address: svc.Spec.ExternalName,
-// 				Port:    3632,
-// 			})
-// 		}
-// 	}
-
-// 	return response, nil
-// }
-
 func main() {
 	log.SetLevel(logrus.DebugLevel)
 	log.Info("Server starting")
+
 	cfg, err := rest.InClusterConfig()
 
 	if err != nil {
@@ -132,7 +90,9 @@ func main() {
 
 	grpcServer := grpc.NewServer()
 
-	srv := &schedulerServer{}
+	srv := &schedulerServer{
+		agents: make(map[*types.AgentInfo]struct{}),
+	}
 	types.RegisterSchedulerServer(grpcServer, srv)
 
 	err = grpcServer.Serve(listener)
