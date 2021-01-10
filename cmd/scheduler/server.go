@@ -4,13 +4,15 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type schedulerServer struct {
 	types.SchedulerServer
 
 	scheduler AgentScheduler
-	watcher   *AgentWatcher
+	watcher   *Monitor
 }
 
 func NewSchedulerServer() *schedulerServer {
@@ -20,7 +22,7 @@ func NewSchedulerServer() *schedulerServer {
 	}
 	return &schedulerServer{
 		scheduler: scheduler,
-		watcher:   NewAgentWatcher(),
+		watcher:   NewMonitor(),
 	}
 }
 
@@ -44,11 +46,15 @@ func (s *schedulerServer) Compile(
 	if err != nil {
 		return nil, err
 	}
+	if !s.watcher.AgentIsConnected(info) {
+		return nil, status.Error(codes.FailedPrecondition,
+			"No connection stream open")
+	}
 	task, err := s.scheduler.Schedule(req)
 	if err != nil {
 		return nil, err
 	}
-	return s.watcher.Wait(info, task)
+	return s.watcher.Wait(task)
 }
 
 func (s *schedulerServer) Connect(
@@ -62,7 +68,7 @@ func (s *schedulerServer) Connect(
 
 	lg.Info("Agent connected")
 
-	s.watcher.WatchAgent(agent)
+	s.watcher.AgentConnected(agent)
 	<-srv.Context().Done()
 
 	lg.Info("Agent disconnected")

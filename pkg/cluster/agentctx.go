@@ -16,19 +16,27 @@ var (
 	AgentInfoKey agentInfoKey
 )
 
+func MakeAgentInfo() *types.AgentInfo {
+	return &types.AgentInfo{
+		Arch:      runtime.GOARCH,
+		NumCpus:   int32(runtime.NumCPU()),
+		Node:      GetNode(),
+		Pod:       GetPodName(),
+		Namespace: GetNamespace(),
+	}
+}
+
 // NewAgentContext creates a new cancellable context with
 // embedded system info and values from the downward API
 func NewAgentContext() (context.Context, context.CancelFunc) {
 	return context.WithCancel(
 		context.WithValue(context.Background(),
-			AgentInfoKey,
-			&types.AgentInfo{
-				Arch:      runtime.GOARCH,
-				NumCpus:   int32(runtime.NumCPU()),
-				Node:      GetNode(),
-				Pod:       GetPodName(),
-				Namespace: GetNamespace(),
-			}))
+			AgentInfoKey, MakeAgentInfo()))
+}
+
+func AddAgentContextInfo(ctx context.Context) context.Context {
+	return context.WithValue(ctx,
+		AgentInfoKey, MakeAgentInfo())
 }
 
 func AgentInfoFromContext(ctx context.Context) (*types.AgentInfo, error) {

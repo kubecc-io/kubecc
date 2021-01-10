@@ -3,27 +3,24 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
 
 type RoundRobinScheduler struct {
 	AgentScheduler
 
-	agentClient types.RemoteAgentClient
+	agentClient types.AgentClient
 }
 
 func NewRoundRobinScheduler() (AgentScheduler, error) {
-	ns, ok := os.LookupEnv("KUBECC_NAMESPACE")
-	if !ok {
-		log.Fatal("KUBECC_NAMESPACE not defined")
-	}
+	ns := cluster.GetNamespace()
 	serviceAddr := fmt.Sprintf("dns://kubecc-agent.%s.svc.cluster.local", ns)
 	cc, err := grpc.Dial(serviceAddr, grpc.WithInsecure(),
 		grpc.WithBalancerName(roundrobin.Name))
@@ -31,7 +28,7 @@ func NewRoundRobinScheduler() (AgentScheduler, error) {
 		return nil, status.Error(codes.Unavailable, err.Error())
 	}
 	return &RoundRobinScheduler{
-		agentClient: types.NewRemoteAgentClient(cc),
+		agentClient: types.NewAgentClient(cc),
 	}, nil
 }
 
@@ -41,23 +38,8 @@ func (s *RoundRobinScheduler) Schedule(
 	ctx, cancel := context.WithCancel(context.Background())
 	stream, err := s.agentClient.Compile(ctx, req)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	statusCh := make(chan *types.CompileStatus)
-	errorCh := make(chan error)
-	go func() {
-		for {
-			msg, err := stream.Recv()
-			if err != nil {
-				errorCh <- err
-				break
-			}
-			statusCh <- msg
-		}
-	}()
-	return &CompileTask{
-		Status: statusCh,
-		Error:  errorCh,
-		Cancel: cancel,
-	}, nil
+	return NewCompileTask(stream, cancel), nil
 }
