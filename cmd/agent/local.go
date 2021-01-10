@@ -17,7 +17,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -39,8 +39,8 @@ func (s *localAgentServer) Run(
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
 	os.Chdir(req.WorkDir)
-	log.Trace("Running agent request")
-	info := cc.NewArgsInfo(req.Command, req.Args)
+	log.Debug("Running agent request")
+	info := cc.NewArgsInfo(req.Command, req.Args, log)
 	info.Parse()
 
 	var outputPath string
@@ -49,7 +49,7 @@ func (s *localAgentServer) Run(
 	}
 
 	if s.schedulerClient != nil {
-		log.Trace("No remote scheduler, running locally")
+		log.Debug("No remote scheduler, running locally")
 
 		buf := new(bytes.Buffer)
 		// Always run locally
@@ -59,19 +59,19 @@ func (s *localAgentServer) Run(
 			cc.WithWorkDir(req.WorkDir),
 		)
 		if err != nil {
-			log.WithError(err).Trace("Compiler error")
-			log.Debug(req.Command, req.Args, req.Env, req.WorkDir)
+			log.With(zap.Error(err)).Debug("Compiler error")
 			return nil, errors.New(string(buf.Bytes()))
 		}
 		if outputPath != "" {
-			log.Tracef("Writing %s", outputPath)
+			log.With(zap.String("path", outputPath)).
+				Debug("Writing file")
 			err = ioutil.WriteFile(outputPath, data, 0777)
 			if err != nil {
-				log.WithError(err).Trace("Failed to write file")
+				log.With(zap.Error(err)).Debug("Failed to write file")
 				return nil, err
 			}
 		}
-		log.WithError(err).Trace("Local run success")
+		log.With(zap.Error(err)).Debug("Local run success")
 		return &types.RunResponse{}, nil
 	}
 
@@ -81,7 +81,7 @@ func (s *localAgentServer) Run(
 	switch opt := info.ActionOpt(); opt {
 	case cc.Compile:
 	case cc.GenAssembly:
-		log.Trace("Preprocessing")
+		log.Debug("Preprocessing")
 		info.SetActionOpt(cc.Preprocess)
 		var err error
 		preprocessedSource, err = cc.Run(info, cc.WithCompressOutput())
@@ -90,7 +90,7 @@ func (s *localAgentServer) Run(
 		}
 		info.SetActionOpt(opt)
 	case cc.Preprocess:
-		log.Trace("Preprocess requested originally")
+		log.Debug("Preprocess requested originally")
 		f, err := os.Open(info.Args[info.InputArgIndex])
 		if err != nil {
 			return nil, err
@@ -121,33 +121,33 @@ func (s *localAgentServer) Run(
 			WithOutputStreams(outBuf, os.Stderr),
 		)
 		if _, ok := err.(*AllThreadsBusy); ok {
-			log.Trace("All threads busy")
+			log.Debug("All threads busy")
 
 			_, err := s.schedulerClient.Schedule(
 				ctx, &types.ScheduleRequest{})
 			if err != nil {
-				log.Trace("Schedule failed")
+				log.Debug("Schedule failed")
 				// Schedule failed, try local again
 				continue
 			}
 			// Compile remote
 			info.RemoveLocalArgs()
-			log.Trace("Starting remote compile")
+			log.Debug("Starting remote compile")
 			resp, err := s.schedulerClient.Compile(ctx, &types.CompileRequest{
 				Command:            info.Compiler,
 				Args:               info.Args,
 				PreprocessedSource: preprocessedSource,
 			})
 			if err != nil {
-				log.WithError(err).Trace("Remote compile failed")
+				log.With(zap.Error(err)).Debug("Remote compile failed")
 				return nil, err
 			}
-			log.Trace("Remote compile success")
+			log.Debug("Remote compile success")
 			f, err := os.OpenFile(outputPath,
 				os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0777)
 
 			if err != nil {
-				log.WithError(err).Trace("Failed to write file")
+				log.With(zap.Error(err)).Debug("Failed to write file")
 				return nil, err
 			}
 			reader, err := gzip.NewReader(bytes.NewReader(
@@ -158,7 +158,7 @@ func (s *localAgentServer) Run(
 			}
 			_, err = io.Copy(f, reader)
 			if err != nil {
-				log.WithError(err).Trace("Copy failed")
+				log.With(zap.Error(err)).Debug("Copy failed")
 				return nil, err
 			}
 			return &types.RunResponse{}, nil
@@ -176,7 +176,7 @@ func (s *localAgentServer) connectToRemote() {
 			},
 		)))
 	if err != nil {
-		log.Infof("Remote compilation unavailable: %s", err.Error())
+		log.With(zap.Error(err)).Info("Remote compilation unavailable")
 	} else {
 		s.schedulerClient = types.NewSchedulerClient(conn)
 	}
@@ -184,23 +184,13 @@ func (s *localAgentServer) connectToRemote() {
 }
 
 func startLocalAgent() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	logFile, _ := os.Create("/tmp/agent.log")
-	log.SetOutput(logFile)
-	log.SetLevel(log.TraceLevel)
-
 	agent := &localAgentServer{}
 	go agent.connectToRemote()
 
 	port := viper.GetInt("agentPort")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
-		log.WithError(err).Fatal("Could not start local agent")
+		log.With(zap.Error(err)).Fatal("Could not start local agent")
 	}
 	srv := grpc.NewServer()
 
@@ -208,7 +198,7 @@ func startLocalAgent() {
 
 	err = srv.Serve(listener)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 	}
 }
 
@@ -216,7 +206,7 @@ func dispatchToAgent(cc *grpc.ClientConn) {
 	agent := types.NewLocalAgentClient(cc)
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal(err.Error())
 	}
 	ctx, _ := cluster.NewAgentContext()
 	_, err = agent.Run(ctx, &types.RunRequest{
@@ -244,15 +234,15 @@ func connectOrFork() {
 		log.Info("Starting agent")
 		self, err := os.Executable()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
 		orig, err := filepath.EvalSymlinks(self)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
 		workdir, err := os.Getwd()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal(err.Error())
 		}
 		_, err = syscall.ForkExec(orig, []string{
 			"agent", "run", "--local",
@@ -269,7 +259,7 @@ func connectOrFork() {
 			},
 		})
 		if err != nil {
-			log.Fatal(err)
+			log.With(zap.Error(err)).Fatal("Error starting local agent")
 		}
 	}
 
@@ -278,7 +268,7 @@ func connectOrFork() {
 	c, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", port),
 		grpc.WithInsecure())
 	if err != nil {
-		log.Fatal(err)
+		log.With(zap.Error(err)).Fatal("Error connecting to local agent")
 	}
 	dispatchToAgent(c)
 }

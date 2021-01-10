@@ -5,23 +5,29 @@ import (
 	"strings"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
+var (
+	log *zap.Logger
+)
+
+func init() {
+	log = zap.NewNop()
+}
+
 func BenchmarkParse(b *testing.B) {
-	log.SetLevel(log.ErrorLevel)
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 	for i := 0; i < b.N; i++ {
-		info := NewArgsInfoFromOS()
+		info := NewArgsInfoFromOS(log)
 		info.Parse()
 	}
 }
 
 func TestParse(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgsInfoFromOS()
+	info := NewArgsInfoFromOS(log)
 	info.Parse()
 	assert.Equal(t, info.ActionOpt(), Compile)
 	assert.Equal(t, info.InputArgIndex, 9)
@@ -32,7 +38,7 @@ func TestParse(t *testing.T) {
 
 func TestSetActionOpt(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgsInfoFromOS()
+	info := NewArgsInfoFromOS(log)
 	info.Parse()
 	assert.Equal(t, info.ActionOpt(), Compile)
 	info.SetActionOpt(GenAssembly)
@@ -49,7 +55,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS()
+	info := NewArgsInfoFromOS(log)
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
@@ -59,7 +65,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y -Wp,-MD,path -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS()
+	info = NewArgsInfoFromOS(log)
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
@@ -69,7 +75,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-Z,-ZZ -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS()
+	info = NewArgsInfoFromOS(log)
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
@@ -79,7 +85,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-MMD,path2 -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS()
+	info = NewArgsInfoFromOS(log)
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,

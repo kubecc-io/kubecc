@@ -2,19 +2,9 @@ package main
 
 import (
 	"github.com/mitchellh/go-homedir"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
-
-const DefaultLogOption string = "INFO"
-
-var LogOptions = map[string]log.Level{
-	"ERROR": log.ErrorLevel,
-	"WARN":  log.WarnLevel,
-	"INFO":  log.InfoLevel,
-	"DEBUG": log.DebugLevel,
-	"TRACE": log.TraceLevel,
-}
 
 // InitConfig initializes the Viper config
 func InitConfig() {
@@ -29,11 +19,11 @@ func InitConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	viper.SetDefault("agentPort", 23632)
-	viper.SetDefault("loglevel", DefaultLogOption)
+	viper.SetDefault("loglevel", zap.DebugLevel)
 	viper.SetDefault("remoteAddress", "localhost:9090")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		log.WithError(err).Debug("Error reading config file")
+		log.With(zap.Error(err)).Debug("Error reading config file")
 	}
 }

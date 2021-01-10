@@ -9,8 +9,8 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -22,7 +22,7 @@ func (s *remoteAgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	info := cc.NewArgsInfo(req.Command, req.Args)
+	info := cc.NewArgsInfo(req.Command, req.Args, log)
 	out, err := cc.Run(info, cc.WithCompressOutput())
 	if err != nil {
 		return nil, err
@@ -40,20 +40,20 @@ func connectToScheduler() context.CancelFunc {
 				cluster.GetNamespace()),
 			grpc.WithInsecure())
 		if err != nil {
-			log.Fatal(err)
+			log.With(zap.Error(err)).Fatal("Error dialing scheduler")
 		}
 		client := types.NewSchedulerClient(cc)
 		for {
-			log.Info("Starting connection to the server")
+			log.Info("Starting connection to the scheduler")
 			stream, err := client.Connect(ctx, grpc.WaitForReady(true))
 			if err != nil {
-				log.Error(err)
+				log.With(zap.Error(err)).Error("Error connecting to scheduler")
 			}
-			log.Info("Connected to the server")
+			log.Info("Connected to the scheduler")
 			for {
 				_, err := stream.Recv()
 				if err == io.EOF {
-					log.Info("EOF received from the server, retrying connection")
+					log.Info("EOF received from the scheduler, retrying connection")
 					break
 				}
 			}
@@ -67,7 +67,10 @@ func startRemoteAgent() {
 	port := viper.GetInt("agentPort")
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatal(err)
+		log.With(
+			zap.Error(err),
+			zap.Int("port", port),
+		).Fatal("Error listening on socket")
 	}
 	agent := &localAgentServer{}
 	types.RegisterLocalAgentServer(srv, agent)
@@ -77,6 +80,6 @@ func startRemoteAgent() {
 
 	err = srv.Serve(listener)
 	if err != nil {
-		log.Error(err)
+		log.With(zap.Error(err)).Error("GRPC error")
 	}
 }

@@ -5,8 +5,7 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -17,16 +16,22 @@ import (
 var (
 	scheme = runtime.NewScheme()
 	config *rest.Config
+	log    *zap.SugaredLogger
 )
 
 func init() {
+	lg, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	log = lg.Sugar()
+
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	log.SetLevel(logrus.DebugLevel)
 	log.Info("Server starting")
 
 	cfg, err := rest.InClusterConfig()
@@ -41,7 +46,8 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	log.Infof("Server listening on %s", listener.Addr().String())
+	log.With("addr", listener.Addr().String()).
+		Info("Server listening")
 
 	grpcServer := grpc.NewServer()
 
