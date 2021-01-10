@@ -52,7 +52,7 @@ func (r *KubeccReconciler) Reconcile(
 	result, recErr = tools.ReconcileAndAggregate(
 		log, ctx, kubecc,
 		r.reconcileAgents,
-		//r.reconcileAgentServices,
+		r.reconcileAgentService,
 		r.reconcileScheduler,
 		r.reconcileSchedulerService,
 	)

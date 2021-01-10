@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
@@ -166,25 +167,9 @@ func (s *localAgentServer) Run(
 	}
 }
 
-func startLocalAgent() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Fatal(err)
-		}
-	}()
-	logFile, _ := os.Create("/tmp/agent.log")
-	log.SetOutput(logFile)
-	log.SetLevel(log.TraceLevel)
-	port := viper.GetInt("agentPort")
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
-
-	srv := grpc.NewServer()
-
-	agent := &localAgentServer{}
-	types.RegisterLocalAgentServer(srv, agent)
-
+func (s *localAgentServer) connectToRemote() {
 	conn, err := grpc.Dial(
-		fmt.Sprintf("%s:443", viper.GetString("remoteAddress")),
+		viper.GetString("remoteAddress"),
 		grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{
 				InsecureSkipVerify: false,
@@ -193,16 +178,38 @@ func startLocalAgent() {
 	if err != nil {
 		log.Infof("Remote compilation unavailable: %s", err.Error())
 	} else {
-		agent.schedulerClient = types.NewSchedulerClient(conn)
+		s.schedulerClient = types.NewSchedulerClient(conn)
 	}
 	scheduler = NewScheduler()
+}
+
+func startLocalAgent() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	logFile, _ := os.Create("/tmp/agent.log")
+	log.SetOutput(logFile)
+	log.SetLevel(log.TraceLevel)
+
+	agent := &localAgentServer{}
+	go agent.connectToRemote()
+
+	port := viper.GetInt("agentPort")
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		log.WithError(err).Fatal("Could not start local agent")
+	}
+	srv := grpc.NewServer()
+
+	types.RegisterLocalAgentServer(srv, agent)
 
 	err = srv.Serve(listener)
 	if err != nil {
 		log.Error(err)
 	}
-	// log.SetLevel(log.DebugLevel)
-	// log.Debug("Starting agent ")
 }
 
 func dispatchToAgent(cc *grpc.ClientConn) {
@@ -211,7 +218,8 @@ func dispatchToAgent(cc *grpc.ClientConn) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_, err = agent.Run(context.Background(), &types.RunRequest{
+	ctx, _ := cluster.NewAgentContext()
+	_, err = agent.Run(ctx, &types.RunRequest{
 		WorkDir: wd,
 		Command: os.Args[0],
 		Args:    os.Args[1:],

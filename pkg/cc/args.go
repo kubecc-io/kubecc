@@ -211,46 +211,51 @@ func (info *ArgsInfo) Parse() {
 				seenOptC = true
 			case a == "-o":
 				info.FlagIndexMap[a] = i
+
+				if i == len(info.Args)-1 {
+					log.Error("-o found as the last argument?")
+					info.Mode = RunLocal
+					break
+				}
+
+				if strings.HasSuffix(a, ".o") {
+					// Args of the form `-o something.o`
+					log.Tracef("Found output file %s", a)
+					if outputArg != "" {
+						log.Warn("Found multiple output files, possible invalid arguments")
+						info.Mode = RunLocal
+					}
+				} else {
+					// Args of the form `-o something`
+					log.Tracef("Found executable target %s", a)
+					if outputArg != "" {
+						log.Warn("Found multiple executable targets, possible invalid arguments")
+						info.Mode = RunLocal
+					}
+				}
+				outputArg = a
+				info.OutputArgIndex = i + 1
 			}
-		} else if i > 0 {
-			// Non-option argument (filename, etc.)
-			if IsSourceFile(a) && IsActionOpt(info.Args[i-1]) {
+		} else {
+			isSource := IsSourceFile(a)
+			if isSource {
 				log.Tracef("Found input file %s", a)
 				if inputArg != "" {
-					log.Warn("Found multiple input files, possible invalid arguments")
+					log.Warn("Found multiple input files, compiling locally")
 					info.Mode = RunLocal
 				}
 				inputArg = a
 				info.InputArgIndex = i
-			} else if strings.HasSuffix(a, ".o") && info.Args[i-1] == "-o" {
-				log.Tracef("Found output file %s", a)
-				if outputArg != "" {
-					log.Warn("Found multiple output files, possible invalid arguments")
-					info.Mode = RunLocal
-				}
-				outputArg = a
-				info.OutputArgIndex = i
-			} else if info.Args[i-1] == "-o" {
-				log.Tracef("Found executable target %s", a)
-				if outputArg != "" {
-					log.Warn("Found multiple executable targets, possible invalid arguments")
-					info.Mode = RunLocal
-				}
-				outputArg = a
-				info.OutputArgIndex = i
-
-			} else {
-				log.Tracef("Found object link target %s", a)
 			}
 		}
 	}
 
-	if !seenOptC && !seenOptS {
+	if !seenOptC && !seenOptS && info.InputArgIndex == -1 {
 		log.Trace("Compiler not called for a compile operation")
 		info.Mode = RunLocal
 	}
 
-	if inputArg == "" {
+	if info.InputArgIndex == -1 {
 		log.Trace("No input file given")
 		info.Mode = RunLocal
 	}
@@ -260,18 +265,11 @@ func (info *ArgsInfo) Parse() {
 		info.Mode = RunLocal
 	}
 
-	if outputArg == "" {
-		/* This is a commandline like "gcc -c hello.c".  They want
-		 * hello.o, but they don't say so.  For example, the Ethereal
-		 * makefile does this.
-		 *
-		 * Note: this doesn't handle a.out, the other implied
-		 * filename, but that doesn't matter because it would already
-		 * be excluded by not having -c or -S.
-		 */
+	if outputArg == "" && (seenOptC || seenOptS) {
+		// If -c or -S is provided but no output filename is given,
+		// the output file is assumed to be the same name as the
+		// input, but with a '.o' or '.s' extension, respectively.
 
-		/* -S takes precedence over -c, because it means "stop after
-		 * preprocessing" rather than "stop after compilation." */
 		if seenOptS {
 			outputArg = ReplaceExtension(inputArg, ".s")
 		} else if seenOptC {
@@ -282,8 +280,9 @@ func (info *ArgsInfo) Parse() {
 			info.Args = append(info.Args, "-o", outputArg)
 		}
 	} else if outputArg == "-" {
-		// Write to stdout, or a file called '-', can't be sure
+		// Write to stdout
 		log.Tracef("Compiling %s locally, stdout output requested", inputArg)
+		info.Mode = RunLocal
 	}
 
 	if info.Mode == RunError {

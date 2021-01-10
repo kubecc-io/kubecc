@@ -2,6 +2,21 @@ syntax = "proto3";
 
 option go_package = "proto;types";
 
+message AgentInfo {
+  // System Info
+  string Arch = 1;
+  int32 NumCpus = 2;
+
+  // Downward API
+  string Node = 3;
+  string Pod = 4;
+  string Namespace = 5;
+}
+
+message Empty {}
+
+// Local agent
+
 service LocalAgent {
   rpc Run(RunRequest) returns (RunResponse);
 }
@@ -15,34 +30,39 @@ message RunRequest {
 
 message RunResponse {}
 
+
+// Remote agent and scheduler
+
 service RemoteAgent {
-  rpc Compile(CompileRequest) returns (CompileResponse);
+  rpc Compile(CompileRequest) returns (stream CompileStatus);
 }
-
-message CompileRequest {
-  string Command = 1;
-  repeated string Args = 2;
-  bytes PreprocessedSource = 3;
-}
-
-message CompileResponse {
-  bytes CompiledSource = 3;
-}
-
 
 service Scheduler {
   rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream AgentInfo) returns (stream Empty);
+  rpc Connect(stream Empty) returns (stream Empty);
 }
 
 message ScheduleRequest {}
 message ScheduleResponse {}
 
-message AgentInfo {
-  string Arch = 1;
-  string Hostname = 2;
-  int32 NumCpus = 3;
+
+message CompileRequest {
+  string Command = 2;
+  repeated string Args = 3;
+  bytes PreprocessedSource = 4;
 }
 
-message Empty {}
+message CompileStatus {
+  enum Status {
+    Starting = 0;
+    Done = 1;
+  }
+
+  Status CompileStatus = 2;
+  bytes CompiledSource = 3;
+}
+
+message CompileResponse {
+  bytes CompiledSource = 1;
+}

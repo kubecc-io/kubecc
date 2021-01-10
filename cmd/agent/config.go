@@ -24,14 +24,13 @@ func InitConfig() {
 	if err == nil {
 		viper.AddConfigPath(home)
 	}
-	viper.SetConfigName(".kdc-agent")
+	viper.SetConfigName(".kccagent")
 
 	viper.AutomaticEnv() // read in environment variables that match
 
 	viper.SetDefault("agentPort", 23632)
 	viper.SetDefault("loglevel", DefaultLogOption)
-	viper.SetDefault("remoteAddress", "localhost")
-	viper.SafeWriteConfig()
+	viper.SetDefault("remoteAddress", "localhost:9090")
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {

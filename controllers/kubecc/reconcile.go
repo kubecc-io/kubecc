@@ -25,12 +25,12 @@ func (r *KubeccReconciler) reconcileScheduler(
 	found := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      "kubecc-scheduler",
-		Namespace: "kubecc-operator-system",
+		Namespace: kubecc.Namespace,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
 			"Name", "kubecc-scheduler",
-			"Namespace", "kubecc-operator-system",
+			"Namespace", kubecc.Namespace,
 		).Info("Creating scheduler Deployment")
 		ds := r.makeScheduler(obj.(*v1alpha1.Kubecc))
 		err := r.Create(ctx, ds)
@@ -68,12 +68,12 @@ func (r *KubeccReconciler) reconcileSchedulerService(
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      "kubecc-scheduler",
-		Namespace: "kkubecc-operator-system",
+		Namespace: kubecc.Namespace,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
 		log.WithValues(
 			"Name", "kubecc-scheduler",
-			"Namespace", "kkubecc-operator-system",
+			"Namespace", kubecc.Namespace,
 		).Info("Creating scheduler Service")
 		ds := r.makeSchedulerService(kubecc)
 		err := r.Create(ctx, ds)
@@ -146,6 +146,38 @@ func (r *KubeccReconciler) reconcileAgents(
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *KubeccReconciler) reconcileAgentService(
+	log logr.Logger,
+	ctx context.Context,
+	obj client.Object,
+) (ctrl.Result, error) {
+	log.Info("Checking agent service")
+	kubecc := obj.(*v1alpha1.Kubecc)
+	found := &v1.Service{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      "kubecc-agent",
+		Namespace: kubecc.Namespace,
+	}, found)
+	if err != nil && errors.IsNotFound(err) {
+		log.WithValues(
+			"Name", "kubecc-agent",
+			"Namespace", kubecc.Namespace,
+		).Info("Creating agent Service")
+		ds := r.makeAgentService(kubecc)
+		err := r.Create(ctx, ds)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			log.Error(err, "Failed to create Service")
+			return ctrl.Result{}, err
+		}
+		// Created successfully
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Service")
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }

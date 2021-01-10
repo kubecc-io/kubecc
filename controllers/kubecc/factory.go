@@ -2,6 +2,7 @@ package kubecc
 
 import (
 	v1alpha1 "github.com/cobalt77/kubecc/api/v1alpha1"
+	"github.com/cobalt77/kubecc/pkg/cluster"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,7 +18,7 @@ func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deploy
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubecc-scheduler",
-			Namespace: "kubecc-system", // todo
+			Namespace: kubecc.Namespace,
 			Labels: map[string]string{
 				"kubecc.io/kubecc_cr": kubecc.Name,
 			},
@@ -37,6 +38,7 @@ func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deploy
 							Name:            "kubecc-scheduler",
 							Image:           kubecc.Spec.SchedulerImage,
 							ImagePullPolicy: v1.PullAlways,
+							Env:             cluster.MakeDownwardApi(),
 							Ports: []v1.ContainerPort{
 								{
 
@@ -59,7 +61,7 @@ func (r *KubeccReconciler) makeSchedulerService(kubecc *v1alpha1.Kubecc) *v1.Ser
 	svc := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubecc-scheduler",
-			Namespace: "kubecc-system",
+			Namespace: kubecc.Namespace,
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
@@ -80,34 +82,34 @@ func (r *KubeccReconciler) makeSchedulerService(kubecc *v1alpha1.Kubecc) *v1.Ser
 	return svc
 }
 
-// func (r *kubeccReconciler) makeAgentService(kubecc *kdcv1alpha1.kubecc, pod *v1.Pod) *v1.Service {
-// 	labels := map[string]string{
-// 		"app":                  "kubecc-agent",
-// 		"kkubecc.io/kubecc_cr": kubecc.Name,
-// 	}
-// 	svc := &v1.Service{
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Name:      pod.Name,
-// 			Namespace: pod.Namespace,
-// 			Labels: map[string]string{
-// 				"kkubecc.io/kubecc_cr": kubecc.Name,
-// 			},
-// 		},
-// 		Spec: v1.ServiceSpec{
-// 			Selector: labels,
-// 			Type:     v1.ServiceTypeClusterIP,
-// 			Ports: []v1.ServicePort{
-// 				{
-// 					Name:     "grpc",
-// 					Port:     9090,
-// 					Protocol: v1.ProtocolTCP,
-// 				},
-// 			},
-// 		},
-// 	}
-// 	ctrl.SetControllerReference(kubecc, svc, r.Scheme)
-// 	return svc
-// }
+func (r *KubeccReconciler) makeAgentService(kubecc *v1alpha1.Kubecc) *v1.Service {
+	labels := map[string]string{
+		"app":                 "kubecc-agent",
+		"kubecc.io/kubecc_cr": kubecc.Name,
+	}
+	svc := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubecc-agent",
+			Namespace: kubecc.Namespace,
+			Labels: map[string]string{
+				"kubecc.io/kubecc_cr": kubecc.Name,
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Selector: labels,
+			Type:     v1.ServiceTypeClusterIP,
+			Ports: []v1.ServicePort{
+				{
+					Name:     "grpc",
+					Port:     9090,
+					Protocol: v1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(kubecc, svc, r.Scheme)
+	return svc
+}
 
 func (r *KubeccReconciler) makeDaemonSet(kubecc *v1alpha1.Kubecc) *appsv1.DaemonSet {
 	labels := map[string]string{
@@ -140,6 +142,7 @@ func (r *KubeccReconciler) makeDaemonSet(kubecc *v1alpha1.Kubecc) *appsv1.Daemon
 							Image:           kubecc.Spec.AgentImage,
 							ImagePullPolicy: v1.PullAlways,
 							Resources:       kubecc.Spec.Nodes.Resources,
+							Env:             cluster.MakeDownwardApi(),
 							Ports: []v1.ContainerPort{
 								{
 									Name:          "grpc",

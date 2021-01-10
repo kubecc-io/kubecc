@@ -106,7 +106,9 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		gz.Close()
+		if gz != nil {
+			gz.Close()
+		}
 		return buf.Bytes(), nil
 	}
 
