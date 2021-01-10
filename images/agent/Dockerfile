@@ -17,4 +17,4 @@ WORKDIR /
 COPY --from=builder /workspace/cmd/agent/agent .
 USER 65532:65532
 
-ENTRYPOINT ["/agent", "run"]
+ENTRYPOINT ["/agent"]
