@@ -3,7 +3,6 @@ package cluster
 import (
 	"os"
 
-	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -11,7 +10,7 @@ import (
 func GetPodName() string {
 	value, ok := os.LookupEnv("KUBECC_POD_NAME")
 	if !ok {
-		log.Fatal("KUBECC_POD_NAME not defined")
+		panic("KUBECC_POD_NAME not defined")
 	}
 	return value
 }
@@ -20,7 +19,7 @@ func GetPodName() string {
 func GetNamespace() string {
 	value, ok := os.LookupEnv("KUBECC_NAMESPACE")
 	if !ok {
-		log.Fatal("KUBECC_NAMESPACE not defined")
+		panic("KUBECC_NAMESPACE not defined")
 	}
 	return value
 }
@@ -29,7 +28,7 @@ func GetNamespace() string {
 func GetNode() string {
 	value, ok := os.LookupEnv("KUBECC_NODE")
 	if !ok {
-		log.Fatal("KUBECC_NODE not defined")
+		panic("KUBECC_NODE not defined")
 	}
 	return value
 }

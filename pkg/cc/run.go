@@ -8,7 +8,7 @@ import (
 	"os"
 	"os/exec"
 
-	log "github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 type runOptions struct {
@@ -71,6 +71,8 @@ func WithWorkDir(dir string) RunOption {
 
 // Run the compiler with the current args.
 func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
+	log := info.log
+	log.With(zap.Object("info", info)).Debug("Running compiler")
 	options := defaultSchedulerOptions
 	for _, op := range opts {
 		op.apply(&options)
@@ -82,7 +84,7 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 	// seekable file to write to.
 	if info.ActionOpt() == Preprocess {
 		if info.OutputArgIndex != -1 {
-			log.Trace("Replacing output path with '-'")
+			log.Debug("Replacing output path with '-'")
 			info.ReplaceOutputPath("-")
 		}
 		cmd := exec.Command(info.Compiler, info.Args...)
@@ -92,7 +94,6 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 		if options.workDir != "" {
 			cmd.Dir = options.workDir
 		}
-		log.Trace(cmd.Args)
 		buf := new(bytes.Buffer)
 		var gz *gzip.Writer
 		if options.compress {
@@ -115,13 +116,13 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 	tmp, err := ioutil.TempFile("", "kubecc")
 	defer os.Remove(tmp.Name())
 	if err != nil {
-		log.WithError(err).Fatal("Can't create temporary files")
+		log.With(zap.Error(err)).Fatal("Can't create temporary files")
 	}
 	if info.OutputArgIndex != -1 {
-		log.Trace("Replacing output path")
+		log.Debug("Replacing output path")
 		err = info.ReplaceOutputPath(tmp.Name())
 		if err != nil {
-			log.WithError(err).Error("Error replacing output path")
+			log.With(zap.Error(err)).Error("Error replacing output path")
 			return nil, err
 		}
 	}
@@ -136,7 +137,7 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 	cmd.Stderr = options.logOutput
 	err = cmd.Run()
 	if err != nil {
-		log.WithError(err).Error("Compiler error")
+		log.With(zap.Error(err)).Error("Compiler error")
 		return nil, err
 	}
 	buf := new(bytes.Buffer)
@@ -144,13 +145,13 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 	if options.compress {
 		reader, err = gzip.NewReader(tmp)
 		if err != nil {
-			log.WithError(err).Error("Error creating gzip reader")
+			log.With(zap.Error(err)).Error("Error creating gzip reader")
 			return nil, err
 		}
 	}
 	_, err = io.Copy(buf, reader)
 	if err != nil {
-		log.WithError(err).Error("Copy error")
+		log.With(zap.Error(err)).Error("Copy error")
 		return nil, err
 	}
 	return buf.Bytes(), nil

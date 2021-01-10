@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/types"
-	log "github.com/sirupsen/logrus"
 )
 
 type schedulerServer struct {
@@ -33,7 +32,7 @@ func (s *schedulerServer) Schedule(
 	if err != nil {
 		return nil, err
 	}
-	log.WithField("agent", agent).Info("Schedule requested from agent")
+	log.With("agent", agent).Info("Schedule requested")
 	return &types.ScheduleResponse{}, nil
 }
 
@@ -59,15 +58,8 @@ func (s *schedulerServer) Connect(
 	if err != nil {
 		return nil
 	}
-	lg := log.WithFields(
-		log.Fields{
-			"node": agent.Info.Node,
-			"pod":  agent.Info.Pod,
-			"ns":   agent.Info.Namespace,
-			"cpus": agent.Info.NumCpus,
-			"arch": agent.Info.Arch,
-		},
-	)
+	lg := log.With("agent", agent)
+
 	lg.Info("Agent connected")
 
 	s.watcher.WatchAgent(agent)

@@ -6,18 +6,31 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/pkg/tools"
-
-	log "github.com/sirupsen/logrus"
+	"github.com/cobalt77/kubecc/pkg/types"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type RunMode int
 type ActionOpt string
 
 const (
-	RunError = iota
+	RunError RunMode = iota
 	RunLocal
 	RunRemote
 )
+
+func (rm RunMode) String() string {
+	switch rm {
+	case RunError:
+		return "RunError"
+	case RunLocal:
+		return "RunLocal"
+	case RunRemote:
+		return "RunRemote"
+	}
+	return "<unk>"
+}
 
 var (
 	ProfileArgs *tools.StringSet = tools.NewStringSet( // --arg or --arg value
@@ -98,22 +111,33 @@ type ArgsInfo struct {
 	InputArgIndex  int
 	OutputArgIndex int
 	FlagIndexMap   map[string]int
+
+	log *zap.Logger
 }
 
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
-func NewArgsInfoFromOS() *ArgsInfo {
+func NewArgsInfoFromOS(logger *zap.Logger) *ArgsInfo {
 	return &ArgsInfo{
 		Compiler: os.Args[0],
 		Args:     os.Args[1:],
+		log:      logger,
 	}
 }
 
 // NewArgsInfo creates a new ArgsInfo struct from the provided args
-func NewArgsInfo(command string, args []string) *ArgsInfo {
+func NewArgsInfo(command string, args []string, logger *zap.Logger) *ArgsInfo {
 	return &ArgsInfo{
 		Compiler: command,
 		Args:     args,
+		log:      logger,
 	}
+}
+
+func (a *ArgsInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("compiler", a.Compiler)
+	enc.AddArray("args", types.NewStringSliceEncoder(a.Args))
+	enc.AddString("mode", a.Mode.String())
+	return nil
 }
 
 // Parse will parse the arguments in argsInfo.Args and store indexes of
@@ -128,7 +152,10 @@ func (info *ArgsInfo) Parse() {
 		inputArg, outputArg      string
 	)
 
+	log := info.log
+
 	for i, a := range info.Args {
+		lg := info.log.With(zap.String("arg", a))
 		if skip {
 			skip = false
 			continue
@@ -156,28 +183,24 @@ func (info *ArgsInfo) Parse() {
 				// --arg=value
 			case strings.HasPrefix(a, "-M"):
 				info.FlagIndexMap[a] = i
-				log.Tracef("%s possibly implies -E, compiling locally", a)
+				lg.Debug("-E possibly implied, compiling locally")
 				info.Mode = RunLocal
 			case a == "-march=native":
-				log.Tracef("Compiling locally for %s", a)
 				info.Mode = RunLocal
 			case a == "-mtune=native":
-				log.Tracef("Compiling locally for %s", a)
 				info.Mode = RunLocal
 			case strings.HasPrefix(a, "-Wa,"):
 				info.FlagIndexMap["-Wa"] = i
 				if strings.Contains(a, ",-a") || strings.Contains(a, "--MD") {
-					log.Tracef("Compiling locally for %s", a)
 					info.Mode = RunLocal
 				}
 			case strings.HasPrefix(a, "-specs="):
-				log.Tracef("Compiling locally for %s", a)
 				info.Mode = RunLocal
 			case a == "-S":
 				info.FlagIndexMap[a] = i
 				seenOptS = true
 			case ProfileArgs.Contains(a):
-				log.Trace("Compiling locally for profiling")
+				lg.Debug("Compiling locally for profiling")
 				info.Mode = RunLocal
 			case func() bool {
 				for _, prefix := range ProfilePrefixArgs {
@@ -187,10 +210,10 @@ func (info *ArgsInfo) Parse() {
 				}
 				return false
 			}():
-				log.Trace("Compiling locally for profiling")
+				lg.Debug("Compiling locally for profiling")
 				info.Mode = RunLocal
 			case a == "-frepo":
-				log.Trace("Compiling locally, compiler will emit .rpo files")
+				lg.Debug("Compiling locally, compiler will emit .rpo files")
 				info.Mode = RunLocal
 			case strings.HasPrefix(a, "-x"):
 				if len(info.Args) > i+1 &&
@@ -199,12 +222,11 @@ func (info *ArgsInfo) Parse() {
 					!strings.HasPrefix(info.Args[i+1], "objective-c") &&
 					!strings.HasPrefix(info.Args[i+1], "objective-c++") &&
 					!strings.HasPrefix(info.Args[i+1], "go") {
-					log.Tracef("Compiling locally, possibly complex -x arguments %s", info.Args[i+1])
+					lg.Debug("Compiling locally, possibly complex -x arguments")
 					info.Mode = RunLocal
 				}
 				// OK
 			case strings.HasPrefix(a, "-dr"):
-				log.Tracef("Compiling locally for debug option %s", a)
 				info.Mode = RunLocal
 			case a == "-c":
 				info.FlagIndexMap[a] = i
@@ -213,23 +235,23 @@ func (info *ArgsInfo) Parse() {
 				info.FlagIndexMap[a] = i
 
 				if i == len(info.Args)-1 {
-					log.Error("-o found as the last argument?")
+					lg.Error("-o found as the last argument?")
 					info.Mode = RunLocal
 					break
 				}
 
 				if strings.HasSuffix(a, ".o") {
 					// Args of the form `-o something.o`
-					log.Tracef("Found output file %s", a)
+					lg.Debug("Found output file")
 					if outputArg != "" {
-						log.Warn("Found multiple output files, possible invalid arguments")
+						lg.Warn("Found multiple output files, possible invalid arguments")
 						info.Mode = RunLocal
 					}
 				} else {
 					// Args of the form `-o something`
-					log.Tracef("Found executable target %s", a)
+					lg.Debug("Found executable target")
 					if outputArg != "" {
-						log.Warn("Found multiple executable targets, possible invalid arguments")
+						lg.Warn("Found multiple executable targets, possible invalid arguments")
 						info.Mode = RunLocal
 					}
 				}
@@ -239,9 +261,9 @@ func (info *ArgsInfo) Parse() {
 		} else {
 			isSource := IsSourceFile(a)
 			if isSource {
-				log.Tracef("Found input file %s", a)
+				lg.Debug("Found input file")
 				if inputArg != "" {
-					log.Warn("Found multiple input files, compiling locally")
+					lg.Warn("Found multiple input files, compiling locally")
 					info.Mode = RunLocal
 				}
 				inputArg = a
@@ -251,17 +273,18 @@ func (info *ArgsInfo) Parse() {
 	}
 
 	if !seenOptC && !seenOptS && info.InputArgIndex == -1 {
-		log.Trace("Compiler not called for a compile operation")
+		log.Debug("Compiler not called for a compile operation")
 		info.Mode = RunLocal
 	}
 
 	if info.InputArgIndex == -1 {
-		log.Trace("No input file given")
+		log.Debug("No input file given")
 		info.Mode = RunLocal
 	}
 
 	if ShouldRunLocal(inputArg) {
-		log.Tracef("Compiling %s locally as a special case", inputArg)
+		log.With(zap.String("input", inputArg)).
+			Debug("Compiling %s locally as a special case")
 		info.Mode = RunLocal
 	}
 
@@ -276,18 +299,27 @@ func (info *ArgsInfo) Parse() {
 			outputArg = ReplaceExtension(inputArg, ".o")
 		}
 		if outputArg != "" {
-			log.Tracef("No output file specified, assuming %s", outputArg)
+			log.With(zap.String("output", outputArg)).
+				Debug("No output file specified, adding one")
 			info.Args = append(info.Args, "-o", outputArg)
 		}
 	} else if outputArg == "-" {
 		// Write to stdout
-		log.Tracef("Compiling %s locally, stdout output requested", inputArg)
+		log.With(zap.String("input", inputArg)).
+			Debug("Compiling locally, stdout output requested")
 		info.Mode = RunLocal
 	}
 
+	// Nothing set so far, allow remote
 	if info.Mode == RunError {
-		log.Tracef("Remote compilation enabled for this operation")
 		info.Mode = RunRemote
+	}
+
+	switch info.Mode {
+	case RunLocal:
+		log.Debug("Remote compilation disabled")
+	case RunRemote:
+		log.Debug("Remote compilation enabled")
 	}
 }
 
@@ -363,7 +395,7 @@ func (info *ArgsInfo) SubstitutePreprocessorOptions() {
 		for ii, str := range split {
 			if str == "-MD" || str == "-MMD" {
 				if ii == len(split)-1 || split[ii+1][0] == '-' {
-					log.Warnf("Possibly invalid options, missing path after -Wp,%s", str)
+					info.log.Sugar().Warnf("Possibly invalid options, missing path after -Wp,%s", str)
 				} else {
 					split[ii] = "-MF"
 				}
