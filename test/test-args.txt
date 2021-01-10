@@ -1,0 +1,4 @@
+gcc -v
+gcc --version
+gcc conftest.c
+gcc -o conftest conftest.c

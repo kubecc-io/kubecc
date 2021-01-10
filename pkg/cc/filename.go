@@ -46,5 +46,5 @@ func ShouldRunLocal(f string) bool {
 // ReplaceExtension replaces the file extension of the given path.
 func ReplaceExtension(path string, newExt string) string {
 	ext := filepath.Ext(path)
-	return path[:-len(ext)] + newExt
+	return path[:len(path)-len(ext)] + newExt
 }

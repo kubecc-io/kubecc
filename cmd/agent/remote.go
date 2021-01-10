@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -33,44 +32,34 @@ func (s *remoteAgentServer) Compile(
 	}, nil
 }
 
-func agentInfo() *types.AgentInfo {
-	host, err := os.Hostname()
-	if err != nil {
-		host = "<unknown>"
-		log.Warning("Could not determine hostname")
-	}
-	return &types.AgentInfo{
-		Arch:     runtime.GOARCH,
-		Hostname: host,
-		NumCpus:  int32(runtime.NumCPU()),
-	}
-}
-
-func connectToScheduler() {
-	cc, err := grpc.Dial(
-		"kubecc-scheduler.kubecc-system.svc.cluster.local:9090",
-		grpc.WithInsecure())
-	if err != nil {
-		log.Fatal(err)
-	}
-	client := types.NewSchedulerClient(cc)
-	ctx := context.Background()
-	for {
-		log.Info("Starting connection to the server")
-		stream, err := client.Connect(ctx, grpc.WaitForReady(true))
+func connectToScheduler() context.CancelFunc {
+	ctx, cancel := cluster.NewAgentContext()
+	go func() {
+		cc, err := grpc.Dial(
+			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+				cluster.GetNamespace()),
+			grpc.WithInsecure())
 		if err != nil {
-			log.Error(err)
+			log.Fatal(err)
 		}
-		log.Info("Connected to the server")
-		stream.Send(agentInfo())
+		client := types.NewSchedulerClient(cc)
 		for {
-			_, err := stream.Recv()
-			if err == io.EOF {
-				log.Info("EOF received from the server, retrying connection")
-				break
+			log.Info("Starting connection to the server")
+			stream, err := client.Connect(ctx, grpc.WaitForReady(true))
+			if err != nil {
+				log.Error(err)
+			}
+			log.Info("Connected to the server")
+			for {
+				_, err := stream.Recv()
+				if err == io.EOF {
+					log.Info("EOF received from the server, retrying connection")
+					break
+				}
 			}
 		}
-	}
+	}()
+	return cancel
 }
 
 func startRemoteAgent() {
@@ -83,7 +72,8 @@ func startRemoteAgent() {
 	agent := &localAgentServer{}
 	types.RegisterLocalAgentServer(srv, agent)
 
-	go connectToScheduler()
+	cancel := connectToScheduler()
+	defer cancel()
 
 	err = srv.Serve(listener)
 	if err != nil {
