@@ -138,7 +138,7 @@ func Run(info *ArgsInfo, opts ...RunOption) ([]byte, error) {
 	err = cmd.Run()
 	if err != nil {
 		log.With(zap.Error(err)).Error("Compiler error")
-		return nil, err
+		return nil, NewCompilerError(err.Error())
 	}
 	buf := new(bytes.Buffer)
 	reader := io.Reader(tmp)

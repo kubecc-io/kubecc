@@ -32,19 +32,25 @@ const _ = proto.ProtoPackageIsVersion4
 type CompileStatus_Status int32
 
 const (
-	CompileStatus_Starting CompileStatus_Status = 0
-	CompileStatus_Done     CompileStatus_Status = 1
+	CompileStatus_Accept  CompileStatus_Status = 0
+	CompileStatus_Reject  CompileStatus_Status = 1
+	CompileStatus_Success CompileStatus_Status = 2
+	CompileStatus_Fail    CompileStatus_Status = 3
 )
 
 // Enum value maps for CompileStatus_Status.
 var (
 	CompileStatus_Status_name = map[int32]string{
-		0: "Starting",
-		1: "Done",
+		0: "Accept",
+		1: "Reject",
+		2: "Success",
+		3: "Fail",
 	}
 	CompileStatus_Status_value = map[string]int32{
-		"Starting": 0,
-		"Done":     1,
+		"Accept":  0,
+		"Reject":  1,
+		"Success": 2,
+		"Fail":    3,
 	}
 )
 
@@ -72,7 +78,241 @@ func (x CompileStatus_Status) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CompileStatus_Status.Descriptor instead.
 func (CompileStatus_Status) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{6, 0}
+}
+
+type CompileResponse_Result int32
+
+const (
+	CompileResponse_Success CompileResponse_Result = 0
+	CompileResponse_Fail    CompileResponse_Result = 1
+)
+
+// Enum value maps for CompileResponse_Result.
+var (
+	CompileResponse_Result_name = map[int32]string{
+		0: "Success",
+		1: "Fail",
+	}
+	CompileResponse_Result_value = map[string]int32{
+		"Success": 0,
+		"Fail":    1,
+	}
+)
+
+func (x CompileResponse_Result) Enum() *CompileResponse_Result {
+	p := new(CompileResponse_Result)
+	*p = x
+	return p
+}
+
+func (x CompileResponse_Result) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (CompileResponse_Result) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_types_types_proto_enumTypes[1].Descriptor()
+}
+
+func (CompileResponse_Result) Type() protoreflect.EnumType {
+	return &file_pkg_types_types_proto_enumTypes[1]
+}
+
+func (x CompileResponse_Result) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use CompileResponse_Result.Descriptor instead.
+func (CompileResponse_Result) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_types_types_proto_rawDescGZIP(), []int{7, 0}
+}
+
+type Empty struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *Empty) Reset() {
+	*x = Empty{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Empty) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Empty) ProtoMessage() {}
+
+func (x *Empty) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Empty.ProtoReflect.Descriptor instead.
+func (*Empty) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{0}
+}
+
+// Consumer (follower) -> Consumer (leader)
+type DispatchRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	WorkDir string   `protobuf:"bytes,1,opt,name=WorkDir,proto3" json:"WorkDir,omitempty"`
+	Command string   `protobuf:"bytes,2,opt,name=Command,proto3" json:"Command,omitempty"`
+	Args    []string `protobuf:"bytes,3,rep,name=Args,proto3" json:"Args,omitempty"`
+	Env     []string `protobuf:"bytes,4,rep,name=Env,proto3" json:"Env,omitempty"`
+}
+
+func (x *DispatchRequest) Reset() {
+	*x = DispatchRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DispatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DispatchRequest) ProtoMessage() {}
+
+func (x *DispatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DispatchRequest.ProtoReflect.Descriptor instead.
+func (*DispatchRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *DispatchRequest) GetWorkDir() string {
+	if x != nil {
+		return x.WorkDir
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetCommand() string {
+	if x != nil {
+		return x.Command
+	}
+	return ""
+}
+
+func (x *DispatchRequest) GetArgs() []string {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
+func (x *DispatchRequest) GetEnv() []string {
+	if x != nil {
+		return x.Env
+	}
+	return nil
+}
+
+// Consumer -> Scheduler
+type ScheduleRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ScheduleRequest) Reset() {
+	*x = ScheduleRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ScheduleRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScheduleRequest) ProtoMessage() {}
+
+func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScheduleRequest.ProtoReflect.Descriptor instead.
+func (*ScheduleRequest) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{2}
+}
+
+// Scheduler -> Consumer
+type ScheduleResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ScheduleResponse) Reset() {
+	*x = ScheduleResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ScheduleResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ScheduleResponse) ProtoMessage() {}
+
+func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ScheduleResponse.ProtoReflect.Descriptor instead.
+func (*ScheduleResponse) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{3}
 }
 
 type AgentInfo struct {
@@ -92,7 +332,7 @@ type AgentInfo struct {
 func (x *AgentInfo) Reset() {
 	*x = AgentInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[0]
+		mi := &file_pkg_types_types_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -105,7 +345,7 @@ func (x *AgentInfo) String() string {
 func (*AgentInfo) ProtoMessage() {}
 
 func (x *AgentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[0]
+	mi := &file_pkg_types_types_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +358,7 @@ func (x *AgentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
 func (*AgentInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{0}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AgentInfo) GetArch() string {
@@ -156,229 +396,7 @@ func (x *AgentInfo) GetNamespace() string {
 	return ""
 }
 
-type Empty struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *Empty) Reset() {
-	*x = Empty{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[1]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *Empty) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*Empty) ProtoMessage() {}
-
-func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[1]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use Empty.ProtoReflect.Descriptor instead.
-func (*Empty) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{1}
-}
-
-type RunRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	WorkDir string   `protobuf:"bytes,1,opt,name=WorkDir,proto3" json:"WorkDir,omitempty"`
-	Command string   `protobuf:"bytes,2,opt,name=Command,proto3" json:"Command,omitempty"`
-	Args    []string `protobuf:"bytes,3,rep,name=Args,proto3" json:"Args,omitempty"`
-	Env     []string `protobuf:"bytes,4,rep,name=Env,proto3" json:"Env,omitempty"`
-}
-
-func (x *RunRequest) Reset() {
-	*x = RunRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RunRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RunRequest) ProtoMessage() {}
-
-func (x *RunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RunRequest.ProtoReflect.Descriptor instead.
-func (*RunRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *RunRequest) GetWorkDir() string {
-	if x != nil {
-		return x.WorkDir
-	}
-	return ""
-}
-
-func (x *RunRequest) GetCommand() string {
-	if x != nil {
-		return x.Command
-	}
-	return ""
-}
-
-func (x *RunRequest) GetArgs() []string {
-	if x != nil {
-		return x.Args
-	}
-	return nil
-}
-
-func (x *RunRequest) GetEnv() []string {
-	if x != nil {
-		return x.Env
-	}
-	return nil
-}
-
-type RunResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *RunResponse) Reset() {
-	*x = RunResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *RunResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RunResponse) ProtoMessage() {}
-
-func (x *RunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RunResponse.ProtoReflect.Descriptor instead.
-func (*RunResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{3}
-}
-
-type ScheduleRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *ScheduleRequest) Reset() {
-	*x = ScheduleRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[4]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ScheduleRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ScheduleRequest) ProtoMessage() {}
-
-func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[4]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ScheduleRequest.ProtoReflect.Descriptor instead.
-func (*ScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{4}
-}
-
-type ScheduleResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *ScheduleResponse) Reset() {
-	*x = ScheduleResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[5]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *ScheduleResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ScheduleResponse) ProtoMessage() {}
-
-func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[5]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ScheduleResponse.ProtoReflect.Descriptor instead.
-func (*ScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{5}
-}
-
+// Scheduler -> Agent
 type CompileRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -392,7 +410,7 @@ type CompileRequest struct {
 func (x *CompileRequest) Reset() {
 	*x = CompileRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[6]
+		mi := &file_pkg_types_types_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -405,7 +423,7 @@ func (x *CompileRequest) String() string {
 func (*CompileRequest) ProtoMessage() {}
 
 func (x *CompileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[6]
+	mi := &file_pkg_types_types_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -418,7 +436,7 @@ func (x *CompileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileRequest.ProtoReflect.Descriptor instead.
 func (*CompileRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{6}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *CompileRequest) GetCommand() string {
@@ -442,19 +460,24 @@ func (x *CompileRequest) GetPreprocessedSource() []byte {
 	return nil
 }
 
+// Agent -> Scheduler
 type CompileStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	CompileStatus  CompileStatus_Status `protobuf:"varint,2,opt,name=CompileStatus,proto3,enum=CompileStatus_Status" json:"CompileStatus,omitempty"`
-	CompiledSource []byte               `protobuf:"bytes,3,opt,name=CompiledSource,proto3" json:"CompiledSource,omitempty"`
+	CompileStatus CompileStatus_Status `protobuf:"varint,1,opt,name=CompileStatus,proto3,enum=CompileStatus_Status" json:"CompileStatus,omitempty"`
+	// Types that are assignable to Data:
+	//	*CompileStatus_Info
+	//	*CompileStatus_Error
+	//	*CompileStatus_CompiledSource
+	Data isCompileStatus_Data `protobuf_oneof:"Data"`
 }
 
 func (x *CompileStatus) Reset() {
 	*x = CompileStatus{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[7]
+		mi := &file_pkg_types_types_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -467,7 +490,7 @@ func (x *CompileStatus) String() string {
 func (*CompileStatus) ProtoMessage() {}
 
 func (x *CompileStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[7]
+	mi := &file_pkg_types_types_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -480,35 +503,83 @@ func (x *CompileStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileStatus.ProtoReflect.Descriptor instead.
 func (*CompileStatus) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{7}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *CompileStatus) GetCompileStatus() CompileStatus_Status {
 	if x != nil {
 		return x.CompileStatus
 	}
-	return CompileStatus_Starting
+	return CompileStatus_Accept
+}
+
+func (m *CompileStatus) GetData() isCompileStatus_Data {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (x *CompileStatus) GetInfo() *AgentInfo {
+	if x, ok := x.GetData().(*CompileStatus_Info); ok {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *CompileStatus) GetError() string {
+	if x, ok := x.GetData().(*CompileStatus_Error); ok {
+		return x.Error
+	}
+	return ""
 }
 
 func (x *CompileStatus) GetCompiledSource() []byte {
-	if x != nil {
+	if x, ok := x.GetData().(*CompileStatus_CompiledSource); ok {
 		return x.CompiledSource
 	}
 	return nil
 }
 
+type isCompileStatus_Data interface {
+	isCompileStatus_Data()
+}
+
+type CompileStatus_Info struct {
+	Info *AgentInfo `protobuf:"bytes,2,opt,name=Info,proto3,oneof"`
+}
+
+type CompileStatus_Error struct {
+	Error string `protobuf:"bytes,3,opt,name=Error,proto3,oneof"`
+}
+
+type CompileStatus_CompiledSource struct {
+	CompiledSource []byte `protobuf:"bytes,4,opt,name=CompiledSource,proto3,oneof"`
+}
+
+func (*CompileStatus_Info) isCompileStatus_Data() {}
+
+func (*CompileStatus_Error) isCompileStatus_Data() {}
+
+func (*CompileStatus_CompiledSource) isCompileStatus_Data() {}
+
+// Scheduler -> Consumer
 type CompileResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	CompiledSource []byte `protobuf:"bytes,1,opt,name=CompiledSource,proto3" json:"CompiledSource,omitempty"`
+	CompileResult CompileResponse_Result `protobuf:"varint,1,opt,name=CompileResult,proto3,enum=CompileResponse_Result" json:"CompileResult,omitempty"`
+	// Types that are assignable to Data:
+	//	*CompileResponse_Error
+	//	*CompileResponse_CompiledSource
+	Data isCompileResponse_Data `protobuf_oneof:"Data"`
 }
 
 func (x *CompileResponse) Reset() {
 	*x = CompileResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[8]
+		mi := &file_pkg_types_types_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -521,7 +592,7 @@ func (x *CompileResponse) String() string {
 func (*CompileResponse) ProtoMessage() {}
 
 func (x *CompileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[8]
+	mi := &file_pkg_types_types_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -534,77 +605,126 @@ func (x *CompileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileResponse.ProtoReflect.Descriptor instead.
 func (*CompileResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{8}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CompileResponse) GetCompileResult() CompileResponse_Result {
+	if x != nil {
+		return x.CompileResult
+	}
+	return CompileResponse_Success
+}
+
+func (m *CompileResponse) GetData() isCompileResponse_Data {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (x *CompileResponse) GetError() string {
+	if x, ok := x.GetData().(*CompileResponse_Error); ok {
+		return x.Error
+	}
+	return ""
 }
 
 func (x *CompileResponse) GetCompiledSource() []byte {
-	if x != nil {
+	if x, ok := x.GetData().(*CompileResponse_CompiledSource); ok {
 		return x.CompiledSource
 	}
 	return nil
 }
 
+type isCompileResponse_Data interface {
+	isCompileResponse_Data()
+}
+
+type CompileResponse_Error struct {
+	Error string `protobuf:"bytes,3,opt,name=Error,proto3,oneof"`
+}
+
+type CompileResponse_CompiledSource struct {
+	CompiledSource []byte `protobuf:"bytes,4,opt,name=CompiledSource,proto3,oneof"`
+}
+
+func (*CompileResponse_Error) isCompileResponse_Data() {}
+
+func (*CompileResponse_CompiledSource) isCompileResponse_Data() {}
+
 var File_pkg_types_types_proto protoreflect.FileDescriptor
 
 var file_pkg_types_types_proto_rawDesc = []byte{
 	0x0a, 0x15, 0x70, 0x6b, 0x67, 0x2f, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2f, 0x74, 0x79, 0x70, 0x65,
-	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x7d, 0x0a, 0x09, 0x41, 0x67, 0x65, 0x6e, 0x74,
-	0x49, 0x6e, 0x66, 0x6f, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x63, 0x68, 0x12, 0x18, 0x0a, 0x07, 0x4e, 0x75, 0x6d, 0x43,
-	0x70, 0x75, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x4e, 0x75, 0x6d, 0x43, 0x70,
-	0x75, 0x73, 0x12, 0x12, 0x0a, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x50, 0x6f, 0x64, 0x18, 0x04, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x03, 0x50, 0x6f, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x4e, 0x61, 0x6d, 0x65,
-	0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x4e, 0x61, 0x6d,
-	0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x07, 0x0a, 0x05, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x22,
-	0x66, 0x0a, 0x0a, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a,
-	0x07, 0x57, 0x6f, 0x72, 0x6b, 0x44, 0x69, 0x72, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
-	0x57, 0x6f, 0x72, 0x6b, 0x44, 0x69, 0x72, 0x12, 0x18, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61,
-	0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e,
-	0x64, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x67, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52,
-	0x04, 0x41, 0x72, 0x67, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x45, 0x6e, 0x76, 0x18, 0x04, 0x20, 0x03,
-	0x28, 0x09, 0x52, 0x03, 0x45, 0x6e, 0x76, 0x22, 0x0d, 0x0a, 0x0b, 0x52, 0x75, 0x6e, 0x52, 0x65,
-	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x11, 0x0a, 0x0f, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75,
-	0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x12, 0x0a, 0x10, 0x53, 0x63, 0x68,
-	0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x6e, 0x0a,
-	0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
-	0x18, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x67,
-	0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x67, 0x73, 0x12, 0x2e, 0x0a,
+	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x07, 0x0a, 0x05, 0x45, 0x6d, 0x70, 0x74, 0x79,
+	0x22, 0x6b, 0x0a, 0x0f, 0x44, 0x69, 0x73, 0x70, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x57, 0x6f, 0x72, 0x6b, 0x44, 0x69, 0x72, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x57, 0x6f, 0x72, 0x6b, 0x44, 0x69, 0x72, 0x12, 0x18, 0x0a,
+	0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07,
+	0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x67, 0x73, 0x18,
+	0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x67, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x45,
+	0x6e, 0x76, 0x18, 0x04, 0x20, 0x03, 0x28, 0x09, 0x52, 0x03, 0x45, 0x6e, 0x76, 0x22, 0x11, 0x0a,
+	0x0f, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x22, 0x12, 0x0a, 0x10, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x22, 0x7d, 0x0a, 0x09, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66,
+	0x6f, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x63, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
+	0x04, 0x41, 0x72, 0x63, 0x68, 0x12, 0x18, 0x0a, 0x07, 0x4e, 0x75, 0x6d, 0x43, 0x70, 0x75, 0x73,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x07, 0x4e, 0x75, 0x6d, 0x43, 0x70, 0x75, 0x73, 0x12,
+	0x12, 0x0a, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e,
+	0x6f, 0x64, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x50, 0x6f, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x03, 0x50, 0x6f, 0x64, 0x12, 0x1c, 0x0a, 0x09, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61,
+	0x63, 0x65, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70,
+	0x61, 0x63, 0x65, 0x22, 0x6e, 0x0a, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64,
+	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12,
+	0x12, 0x0a, 0x04, 0x41, 0x72, 0x67, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x41,
+	0x72, 0x67, 0x73, 0x12, 0x2e, 0x0a, 0x12, 0x50, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73,
+	0x73, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52,
 	0x12, 0x50, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x64, 0x53, 0x6f, 0x75,
-	0x72, 0x63, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x12, 0x50, 0x72, 0x65, 0x70, 0x72,
-	0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0x96, 0x01,
-	0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12,
-	0x3b, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
-	0x18, 0x02, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x15, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65,
-	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x0d, 0x43,
-	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x26, 0x0a, 0x0e,
-	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x03,
-	0x20, 0x01, 0x28, 0x0c, 0x52, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f,
-	0x75, 0x72, 0x63, 0x65, 0x22, 0x20, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x0c,
-	0x0a, 0x08, 0x53, 0x74, 0x61, 0x72, 0x74, 0x69, 0x6e, 0x67, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04,
-	0x44, 0x6f, 0x6e, 0x65, 0x10, 0x01, 0x22, 0x39, 0x0a, 0x0f, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c,
-	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x26, 0x0a, 0x0e, 0x43, 0x6f, 0x6d,
-	0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
-	0x0c, 0x52, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63,
-	0x65, 0x32, 0x2e, 0x0a, 0x0a, 0x4c, 0x6f, 0x63, 0x61, 0x6c, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12,
-	0x20, 0x0a, 0x03, 0x52, 0x75, 0x6e, 0x12, 0x0b, 0x2e, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x71, 0x75,
-	0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e, 0x52, 0x75, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x32, 0x3b, 0x0a, 0x0b, 0x52, 0x65, 0x6d, 0x6f, 0x74, 0x65, 0x41, 0x67, 0x65, 0x6e, 0x74,
-	0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f,
-	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x43,
-	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x30, 0x01, 0x32, 0x89,
-	0x01, 0x0a, 0x09, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x08,
-	0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x12, 0x10, 0x2e, 0x53, 0x63, 0x68, 0x65, 0x64,
-	0x75, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x53, 0x63, 0x68,
-	0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2c, 0x0a,
-	0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69,
-	0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f, 0x6d, 0x70,
-	0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x07, 0x43,
-	0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06,
-	0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a, 0x0b, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x33,
+	0x72, 0x63, 0x65, 0x22, 0xf1, 0x01, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x3b, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65,
+	0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x15, 0x2e, 0x43,
+	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x2e, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x52, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x53, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x12, 0x20, 0x0a, 0x04, 0x49, 0x6e, 0x66, 0x6f, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x0a, 0x2e, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x49, 0x6e, 0x66, 0x6f, 0x48, 0x00, 0x52, 0x04,
+	0x49, 0x6e, 0x66, 0x6f, 0x12, 0x16, 0x0a, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x05, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x12, 0x28, 0x0a, 0x0e,
+	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x18, 0x04,
+	0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64,
+	0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0x37, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73,
+	0x12, 0x0a, 0x0a, 0x06, 0x41, 0x63, 0x63, 0x65, 0x70, 0x74, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06,
+	0x52, 0x65, 0x6a, 0x65, 0x63, 0x74, 0x10, 0x01, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x75, 0x63, 0x63,
+	0x65, 0x73, 0x73, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x61, 0x69, 0x6c, 0x10, 0x03, 0x42,
+	0x06, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x22, 0xbb, 0x01, 0x0a, 0x0f, 0x43, 0x6f, 0x6d, 0x70,
+	0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x3d, 0x0a, 0x0d, 0x43,
+	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0e, 0x32, 0x17, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x2e, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x52, 0x0d, 0x43, 0x6f, 0x6d,
+	0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x16, 0x0a, 0x05, 0x45, 0x72,
+	0x72, 0x6f, 0x72, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x05, 0x45, 0x72, 0x72,
+	0x6f, 0x72, 0x12, 0x28, 0x0a, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f,
+	0x75, 0x72, 0x63, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x48, 0x00, 0x52, 0x0e, 0x43, 0x6f,
+	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0x1f, 0x0a, 0x06,
+	0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x75, 0x63, 0x63, 0x65, 0x73,
+	0x73, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x61, 0x69, 0x6c, 0x10, 0x01, 0x42, 0x06, 0x0a,
+	0x04, 0x44, 0x61, 0x74, 0x61, 0x32, 0x2b, 0x0a, 0x08, 0x43, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65,
+	0x72, 0x12, 0x1f, 0x0a, 0x03, 0x52, 0x75, 0x6e, 0x12, 0x10, 0x2e, 0x44, 0x69, 0x73, 0x70, 0x61,
+	0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70,
+	0x74, 0x79, 0x32, 0x35, 0x0a, 0x05, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x2c, 0x0a, 0x07, 0x43,
+	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c,
+	0x65, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x30, 0x01, 0x32, 0x89, 0x01, 0x0a, 0x09, 0x53, 0x63,
+	0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x2f, 0x0a, 0x08, 0x53, 0x63, 0x68, 0x65, 0x64,
+	0x75, 0x6c, 0x65, 0x12, 0x10, 0x2e, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x11, 0x2e, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70,
+	0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63,
+	0x74, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74,
+	0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a, 0x0b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x74,
+	0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -619,37 +739,39 @@ func file_pkg_types_types_proto_rawDescGZIP() []byte {
 	return file_pkg_types_types_proto_rawDescData
 }
 
-var file_pkg_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_pkg_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_pkg_types_types_proto_goTypes = []interface{}{
-	(CompileStatus_Status)(0), // 0: CompileStatus.Status
-	(*AgentInfo)(nil),         // 1: AgentInfo
-	(*Empty)(nil),             // 2: Empty
-	(*RunRequest)(nil),        // 3: RunRequest
-	(*RunResponse)(nil),       // 4: RunResponse
-	(*ScheduleRequest)(nil),   // 5: ScheduleRequest
-	(*ScheduleResponse)(nil),  // 6: ScheduleResponse
-	(*CompileRequest)(nil),    // 7: CompileRequest
-	(*CompileStatus)(nil),     // 8: CompileStatus
-	(*CompileResponse)(nil),   // 9: CompileResponse
+	(CompileStatus_Status)(0),   // 0: CompileStatus.Status
+	(CompileResponse_Result)(0), // 1: CompileResponse.Result
+	(*Empty)(nil),               // 2: Empty
+	(*DispatchRequest)(nil),     // 3: DispatchRequest
+	(*ScheduleRequest)(nil),     // 4: ScheduleRequest
+	(*ScheduleResponse)(nil),    // 5: ScheduleResponse
+	(*AgentInfo)(nil),           // 6: AgentInfo
+	(*CompileRequest)(nil),      // 7: CompileRequest
+	(*CompileStatus)(nil),       // 8: CompileStatus
+	(*CompileResponse)(nil),     // 9: CompileResponse
 }
 var file_pkg_types_types_proto_depIdxs = []int32{
 	0, // 0: CompileStatus.CompileStatus:type_name -> CompileStatus.Status
-	3, // 1: LocalAgent.Run:input_type -> RunRequest
-	7, // 2: RemoteAgent.Compile:input_type -> CompileRequest
-	5, // 3: Scheduler.Schedule:input_type -> ScheduleRequest
-	7, // 4: Scheduler.Compile:input_type -> CompileRequest
-	2, // 5: Scheduler.Connect:input_type -> Empty
-	4, // 6: LocalAgent.Run:output_type -> RunResponse
-	8, // 7: RemoteAgent.Compile:output_type -> CompileStatus
-	6, // 8: Scheduler.Schedule:output_type -> ScheduleResponse
-	9, // 9: Scheduler.Compile:output_type -> CompileResponse
-	2, // 10: Scheduler.Connect:output_type -> Empty
-	6, // [6:11] is the sub-list for method output_type
-	1, // [1:6] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	6, // 1: CompileStatus.Info:type_name -> AgentInfo
+	1, // 2: CompileResponse.CompileResult:type_name -> CompileResponse.Result
+	3, // 3: Consumer.Run:input_type -> DispatchRequest
+	7, // 4: Agent.Compile:input_type -> CompileRequest
+	4, // 5: Scheduler.Schedule:input_type -> ScheduleRequest
+	7, // 6: Scheduler.Compile:input_type -> CompileRequest
+	2, // 7: Scheduler.Connect:input_type -> Empty
+	2, // 8: Consumer.Run:output_type -> Empty
+	8, // 9: Agent.Compile:output_type -> CompileStatus
+	5, // 10: Scheduler.Schedule:output_type -> ScheduleResponse
+	9, // 11: Scheduler.Compile:output_type -> CompileResponse
+	2, // 12: Scheduler.Connect:output_type -> Empty
+	8, // [8:13] is the sub-list for method output_type
+	3, // [3:8] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_pkg_types_types_proto_init() }
@@ -659,18 +781,6 @@ func file_pkg_types_types_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_pkg_types_types_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentInfo); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_pkg_types_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Empty); i {
 			case 0:
 				return &v.state
@@ -682,31 +792,19 @@ func file_pkg_types_types_proto_init() {
 				return nil
 			}
 		}
+		file_pkg_types_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*DispatchRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 		file_pkg_types_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_pkg_types_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_pkg_types_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ScheduleRequest); i {
 			case 0:
 				return &v.state
@@ -718,7 +816,7 @@ func file_pkg_types_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_types_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_types_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ScheduleResponse); i {
 			case 0:
 				return &v.state
@@ -730,7 +828,19 @@ func file_pkg_types_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_types_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_types_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*AgentInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompileRequest); i {
 			case 0:
 				return &v.state
@@ -742,7 +852,7 @@ func file_pkg_types_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_types_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_types_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompileStatus); i {
 			case 0:
 				return &v.state
@@ -754,7 +864,7 @@ func file_pkg_types_types_proto_init() {
 				return nil
 			}
 		}
-		file_pkg_types_types_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_pkg_types_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompileResponse); i {
 			case 0:
 				return &v.state
@@ -767,13 +877,22 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 	}
+	file_pkg_types_types_proto_msgTypes[6].OneofWrappers = []interface{}{
+		(*CompileStatus_Info)(nil),
+		(*CompileStatus_Error)(nil),
+		(*CompileStatus_CompiledSource)(nil),
+	}
+	file_pkg_types_types_proto_msgTypes[7].OneofWrappers = []interface{}{
+		(*CompileResponse_Error)(nil),
+		(*CompileResponse_CompiledSource)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_types_types_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   9,
+			NumEnums:      2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
@@ -796,99 +915,99 @@ var _ grpc.ClientConnInterface
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion6
 
-// LocalAgentClient is the client API for LocalAgent service.
+// ConsumerClient is the client API for Consumer service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type LocalAgentClient interface {
-	Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error)
+type ConsumerClient interface {
+	Run(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
-type localAgentClient struct {
+type consumerClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewLocalAgentClient(cc grpc.ClientConnInterface) LocalAgentClient {
-	return &localAgentClient{cc}
+func NewConsumerClient(cc grpc.ClientConnInterface) ConsumerClient {
+	return &consumerClient{cc}
 }
 
-func (c *localAgentClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error) {
-	out := new(RunResponse)
-	err := c.cc.Invoke(ctx, "/LocalAgent/Run", in, out, opts...)
+func (c *consumerClient) Run(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Consumer/Run", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// LocalAgentServer is the server API for LocalAgent service.
-type LocalAgentServer interface {
-	Run(context.Context, *RunRequest) (*RunResponse, error)
+// ConsumerServer is the server API for Consumer service.
+type ConsumerServer interface {
+	Run(context.Context, *DispatchRequest) (*Empty, error)
 }
 
-// UnimplementedLocalAgentServer can be embedded to have forward compatible implementations.
-type UnimplementedLocalAgentServer struct {
+// UnimplementedConsumerServer can be embedded to have forward compatible implementations.
+type UnimplementedConsumerServer struct {
 }
 
-func (*UnimplementedLocalAgentServer) Run(context.Context, *RunRequest) (*RunResponse, error) {
+func (*UnimplementedConsumerServer) Run(context.Context, *DispatchRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Run not implemented")
 }
 
-func RegisterLocalAgentServer(s *grpc.Server, srv LocalAgentServer) {
-	s.RegisterService(&_LocalAgent_serviceDesc, srv)
+func RegisterConsumerServer(s *grpc.Server, srv ConsumerServer) {
+	s.RegisterService(&_Consumer_serviceDesc, srv)
 }
 
-func _LocalAgent_Run_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RunRequest)
+func _Consumer_Run_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LocalAgentServer).Run(ctx, in)
+		return srv.(ConsumerServer).Run(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/LocalAgent/Run",
+		FullMethod: "/Consumer/Run",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LocalAgentServer).Run(ctx, req.(*RunRequest))
+		return srv.(ConsumerServer).Run(ctx, req.(*DispatchRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _LocalAgent_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "LocalAgent",
-	HandlerType: (*LocalAgentServer)(nil),
+var _Consumer_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "Consumer",
+	HandlerType: (*ConsumerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Run",
-			Handler:    _LocalAgent_Run_Handler,
+			Handler:    _Consumer_Run_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "pkg/types/types.proto",
 }
 
-// RemoteAgentClient is the client API for RemoteAgent service.
+// AgentClient is the client API for Agent service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type RemoteAgentClient interface {
-	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (RemoteAgent_CompileClient, error)
+type AgentClient interface {
+	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (Agent_CompileClient, error)
 }
 
-type remoteAgentClient struct {
+type agentClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRemoteAgentClient(cc grpc.ClientConnInterface) RemoteAgentClient {
-	return &remoteAgentClient{cc}
+func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
+	return &agentClient{cc}
 }
 
-func (c *remoteAgentClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (RemoteAgent_CompileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RemoteAgent_serviceDesc.Streams[0], "/RemoteAgent/Compile", opts...)
+func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (Agent_CompileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Agent_serviceDesc.Streams[0], "/Agent/Compile", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &remoteAgentCompileClient{stream}
+	x := &agentCompileClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -898,16 +1017,16 @@ func (c *remoteAgentClient) Compile(ctx context.Context, in *CompileRequest, opt
 	return x, nil
 }
 
-type RemoteAgent_CompileClient interface {
+type Agent_CompileClient interface {
 	Recv() (*CompileStatus, error)
 	grpc.ClientStream
 }
 
-type remoteAgentCompileClient struct {
+type agentCompileClient struct {
 	grpc.ClientStream
 }
 
-func (x *remoteAgentCompileClient) Recv() (*CompileStatus, error) {
+func (x *agentCompileClient) Recv() (*CompileStatus, error) {
 	m := new(CompileStatus)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -915,52 +1034,52 @@ func (x *remoteAgentCompileClient) Recv() (*CompileStatus, error) {
 	return m, nil
 }
 
-// RemoteAgentServer is the server API for RemoteAgent service.
-type RemoteAgentServer interface {
-	Compile(*CompileRequest, RemoteAgent_CompileServer) error
+// AgentServer is the server API for Agent service.
+type AgentServer interface {
+	Compile(*CompileRequest, Agent_CompileServer) error
 }
 
-// UnimplementedRemoteAgentServer can be embedded to have forward compatible implementations.
-type UnimplementedRemoteAgentServer struct {
+// UnimplementedAgentServer can be embedded to have forward compatible implementations.
+type UnimplementedAgentServer struct {
 }
 
-func (*UnimplementedRemoteAgentServer) Compile(*CompileRequest, RemoteAgent_CompileServer) error {
+func (*UnimplementedAgentServer) Compile(*CompileRequest, Agent_CompileServer) error {
 	return status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
 
-func RegisterRemoteAgentServer(s *grpc.Server, srv RemoteAgentServer) {
-	s.RegisterService(&_RemoteAgent_serviceDesc, srv)
+func RegisterAgentServer(s *grpc.Server, srv AgentServer) {
+	s.RegisterService(&_Agent_serviceDesc, srv)
 }
 
-func _RemoteAgent_Compile_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Agent_Compile_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(CompileRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RemoteAgentServer).Compile(m, &remoteAgentCompileServer{stream})
+	return srv.(AgentServer).Compile(m, &agentCompileServer{stream})
 }
 
-type RemoteAgent_CompileServer interface {
+type Agent_CompileServer interface {
 	Send(*CompileStatus) error
 	grpc.ServerStream
 }
 
-type remoteAgentCompileServer struct {
+type agentCompileServer struct {
 	grpc.ServerStream
 }
 
-func (x *remoteAgentCompileServer) Send(m *CompileStatus) error {
+func (x *agentCompileServer) Send(m *CompileStatus) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-var _RemoteAgent_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "RemoteAgent",
-	HandlerType: (*RemoteAgentServer)(nil),
+var _Agent_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "Agent",
+	HandlerType: (*AgentServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Compile",
-			Handler:       _RemoteAgent_Compile_Handler,
+			Handler:       _Agent_Compile_Handler,
 			ServerStreams: true,
 		},
 	},

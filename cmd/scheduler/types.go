@@ -22,14 +22,6 @@ func (a *Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-type CompileTask struct {
-	Context context.Context
-
-	Status <-chan *types.CompileStatus
-	Error  <-chan error
-	Cancel context.CancelFunc
-}
-
 func NewAgentFromContext(ctx context.Context) (*Agent, error) {
 	info, err := cluster.AgentInfoFromContext(ctx)
 	if err != nil {

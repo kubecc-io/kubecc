@@ -2,6 +2,41 @@ syntax = "proto3";
 
 option go_package = "proto;types";
 
+message Empty {}
+
+// Consumer
+
+service Consumer {
+  rpc Run(DispatchRequest) returns (Empty);
+}
+
+// Consumer (follower) -> Consumer (leader)
+message DispatchRequest {
+  string WorkDir = 1;
+  string Command = 2;
+  repeated string Args = 3;
+  repeated string Env = 4;
+}
+
+// Agent and scheduler
+
+service Agent {
+  rpc Compile(CompileRequest) returns (stream CompileStatus);
+}
+
+service Scheduler {
+  rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
+  rpc Compile(CompileRequest) returns (CompileResponse);
+  rpc Connect(stream Empty) returns (stream Empty);
+}
+
+// Consumer -> Scheduler
+message ScheduleRequest {}
+
+// Scheduler -> Consumer
+message ScheduleResponse {}
+
+
 message AgentInfo {
   // System Info
   string Arch = 1;
@@ -13,56 +48,38 @@ message AgentInfo {
   string Namespace = 5;
 }
 
-message Empty {}
-
-// Local agent
-
-service LocalAgent {
-  rpc Run(RunRequest) returns (RunResponse);
-}
-
-message RunRequest {
-  string WorkDir = 1;
-  string Command = 2;
-  repeated string Args = 3;
-  repeated string Env = 4;
-}
-
-message RunResponse {}
-
-
-// Remote agent and scheduler
-
-service RemoteAgent {
-  rpc Compile(CompileRequest) returns (stream CompileStatus);
-}
-
-service Scheduler {
-  rpc Schedule(ScheduleRequest) returns (ScheduleResponse);
-  rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream Empty) returns (stream Empty);
-}
-
-message ScheduleRequest {}
-message ScheduleResponse {}
-
-
+// Scheduler -> Agent
 message CompileRequest {
   string Command = 2;
   repeated string Args = 3;
   bytes PreprocessedSource = 4;
 }
 
+// Agent -> Scheduler
 message CompileStatus {
   enum Status {
-    Starting = 0;
-    Done = 1;
+    Accept = 0;
+    Reject = 1;
+    Success = 2;
+    Fail = 3;
   }
-
-  Status CompileStatus = 2;
-  bytes CompiledSource = 3;
+  Status CompileStatus = 1;
+  oneof Data {
+    AgentInfo Info = 2;
+    string Error = 3;
+    bytes CompiledSource = 4;
+  }
 }
 
+// Scheduler -> Consumer
 message CompileResponse {
-  bytes CompiledSource = 1;
+  enum Result {
+    Success = 0;
+    Fail = 1;
+  }
+  Result CompileResult = 1;
+  oneof Data {
+    string Error = 3;
+    bytes CompiledSource = 4;
+  }
 }
