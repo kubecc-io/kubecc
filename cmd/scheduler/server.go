@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/types"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+	"github.com/golang/protobuf/ptypes/wrappers"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/peer"
 )
 
 type schedulerServer struct {
@@ -26,34 +27,31 @@ func NewSchedulerServer() *schedulerServer {
 	}
 }
 
-func (s *schedulerServer) Schedule(
+func (s *schedulerServer) AtCapacity(
 	ctx context.Context,
-	req *types.ScheduleRequest,
-) (*types.ScheduleResponse, error) {
-	agent, err := s.watcher.GetAgentInfo(ctx)
-	if err != nil {
-		return nil, err
+	req *types.Empty,
+) (*wrappers.BoolValue, error) {
+	peer, ok := peer.FromContext(ctx)
+	if ok {
+		log.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	log.With("agent", agent).Info("Schedule requested")
-	return &types.ScheduleResponse{}, nil
+	return &wrappers.BoolValue{Value: false}, nil
 }
 
 func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	info, err := s.watcher.GetAgentInfo(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !s.watcher.AgentIsConnected(info) {
-		return nil, status.Error(codes.FailedPrecondition,
-			"No connection stream open")
+	peer, ok := peer.FromContext(ctx)
+	if ok {
+		log.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
 	task, err := s.scheduler.Schedule(req)
 	if err != nil {
+		log.With(zap.Error(err)).Info("=> Schedule failed")
 		return nil, err
 	}
+	log.Info("=> Schedule OK")
 	return s.watcher.Wait(task)
 }
 
@@ -62,6 +60,7 @@ func (s *schedulerServer) Connect(
 ) error {
 	agent, err := NewAgentFromContext(srv.Context())
 	if err != nil {
+		log.With(zap.Error(err)).Error("Error identifying agent using context")
 		return nil
 	}
 	lg := log.With("agent", agent)

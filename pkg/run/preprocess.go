@@ -1,8 +1,8 @@
 package run
 
 import (
-	"compress/gzip"
 	"os/exec"
+	"path/filepath"
 	"syscall"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
@@ -27,19 +27,17 @@ func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
 		info.ReplaceOutputPath("-")
 	}
 
-	cmd := exec.Command("/bin/gcc", info.Args...) // todo
+	gcc, _ := filepath.EvalSymlinks("/bin/gcc")
+	cmd := exec.Command(gcc, info.Args...) // todo
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
-	if r.Compress {
-		cmd.Stdout = r.OutputWriter
-	} else {
-		cmd.Stdout = gzip.NewWriter(r.OutputWriter)
-	}
+	cmd.Stdout = r.OutputWriter
 	cmd.Stderr = r.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
-			Uid: r.UID,
-			Gid: r.GID,
+			Uid:         r.UID,
+			Gid:         r.GID,
+			NoSetGroups: true,
 		},
 	}
 	err := cmd.Run()

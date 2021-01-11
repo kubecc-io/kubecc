@@ -96,8 +96,9 @@ func (r *KubeccReconciler) makeAgentService(kubecc *v1alpha1.Kubecc) *v1.Service
 			},
 		},
 		Spec: v1.ServiceSpec{
-			Selector: labels,
-			Type:     v1.ServiceTypeClusterIP,
+			Selector:  labels,
+			Type:      v1.ServiceTypeClusterIP,
+			ClusterIP: v1.ClusterIPNone,
 			Ports: []v1.ServicePort{
 				{
 					Name:     "grpc",

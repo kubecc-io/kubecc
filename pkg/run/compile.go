@@ -2,7 +2,6 @@ package run
 
 import (
 	"io/ioutil"
-	"os"
 	"os/exec"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
@@ -26,7 +25,6 @@ func (r *compileRunner) Run(info *cc.ArgsInfo) error {
 	log.With(zap.Object("info", info)).Debug("Running compiler")
 
 	tmp, err := ioutil.TempFile("", "kubecc")
-	defer os.Remove(tmp.Name())
 	if err != nil {
 		log.With(zap.Error(err)).Fatal("Can't create temporary files")
 	}

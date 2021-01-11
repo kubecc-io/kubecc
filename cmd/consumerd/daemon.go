@@ -47,9 +47,16 @@ func (s *consumerd) Run(
 
 	mode := info.Mode
 
-	if !s.schedulerConnected() ||
-		!s.executor.AtCapacity() ||
-		s.schedulerAtCapacity() {
+	if !s.schedulerConnected() {
+		log.Info("Running local, scheduler disconnected")
+		mode = cc.RunLocal
+	}
+	if !s.executor.AtCapacity() {
+		log.Info("Running local, not at capacity yet")
+		mode = cc.RunLocal
+	}
+	if s.schedulerAtCapacity() {
+		log.Info("Running local, scheduler says it is at capacity")
 		mode = cc.RunLocal
 	}
 

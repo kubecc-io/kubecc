@@ -1,6 +1,9 @@
 package main
 
-import "go.uber.org/zap"
+import (
+	"github.com/cobalt77/kubecc/internal/consumer"
+	"go.uber.org/zap"
+)
 
 var (
 	log *zap.Logger
@@ -19,5 +22,6 @@ func init() {
 }
 
 func main() {
+	consumer.InitConfig()
 	startConsumerd()
 }

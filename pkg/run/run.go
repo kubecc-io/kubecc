@@ -22,7 +22,6 @@ type ProcessOptions struct {
 }
 
 type ResultOptions struct {
-	Compress     bool
 	OutputWriter io.Writer
 }
 

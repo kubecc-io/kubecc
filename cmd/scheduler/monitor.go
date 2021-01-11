@@ -46,15 +46,19 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 
 func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
 	for {
+		log.Info("=> Watching task")
 		select {
 		case s := <-task.Status:
 			switch s.CompileStatus {
 			case types.CompileStatus_Accept:
 				info := s.GetInfo()
+				log.With("agent", info.Pod).Info("=> Agent accepted task")
 				mon.agents[info].ActiveTasks[task.Context] = task.Cancel
 			case types.CompileStatus_Reject:
+				log.Info("=> Agent rejected task")
 				return nil, status.Error(codes.Aborted, "Agent rejected task")
 			case types.CompileStatus_Success:
+				log.Info("=> Compile completed successfully")
 				return &types.CompileResponse{
 					CompileResult: types.CompileResponse_Success,
 					Data: &types.CompileResponse_CompiledSource{
@@ -62,6 +66,7 @@ func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
 					},
 				}, nil
 			case types.CompileStatus_Fail:
+				log.Info("=> Compile failed")
 				return &types.CompileResponse{
 					CompileResult: types.CompileResponse_Fail,
 					Data: &types.CompileResponse_Error{
@@ -70,8 +75,10 @@ func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
 				}, nil
 			}
 		case err := <-task.Error:
+			log.With("err", err).Info("=> Error")
 			return nil, err
 		case <-task.Context.Done():
+			log.Info("=> Task canceled by the consumer")
 			task.Cancel()
 			return nil, status.Error(codes.Canceled, "Consumer canceled the request")
 		}

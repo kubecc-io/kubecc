@@ -15,9 +15,8 @@ type Task struct {
 }
 
 func (t *Task) Run() {
-	t.doneCh = make(chan struct{})
+	defer close(t.doneCh)
 	t.err = t.runner.Run(t.info)
-	close(t.doneCh)
 }
 
 func (t *Task) Done() <-chan struct{} {
@@ -30,6 +29,7 @@ func (t *Task) Error() error {
 
 func NewTask(ctx context.Context, r Runner, info *cc.ArgsInfo) *Task {
 	return &Task{
+		doneCh: make(chan struct{}),
 		ctx:    ctx,
 		info:   info,
 		runner: r,

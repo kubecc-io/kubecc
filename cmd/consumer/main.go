@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -25,6 +26,7 @@ func init() {
 }
 
 func main() {
+	consumer.InitConfig()
 	c, err := grpc.Dial(
 		fmt.Sprintf("127.0.0.1:%d", viper.GetInt("port")),
 		grpc.WithInsecure())

@@ -18,7 +18,7 @@ func dispatchAndWait(cc *grpc.ClientConn) {
 	}
 	_, err = leaderClient.Run(context.Background(), &types.RunRequest{
 		WorkDir: wd,
-		Args:    os.Args,
+		Args:    os.Args[1:],
 		Env:     os.Environ(),
 		UID:     uint32(os.Getuid()),
 		GID:     uint32(os.Getgid()),
