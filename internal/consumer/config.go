@@ -6,13 +6,8 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	becomeLeaderEnvVar string = "DISTCC_BECOME_LEADER"
-	becomeLeaderArg    string = "--become-leader"
-)
-
-// initConfig initializes the Viper config
-func initConfig() {
+// InitConfig initializes the Viper config
+func InitConfig() {
 	viper.AddConfigPath("/etc")
 	// Find home directory.
 	home, err := homedir.Dir()

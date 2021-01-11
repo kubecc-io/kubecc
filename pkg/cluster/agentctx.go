@@ -2,18 +2,18 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/types"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
-type agentInfoKey struct{}
-
 var (
 	// AgentInfoKey is a context value key containing AgentInfo data
-	AgentInfoKey agentInfoKey
+	AgentInfoKey string = "kubecc_agent_info"
 )
 
 func MakeAgentInfo() *types.AgentInfo {
@@ -28,27 +28,28 @@ func MakeAgentInfo() *types.AgentInfo {
 
 // NewAgentContext creates a new cancellable context with
 // embedded system info and values from the downward API
-func NewAgentContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(
-		context.WithValue(context.Background(),
-			AgentInfoKey, MakeAgentInfo()))
-}
-
-func AddAgentContextInfo(ctx context.Context) context.Context {
-	return context.WithValue(ctx,
-		AgentInfoKey, MakeAgentInfo())
-}
-
-func AgentInfoFromContext(ctx context.Context) (*types.AgentInfo, error) {
-	agentCtx := ctx.Value(AgentInfoKey)
-	if agentCtx == nil {
-		return nil, status.Error(codes.InvalidArgument,
-			"Context does not contain AgentInfo")
+func NewAgentContext() context.Context {
+	json, err := json.Marshal(MakeAgentInfo())
+	if err != nil {
+		panic(err)
 	}
-	agentInfo, ok := agentCtx.(*types.AgentInfo)
+	return metadata.NewOutgoingContext(
+		context.Background(), metadata.Pairs(
+			AgentInfoKey, string(json),
+		))
+}
+
+func AgentInfoFromContext(ctx context.Context) (info *types.AgentInfo, err error) {
+	info = &types.AgentInfo{}
+	err = status.Error(codes.InvalidArgument, "Context does not contain AgentInfo")
+	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return nil, status.Error(codes.InvalidArgument,
-			"Context contains invalid AgentInfo data")
+		return
 	}
-	return agentInfo, nil
+	values := meta.Get(AgentInfoKey)
+	if len(values) != 1 {
+		return
+	}
+	err = json.Unmarshal([]byte(values[0]), info)
+	return
 }

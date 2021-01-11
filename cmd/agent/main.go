@@ -6,19 +6,28 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 )
 
 var (
-	log *zap.Logger
+	log *zap.SugaredLogger
 )
 
 func init() {
-	lg, err := zap.NewDevelopment()
+	cfg := zap.Config{
+		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		Development:      true,
+		Encoding:         "console",
+		EncoderConfig:    zap.NewDevelopmentEncoderConfig(),
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	lg, err := cfg.Build(zap.AddStacktrace(zapcore.ErrorLevel))
 	if err != nil {
 		panic(err)
 	}
-	log = lg
+	log = lg.Sugar()
 }
 
 func main() {
@@ -31,10 +40,7 @@ func main() {
 	}
 	agent := &agentServer{}
 	types.RegisterAgentServer(srv, agent)
-
-	cancel := connectToScheduler()
-	defer cancel()
-
+	connectToScheduler()
 	err = srv.Serve(listener)
 	if err != nil {
 		log.With(zap.Error(err)).Error("GRPC error")
