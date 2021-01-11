@@ -32,17 +32,16 @@ func (a *AgentInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (r *DispatchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (r *RunRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("dir", r.GetWorkDir())
-	enc.AddString("cmd", r.GetCommand())
+	enc.AddUint32("uid", r.GetUID())
+	enc.AddUint32("gid", r.GetGID())
 	enc.AddArray("args", NewStringSliceEncoder(r.Args))
 	return nil
 }
 
-func (r *CompileRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("cmd", r.GetCommand())
-	enc.AddArray("args", NewStringSliceEncoder(r.Args))
-	enc.AddInt("dataLen", len(r.PreprocessedSource))
+func (r *RunResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddBool("success", r.GetSuccess())
 	return nil
 }
 

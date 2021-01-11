@@ -51,5 +51,13 @@ func MakeDownwardApi() []v1.EnvVar {
 				},
 			},
 		},
+		{
+			Name: "KUBECC_NODE",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "spec.nodeName",
+				},
+			},
+		},
 	}
 }

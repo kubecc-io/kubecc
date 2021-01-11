@@ -105,7 +105,6 @@ func (opt ActionOpt) String() string {
 
 // ArgsInfo represents GCC arguments
 type ArgsInfo struct {
-	Compiler       string
 	Args           []string
 	Mode           RunMode
 	InputArgIndex  int
@@ -118,23 +117,21 @@ type ArgsInfo struct {
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
 func NewArgsInfoFromOS(logger *zap.Logger) *ArgsInfo {
 	return &ArgsInfo{
-		Compiler: os.Args[0],
-		Args:     os.Args[1:],
-		log:      logger,
+		Args: os.Args[1:],
+		log:  logger,
 	}
 }
 
 // NewArgsInfo creates a new ArgsInfo struct from the provided args
-func NewArgsInfo(command string, args []string, logger *zap.Logger) *ArgsInfo {
+// Args should not include the command
+func NewArgsInfo(args []string, logger *zap.Logger) *ArgsInfo {
 	return &ArgsInfo{
-		Compiler: command,
-		Args:     args,
-		log:      logger,
+		Args: args,
+		log:  logger,
 	}
 }
 
 func (a *ArgsInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("compiler", a.Compiler)
 	enc.AddArray("args", types.NewStringSliceEncoder(a.Args))
 	enc.AddString("mode", a.Mode.String())
 	return nil
@@ -321,11 +318,6 @@ func (info *ArgsInfo) Parse() {
 	case RunRemote:
 		log.Debug("Remote compilation enabled")
 	}
-}
-
-// SetCompiler sets the value of Args[0].
-func (info *ArgsInfo) SetCompiler(compiler string) {
-	info.Compiler = compiler
 }
 
 // SetActionOpt modifies the arguments to replace the action opt

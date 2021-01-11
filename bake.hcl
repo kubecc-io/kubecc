@@ -5,7 +5,7 @@ group "default" {
 target "agent" {
   dockerfile = "images/agent/Dockerfile"
   tags = ["gcr.io/kubecc/agent"]
-  platforms = ["linux/arm64","linux/amd64"]
+  platforms = ["linux/amd64"]
   context = "."
 }
 

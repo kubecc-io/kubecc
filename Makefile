@@ -54,13 +54,13 @@ generate:
 	controller-gen object paths="./..."
 
 agent:
-	docker buildx build -t gcr.io/kubecc/agent --platform=linux/arm64 -f ./images/agent/Dockerfile . --push
+	docker buildx bake -f bake.hcl agent --push
 
 scheduler:
-	docker buildx build -t gcr.io/kubecc/scheduler --platform=linux/amd64 -f ./images/scheduler/Dockerfile . --push
+	docker buildx bake -f bake.hcl scheduler --push
 
 manager:
-	docker buildx build -t gcr.io/kubecc/manager --platform=linux/amd64 -f ./images/manager/Dockerfile . --push
+	docker buildx bake -f bake.hcl manager --push
 
 docker: 
 	docker buildx bake -f bake.hcl --push
