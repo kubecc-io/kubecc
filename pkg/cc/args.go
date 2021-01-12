@@ -117,7 +117,7 @@ type ArgsInfo struct {
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
 func NewArgsInfoFromOS(logger *zap.Logger) *ArgsInfo {
 	return &ArgsInfo{
-		Args: os.Args[1:],
+		Args: append([]string(nil), os.Args[1:]...), // deep copy
 		log:  logger,
 	}
 }
@@ -157,7 +157,7 @@ func (info *ArgsInfo) Parse() {
 			skip = false
 			continue
 		}
-		if a[0] == '-' {
+		if a[0] == '-' && len(a) > 1 {
 			// Option argument
 			switch {
 			case a == "-E": // Preprocess
@@ -257,7 +257,7 @@ func (info *ArgsInfo) Parse() {
 			}
 		} else {
 			isSource := IsSourceFile(a)
-			if isSource {
+			if isSource || a == "-" {
 				lg.Debug("Found input file")
 				if inputArg != "" {
 					lg.Warn("Found multiple input files, compiling locally")
@@ -365,9 +365,21 @@ func (info *ArgsInfo) ReplaceOutputPath(newPath string) error {
 
 // ReplaceInputPath replaces the input path (the path after the action opt)
 // with a new path.
+// If the new input path is '-', this function adds '-x <language>' to the arguments
 func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
 	if info.InputArgIndex != -1 {
+		old := info.Args[info.InputArgIndex]
+		if old == newPath {
+			return nil
+		}
 		info.Args[info.InputArgIndex] = newPath
+		if newPath == "-" {
+			info.log.Debug("Replacing input flag with '-', adding language flag to args")
+			err := info.PrependLanguageFlag(old)
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	return errors.New("No input arg found")
@@ -404,11 +416,12 @@ func (info *ArgsInfo) SubstitutePreprocessorOptions() {
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
 func (info *ArgsInfo) RemoveLocalArgs() {
-	newArgs := append([]string(nil), info.Args...)
+	newArgs := []string{}
 	for i := 0; i < len(info.Args); i++ {
 		arg := info.Args[i]
 		if LocalArgsWithValues.Contains(arg) {
 			i++ // Skip value (--arg value)
+			continue
 		} else if func() bool {
 			for _, p := range LocalPrefixArgs {
 				if strings.HasPrefix(arg, p) {
@@ -425,4 +438,14 @@ func (info *ArgsInfo) RemoveLocalArgs() {
 	}
 	info.Args = newArgs
 	info.Parse()
+}
+
+func (info *ArgsInfo) PrependLanguageFlag(input string) error {
+	lang, err := SourceFileLanguage(input)
+	if err != nil {
+		return err
+	}
+	info.Args = append([]string{"-x", lang}, info.Args...)
+	info.Parse()
+	return nil
 }

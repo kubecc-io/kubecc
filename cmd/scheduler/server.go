@@ -2,9 +2,13 @@ package main
 
 import (
 	"context"
+	"reflect"
+	"sync/atomic"
 
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/fsnotify/fsnotify"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
 )
@@ -12,19 +16,43 @@ import (
 type schedulerServer struct {
 	types.SchedulerServer
 
-	scheduler AgentScheduler
-	watcher   *Monitor
+	scheduler atomic.Value
+	monitor   *Monitor
+}
+
+func (s *schedulerServer) atomicScheduler() AgentScheduler {
+	return s.scheduler.Load().(AgentScheduler)
 }
 
 func NewSchedulerServer() *schedulerServer {
-	scheduler, err := NewRoundRobinScheduler()
-	if err != nil {
-		log.Fatal(err)
+	mon := NewMonitor()
+	AddRandDirectScheduler(mon)
+
+	name := viper.GetString("scheduler")
+	scheduler, ok := GetScheduler(name)
+	if !ok {
+		log.With(zap.String("scheduler", name)).Fatal("No such scheduler")
 	}
-	return &schedulerServer{
-		scheduler: scheduler,
-		watcher:   NewMonitor(),
+	srv := &schedulerServer{
+		monitor: mon,
 	}
+	srv.scheduler.Store(scheduler)
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		log.Info("Processing config reload")
+		name := viper.GetString("scheduler")
+		sch, ok := GetScheduler(name)
+		if !ok {
+			log.Error("Error when reloading config")
+			log.With(zap.String("scheduler", name)).Fatal("No such scheduler")
+		}
+		if reflect.TypeOf(sch) != reflect.TypeOf(srv.scheduler) {
+			log.With(zap.String("scheduler", name)).Info("Switching scheduler")
+			srv.scheduler.Store(sch)
+		} else {
+			log.Info("No config changes found.")
+		}
+	})
+	return srv
 }
 
 func (s *schedulerServer) AtCapacity(
@@ -46,13 +74,13 @@ func (s *schedulerServer) Compile(
 	if ok {
 		log.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	task, err := s.scheduler.Schedule(req)
+	task, err := s.atomicScheduler().Schedule(ctx, req)
 	if err != nil {
 		log.With(zap.Error(err)).Info("=> Schedule failed")
 		return nil, err
 	}
 	log.Info("=> Schedule OK")
-	return s.watcher.Wait(task)
+	return s.monitor.Wait(task)
 }
 
 func (s *schedulerServer) Connect(
@@ -67,7 +95,7 @@ func (s *schedulerServer) Connect(
 
 	lg.Info("Agent connected")
 
-	s.watcher.AgentConnected(agent)
+	s.monitor.AgentConnected(agent)
 	<-srv.Context().Done()
 
 	lg.Info("Agent disconnected")

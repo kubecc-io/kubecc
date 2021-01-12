@@ -5,6 +5,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"go.uber.org/atomic"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -13,12 +14,12 @@ type Agent struct {
 
 	Info        *types.AgentInfo
 	Context     context.Context
-	ActiveTasks map[context.Context]context.CancelFunc
+	ActiveTasks atomic.Int32
 }
 
 func (a *Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("info", a.Info)
-	enc.AddInt("activeTasks", len(a.ActiveTasks))
+	enc.AddInt32("activeTasks", a.ActiveTasks.Load())
 	return nil
 }
 
@@ -30,6 +31,6 @@ func NewAgentFromContext(ctx context.Context) (*Agent, error) {
 	return &Agent{
 		Info:        info,
 		Context:     ctx,
-		ActiveTasks: make(map[context.Context]context.CancelFunc),
+		ActiveTasks: atomic.Int32{},
 	}, nil
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
@@ -13,10 +12,11 @@ import (
 func connectToScheduler() {
 	ctx := cluster.NewAgentContext()
 	go func() {
-		cc, err := grpc.Dial(
-			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
-				cluster.GetNamespace()),
-			grpc.WithInsecure())
+		// cc, err := grpc.Dial(
+		// 	fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+		// 		cluster.GetNamespace()),
+		// 	grpc.WithInsecure())
+		cc, err := grpc.Dial("192.168.0.84:9090", grpc.WithInsecure())
 		if err != nil {
 			log.With(zap.Error(err)).Fatal("Error dialing scheduler")
 		}
@@ -27,10 +27,14 @@ func connectToScheduler() {
 			if err != nil {
 				log.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
 				time.Sleep(5 * time.Second)
-			} else {
-				log.Info("Connected to the scheduler")
-				<-stream.Context().Done()
-				log.Info("Connection lost, reconnecting...")
+			}
+			log.Info("Connected to the scheduler")
+			for {
+				_, err := stream.Recv()
+				if err != nil {
+					log.With(zap.Error(err)).Error("Connection lost, reconnecting...")
+				}
+				break
 			}
 		}
 	}()

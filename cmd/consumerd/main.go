@@ -11,8 +11,8 @@ var (
 
 func init() {
 	conf := zap.NewDevelopmentConfig()
-	conf.OutputPaths = []string{"/tmp/consumerd.log"}
-	conf.ErrorOutputPaths = []string{"/tmp/consumerd.log"}
+	conf.OutputPaths = []string{"stdout", "/tmp/consumerd.log"}
+	conf.ErrorOutputPaths = []string{"stderr", "/tmp/consumerd.log"}
 
 	lg, err := conf.Build(zap.AddStacktrace(zap.ErrorLevel))
 	if err != nil {

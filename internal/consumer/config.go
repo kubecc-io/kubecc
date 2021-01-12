@@ -21,6 +21,7 @@ func InitConfig() {
 	viper.SetDefault("port", 23632)
 	viper.SetDefault("loglevel", zap.DebugLevel)
 	viper.SetDefault("schedulerAddress", "")
+	viper.SetDefault("tls", true)
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
