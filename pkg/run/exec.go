@@ -50,17 +50,19 @@ func (e *AllThreadsBusy) Error() string {
 	return "all threads are busy"
 }
 
-func worker(queue <-chan *Task) {
+func worker(queue <-chan *Task, count *atomic.Int32) {
 	for {
 		task := <-queue
 		if task == nil {
 			break
 		}
+		count.Inc()
 		task.Run()
 		select {
 		case <-task.Done():
 		case <-task.ctx.Done():
 		}
+		count.Dec()
 	}
 }
 
@@ -70,7 +72,7 @@ func NewExecutor() *Executor {
 		workingCount: atomic.NewInt32(0),
 	}
 	for i := 0; i < cpuCount; i++ {
-		go worker(s.taskQueue)
+		go worker(s.taskQueue, s.workingCount)
 	}
 	return s
 }
@@ -86,8 +88,6 @@ func (s *Executor) Exec(
 	if options.failFast && s.AtCapacity() {
 		return &AllThreadsBusy{}
 	}
-	s.workingCount.Inc()
-	defer s.workingCount.Dec()
 	s.taskQueue <- task
 	select {
 	case <-task.Done():
@@ -97,5 +97,5 @@ func (s *Executor) Exec(
 }
 
 func (s *Executor) AtCapacity() bool {
-	return s.workingCount.Load() >= int32(cpuCount)-1
+	return s.workingCount.Load() == int32(cpuCount)
 }
