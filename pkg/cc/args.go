@@ -15,14 +15,14 @@ type RunMode int
 type ActionOpt string
 
 const (
-	RunError RunMode = iota
+	Unset RunMode = iota
 	RunLocal
 	RunRemote
 )
 
 func (rm RunMode) String() string {
 	switch rm {
-	case RunError:
+	case Unset:
 		return "RunError"
 	case RunLocal:
 		return "RunLocal"
@@ -222,6 +222,7 @@ func (info *ArgsInfo) Parse() {
 					lg.Debug("Compiling locally, possibly complex -x arguments")
 					info.Mode = RunLocal
 				}
+				skip = true
 				// OK
 			case strings.HasPrefix(a, "-dr"):
 				info.Mode = RunLocal
@@ -252,12 +253,13 @@ func (info *ArgsInfo) Parse() {
 						info.Mode = RunLocal
 					}
 				}
-				outputArg = a
+				outputArg = info.Args[i+1]
 				info.OutputArgIndex = i + 1
+				skip = true
 			}
 		} else {
 			isSource := IsSourceFile(a)
-			if isSource || a == "-" {
+			if isSource || a == "-" { // Won't come up after -o or -x due to above logic
 				lg.Debug("Found input file")
 				if inputArg != "" {
 					lg.Warn("Found multiple input files, compiling locally")
@@ -285,30 +287,33 @@ func (info *ArgsInfo) Parse() {
 		info.Mode = RunLocal
 	}
 
-	if outputArg == "" && (seenOptC || seenOptS) {
-		// If -c or -S is provided but no output filename is given,
-		// the output file is assumed to be the same name as the
-		// input, but with a '.o' or '.s' extension, respectively.
+	if outputArg == "" {
+		if seenOptC || seenOptS {
+			// If -c or -S is provided but no output filename is given,
+			// the output file is assumed to be the same name as the
+			// input, but with a '.o' or '.s' extension, respectively.
 
-		if seenOptS {
-			outputArg = ReplaceExtension(inputArg, ".s")
-		} else if seenOptC {
-			outputArg = ReplaceExtension(inputArg, ".o")
+			if seenOptS {
+				outputArg = ReplaceExtension(inputArg, ".s")
+			} else if seenOptC {
+				outputArg = ReplaceExtension(inputArg, ".o")
+			}
+			if outputArg != "" {
+				log.With(zap.String("output", outputArg)).
+					Debug("No output file specified, adding one to match input")
+				info.Args = append(info.Args, "-o", outputArg)
+				info.OutputArgIndex = len(info.Args) - 1
+			}
+		} else if inputArg != "" {
+			// Input arg but no output and no action opt = a.out
+			outputArg = "a.out"
+			info.Args = append(info.Args, "-o", "a.out")
+			info.OutputArgIndex = len(info.Args) - 1
 		}
-		if outputArg != "" {
-			log.With(zap.String("output", outputArg)).
-				Debug("No output file specified, adding one")
-			info.Args = append(info.Args, "-o", outputArg)
-		}
-	} else if outputArg == "-" {
-		// Write to stdout
-		log.With(zap.String("input", inputArg)).
-			Debug("Compiling locally, stdout output requested")
-		info.Mode = RunLocal
 	}
 
 	// Nothing set so far, allow remote
-	if info.Mode == RunError {
+	if info.Mode == Unset {
 		info.Mode = RunRemote
 	}
 

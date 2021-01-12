@@ -1,7 +1,6 @@
 package run
 
 import (
-	"fmt"
 	"runtime"
 
 	"go.uber.org/atomic"
@@ -16,9 +15,12 @@ type ExecutorOptions struct {
 	failFast bool
 }
 
-var defaultExecutorOptions = ExecutorOptions{
-	failFast: false,
-}
+var (
+	defaultExecutorOptions = ExecutorOptions{
+		failFast: false,
+	}
+	cpuCount = runtime.NumCPU()
+)
 
 type ExecutorOption interface {
 	apply(*ExecutorOptions)
@@ -48,20 +50,17 @@ func (e *AllThreadsBusy) Error() string {
 	return "all threads are busy"
 }
 
-func worker(queue <-chan *Task, count *atomic.Int32) {
+func worker(queue <-chan *Task) {
 	for {
 		task := <-queue
 		if task == nil {
 			break
 		}
-		count.Inc()
-		fmt.Printf("Count: %d\n", count.Load())
 		task.Run()
 		select {
 		case <-task.Done():
 		case <-task.ctx.Done():
 		}
-		count.Dec()
 	}
 }
 
@@ -70,8 +69,8 @@ func NewExecutor() *Executor {
 		taskQueue:    make(chan *Task),
 		workingCount: atomic.NewInt32(0),
 	}
-	for i := 0; i < runtime.NumCPU(); i++ {
-		go worker(s.taskQueue, s.workingCount)
+	for i := 0; i < cpuCount; i++ {
+		go worker(s.taskQueue)
 	}
 	return s
 }
@@ -87,6 +86,8 @@ func (s *Executor) Exec(
 	if options.failFast && s.AtCapacity() {
 		return &AllThreadsBusy{}
 	}
+	s.workingCount.Inc()
+	defer s.workingCount.Dec()
 	s.taskQueue <- task
 	select {
 	case <-task.Done():
@@ -96,5 +97,5 @@ func (s *Executor) Exec(
 }
 
 func (s *Executor) AtCapacity() bool {
-	return s.workingCount.Load() == int32(cap(s.taskQueue))
+	return s.workingCount.Load() >= int32(cpuCount)-1
 }

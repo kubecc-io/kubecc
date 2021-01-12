@@ -29,6 +29,7 @@ func (s *agentServer) Compile(
 		},
 	})
 	info := cc.NewArgsInfo(req.Args, log.Desugar())
+	info.Parse()
 	log.With(zap.Object("args", info)).Info("Compile starting")
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
