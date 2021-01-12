@@ -31,6 +31,9 @@ func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deploy
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						"linkerd.io/inject": "enabled",
+					},
 				},
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
@@ -86,6 +89,9 @@ func (r *KubeccReconciler) makeSchedulerService(kubecc *v1alpha1.Kubecc) *v1.Ser
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubecc-scheduler",
 			Namespace: kubecc.Namespace,
+			Annotations: map[string]string{
+				"linkerd.io/inject": "enabled",
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Selector: map[string]string{
@@ -118,11 +124,14 @@ func (r *KubeccReconciler) makeAgentService(kubecc *v1alpha1.Kubecc) *v1.Service
 			Labels: map[string]string{
 				"kubecc.io/kubecc_cr": kubecc.Name,
 			},
+			Annotations: map[string]string{
+				"linkerd.io/inject": "enabled",
+			},
 		},
 		Spec: v1.ServiceSpec{
-			Selector:  labels,
-			Type:      v1.ServiceTypeClusterIP,
-			ClusterIP: v1.ClusterIPNone,
+			Selector: labels,
+			Type:     v1.ServiceTypeClusterIP,
+			//	ClusterIP: v1.ClusterIPNone,
 			Ports: []v1.ServicePort{
 				{
 					Name:     "grpc",
@@ -156,6 +165,9 @@ func (r *KubeccReconciler) makeDaemonSet(kubecc *v1alpha1.Kubecc) *appsv1.Daemon
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
+					Annotations: map[string]string{
+						"linkerd.io/inject": "enabled",
+					},
 				},
 				Spec: v1.PodSpec{
 					Affinity: &v1.Affinity{
