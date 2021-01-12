@@ -31,6 +31,5 @@ func init() {
 	roundRobinDns := &DefaultScheduler{
 		resolver: NewDnsResolver(roundrobin.Name),
 	}
-
 	AddScheduler("roundRobinDns", roundRobinDns)
 }

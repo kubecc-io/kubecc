@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
@@ -12,11 +13,11 @@ import (
 func connectToScheduler() {
 	ctx := cluster.NewAgentContext()
 	go func() {
-		// cc, err := grpc.Dial(
-		// 	fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
-		// 		cluster.GetNamespace()),
-		// 	grpc.WithInsecure())
-		cc, err := grpc.Dial("192.168.0.84:9090", grpc.WithInsecure())
+		cc, err := grpc.Dial(
+			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+				cluster.GetNamespace()),
+			grpc.WithInsecure())
+		// cc, err := grpc.Dial("192.168.0.84:9090", grpc.WithInsecure())
 		if err != nil {
 			log.With(zap.Error(err)).Fatal("Error dialing scheduler")
 		}
