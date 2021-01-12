@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 
 	"google.golang.org/grpc/codes"
@@ -46,22 +47,16 @@ func runRequestLocal(
 	info *cc.ArgsInfo,
 	executor *run.Executor,
 ) (*types.RunResponse, error) {
-	tempFileName := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
 	runner := run.NewCompileRunner(
+		run.InPlace(true),
 		run.WithEnv(req.Env),
 		run.WithLogger(log),
-		run.WithOutputWriter(tempFileName),
 		run.WithStderr(stderrBuf),
 		run.WithUidGid(req.UID, req.GID),
 		run.WithWorkDir(req.WorkDir),
 	)
-
-	outputPath := info.Args[info.OutputArgIndex]
-	if !filepath.IsAbs(outputPath) {
-		outputPath = filepath.Join(req.WorkDir, outputPath)
-	}
 
 	t := run.NewTask(context.Background(), runner, info)
 	err := executor.Exec(t)
@@ -73,14 +68,6 @@ func runRequestLocal(
 			Stderr:  stderrBuf.String(),
 		}, nil
 	} else if err != nil {
-		return nil, err
-	}
-
-	log.With(zap.String("path", outputPath)).
-		Debug("Moving file")
-	err = os.Rename(tempFileName.String(), outputPath)
-	if err != nil {
-		log.With(zap.Error(err)).Debug("Failed to move file")
 		return nil, err
 	}
 
@@ -119,6 +106,9 @@ func runRequestRemote(
 		outputPath = info.Args[info.OutputArgIndex]
 	} else {
 		return nil, status.Error(codes.InvalidArgument, "No output path given")
+	}
+	if !filepath.IsAbs(outputPath) {
+		outputPath = path.Join(req.WorkDir, outputPath)
 	}
 
 	// Compile remote

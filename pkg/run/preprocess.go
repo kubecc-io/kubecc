@@ -1,6 +1,8 @@
 package run
 
 import (
+	"bytes"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -24,15 +26,17 @@ func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
 
 	if info.OutputArgIndex != -1 {
 		log.Debug("Replacing output path with '-'")
+		old := info.Args[info.OutputArgIndex]
 		info.ReplaceOutputPath("-")
+		defer info.ReplaceOutputPath(old)
 	}
-
+	stderrBuf := new(bytes.Buffer)
 	gcc, _ := filepath.EvalSymlinks("/bin/gcc")
 	cmd := exec.Command(gcc, info.Args...) // todo
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.OutputWriter
-	cmd.Stderr = r.Stderr
+	cmd.Stderr = io.MultiWriter(r.Stderr, stderrBuf)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
 			Uid:         r.UID,
@@ -43,7 +47,7 @@ func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
 	err := cmd.Run()
 	if err != nil {
 		log.With(zap.Error(err)).Error("Compiler error")
-		return NewCompilerError(err.Error())
+		return NewCompilerError(stderrBuf.String())
 	}
 	return nil
 }

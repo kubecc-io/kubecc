@@ -24,6 +24,7 @@ type ProcessOptions struct {
 
 type ResultOptions struct {
 	OutputWriter io.Writer
+	NoTempFile   bool
 }
 
 type RunnerOptions struct {
@@ -104,6 +105,14 @@ func WithOutputWriter(w io.Writer) RunOption {
 	return &funcRunOption{
 		func(ro *RunnerOptions) {
 			ro.OutputWriter = w
+		},
+	}
+}
+
+func InPlace(inPlace bool) RunOption {
+	return &funcRunOption{
+		func(ro *RunnerOptions) {
+			ro.NoTempFile = inPlace
 		},
 	}
 }

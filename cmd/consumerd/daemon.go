@@ -65,7 +65,7 @@ func (s *consumerd) Run(
 		return runRequestLocal(req, info, s.executor)
 	case cc.RunRemote:
 		return runRequestRemote(ctx, req, info, s.schedulerClient)
-	case cc.RunError:
+	case cc.Unset:
 		return nil, status.Error(codes.Internal, "Encountered RunError state")
 	default:
 		return nil, status.Error(codes.Internal, "Encountered unknown state")
