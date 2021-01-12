@@ -29,6 +29,7 @@ type KubeccReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 
 func (r *KubeccReconciler) Reconcile(
@@ -55,6 +56,7 @@ func (r *KubeccReconciler) Reconcile(
 		r.reconcileAgentService,
 		r.reconcileScheduler,
 		r.reconcileSchedulerService,
+		r.reconcileConfigMaps,
 	)
 	if result.Requeue && result.RequeueAfter == 0 {
 		log.Info("=> Requeueing...")
@@ -75,5 +77,6 @@ func (r *KubeccReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).
+		Owns(&v1.ConfigMap{}).
 		Complete(r)
 }

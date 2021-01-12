@@ -34,7 +34,7 @@ func (r *KubeccReconciler) reconcileScheduler(
 		).Info("Creating scheduler Deployment")
 		ds := r.makeScheduler(obj.(*v1alpha1.Kubecc))
 		err := r.Create(ctx, ds)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil {
 			log.Error(err, "Failed to create Deployment")
 			return ctrl.Result{}, err
 		}
@@ -77,7 +77,7 @@ func (r *KubeccReconciler) reconcileSchedulerService(
 		).Info("Creating scheduler Service")
 		ds := r.makeSchedulerService(kubecc)
 		err := r.Create(ctx, ds)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil {
 			log.Error(err, "Failed to create Service")
 			return ctrl.Result{}, err
 		}
@@ -111,7 +111,7 @@ func (r *KubeccReconciler) reconcileAgents(
 		).Info("Creating agent DaemonSet")
 		ds := r.makeDaemonSet(kubecc)
 		err := r.Create(ctx, ds)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil {
 			log.Error(err, "Failed to create DaemonSet")
 			return ctrl.Result{}, err
 		}
@@ -169,8 +169,42 @@ func (r *KubeccReconciler) reconcileAgentService(
 		).Info("Creating agent Service")
 		ds := r.makeAgentService(kubecc)
 		err := r.Create(ctx, ds)
-		if err != nil && !errors.IsAlreadyExists(err) {
+		if err != nil {
 			log.Error(err, "Failed to create Service")
+			return ctrl.Result{}, err
+		}
+		// Created successfully
+		return ctrl.Result{Requeue: true}, nil
+	} else if err != nil {
+		log.Error(err, "Failed to get Service")
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *KubeccReconciler) reconcileConfigMaps(
+	log logr.Logger,
+	ctx context.Context,
+	obj client.Object,
+) (ctrl.Result, error) {
+	log.Info("Checking ConfigMaps")
+	kubecc := obj.(*v1alpha1.Kubecc)
+
+	found := &v1.ConfigMap{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      "scheduler-config",
+		Namespace: kubecc.Namespace,
+	}, found)
+
+	if err != nil && errors.IsNotFound(err) {
+		log.WithValues(
+			"Name", "scheduler-config",
+			"Namespace", kubecc.Namespace,
+		).Info("Creating scheduler ConfigMap")
+		cfg := r.makeSchedulerConfigMap(kubecc)
+		err := r.Create(ctx, cfg)
+		if err != nil {
+			log.Error(err, "Failed to create ConfigMap")
 			return ctrl.Result{}, err
 		}
 		// Created successfully

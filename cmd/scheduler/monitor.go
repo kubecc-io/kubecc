@@ -2,34 +2,48 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"math/rand"
+	"net"
+	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
 type Monitor struct {
-	agents map[*types.AgentInfo]*Agent
+	AgentResolver
+
+	agents sync.Map // map[types.AgentID]*Agent
 }
 
 func NewMonitor() *Monitor {
 	return &Monitor{
-		agents: make(map[*types.AgentInfo]*Agent),
+		agents: sync.Map{},
 	}
 }
 
-func (w *Monitor) AgentIsConnected(info *types.AgentInfo) bool {
-	_, ok := w.agents[info]
+func (w *Monitor) AgentIsConnected(id types.AgentID) bool {
+	_, ok := w.agents.Load(id)
 	return ok
 }
 
-func (w *Monitor) AgentConnected(a *Agent) {
-	w.agents[a.Info] = a
+func (w *Monitor) AgentConnected(a *Agent) error {
+	id, err := a.Info.AgentID()
+	if err != nil {
+		return err
+	}
+	w.agents.Store(id, a)
 	go func() {
 		<-a.Context.Done()
-		delete(w.agents, a.Info)
+		w.agents.Delete(id)
 	}()
+	return nil
 }
 
 func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
@@ -37,7 +51,11 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !w.AgentIsConnected(info) {
+	id, err := info.AgentID()
+	if err != nil {
+		return nil, err
+	}
+	if !w.AgentIsConnected(id) {
 		return nil, status.Error(codes.FailedPrecondition,
 			"Not connected, ensure a connection stream is active with Connect()")
 	}
@@ -45,15 +63,27 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 }
 
 func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
+	log.Info("=> Watching task")
+	task.Start()
 	for {
-		log.Info("=> Watching task")
 		select {
-		case s := <-task.Status:
+		case s := <-task.Status():
 			switch s.CompileStatus {
 			case types.CompileStatus_Accept:
 				info := s.GetInfo()
+				id, err := info.AgentID()
+				if err != nil {
+					return nil, err
+				}
 				log.With("agent", info.Pod).Info("=> Agent accepted task")
-				mon.agents[info].ActiveTasks[task.Context] = task.Cancel
+				if agent, ok := mon.agents.Load(id); ok {
+					agent.(*Agent).ActiveTasks.Inc()
+				}
+				defer func() {
+					if agent, ok := mon.agents.Load(id); ok {
+						agent.(*Agent).ActiveTasks.Dec()
+					}
+				}()
 			case types.CompileStatus_Reject:
 				log.Info("=> Agent rejected task")
 				return nil, status.Error(codes.Aborted, "Agent rejected task")
@@ -74,13 +104,32 @@ func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
 					},
 				}, nil
 			}
-		case err := <-task.Error:
+		case err := <-task.Error():
 			log.With("err", err).Info("=> Error")
 			return nil, err
-		case <-task.Context.Done():
+		case <-task.Canceled():
 			log.Info("=> Task canceled by the consumer")
-			task.Cancel()
 			return nil, status.Error(codes.Canceled, "Consumer canceled the request")
 		}
 	}
+}
+
+func (r *Monitor) Dial() (*grpc.ClientConn, error) {
+	agents := []types.AgentID{}
+	r.agents.Range(func(key, value interface{}) bool {
+		agents = append(agents, key.(types.AgentID))
+		return true
+	})
+	if len(agents) == 0 {
+		return nil, errors.New("No agents available")
+	}
+	agent, ok := r.agents.Load(agents[rand.Intn(len(agents))])
+	if !ok {
+		return nil, errors.New("Agent disappeared")
+	}
+	peer, ok := peer.FromContext(agent.(*Agent).Context)
+	if !ok {
+		return nil, errors.New("Peer unavailable from agent context")
+	}
+	return grpc.Dial(fmt.Sprintf("%s:9090", peer.Addr.(*net.TCPAddr).IP.String()), grpc.WithInsecure())
 }

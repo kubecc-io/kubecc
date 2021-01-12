@@ -15,6 +15,7 @@ type OutputType int
 
 type ProcessOptions struct {
 	Stderr  io.Writer
+	Stdin   io.Reader
 	Env     []string
 	WorkDir string
 	UID     uint32
@@ -78,6 +79,14 @@ func WithStderr(stderr io.Writer) RunOption {
 	return &funcRunOption{
 		func(ro *RunnerOptions) {
 			ro.Stderr = stderr
+		},
+	}
+}
+
+func WithStdin(stdin io.Reader) RunOption {
+	return &funcRunOption{
+		func(ro *RunnerOptions) {
+			ro.Stdin = stdin
 		},
 	}
 }

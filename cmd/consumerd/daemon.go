@@ -78,12 +78,20 @@ func (s *consumerd) connectToRemote() {
 		log.Debug("Remote compilation unavailable: scheduler address not configured")
 		return
 	}
-	conn, err := grpc.Dial(addr,
-		grpc.WithTransportCredentials(credentials.NewTLS(
-			&tls.Config{
-				InsecureSkipVerify: false,
-			},
-		)))
+	conn, err := grpc.Dial(addr, func() []grpc.DialOption {
+		options := []grpc.DialOption{}
+		if viper.GetBool("tls") {
+			options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(
+				&tls.Config{
+					InsecureSkipVerify: false,
+				},
+			)))
+		} else {
+			log.Warn("** TLS disabled **")
+			options = append(options, grpc.WithInsecure())
+		}
+		return options
+	}()...)
 	if err != nil {
 		log.With(zap.Error(err)).Info("Remote compilation unavailable")
 	} else {

@@ -7,6 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.15 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.0 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-logr/logr v0.3.0
 	github.com/go-logr/zapr v0.3.0 // indirect
 	github.com/golang/protobuf v1.4.3
@@ -19,9 +20,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0 // indirect
-	github.com/prometheus/common v0.15.0
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.6.1
 	github.com/traefik/traefik/v2 v2.3.6

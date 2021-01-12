@@ -47,6 +47,30 @@ func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deploy
 									Protocol:      v1.ProtocolTCP,
 								},
 							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "config",
+									MountPath: "/config",
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "config",
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "scheduler-config",
+									},
+									Items: []v1.KeyToPath{
+										{
+											Key:  "scheduler.yaml",
+											Path: "scheduler.yaml",
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -159,4 +183,20 @@ func (r *KubeccReconciler) makeDaemonSet(kubecc *v1alpha1.Kubecc) *appsv1.Daemon
 	}
 	ctrl.SetControllerReference(kubecc, ds, r.Scheme)
 	return ds
+}
+
+var schedulerDefaultConfig string = `
+scheduler: roundRobinDns
+`
+
+func (r *KubeccReconciler) makeSchedulerConfigMap(kubecc *v1alpha1.Kubecc) *v1.ConfigMap {
+	return &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "scheduler-config",
+			Namespace: kubecc.Namespace,
+		},
+		Data: map[string]string{
+			"scheduler.yaml": schedulerDefaultConfig,
+		},
+	}
 }

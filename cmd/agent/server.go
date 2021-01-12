@@ -28,7 +28,7 @@ func (s *agentServer) Compile(
 			Info: cluster.MakeAgentInfo(),
 		},
 	})
-	info := cc.NewArgsInfo(append([]string{req.Command}, req.Args...), log.Desugar())
+	info := cc.NewArgsInfo(req.Args, log.Desugar())
 	log.With(zap.Object("args", info)).Info("Compile starting")
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
@@ -36,6 +36,7 @@ func (s *agentServer) Compile(
 		run.WithLogger(log.Desugar()),
 		run.WithOutputWriter(tmpFilename),
 		run.WithStderr(stderrBuf),
+		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
 	err := runner.Run(info)
 	log.With(zap.Error(err)).Info("Compile finished")
@@ -44,9 +45,10 @@ func (s *agentServer) Compile(
 			&types.CompileStatus{
 				CompileStatus: types.CompileStatus_Fail,
 				Data: &types.CompileStatus_Error{
-					Error: err.Error(),
+					Error: stderrBuf.String(),
 				},
 			})
+		return nil
 	} else if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
