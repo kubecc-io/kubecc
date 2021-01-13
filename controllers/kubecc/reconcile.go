@@ -5,7 +5,8 @@ import (
 	"reflect"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
-	"github.com/go-logr/logr"
+	"github.com/cobalt77/kubecc/internal/lll"
+	ldv1alpha2 "github.com/linkerd/linkerd2/controller/gen/apis/serviceprofile/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,11 +16,10 @@ import (
 )
 
 func (r *KubeccReconciler) reconcileScheduler(
-	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking scheduler pod")
+	lll.Info("Checking scheduler pod")
 	kubecc := obj.(*v1alpha1.Kubecc)
 
 	found := &appsv1.Deployment{}
@@ -28,26 +28,26 @@ func (r *KubeccReconciler) reconcileScheduler(
 		Namespace: kubecc.Namespace,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
-		log.WithValues(
+		lll.With(
 			"Name", "kubecc-scheduler",
 			"Namespace", kubecc.Namespace,
 		).Info("Creating scheduler Deployment")
 		ds := r.makeScheduler(obj.(*v1alpha1.Kubecc))
 		err := r.Create(ctx, ds)
 		if err != nil {
-			log.Error(err, "Failed to create Deployment")
+			lll.Error(err, "Failed to create Deployment")
 			return ctrl.Result{}, err
 		}
 		// Created successfully
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Deployment")
+		lll.Error(err, "Failed to get Deployment")
 		return ctrl.Result{}, err
 	}
 
 	container := &found.Spec.Template.Spec.Containers[0]
 	if container.Image != kubecc.Spec.SchedulerImage {
-		log.Info("> Updating scheduler image")
+		lll.Info("> Updating scheduler image")
 		container.Image = kubecc.Spec.SchedulerImage
 		err := r.Update(ctx, found)
 		if err != nil {
@@ -59,11 +59,10 @@ func (r *KubeccReconciler) reconcileScheduler(
 }
 
 func (r *KubeccReconciler) reconcileSchedulerService(
-	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking scheduler service")
+	lll.Info("Checking scheduler service")
 	kubecc := obj.(*v1alpha1.Kubecc)
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
@@ -71,20 +70,20 @@ func (r *KubeccReconciler) reconcileSchedulerService(
 		Namespace: kubecc.Namespace,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
-		log.WithValues(
+		lll.With(
 			"Name", "kubecc-scheduler",
 			"Namespace", kubecc.Namespace,
 		).Info("Creating scheduler Service")
 		ds := r.makeSchedulerService(kubecc)
 		err := r.Create(ctx, ds)
 		if err != nil {
-			log.Error(err, "Failed to create Service")
+			lll.Error(err, "Failed to create Service")
 			return ctrl.Result{}, err
 		}
 		// Created successfully
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Service")
+		lll.Error(err, "Failed to get Service")
 		return ctrl.Result{}, err
 	}
 
@@ -92,11 +91,10 @@ func (r *KubeccReconciler) reconcileSchedulerService(
 }
 
 func (r *KubeccReconciler) reconcileAgents(
-	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking agent pods")
+	lll.Info("Checking agent pods")
 
 	found := &appsv1.DaemonSet{}
 	err := r.Get(ctx, types.NamespacedName{
@@ -105,20 +103,20 @@ func (r *KubeccReconciler) reconcileAgents(
 	}, found)
 	kubecc := obj.(*v1alpha1.Kubecc)
 	if err != nil && errors.IsNotFound(err) {
-		log.WithValues(
+		lll.With(
 			"Name", obj.GetName(),
 			"Namespace", obj.GetNamespace(),
 		).Info("Creating agent DaemonSet")
 		ds := r.makeDaemonSet(kubecc)
 		err := r.Create(ctx, ds)
 		if err != nil {
-			log.Error(err, "Failed to create DaemonSet")
+			lll.Error(err, "Failed to create DaemonSet")
 			return ctrl.Result{}, err
 		}
 		// Created successfully
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get DaemonSet")
+		lll.Error(err, "Failed to get DaemonSet")
 		return ctrl.Result{}, err
 	}
 
@@ -126,7 +124,7 @@ func (r *KubeccReconciler) reconcileAgents(
 	if !reflect.DeepEqual(
 		found.Spec.Template.Spec.Affinity.NodeAffinity,
 		&kubecc.Spec.Nodes.NodeAffinity) {
-		log.Info("> Node affinity changed")
+		lll.Info("> Node affinity changed")
 		found.Spec.Template.Spec.Affinity.NodeAffinity =
 			&kubecc.Spec.Nodes.NodeAffinity
 		needsUpdate = true
@@ -134,15 +132,15 @@ func (r *KubeccReconciler) reconcileAgents(
 
 	container := &found.Spec.Template.Spec.Containers[0]
 	if container.Image != kubecc.Spec.AgentImage {
-		log.Info("> Container image changed")
+		lll.Info("> Container image changed")
 		container.Image = kubecc.Spec.AgentImage
 		needsUpdate = true
 	}
 	if needsUpdate {
-		log.Info("Spec changes detected, updating DaemonSet")
+		lll.Info("Spec changes detected, updating DaemonSet")
 		err = r.Update(ctx, found)
 		if err != nil {
-			log.Error(err, "Failed to update DaemonSet")
+			lll.Error(err, "Failed to update DaemonSet")
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{Requeue: true}, nil
@@ -151,11 +149,10 @@ func (r *KubeccReconciler) reconcileAgents(
 }
 
 func (r *KubeccReconciler) reconcileAgentService(
-	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking agent service")
+	lll.Info("Checking agent service")
 	kubecc := obj.(*v1alpha1.Kubecc)
 	found := &v1.Service{}
 	err := r.Get(ctx, types.NamespacedName{
@@ -163,31 +160,30 @@ func (r *KubeccReconciler) reconcileAgentService(
 		Namespace: kubecc.Namespace,
 	}, found)
 	if err != nil && errors.IsNotFound(err) {
-		log.WithValues(
+		lll.With(
 			"Name", "kubecc-agent",
 			"Namespace", kubecc.Namespace,
 		).Info("Creating agent Service")
 		ds := r.makeAgentService(kubecc)
 		err := r.Create(ctx, ds)
 		if err != nil {
-			log.Error(err, "Failed to create Service")
+			lll.Error(err, "Failed to create Service")
 			return ctrl.Result{}, err
 		}
 		// Created successfully
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Service")
+		lll.Error(err, "Failed to get Service")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
 func (r *KubeccReconciler) reconcileConfigMaps(
-	log logr.Logger,
 	ctx context.Context,
 	obj client.Object,
 ) (ctrl.Result, error) {
-	log.Info("Checking ConfigMaps")
+	lll.Info("Checking ConfigMaps")
 	kubecc := obj.(*v1alpha1.Kubecc)
 
 	found := &v1.ConfigMap{}
@@ -197,21 +193,62 @@ func (r *KubeccReconciler) reconcileConfigMaps(
 	}, found)
 
 	if err != nil && errors.IsNotFound(err) {
-		log.WithValues(
+		lll.With(
 			"Name", "scheduler-config",
 			"Namespace", kubecc.Namespace,
 		).Info("Creating scheduler ConfigMap")
 		cfg := r.makeSchedulerConfigMap(kubecc)
 		err := r.Create(ctx, cfg)
 		if err != nil {
-			log.Error(err, "Failed to create ConfigMap")
+			lll.Error(err, "Failed to create ConfigMap")
 			return ctrl.Result{}, err
 		}
 		// Created successfully
 		return ctrl.Result{Requeue: true}, nil
 	} else if err != nil {
-		log.Error(err, "Failed to get Service")
+		lll.Error(err, "Failed to get Service")
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *KubeccReconciler) reconcileServiceProfile(
+	ctx context.Context,
+	obj client.Object,
+) (ctrl.Result, error) {
+	lll.Info("Checking Linkerd ServiceProfile")
+	kubecc := obj.(*v1alpha1.Kubecc)
+
+	profiles := r.makeServiceProfiles(kubecc)
+	requeue := false
+	for _, p := range profiles {
+		lg := lll.With("object", p)
+		found := &ldv1alpha2.ServiceProfile{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      p.ObjectMeta.Name,
+			Namespace: p.ObjectMeta.Namespace,
+		}, found)
+		if err != nil && errors.IsNotFound(err) {
+			err := r.Create(ctx, p)
+			if err != nil {
+				lg.Error(err, "Failed to create")
+				return ctrl.Result{}, err
+			}
+			requeue = true
+			continue
+		} else if err != nil {
+			lg.Error(err, "Failed to get")
+			return ctrl.Result{}, err
+		}
+		if !reflect.DeepEqual(found.Spec, p.Spec) {
+			lg.Info("Updating modified object")
+			found.Spec = p.Spec
+			err := r.Update(ctx, found)
+			if err != nil {
+				lg.Error(err, "Failed to update")
+			}
+			requeue = true
+		}
+	}
+	return ctrl.Result{Requeue: requeue}, nil
 }

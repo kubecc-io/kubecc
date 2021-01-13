@@ -3,14 +3,17 @@ package main
 import (
 	"context"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/status"
 )
 
 type AgentScheduler interface {
-	Schedule(context.Context, *types.CompileRequest) (*CompileTask, error)
+	Schedule(context.Context, *types.CompileRequest) (*types.CompileResponse, error)
 }
 
 var (
@@ -36,22 +39,26 @@ type DefaultScheduler struct {
 func (s *DefaultScheduler) Schedule(
 	ctx context.Context,
 	req *types.CompileRequest,
-) (*CompileTask, error) {
+) (*types.CompileResponse, error) {
 	if s.agentClient == nil {
-		log.Info("Starting resolver")
+		lll.Info("Starting resolver")
 		cc, err := s.resolver.Dial()
 		if err != nil {
 			return nil, err
 		}
 		s.agentClient = types.NewAgentClient(cc)
 	}
-	log.Info("Scheduling")
-	s.resolver.Dial()
-	stream, err := s.agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
-	if err != nil {
-		log.With(zap.Error(err)).Error("Error from agent")
-		return nil, err
+	lll.Info("Scheduling")
+	for {
+		response, err := s.agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
+		if status.Code(err) == codes.Unavailable {
+			lll.Info("Agent rejected task, re-scheduling...")
+			continue
+		}
+		if err != nil {
+			lll.With(zap.Error(err)).Error("Error from agent")
+			return nil, err
+		}
+		return response, nil
 	}
-	log.Info("Agent started task")
-	return NewCompileTask(stream), nil
 }

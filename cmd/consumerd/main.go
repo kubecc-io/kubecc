@@ -2,26 +2,13 @@ package main
 
 import (
 	"github.com/cobalt77/kubecc/internal/consumer"
-	"go.uber.org/zap"
+	"github.com/cobalt77/kubecc/internal/lll"
 )
-
-var (
-	log *zap.Logger
-)
-
-func init() {
-	conf := zap.NewDevelopmentConfig()
-	conf.OutputPaths = []string{"stdout", "/tmp/consumerd.log"}
-	conf.ErrorOutputPaths = []string{"stderr", "/tmp/consumerd.log"}
-
-	lg, err := conf.Build(zap.AddStacktrace(zap.ErrorLevel))
-	if err != nil {
-		panic(err)
-	}
-	log = lg
-}
 
 func main() {
+	lll.Setup("D")
+	lll.PrintHeader()
+
 	consumer.InitConfig()
 	startConsumerd()
 }

@@ -3,8 +3,10 @@ package cc
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -110,24 +112,20 @@ type ArgsInfo struct {
 	InputArgIndex  int
 	OutputArgIndex int
 	FlagIndexMap   map[string]int
-
-	log *zap.Logger
 }
 
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
-func NewArgsInfoFromOS(logger *zap.Logger) *ArgsInfo {
+func NewArgsInfoFromOS() *ArgsInfo {
 	return &ArgsInfo{
 		Args: append([]string(nil), os.Args[1:]...), // deep copy
-		log:  logger,
 	}
 }
 
 // NewArgsInfo creates a new ArgsInfo struct from the provided args
 // Args should not include the command
-func NewArgsInfo(args []string, logger *zap.Logger) *ArgsInfo {
+func NewArgsInfo(args []string) *ArgsInfo {
 	return &ArgsInfo{
 		Args: args,
-		log:  logger,
 	}
 }
 
@@ -145,14 +143,12 @@ func (info *ArgsInfo) Parse() {
 	info.FlagIndexMap = map[string]int{}
 
 	var (
-		skip, seenOptC, seenOptS bool
-		inputArg, outputArg      string
+		skip, seenOptC, seenOptS, seenOptE bool
+		inputArg, outputArg                string
 	)
 
-	log := info.log
-
 	for i, a := range info.Args {
-		lg := info.log.With(zap.String("arg", a))
+		lg := lll.With(zap.String("arg", a))
 		if skip {
 			skip = false
 			continue
@@ -163,6 +159,7 @@ func (info *ArgsInfo) Parse() {
 			case a == "-E": // Preprocess
 				info.FlagIndexMap[a] = i
 				info.Mode = RunLocal
+				seenOptE = true
 			case a == "-MD" || a == "-MMD":
 				info.FlagIndexMap[a] = i
 				// OK
@@ -222,7 +219,9 @@ func (info *ArgsInfo) Parse() {
 					lg.Debug("Compiling locally, possibly complex -x arguments")
 					info.Mode = RunLocal
 				}
-				skip = true
+				if a == "-x" {
+					skip = true
+				}
 				// OK
 			case strings.HasPrefix(a, "-dr"):
 				info.Mode = RunLocal
@@ -237,21 +236,26 @@ func (info *ArgsInfo) Parse() {
 					info.Mode = RunLocal
 					break
 				}
-
-				if strings.HasSuffix(a, ".o") {
+				next := info.Args[i+1]
+				ext := filepath.Ext(next)
+				if ext == ".o" {
 					// Args of the form `-o something.o`
-					lg.Debug("Found output file")
+					lll.With(zap.String("path", next)).
+						Debug("Found output file")
 					if outputArg != "" {
-						lg.Warn("Found multiple output files, possible invalid arguments")
+						lll.With(zap.String("path", next)).
+							Warn("Found multiple output files, possible invalid arguments")
 						info.Mode = RunLocal
 					}
-				} else {
+				} else if ext == "" {
 					// Args of the form `-o something`
-					lg.Debug("Found executable target")
+					lll.With(zap.String("path", next)).
+						Debug("Found executable target")
 					if outputArg != "" {
-						lg.Warn("Found multiple executable targets, possible invalid arguments")
-						info.Mode = RunLocal
+						lll.With(zap.String("path", next)).
+							Warn("Found multiple executable targets, possible invalid arguments")
 					}
+					info.Mode = RunLocal
 				}
 				outputArg = info.Args[i+1]
 				info.OutputArgIndex = i + 1
@@ -272,17 +276,17 @@ func (info *ArgsInfo) Parse() {
 	}
 
 	if !seenOptC && !seenOptS && info.InputArgIndex == -1 {
-		log.Debug("Compiler not called for a compile operation")
+		lll.Debug("Compiler not called for a compile operation")
 		info.Mode = RunLocal
 	}
 
 	if info.InputArgIndex == -1 {
-		log.Debug("No input file given")
+		lll.Debug("No input file given")
 		info.Mode = RunLocal
 	}
 
 	if ShouldRunLocal(inputArg) {
-		log.With(zap.String("input", inputArg)).
+		lll.With(zap.String("input", inputArg)).
 			Debug("Compiling %s locally as a special case")
 		info.Mode = RunLocal
 	}
@@ -299,13 +303,13 @@ func (info *ArgsInfo) Parse() {
 				outputArg = ReplaceExtension(inputArg, ".o")
 			}
 			if outputArg != "" {
-				log.With(zap.String("output", outputArg)).
+				lll.With(zap.String("output", outputArg)).
 					Debug("No output file specified, adding one to match input")
 				info.Args = append(info.Args, "-o", outputArg)
 				info.OutputArgIndex = len(info.Args) - 1
 			}
-		} else if inputArg != "" {
-			// Input arg but no output and no action opt = a.out
+		} else if inputArg != "" && !seenOptE {
+			// If preprocessing, output goes to stdout
 			outputArg = "a.out"
 			info.Args = append(info.Args, "-o", "a.out")
 			info.OutputArgIndex = len(info.Args) - 1
@@ -319,9 +323,9 @@ func (info *ArgsInfo) Parse() {
 
 	switch info.Mode {
 	case RunLocal:
-		log.Debug("Remote compilation disabled")
+		lll.Debug("Remote compilation disabled")
 	case RunRemote:
-		log.Debug("Remote compilation enabled")
+		lll.Debug("Remote compilation enabled")
 	}
 }
 
@@ -379,7 +383,7 @@ func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
 		}
 		info.Args[info.InputArgIndex] = newPath
 		if newPath == "-" {
-			info.log.Debug("Replacing input flag with '-', adding language flag to args")
+			lll.Debug("Replacing input flag with '-', adding language flag to args")
 			err := info.PrependLanguageFlag(old)
 			if err != nil {
 				return err
@@ -393,7 +397,7 @@ func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
 // SubstitutePreprocessorOptions expands gcc preprocessor arguments
 // according to the following rules:
 // 1. Replace "-Wp,-X,-Y,-Z" with "-X -Y -Z"
-// 2. Replace "-Wp,-MD,path" or "-Wp,-MMD,path" with "-MF path"
+// 2. Replace "-Wp,-MD,path" or "-Wp,-MMD,path" with "-M[M]D -MF path"
 func (info *ArgsInfo) SubstitutePreprocessorOptions() {
 	for i := 0; i < len(info.Args); i++ {
 		arg := info.Args[i]
@@ -401,12 +405,15 @@ func (info *ArgsInfo) SubstitutePreprocessorOptions() {
 			continue
 		}
 		split := strings.Split(arg, ",")[1:]
-		for ii, str := range split {
+		for ii := 0; ii < len(split); ii++ {
+			str := split[ii]
 			if str == "-MD" || str == "-MMD" {
 				if ii == len(split)-1 || split[ii+1][0] == '-' {
-					info.log.Sugar().Warnf("Possibly invalid options, missing path after -Wp,%s", str)
+					lll.Warnf("Possibly invalid options, missing path after -Wp,%s", str)
 				} else {
-					split[ii] = "-MF"
+					split = append(split[:ii+1], split[ii:]...)
+					split[ii+1] = "-MF" // very important, without this GCC will [DATA EXPUNGED]
+					ii++
 				}
 			}
 		}

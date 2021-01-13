@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -11,6 +12,6 @@ func initConfig() {
 	viper.AutomaticEnv()
 	viper.SetDefault("scheduler", "roundRobinDns")
 	if err := viper.ReadInConfig(); err != nil {
-		log.With(zap.Error(err)).Warn("Error reading config file")
+		lll.With(zap.Error(err)).Warn("Error reading config file")
 	}
 }

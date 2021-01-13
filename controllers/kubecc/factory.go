@@ -1,8 +1,11 @@
 package kubecc
 
 import (
+	"fmt"
+
 	v1alpha1 "github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/pkg/cluster"
+	ldv1alpha2 "github.com/linkerd/linkerd2/controller/gen/apis/serviceprofile/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -211,4 +214,62 @@ func (r *KubeccReconciler) makeSchedulerConfigMap(kubecc *v1alpha1.Kubecc) *v1.C
 			"scheduler.yaml": schedulerDefaultConfig,
 		},
 	}
+}
+
+func (r *KubeccReconciler) makeServiceProfiles(kubecc *v1alpha1.Kubecc) []*ldv1alpha2.ServiceProfile {
+	spAgent := &ldv1alpha2.ServiceProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("kubecc-agent.%s.svc.cluster.local", kubecc.Namespace),
+			Namespace: kubecc.Namespace,
+		},
+		Spec: ldv1alpha2.ServiceProfileSpec{
+			Routes: []*ldv1alpha2.RouteSpec{
+				{
+					Name: "POST /Agent/Compile",
+					Condition: &ldv1alpha2.RequestMatch{
+						Method:    "POST",
+						PathRegex: "/Agent/Compile",
+					},
+					IsRetryable: true,
+				},
+				{
+					Name: "POST /Scheduler/Compile",
+					Condition: &ldv1alpha2.RequestMatch{
+						Method:    "POST",
+						PathRegex: "/Scheduler/Compile",
+					},
+					IsRetryable: true,
+				},
+			},
+		},
+	}
+	spScheduler := &ldv1alpha2.ServiceProfile{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local", kubecc.Namespace),
+			Namespace: kubecc.Namespace,
+		},
+		Spec: ldv1alpha2.ServiceProfileSpec{
+			Routes: []*ldv1alpha2.RouteSpec{
+				{
+					Name: "POST /Agent/Compile",
+					Condition: &ldv1alpha2.RequestMatch{
+						Method:    "POST",
+						PathRegex: "/Agent/Compile",
+					},
+					IsRetryable: true,
+				},
+				{
+					Name: "POST /Scheduler/Compile",
+					Condition: &ldv1alpha2.RequestMatch{
+						Method:    "POST",
+						PathRegex: "/Scheduler/Compile",
+					},
+					IsRetryable: true,
+				},
+			},
+		},
+	}
+	ctrl.SetControllerReference(kubecc, spAgent, r.Scheme)
+	ctrl.SetControllerReference(kubecc, spScheduler, r.Scheme)
+	return []*ldv1alpha2.ServiceProfile{spAgent, spScheduler}
 }

@@ -41,7 +41,7 @@ func (r *RunRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 }
 
 func (r *RunResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddBool("success", r.GetSuccess())
+	enc.AddInt("code", int(r.GetReturnCode()))
 	return nil
 }
 
@@ -55,14 +55,14 @@ func (r *CompileResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (r *CompileStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	switch data := r.GetData().(type) {
-	case *CompileStatus_Info:
-		enc.AddObject("info", data.Info)
-	case *CompileStatus_Error:
-		enc.AddString("error", data.Error)
-	case *CompileStatus_CompiledSource:
-		enc.AddInt("dataLen", len(data.CompiledSource))
-	}
-	return nil
-}
+// func (r *CompileStatus) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+// 	switch data := r.GetData().(type) {
+// 	case *CompileStatus_Info:
+// 		enc.AddObject("info", data.Info)
+// 	case *CompileStatus_Error:
+// 		enc.AddString("error", data.Error)
+// 	case *CompileStatus_CompiledSource:
+// 		enc.AddInt("dataLen", len(data.CompiledSource))
+// 	}
+// 	return nil
+// }
