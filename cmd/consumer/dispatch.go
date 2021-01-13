@@ -1,33 +1,45 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
+	"io"
 	"os"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"go.uber.org/zap"
+	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/encoding/gzip"
 )
 
 func dispatchAndWait(cc *grpc.ClientConn) {
-	log.Info("Dispatching to leader")
+	lll.Info("Dispatching to consumerd")
 	leaderClient := types.NewConsumerdClient(cc)
 	wd, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err.Error())
+		lll.Fatal(err.Error())
 	}
-	_, err = leaderClient.Run(context.Background(), &types.RunRequest{
+	stdin := new(bytes.Buffer)
+
+	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+		io.Copy(stdin, os.Stdin)
+	}
+
+	resp, err := leaderClient.Run(context.Background(), &types.RunRequest{
 		WorkDir: wd,
 		Args:    os.Args[1:],
 		Env:     os.Environ(),
 		UID:     uint32(os.Getuid()),
 		GID:     uint32(os.Getgid()),
-	}, grpc.WaitForReady(true))
+		Stdin:   stdin.Bytes(),
+	}, grpc.WaitForReady(true), grpc.UseCompressor(gzip.Name))
 	if err != nil {
-		log.Error("Dispatch error")
-		fmt.Fprintln(os.Stderr, err)
+		lll.With(zap.Error(err)).Error("Dispatch error")
 		os.Exit(1)
 	}
-	log.Debug("Dispatch Success")
-	os.Exit(0)
+	io.Copy(os.Stdout, bytes.NewReader(resp.Stdout))
+	io.Copy(os.Stderr, bytes.NewReader(resp.Stderr))
+	os.Exit(int(resp.ReturnCode))
 }

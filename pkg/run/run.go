@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"go.uber.org/zap"
 )
 
 type Runner interface {
@@ -14,6 +13,7 @@ type Runner interface {
 type OutputType int
 
 type ProcessOptions struct {
+	Stdout  io.Writer
 	Stderr  io.Writer
 	Stdin   io.Reader
 	Env     []string
@@ -30,8 +30,6 @@ type ResultOptions struct {
 type RunnerOptions struct {
 	ProcessOptions
 	ResultOptions
-
-	Logger *zap.Logger
 }
 
 func (r *RunnerOptions) Apply(opts ...RunOption) {
@@ -52,14 +50,6 @@ func (fso *funcRunOption) apply(ops *RunnerOptions) {
 	fso.f(ops)
 }
 
-func WithLogger(logger *zap.Logger) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.Logger = logger
-		},
-	}
-}
-
 func WithEnv(env []string) RunOption {
 	return &funcRunOption{
 		func(ro *RunnerOptions) {
@@ -76,9 +66,10 @@ func WithWorkDir(dir string) RunOption {
 	}
 }
 
-func WithStderr(stderr io.Writer) RunOption {
+func WithOutputStreams(stdout, stderr io.Writer) RunOption {
 	return &funcRunOption{
 		func(ro *RunnerOptions) {
+			ro.Stdout = stdout
 			ro.Stderr = stderr
 		},
 	}

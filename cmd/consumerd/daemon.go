@@ -5,12 +5,14 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,6 +27,9 @@ type consumerd struct {
 	schedulerClient types.SchedulerClient
 	connection      *grpc.ClientConn
 	executor        *run.Executor
+
+	remoteOnly      bool
+	remoteWaitGroup sync.WaitGroup
 }
 
 func (c *consumerd) schedulerConnected() bool {
@@ -36,28 +41,30 @@ func (s *consumerd) Run(
 	ctx context.Context,
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
-	log.Debug("Running request")
+	lll.Debug("Running request")
 	if req.UID == 0 || req.GID == 0 {
 		return nil, status.Error(codes.InvalidArgument,
 			"UID or GID cannot be 0")
 	}
 
-	info := cc.NewArgsInfo(req.Args, log)
+	info := cc.NewArgsInfo(req.Args)
 	info.Parse()
 
 	mode := info.Mode
 
 	if !s.schedulerConnected() {
-		log.Info("Running local, scheduler disconnected")
+		lll.Info("Running local, scheduler disconnected")
 		mode = cc.RunLocal
 	}
-	if !s.executor.AtCapacity() {
-		log.Info("Running local, not at capacity yet")
-		mode = cc.RunLocal
-	}
-	if s.schedulerAtCapacity() {
-		log.Info("Running local, scheduler says it is at capacity")
-		mode = cc.RunLocal
+	if !s.remoteOnly {
+		if !s.executor.AtCapacity() {
+			lll.Info("Running local, not at capacity yet")
+			mode = cc.RunLocal
+		}
+		// if s.schedulerAtCapacity() {
+		// 	lll.Info("Running local, scheduler says it is at capacity")
+		// 	mode = cc.RunLocal
+		// }
 	}
 
 	switch mode {
@@ -75,7 +82,7 @@ func (s *consumerd) Run(
 func (s *consumerd) connectToRemote() {
 	addr := viper.GetString("schedulerAddress")
 	if addr == "" {
-		log.Debug("Remote compilation unavailable: scheduler address not configured")
+		lll.Debug("Remote compilation unavailable: scheduler address not configured")
 		return
 	}
 	conn, err := grpc.Dial(addr, func() []grpc.DialOption {
@@ -87,13 +94,13 @@ func (s *consumerd) connectToRemote() {
 				},
 			)))
 		} else {
-			log.Warn("** TLS disabled **")
+			lll.Warn("** TLS disabled **")
 			options = append(options, grpc.WithInsecure())
 		}
 		return options
 	}()...)
 	if err != nil {
-		log.With(zap.Error(err)).Info("Remote compilation unavailable")
+		lll.With(zap.Error(err)).Info("Remote compilation unavailable")
 	} else {
 		s.connection = conn
 		s.schedulerClient = types.NewSchedulerClient(conn)
@@ -104,29 +111,37 @@ func (s *consumerd) schedulerAtCapacity() bool {
 	value, err := s.schedulerClient.AtCapacity(
 		context.Background(), &types.Empty{})
 	if err != nil {
-		log.With(zap.Error(err)).Error("Scheduler error")
+		lll.With(zap.Error(err)).Error("Scheduler error")
 		return false
 	}
 	return value.GetValue()
 }
 
 func startConsumerd() {
-	agent := &consumerd{
+	lll.Info("Starting consumerd")
+	d := &consumerd{
 		executor: run.NewExecutor(),
 	}
-	go agent.connectToRemote()
-
+	go d.connectToRemote()
+	d.remoteOnly = viper.GetBool("remoteOnly")
 	port := viper.GetInt("port")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
-		log.With(zap.Error(err)).Fatal("Could not start consumerd")
+		lll.With(zap.Error(err), zap.Int("port", port)).
+			Fatal("Error listening on socket")
 	}
-	srv := grpc.NewServer()
+	lll.With("addr", listener.Addr()).Info("Listening")
+	if err != nil {
+		lll.With(zap.Error(err)).Fatal("Could not start consumerd")
+	}
+	srv := grpc.NewServer(
+		grpc.MaxRecvMsgSize(5e7), // 50MB
+	)
 
-	types.RegisterConsumerdServer(srv, agent)
+	types.RegisterConsumerdServer(srv, d)
 
 	err = srv.Serve(listener)
 	if err != nil {
-		log.Error(err.Error())
+		lll.Error(err.Error())
 	}
 }

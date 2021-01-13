@@ -2,3 +2,7 @@ gcc -v
 gcc --version
 gcc conftest.c
 gcc -o conftest conftest.c
+
+echo __GNUC__ | gcc -E -x c -
+echo __GNUC_MINOR__ | gcc -E -x c -
+echo __GNUC_PATCHLEVEL__ | gcc -E -x c -  

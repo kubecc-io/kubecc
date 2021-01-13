@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -22,9 +23,10 @@ func InitConfig() {
 	viper.SetDefault("loglevel", zap.DebugLevel)
 	viper.SetDefault("schedulerAddress", "")
 	viper.SetDefault("tls", true)
+	viper.SetDefault("remoteOnly", false)
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		log.With(zap.Error(err)).Debug("Error reading config file")
+		lll.With(zap.Error(err)).Debug("Error reading config file")
 	}
 }

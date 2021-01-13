@@ -5,29 +5,25 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
-)
-
-var (
-	log *zap.Logger
 )
 
 func init() {
-	log = zap.NewNop()
+	lll.Setup("TEST")
 }
 
 func BenchmarkParse(b *testing.B) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 	for i := 0; i < b.N; i++ {
-		info := NewArgsInfoFromOS(log)
+		info := NewArgsInfoFromOS()
 		info.Parse()
 	}
 }
 
 func TestParse(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	assert.Equal(t, Compile, info.ActionOpt())
 	assert.Equal(t, 9, info.InputArgIndex)
@@ -38,7 +34,7 @@ func TestParse(t *testing.T) {
 
 func TestSetActionOpt(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	assert.Equal(t, Compile, info.ActionOpt())
 	info.SetActionOpt(GenAssembly)
@@ -55,7 +51,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
@@ -65,31 +61,31 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y -Wp,-MD,path -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS(log)
+	info = NewArgsInfoFromOS()
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
-		strings.Split(`-Werror -g -O2 -MD -X -Y -MF path -o src/test.o -c src/test.c`, " "),
+		strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c`, " "),
 		info.Args,
 	)
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-Z,-ZZ -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS(log)
+	info = NewArgsInfoFromOS()
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
-		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
+		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
 		info.Args,
 	)
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-MMD,path2 -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgsInfoFromOS(log)
+	info = NewArgsInfoFromOS()
 	info.Parse()
 	info.SubstitutePreprocessorOptions()
 	assert.Equal(t,
-		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MF path -MF path2 -o src/test.o -c src/test.c`, " "),
+		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c`, " "),
 		info.Args,
 	)
 }
@@ -101,7 +97,7 @@ func TestReplaceOutputPath(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	info.ReplaceOutputPath("-")
 	assert.Equal(t,
@@ -132,7 +128,7 @@ func TestReplaceInputPath(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,
@@ -163,7 +159,7 @@ func TestRemoveLocalArgs(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Wp,a,b -MD -L test -Ltest -l test -ltest -Da=b -I. -I test -D a=b -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	info.RemoveLocalArgs()
 	assert.Equal(t,
@@ -180,7 +176,7 @@ func TestPrependLanguageFlag(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgsInfoFromOS(log)
+	info := NewArgsInfoFromOS()
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,
@@ -190,7 +186,7 @@ func TestPrependLanguageFlag(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -o src/test.o -c src/test.cpp`, " ")
 
-	info = NewArgsInfoFromOS(log)
+	info = NewArgsInfoFromOS()
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,

@@ -9,13 +9,13 @@ service Consumerd {
 }
 
 service Agent {
-  rpc Compile(CompileRequest) returns (stream CompileStatus);
+  rpc Compile(CompileRequest) returns (CompileResponse);
 }
 
 service Scheduler {
   rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream Empty) returns (stream Empty);
+  // rpc Connect(stream Empty) returns (stream Empty);
 }
 
 // consumer -> consumerd
@@ -25,11 +25,13 @@ message RunRequest {
   uint32 GID = 3;
   string WorkDir = 4;
   repeated string Env = 5;
+  bytes Stdin = 6;
 }
 // consumerd -> consumer
 message RunResponse {
-  bool Success = 1;
-  string Stderr = 3;
+  int32 ReturnCode = 1;
+  bytes Stdout = 2;
+  bytes Stderr = 3;
 }
 
 // consumer -> scheduler
@@ -60,20 +62,20 @@ message CompileRequest {
 }
 
 // agent -> scheduler
-message CompileStatus {
-  enum Status {
-    Accept = 0;
-    Reject = 1;
-    Success = 2;
-    Fail = 3;
-  }
-  Status CompileStatus = 1;
-  oneof Data {
-    AgentInfo Info = 2;
-    string Error = 3;
-    bytes CompiledSource = 4;
-  }
-}
+// message CompileStatus {
+//   enum Status {
+//     Accept = 0;
+//     Reject = 1;
+//     Success = 2;
+//     Fail = 3;
+//   }
+//   Status CompileStatus = 1;
+//   oneof Data {
+//     AgentInfo Info = 2;
+//     string Error = 3;
+//     bytes CompiledSource = 4;
+//   }
+// }
 
 // scheduler -> consumer
 message CompileResponse {

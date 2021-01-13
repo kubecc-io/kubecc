@@ -12,14 +12,11 @@ type Executor struct {
 }
 
 type ExecutorOptions struct {
-	failFast bool
 }
 
 var (
-	defaultExecutorOptions = ExecutorOptions{
-		failFast: false,
-	}
-	cpuCount = runtime.NumCPU()
+	defaultExecutorOptions = ExecutorOptions{}
+	cpuCount               = runtime.NumCPU()
 )
 
 type ExecutorOption interface {
@@ -28,14 +25,6 @@ type ExecutorOption interface {
 
 type funcExecutorOption struct {
 	f func(*ExecutorOptions)
-}
-
-func FailFast() ExecutorOption {
-	return &funcExecutorOption{
-		f: func(eo *ExecutorOptions) {
-			eo.failFast = true
-		},
-	}
 }
 
 func (fso *funcExecutorOption) apply(ops *ExecutorOptions) {
@@ -71,7 +60,7 @@ func NewExecutor() *Executor {
 		taskQueue:    make(chan *Task),
 		workingCount: atomic.NewInt32(0),
 	}
-	for i := 0; i < cpuCount; i++ {
+	for i := 0; i < cpuCount/2; i++ {
 		go worker(s.taskQueue, s.workingCount)
 	}
 	return s
@@ -85,9 +74,6 @@ func (s *Executor) Exec(
 	for _, op := range opts {
 		op.apply(&options)
 	}
-	if options.failFast && s.AtCapacity() {
-		return &AllThreadsBusy{}
-	}
 	s.taskQueue <- task
 	select {
 	case <-task.Done():
@@ -97,5 +83,5 @@ func (s *Executor) Exec(
 }
 
 func (s *Executor) AtCapacity() bool {
-	return s.workingCount.Load() == int32(cpuCount)
+	return s.workingCount.Load() >= int32(cpuCount/2)
 }

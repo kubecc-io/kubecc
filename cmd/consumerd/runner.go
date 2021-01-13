@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -22,22 +23,31 @@ import (
 func runPreprocessor(
 	req *types.RunRequest,
 	info *cc.ArgsInfo,
-) ([]byte, error) {
+) ([]byte, *types.RunResponse) {
 	outBuf := new(bytes.Buffer)
+	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
 	runner := run.NewPreprocessRunner(
 		run.WithEnv(req.Env),
-		run.WithLogger(log),
 		run.WithOutputWriter(outBuf),
-		run.WithStderr(stderrBuf),
+		run.WithOutputStreams(stdoutBuf, stderrBuf),
 		run.WithUidGid(req.UID, req.GID),
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	err := runner.Run(info)
-	if err != nil {
-		return nil, err
+	if err := runner.Run(info); err != nil {
+		stderr := stderrBuf.Bytes()
+		lll.With(
+			zap.Error(err),
+			zap.Object("info", info),
+			zap.ByteString("stderr", stderr),
+		).Error("Compiler error")
+		return nil, &types.RunResponse{
+			ReturnCode: 1,
+			Stdout:     stdoutBuf.Bytes(),
+			Stderr:     stderr,
+		}
 	}
 	return outBuf.Bytes(), nil
 }
@@ -47,13 +57,14 @@ func runRequestLocal(
 	info *cc.ArgsInfo,
 	executor *run.Executor,
 ) (*types.RunResponse, error) {
+	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
 	runner := run.NewCompileRunner(
 		run.InPlace(true),
 		run.WithEnv(req.Env),
-		run.WithLogger(log),
-		run.WithStderr(stderrBuf),
+		run.WithOutputStreams(stdoutBuf, stderrBuf),
+		run.WithStdin(bytes.NewReader(req.Stdin)),
 		run.WithUidGid(req.UID, req.GID),
 		run.WithWorkDir(req.WorkDir),
 	)
@@ -62,19 +73,23 @@ func runRequestLocal(
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
-		log.With(zap.Error(err)).Debug("Compiler error")
+		lll.With(zap.Error(err), zap.Object("info", info)).Error("Compiler error")
+		errString := stderrBuf.String()
+		lll.Error(errString)
 		return &types.RunResponse{
-			Success: false,
-			Stderr:  stderrBuf.String(),
+			ReturnCode: 1,
+			Stdout:     stdoutBuf.Bytes(),
+			Stderr:     stderrBuf.Bytes(),
 		}, nil
 	} else if err != nil {
 		return nil, err
 	}
 
-	log.With(zap.Error(err)).Debug("Local run success")
+	lll.With(zap.Error(err)).Debug("Local run success")
 	return &types.RunResponse{
-		Success: true,
-		Stderr:  stderrBuf.String(),
+		ReturnCode: 0,
+		Stdout:     stdoutBuf.Bytes(),
+		Stderr:     stderrBuf.Bytes(),
 	}, nil
 }
 
@@ -87,15 +102,13 @@ func runRequestRemote(
 
 	info.SubstitutePreprocessorOptions()
 
-	var preprocessedSource []byte
 	opt := info.ActionOpt()
 
-	log.Debug("Preprocessing")
+	lll.Debug("Preprocessing")
 	info.SetActionOpt(cc.Preprocess)
-	var err error
-	preprocessedSource, err = runPreprocessor(req, info)
-	if err != nil {
-		return nil, err
+	preprocessedSource, errResp := runPreprocessor(req, info)
+	if errResp != nil {
+		return errResp, nil
 	}
 	info.SetActionOpt(opt)
 
@@ -113,39 +126,44 @@ func runRequestRemote(
 
 	// Compile remote
 	info.RemoveLocalArgs()
-	log.Debug("Starting remote compile")
+	lll.Debug("Starting remote compile")
 	resp, err := client.Compile(ctx, &types.CompileRequest{
 		Command:            "/bin/gcc", // todo
 		Args:               info.Args,
 		PreprocessedSource: preprocessedSource,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
-		log.With(zap.Error(err)).Debug("Remote compile failed")
+		lll.With(zap.Error(err)).Debug("Remote compile failed")
 		return nil, err
 	}
-	log.Debug("Remote compile completed")
+	lll.Debug("Remote compile completed")
 	switch resp.CompileResult {
 	case types.CompileResponse_Success:
 		f, err := os.OpenFile(outputPath,
 			os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0777)
 		if err != nil {
-			log.With(zap.Error(err)).Debug("Failed to open output file")
+			lll.With(zap.Error(err)).Debug("Failed to open output file")
 			return nil, err
 		}
 		_, err = io.Copy(f, bytes.NewReader(resp.GetCompiledSource()))
 		if err != nil {
-			log.With(zap.Error(err)).Debug("Copy failed")
+			lll.With(zap.Error(err)).Debug("Copy failed")
 			return nil, err
 		}
 		return &types.RunResponse{
-			Success: true,
-			Stderr:  resp.GetError(),
+			ReturnCode: 0,
+			Stdout:     []byte{},
+			Stderr:     []byte(resp.GetError()),
 		}, nil
 	case types.CompileResponse_Fail:
-		log.Error(resp.GetError())
+		err := analyzeErrors(resp.GetError())
+		if err != nil {
+			return nil, status.Error(codes.Internal, "Internal error")
+		}
 		return &types.RunResponse{
-			Success: false,
-			Stderr:  resp.GetError(),
+			ReturnCode: 1,
+			Stdout:     []byte{},
+			Stderr:     []byte(resp.GetError()),
 		}, nil
 	default:
 		return nil, status.Error(codes.Internal, "Bad response from server")
