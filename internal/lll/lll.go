@@ -4,6 +4,7 @@ package lll
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.uber.org/atomic"
@@ -18,6 +19,13 @@ var (
   / //_/ / / / __ \/ _ \/ ___/ ___/
  / ,< / /_/ / /_/ /  __/ /__/ /__  
 /_/|_|\__,_/_.___/\___/\___/\___/  `
+	BigAsciiTextColored = strings.Join([]string{
+		"\x1b[33m    __         __\x1b[0m                  ",
+		"\x1b[33m   / /____  __/ /_  ___  \x1b[0m\x1b[34m__________\x1b[0m",
+		"\x1b[33m  / //_/ / / / __ \\/ _ \\\x1b[0m\x1b[34m/ ___/ ___/\x1b[0m",
+		"\x1b[33m / ,< / /_/ / /_/ /  __/ \x1b[0m\x1b[34m/__/ /__  \x1b[0m",
+		"\x1b[33m/_/|_|\\__,_/_.___/\\___/\x1b[0m\x1b[34m\\___/\\___/  \x1b[0m",
+	}, "\n")
 
 	startTime *atomic.Int64
 
