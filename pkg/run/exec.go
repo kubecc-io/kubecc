@@ -8,6 +8,7 @@ import (
 
 type Executor struct {
 	taskQueue    chan *Task
+	workerCount  int
 	workingCount *atomic.Int32
 }
 
@@ -55,12 +56,13 @@ func worker(queue <-chan *Task, count *atomic.Int32) {
 	}
 }
 
-func NewExecutor() *Executor {
+func NewExecutor(workerCount int) *Executor {
 	s := &Executor{
 		taskQueue:    make(chan *Task),
+		workerCount:  workerCount,
 		workingCount: atomic.NewInt32(0),
 	}
-	for i := 0; i < cpuCount/2; i++ {
+	for i := 0; i < workerCount; i++ {
 		go worker(s.taskQueue, s.workingCount)
 	}
 	return s
@@ -83,5 +85,5 @@ func (s *Executor) Exec(
 }
 
 func (s *Executor) AtCapacity() bool {
-	return s.workingCount.Load() >= int32(cpuCount/2)
+	return s.workingCount.Load() >= int32(s.workerCount)
 }

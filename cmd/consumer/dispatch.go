@@ -16,7 +16,8 @@ import (
 
 func dispatchAndWait(cc *grpc.ClientConn) {
 	lll.Info("Dispatching to consumerd")
-	leaderClient := types.NewConsumerdClient(cc)
+
+	consumerd := types.NewConsumerdClient(cc)
 	wd, err := os.Getwd()
 	if err != nil {
 		lll.Fatal(err.Error())
@@ -27,7 +28,7 @@ func dispatchAndWait(cc *grpc.ClientConn) {
 		io.Copy(stdin, os.Stdin)
 	}
 
-	resp, err := leaderClient.Run(context.Background(), &types.RunRequest{
+	resp, err := consumerd.Run(context.Background(), &types.RunRequest{
 		WorkDir: wd,
 		Args:    os.Args[1:],
 		Env:     os.Environ(),

@@ -4,7 +4,10 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
@@ -16,6 +19,11 @@ func main() {
 	lll.Info("Server starting")
 	initConfig()
 
+	closer, err := tracing.Start("scheduler")
+	if err != nil {
+		defer closer.Close()
+	}
+
 	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		panic(err.Error())
@@ -24,7 +32,9 @@ func main() {
 		Info("Server listening")
 
 	grpcServer := grpc.NewServer(
-		grpc.MaxRecvMsgSize(5e7), // 50MB
+		grpc.MaxRecvMsgSize(1e8), // 100MB
+		grpc.UnaryInterceptor(
+			otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer())),
 	)
 
 	srv := NewSchedulerServer()

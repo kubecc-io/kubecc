@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/opentracing/opentracing-go"
 )
 
 type Task struct {
@@ -15,6 +16,8 @@ type Task struct {
 }
 
 func (t *Task) Run() {
+	span, _ := opentracing.StartSpanFromContext(t.ctx, "task-run")
+	defer span.Finish()
 	defer close(t.doneCh)
 	t.err = t.runner.Run(t.info)
 }

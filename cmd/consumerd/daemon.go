@@ -5,14 +5,20 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"runtime"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 
 	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/pkg/tracing"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -42,6 +48,21 @@ func (s *consumerd) Run(
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
 	lll.Debug("Running request")
+	rootContext := ctx
+	for _, env := range req.Env {
+		spl := strings.Split(env, "=")
+		if len(spl) == 2 && spl[0] == "KUBECC_MAKE_PID" {
+			pid, err := strconv.Atoi(spl[1])
+			if err != nil {
+				lll.Debug("Invalid value for KUBECC_MAKE_PID, should be a number")
+				break
+			}
+			rootContext = tracing.PIDSpanContext(pid)
+		}
+	}
+	span, sctx := opentracing.StartSpanFromContext(rootContext, "run")
+	defer span.Finish()
+
 	if req.UID == 0 || req.GID == 0 {
 		return nil, status.Error(codes.InvalidArgument,
 			"UID or GID cannot be 0")
@@ -69,9 +90,9 @@ func (s *consumerd) Run(
 
 	switch mode {
 	case cc.RunLocal:
-		return runRequestLocal(req, info, s.executor)
+		return runRequestLocal(sctx, req, info, s.executor)
 	case cc.RunRemote:
-		return runRequestRemote(ctx, req, info, s.schedulerClient)
+		return runRequestRemote(sctx, req, info, s.schedulerClient)
 	case cc.Unset:
 		return nil, status.Error(codes.Internal, "Encountered RunError state")
 	default:
@@ -86,7 +107,10 @@ func (s *consumerd) connectToRemote() {
 		return
 	}
 	conn, err := grpc.Dial(addr, func() []grpc.DialOption {
-		options := []grpc.DialOption{}
+		options := []grpc.DialOption{
+			grpc.WithUnaryInterceptor(
+				otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
+		}
 		if viper.GetBool("tls") {
 			options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(
 				&tls.Config{
@@ -120,7 +144,7 @@ func (s *consumerd) schedulerAtCapacity() bool {
 func startConsumerd() {
 	lll.Info("Starting consumerd")
 	d := &consumerd{
-		executor: run.NewExecutor(),
+		executor: run.NewExecutor(runtime.NumCPU()),
 	}
 	go d.connectToRemote()
 	d.remoteOnly = viper.GetBool("remoteOnly")
@@ -135,7 +159,9 @@ func startConsumerd() {
 		lll.With(zap.Error(err)).Fatal("Could not start consumerd")
 	}
 	srv := grpc.NewServer(
-		grpc.MaxRecvMsgSize(5e7), // 50MB
+		grpc.MaxRecvMsgSize(1e8), // 100MB
+		grpc.UnaryInterceptor(
+			otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer())),
 	)
 
 	types.RegisterConsumerdServer(srv, d)
