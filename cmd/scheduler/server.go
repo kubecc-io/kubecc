@@ -9,6 +9,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/fsnotify/fsnotify"
 	"github.com/golang/protobuf/ptypes/wrappers"
+	"github.com/opentracing/opentracing-go"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
@@ -71,11 +72,14 @@ func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+	span, sctx := opentracing.StartSpanFromContext(ctx, "schedule-compile")
+	defer span.Finish()
+
 	peer, ok := peer.FromContext(ctx)
 	if ok {
 		lll.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.atomicScheduler().Schedule(ctx, req)
+	return s.atomicScheduler().Schedule(sctx, req)
 	// task, err := s.atomicScheduler().Schedule(ctx, req)
 	// if err != nil {
 	// 	lll.With(zap.Error(err)).Info("=> Schedule failed")

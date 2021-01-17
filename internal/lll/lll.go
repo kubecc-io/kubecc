@@ -24,7 +24,7 @@ var (
 		"\x1b[33m   / /____  __/ /_  ___  \x1b[0m\x1b[34m__________\x1b[0m",
 		"\x1b[33m  / //_/ / / / __ \\/ _ \\\x1b[0m\x1b[34m/ ___/ ___/\x1b[0m",
 		"\x1b[33m / ,< / /_/ / /_/ /  __/ \x1b[0m\x1b[34m/__/ /__  \x1b[0m",
-		"\x1b[33m/_/|_|\\__,_/_.___/\\___/\x1b[0m\x1b[34m\\___/\\___/  \x1b[0m",
+		"\x1b[33m/_/|_|\\__,_/_.___/\\___/\x1b[0m\x1b[34m\\___/\\___/  \x1b[0m\n",
 	}, "\n")
 
 	startTime *atomic.Int64
@@ -138,7 +138,7 @@ func Setup(component string, ops ...LogOption) {
 }
 
 func PrintHeader() {
-	fmt.Println(BigAsciiText)
+	fmt.Println(BigAsciiTextColored)
 	globalLog.Info(Green.Add("Starting component"))
 }
 

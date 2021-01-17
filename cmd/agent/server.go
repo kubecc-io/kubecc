@@ -10,7 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"go.uber.org/atomic"
+	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,35 +19,47 @@ import (
 type agentServer struct {
 	types.AgentServer
 
-	tasks           *atomic.Int32
-	maxRunningTasks int
-	maxWaitingTasks int
-	runQueue        chan struct{}
+	// tasks           *atomic.Int32
+	// maxRunningTasks int
+	// maxWaitingTasks int
+	// runQueue        chan struct{}
+	executor *run.Executor
 }
 
 func NewAgentServer() types.AgentServer {
-	srv := &agentServer{}
-	srv.tasks = atomic.NewInt32(0)
-	srv.maxRunningTasks = runtime.NumCPU()
-	srv.maxWaitingTasks = runtime.NumCPU()
-	srv.runQueue = make(chan struct{}, srv.maxRunningTasks)
-	for i := 0; i < cap(srv.runQueue); i++ {
-		srv.runQueue <- struct{}{}
+	srv := &agentServer{
+		executor: run.NewExecutor(2 * runtime.NumCPU()),
 	}
+	// srv.tasks = atomic.NewInt32(0)
+	// srv.maxRunningTasks = 2 * runtime.NumCPU()
+	// srv.maxWaitingTasks = 10 * runtime.NumCPU()
+	// srv.runQueue = make(chan struct{}, srv.maxRunningTasks)
+	// for i := 0; i < cap(srv.runQueue); i++ {
+	// 	srv.runQueue <- struct{}{}
+	// }
 	return srv
 }
 
-func (s *agentServer) Compile(ctx context.Context, req *types.CompileRequest) (*types.CompileResponse, error) {
-	if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-		lll.Error("*** Hit the max number of tasks, rejecting")
-		return nil, status.Error(codes.Unavailable, "Max number of concurrent tasks reached")
-	}
-	s.tasks.Inc()
-	token := <-s.runQueue
-	defer func() {
-		s.runQueue <- token
-		s.tasks.Dec()
-	}()
+func (s *agentServer) Compile(
+	ctx context.Context,
+	req *types.CompileRequest,
+) (*types.CompileResponse, error) {
+	span, sctx := opentracing.StartSpanFromContext(ctx, "queue")
+	defer span.Finish()
+	// if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
+	// 	lll.Error("*** Hit the max number of tasks, rejecting")
+	// 	return nil, status.Error(codes.Unavailable, "Max number of concurrent tasks reached")
+	// }
+	// s.tasks.Inc()
+	// token := <-s.runQueue
+	// span.Finish()
+	// span, _ = opentracing.StartSpanFromContext(ctx, "compile",
+	// 	opentracing.FollowsFrom(span.Context()))
+	// defer func() {
+	// 	span.Finish()
+	// 	s.runQueue <- token
+	// 	s.tasks.Dec()
+	// }()
 	info := cc.NewArgsInfo(req.Args)
 	info.Parse()
 	lll.With(zap.Object("args", info)).Info("Compile starting")
@@ -58,7 +70,8 @@ func (s *agentServer) Compile(ctx context.Context, req *types.CompileRequest) (*
 		run.WithOutputStreams(ioutil.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	err := runner.Run(info)
+	task := run.NewTask(sctx, runner, info)
+	err := s.executor.Exec(task)
 	lll.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
 		return &types.CompileResponse{

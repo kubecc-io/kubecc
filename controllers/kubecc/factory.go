@@ -44,7 +44,12 @@ func (r *KubeccReconciler) makeScheduler(kubecc *v1alpha1.Kubecc) *appsv1.Deploy
 							Name:            "kubecc-scheduler",
 							Image:           kubecc.Spec.SchedulerImage,
 							ImagePullPolicy: v1.PullAlways,
-							Env:             cluster.MakeDownwardApi(),
+							Env: append(cluster.MakeDownwardApi(),
+								v1.EnvVar{
+									Name:  "JAEGER_ENDPOINT",
+									Value: "http://simplest-collector.observability.svc.cluster.local:14268/api/traces",
+								},
+							),
 							Ports: []v1.ContainerPort{
 								{
 
@@ -182,7 +187,12 @@ func (r *KubeccReconciler) makeDaemonSet(kubecc *v1alpha1.Kubecc) *appsv1.Daemon
 							Image:           kubecc.Spec.AgentImage,
 							ImagePullPolicy: v1.PullAlways,
 							Resources:       kubecc.Spec.Nodes.Resources,
-							Env:             cluster.MakeDownwardApi(),
+							Env: append(cluster.MakeDownwardApi(),
+								v1.EnvVar{
+									Name:  "JAEGER_ENDPOINT",
+									Value: "http://simplest-collector.observability.svc.cluster.local:14268/api/traces",
+								},
+							),
 							Ports: []v1.ContainerPort{
 								{
 									Name:          "grpc",

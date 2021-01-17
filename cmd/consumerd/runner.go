@@ -16,14 +16,19 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 func runPreprocessor(
+	ctx context.Context,
 	req *types.RunRequest,
 	info *cc.ArgsInfo,
 ) ([]byte, *types.RunResponse) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "preprocess")
+	defer span.Finish()
+
 	outBuf := new(bytes.Buffer)
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
@@ -53,10 +58,14 @@ func runPreprocessor(
 }
 
 func runRequestLocal(
+	ctx context.Context,
 	req *types.RunRequest,
 	info *cc.ArgsInfo,
 	executor *run.Executor,
 ) (*types.RunResponse, error) {
+	span, sctx := opentracing.StartSpanFromContext(ctx, "run-local")
+	defer span.Finish()
+
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
@@ -69,7 +78,7 @@ func runRequestLocal(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.NewTask(context.Background(), runner, info)
+	t := run.NewTask(sctx, runner, info)
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
@@ -99,6 +108,8 @@ func runRequestRemote(
 	info *cc.ArgsInfo,
 	client types.SchedulerClient,
 ) (*types.RunResponse, error) {
+	span, sctx := opentracing.StartSpanFromContext(ctx, "run-remote")
+	defer span.Finish()
 
 	info.SubstitutePreprocessorOptions()
 
@@ -106,7 +117,7 @@ func runRequestRemote(
 
 	lll.Debug("Preprocessing")
 	info.SetActionOpt(cc.Preprocess)
-	preprocessedSource, errResp := runPreprocessor(req, info)
+	preprocessedSource, errResp := runPreprocessor(sctx, req, info)
 	if errResp != nil {
 		return errResp, nil
 	}
