@@ -25,8 +25,11 @@ func NewCompileRunner(opts ...RunOption) Runner {
 }
 
 // Run the compiler with the current args.
-func (r *compileRunner) Run(info *cc.ArgsInfo) error {
-	lll.With(zap.Object("info", info)).Debug("Received run request")
+func (r *compileRunner) Run(compiler string, info *cc.ArgsInfo) error {
+	lll.With(
+		zap.String("compiler", compiler),
+		zap.Object("info", info),
+	).Debug("Received run request")
 
 	var tmpFileName string
 	if info.OutputArgIndex != -1 && !r.NoTempFile {
@@ -52,7 +55,7 @@ func (r *compileRunner) Run(info *cc.ArgsInfo) error {
 		}
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.Command("/bin/gcc", info.Args...) // todo
+	cmd := exec.Command(compiler, info.Args...) // todo
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.Stdout

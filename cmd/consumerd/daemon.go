@@ -110,6 +110,7 @@ func (s *consumerd) connectToRemote() {
 		options := []grpc.DialOption{
 			grpc.WithUnaryInterceptor(
 				otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1e8)), // 100 MB
 		}
 		if viper.GetBool("tls") {
 			options = append(options, grpc.WithTransportCredentials(credentials.NewTLS(

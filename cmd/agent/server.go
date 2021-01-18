@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"os"
 	"runtime"
 
 	"github.com/cobalt77/kubecc/internal/lll"
@@ -28,7 +29,7 @@ type agentServer struct {
 
 func NewAgentServer() types.AgentServer {
 	srv := &agentServer{
-		executor: run.NewExecutor(2 * runtime.NumCPU()),
+		executor: run.NewExecutor((runtime.NumCPU() * 3) / 2),
 	}
 	// srv.tasks = atomic.NewInt32(0)
 	// srv.maxRunningTasks = 2 * runtime.NumCPU()
@@ -70,7 +71,7 @@ func (s *agentServer) Compile(
 		run.WithOutputStreams(ioutil.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.NewTask(sctx, runner, info)
+	task := run.NewTask(sctx, runner, req.Command, info)
 	err := s.executor.Exec(task)
 	lll.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
@@ -87,6 +88,10 @@ func (s *agentServer) Compile(
 	if err != nil {
 		lll.With(zap.Error(err)).Info("Error reading temp file")
 		return nil, status.Error(codes.Internal, err.Error())
+	}
+	err = os.Remove(tmpFilename.String())
+	if err != nil {
+		lll.With(zap.Error(err)).Info("Error removing temp file")
 	}
 	lll.With(zap.Error(err)).Info("Sending results")
 	return &types.CompileResponse{

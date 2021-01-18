@@ -7,6 +7,8 @@ target "agent" {
   tags = ["gcr.io/kubecc/agent"]
   platforms = ["linux/amd64"]
   context = "."
+  cache-from = ["type=local,src=build/cache/agent"]
+  cache-to = ["type=local,dest=build/cache/agent"]
 }
 
 target "manager" {
@@ -14,6 +16,8 @@ target "manager" {
   tags = ["gcr.io/kubecc/manager"]
   platforms = ["linux/amd64"]
   context = "."
+  cache-from = ["type=local,src=build/cache/manager"]
+  cache-to = ["type=local,dest=build/cache/manager"]
 }
 
 target "scheduler" {
@@ -21,4 +25,6 @@ target "scheduler" {
   tags = ["gcr.io/kubecc/scheduler"]
   platforms = ["linux/amd64"]
   context = "."
+  cache-from = ["type=local,src=build/cache/scheduler"]
+  cache-to = ["type=local,dest=build/cache/scheduler"]
 }

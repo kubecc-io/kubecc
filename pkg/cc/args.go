@@ -394,11 +394,12 @@ func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
 	return errors.New("No input arg found")
 }
 
-// SubstitutePreprocessorOptions expands gcc preprocessor arguments
+// ConfigurePreprocessorOptions expands gcc preprocessor arguments
 // according to the following rules:
 // 1. Replace "-Wp,-X,-Y,-Z" with "-X -Y -Z"
 // 2. Replace "-Wp,-MD,path" or "-Wp,-MMD,path" with "-M[M]D -MF path"
-func (info *ArgsInfo) SubstitutePreprocessorOptions() {
+// It also adds the -fdirectives-only option.
+func (info *ArgsInfo) ConfigurePreprocessorOptions() {
 	for i := 0; i < len(info.Args); i++ {
 		arg := info.Args[i]
 		if !strings.HasPrefix(arg, "-Wp") {
@@ -421,12 +422,14 @@ func (info *ArgsInfo) SubstitutePreprocessorOptions() {
 		info.Args = append(left, info.Args[i+1:]...)
 		i = len(left) - 1
 	}
+	info.Args = append(info.Args, "-fdirectives-only")
 	info.Parse()
 }
 
 // RemoveLocalArgs removes arguments that do not need to be
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
+// It also adds -fpreprocessed
 func (info *ArgsInfo) RemoveLocalArgs() {
 	newArgs := []string{}
 	for i := 0; i < len(info.Args); i++ {
@@ -448,7 +451,7 @@ func (info *ArgsInfo) RemoveLocalArgs() {
 		}
 		newArgs = append(newArgs, arg)
 	}
-	info.Args = newArgs
+	info.Args = append(newArgs, "-fpreprocessed")
 	info.Parse()
 }
 

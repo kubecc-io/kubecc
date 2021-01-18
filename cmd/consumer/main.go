@@ -24,6 +24,7 @@ func main() {
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1e8)), // 100 MB
 	)
 	if err != nil {
 		lll.With(zap.Error(err)).Fatal("Error connecting to leader")

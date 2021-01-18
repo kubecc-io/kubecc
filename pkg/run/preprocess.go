@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"io"
 	"os/exec"
-	"path/filepath"
 	"syscall"
 
 	"github.com/cobalt77/kubecc/internal/lll"
@@ -22,7 +21,7 @@ func NewPreprocessRunner(opts ...RunOption) Runner {
 	return r
 }
 
-func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
+func (r *preprocessRunner) Run(compiler string, info *cc.ArgsInfo) error {
 	if info.OutputArgIndex != -1 {
 		lll.Debug("Replacing output path with '-'")
 		old := info.Args[info.OutputArgIndex]
@@ -30,8 +29,7 @@ func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
 		defer info.ReplaceOutputPath(old)
 	}
 	stderrBuf := new(bytes.Buffer)
-	gcc, _ := filepath.EvalSymlinks("/bin/gcc")
-	cmd := exec.Command(gcc, info.Args...) // todo
+	cmd := exec.Command(compiler, info.Args...) // todo
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.OutputWriter
@@ -43,7 +41,22 @@ func (r *preprocessRunner) Run(info *cc.ArgsInfo) error {
 			NoSetGroups: true,
 		},
 	}
-	err := cmd.Run()
+	err := cmd.Start()
+	if err != nil {
+		return err
+	}
+	ch := make(chan struct{})
+	defer close(ch)
+	go func() {
+		select {
+		case <-r.Context.Done():
+			if !cmd.ProcessState.Exited() {
+				cmd.Process.Kill()
+			}
+		case <-ch:
+		}
+	}()
+	err = cmd.Wait()
 	if err != nil {
 		lll.With(zap.Error(err)).Error("Compiler error")
 		return NewCompilerError(stderrBuf.String())

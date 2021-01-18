@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -29,12 +30,13 @@ func dispatchAndWait(cc *grpc.ClientConn) {
 	}
 
 	resp, err := consumerd.Run(context.Background(), &types.RunRequest{
-		WorkDir: wd,
-		Args:    os.Args[1:],
-		Env:     os.Environ(),
-		UID:     uint32(os.Getuid()),
-		GID:     uint32(os.Getgid()),
-		Stdin:   stdin.Bytes(),
+		Compiler: filepath.Base(os.Args[0]),
+		Args:     os.Args[1:],
+		Env:      os.Environ(),
+		UID:      uint32(os.Getuid()),
+		GID:      uint32(os.Getgid()),
+		Stdin:    stdin.Bytes(),
+		WorkDir:  wd,
 	}, grpc.WaitForReady(true), grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		lll.With(zap.Error(err)).Error("Dispatch error")
