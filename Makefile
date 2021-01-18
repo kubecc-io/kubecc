@@ -13,8 +13,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
-
-all: generate manifests proto fmt vet 
+CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
+all: generate manifests proto fmt vet bin
 
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
@@ -53,13 +53,36 @@ vet:
 generate: 
 	controller-gen object paths="./..."
 
+bin: agent scheduler manager make kcctl consumer consumerd
+
 agent:
-	docker buildx bake -f bake.hcl agent --push
+	CGO_ENABLED=0 go build -o ./build/bin/agent ./cmd/agent
 
 scheduler:
-	docker buildx bake -f bake.hcl scheduler --push
+	CGO_ENABLED=0 go build -o ./build/bin/scheduler ./cmd/scheduler
 
 manager:
+	CGO_ENABLED=0 go build -o ./build/bin/manager ./cmd/manager
+
+make:
+	CGO_ENABLED=0 go build -o ./build/bin/make ./cmd/make
+
+kcctl:
+	CGO_ENABLED=0 go build -o ./build/bin/kcctl ./cmd/kcctl
+
+consumer:
+	CGO_ENABLED=0 go build -o ./build/bin/consumer ./cmd/consumer
+
+consumerd:
+	CGO_ENABLED=0 go build -o ./build/bin/consumerd ./cmd/consumerd
+
+agent-docker:
+	docker buildx bake -f bake.hcl agent --push
+
+scheduler-docker:
+	docker buildx bake -f bake.hcl scheduler --push
+
+manager-docker:
 	docker buildx bake -f bake.hcl manager --push
 
 docker: 

@@ -59,12 +59,14 @@ func formatLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 type LogOptions struct {
 	outputPaths      []string
 	errorOutputPaths []string
+	logLevel         zapcore.Level
 }
 
 var (
 	defaultLogOptions = LogOptions{
 		outputPaths:      []string{"stdout"},
 		errorOutputPaths: []string{"stderr"},
+		logLevel:         zapcore.DebugLevel,
 	}
 )
 
@@ -96,6 +98,14 @@ func WithErrorOutputPaths(paths []string) LogOption {
 	}
 }
 
+func WithLogLevel(level zapcore.Level) LogOption {
+	return &funcLogOption{
+		func(lo *LogOptions) {
+			lo.logLevel = level
+		},
+	}
+}
+
 func Setup(component string, ops ...LogOption) {
 	options := defaultLogOptions
 	for _, op := range ops {
@@ -104,7 +114,7 @@ func Setup(component string, ops ...LogOption) {
 
 	startTime = atomic.NewInt64(time.Now().Unix())
 	conf := zap.Config{
-		Level:             zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		Level:             zap.NewAtomicLevelAt(options.logLevel),
 		Development:       false,
 		DisableCaller:     false,
 		DisableStacktrace: true,

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -41,7 +42,7 @@ func runPreprocessor(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	if err := runner.Run(info); err != nil {
+	if err := runner.Run(fmt.Sprintf("/usr/bin/%s", req.Compiler), info); err != nil {
 		stderr := stderrBuf.Bytes()
 		lll.With(
 			zap.Error(err),
@@ -78,7 +79,7 @@ func runRequestLocal(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.NewTask(sctx, runner, info)
+	t := run.NewTask(sctx, runner, fmt.Sprintf("/usr/bin/%s", req.Compiler), info)
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
@@ -111,7 +112,7 @@ func runRequestRemote(
 	span, sctx := opentracing.StartSpanFromContext(ctx, "run-remote")
 	defer span.Finish()
 
-	info.SubstitutePreprocessorOptions()
+	info.ConfigurePreprocessorOptions()
 
 	opt := info.ActionOpt()
 
@@ -139,7 +140,7 @@ func runRequestRemote(
 	info.RemoveLocalArgs()
 	lll.Debug("Starting remote compile")
 	resp, err := client.Compile(ctx, &types.CompileRequest{
-		Command:            "/bin/gcc", // todo
+		Command:            req.Compiler, // todo
 		Args:               info.Args,
 		PreprocessedSource: preprocessedSource,
 	}, grpc.UseCompressor(gzip.Name))

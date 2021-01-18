@@ -25,6 +25,7 @@ func (r *linkerdResolver) Dial() (*grpc.ClientConn, error) {
 		grpc.WithInsecure(),
 		grpc.WithUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1e8)), // 100 MB
 	)
 }
 

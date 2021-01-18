@@ -20,12 +20,13 @@ service Scheduler {
 
 // consumer -> consumerd
 message RunRequest {
-  repeated string Args = 1;
-  uint32 UID = 2;
-  uint32 GID = 3;
-  string WorkDir = 4;
-  repeated string Env = 5;
-  bytes Stdin = 6;
+  string Compiler = 1;
+  repeated string Args = 2;
+  uint32 UID = 3;
+  uint32 GID = 4;
+  string WorkDir = 5;
+  repeated string Env = 6;
+  bytes Stdin = 7;
 }
 // consumerd -> consumer
 message RunResponse {

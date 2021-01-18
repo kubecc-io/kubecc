@@ -1,18 +1,20 @@
 package run
 
 import (
+	"context"
 	"io"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 )
 
 type Runner interface {
-	Run(info *cc.ArgsInfo) error
+	Run(compiler string, info *cc.ArgsInfo) error
 }
 
 type OutputType int
 
 type ProcessOptions struct {
+	Context context.Context
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Stdin   io.Reader
@@ -104,6 +106,14 @@ func InPlace(inPlace bool) RunOption {
 	return &funcRunOption{
 		func(ro *RunnerOptions) {
 			ro.NoTempFile = inPlace
+		},
+	}
+}
+
+func WithContext(ctx context.Context) RunOption {
+	return &funcRunOption{
+		func(ro *RunnerOptions) {
+			ro.Context = ctx
 		},
 	}
 }

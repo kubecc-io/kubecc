@@ -53,7 +53,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	info := NewArgsInfoFromOS()
 	info.Parse()
-	info.SubstitutePreprocessorOptions()
+	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
 		os.Args[1:],
 		info.Args,
@@ -63,7 +63,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	info = NewArgsInfoFromOS()
 	info.Parse()
-	info.SubstitutePreprocessorOptions()
+	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
 		strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c`, " "),
 		info.Args,
@@ -73,7 +73,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	info = NewArgsInfoFromOS()
 	info.Parse()
-	info.SubstitutePreprocessorOptions()
+	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
 		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
 		info.Args,
@@ -83,7 +83,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	info = NewArgsInfoFromOS()
 	info.Parse()
-	info.SubstitutePreprocessorOptions()
+	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
 		strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c`, " "),
 		info.Args,
