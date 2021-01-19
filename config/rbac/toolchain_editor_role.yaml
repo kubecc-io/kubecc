@@ -1,13 +1,13 @@
-# permissions for end users to edit kubeccs.
+# permissions for end users to edit toolchains.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kubecc-editor-role
+  name: toolchain-editor-role
 rules:
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs
+  - toolchains
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs/status
+  - toolchains/status
   verbs:
   - get

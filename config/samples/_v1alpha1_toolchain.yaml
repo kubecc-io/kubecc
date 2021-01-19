@@ -1,0 +1,10 @@
+apiVersion: kubecc.io/v1alpha1
+kind: Toolchain
+metadata:
+  name: amd64-amd64
+  namespace: kubecc
+spec:
+  kind: gcc
+  triple: x86_64-linux-gnu
+  host: amd64
+  target: amd64

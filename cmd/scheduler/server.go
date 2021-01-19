@@ -61,6 +61,7 @@ func (s *schedulerServer) AtCapacity(
 	ctx context.Context,
 	req *types.Empty,
 ) (*wrappers.BoolValue, error) {
+	// this isnt used
 	peer, ok := peer.FromContext(ctx)
 	if ok {
 		lll.With("peer", peer.Addr.String()).Info("Schedule requested")
@@ -89,21 +90,23 @@ func (s *schedulerServer) Compile(
 	// return s.monitor.Wait(task)
 }
 
-// func (s *schedulerServer) Connect(
-// 	srv types.Scheduler_ConnectServer,
-// ) error {
-// 	agent, err := NewAgentFromContext(srv.Context())
-// 	if err != nil {
-// 		lll.With(zap.Error(err)).Error("Error identifying agent using context")
-// 		return nil
-// 	}
-// 	lg := lll.With("agent", agent)
+func (s *schedulerServer) Connect(
+	srv types.Scheduler_ConnectServer,
+) error {
+	agent, err := NewAgentFromContext(srv.Context())
+	if err != nil {
+		lll.With(zap.Error(err)).Error("Error identifying agent using context")
+		return nil
+	}
+	lg := lll.With("agent", agent)
 
-// 	lg.Info("Agent connected")
+	lg.Info("Agent connected")
 
-// 	s.monitor.AgentConnected(agent)
-// 	<-srv.Context().Done()
+	// add logic here maybe
 
-// 	lg.Info("Agent disconnected")
-// 	return nil
-// }
+	//s.monitor.AgentConnected(agent)
+	<-srv.Context().Done()
+
+	lg.Info("Agent disconnected")
+	return nil
+}

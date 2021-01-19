@@ -1,0 +1,20 @@
+# permissions for end users to view toolchains.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: toolchain-viewer-role
+rules:
+- apiGroups:
+  - kubecc.io
+  resources:
+  - toolchains
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - kubecc.io
+  resources:
+  - toolchains/status
+  verbs:
+  - get

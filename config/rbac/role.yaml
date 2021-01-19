@@ -89,6 +89,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - kubecc.io
+  resources:
+  - toolchains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kubecc.io
+  resources:
+  - toolchains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kubecc.io
+  resources:
+  - toolchains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - linkerd.io
   resources:
   - serviceprofiles
