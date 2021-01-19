@@ -35,7 +35,7 @@ func main() {
 	}
 	agent := NewAgentServer()
 	types.RegisterAgentServer(srv, agent)
-	// connectToScheduler()
+	connectToScheduler()
 	err = srv.Serve(listener)
 	if err != nil {
 		lll.With(zap.Error(err)).Error("GRPC error")

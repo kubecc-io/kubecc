@@ -15,7 +15,17 @@ service Agent {
 service Scheduler {
   rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  // rpc Connect(stream Empty) returns (stream Empty);
+  rpc Connect(stream Empty) returns (stream Empty);
+}
+
+message AgentToolchainInfo {
+  string Kind = 1;
+  string Target = 2;
+  repeated string Versions = 3; 
+}
+
+message AgentToolchainInfoList {
+  repeated AgentToolchainInfo info = 1; 
 }
 
 // consumer -> consumerd

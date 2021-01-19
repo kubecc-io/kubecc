@@ -1,20 +1,24 @@
-# permissions for end users to view kubeccs.
+# permissions for end users to edit buildclusters.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kubecc-viewer-role
+  name: buildcluster-editor-role
 rules:
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs
+  - buildclusters
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs/status
+  - buildclusters/status
   verbs:
   - get

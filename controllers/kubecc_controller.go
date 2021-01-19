@@ -3,7 +3,6 @@ package kubecc
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 
@@ -20,14 +19,12 @@ import (
 // KubeccReconciler reconciles a Kubecc object
 type KubeccReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kubecc.io,resources=kubeccs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=linkerd.io,resources=serviceprofiles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -79,7 +76,6 @@ func (r *KubeccReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Kubecc{}).
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
-		//	Owns(&ldv1alpha2.ServiceProfile{}).
 		Owns(&v1.Service{}).
 		Owns(&v1.ConfigMap{}).
 		Complete(r)

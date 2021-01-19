@@ -1,0 +1,40 @@
+apiVersion: kubecc.io/v1alpha1
+kind: BuildCluster
+metadata:
+  name: buildcluster-sample
+  namespace: kubecc
+spec:
+  components:
+    agent:
+      placement:
+        nodeSelectorTerms:
+          - matchExpressions:
+            - key: allow-kubecc
+              operator: In
+              values: 
+                - "true"
+      resources:
+        limits:
+          memory: "16Gi"
+      image: gcr.io/kubecc/agent:latest
+      additionalLabels: {}
+      logLevel: debug
+      imagePullPolicy: Always
+    scheduler:
+      image: gcr.io/kubecc/scheduler
+      logLevel: debug
+      imagePullPolicy: Always
+  ingress:
+    kind: IngressRoute
+    tls:
+      hosts:
+      - kubecc.example.com
+      secretName: 
+  tracing:
+    jaeger:
+      collector:
+        endpoint: https://jaeger-collector.example.com/api/traces
+        internalEndpoint: http://collector.observability.svc.cluster.local:14268/api/traces
+      sampling:
+        type: probabilistic
+        param: 0.2
