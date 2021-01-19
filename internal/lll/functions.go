@@ -1,5 +1,7 @@
 package lll
 
+import "go.uber.org/zap"
+
 var (
 	Desugar = globalLog.Desugar
 	Named   = globalLog.Named
@@ -27,6 +29,10 @@ var (
 	Fatalw  = globalLog.Fatalw
 	Sync    = globalLog.Sync
 )
+
+func GetLogger() *zap.SugaredLogger {
+	return globalLog
+}
 
 func loadFunctions() {
 	Desugar = globalLog.Desugar

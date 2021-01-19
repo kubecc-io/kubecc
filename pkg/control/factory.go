@@ -1,4 +1,4 @@
-package kubecc
+package control
 
 import (
 	"fmt"
