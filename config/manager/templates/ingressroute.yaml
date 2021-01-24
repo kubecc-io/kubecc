@@ -1,0 +1,18 @@
+apiversion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kubecc
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: {{ .Spec.Match | toHost }}
+      services:
+        - kind: Service
+          name: kubecc-scheduler
+          port: 9090
+  tls:
+    domains:
+      {{- .Spec.Hosts | toYaml -}}
+    secretName: {{ .Spec.SecretName }}

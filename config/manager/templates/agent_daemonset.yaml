@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubecc-agent
+spec:
+  selector:
+    matchLabels:
+      app: kubecc-agent
+  template:
+    metadata:
+      labels:
+        app: kubecc-agent
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            {{- .Spec.Placement | toYaml -}}
+        containers:
+          - name: kubecc-agent
+            image: {{ .Spec.Image }}
+            imagePullPolicy: {{ .Spec.ImagePullPolicy }}
+            resources: 
+              {{- .Spec.Resources | toYaml -}}
+            env:
+              - name: KUBECC_POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: KUBECC_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+              - name: KUBECC_NODE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: spec.nodeName
+            ports:
+              - name: grpc
+                containerPort: 9090
+                protocol: TCP
