@@ -25,7 +25,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,7 +34,6 @@ import (
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
 	"github.com/cobalt77/kubecc/internal/lll"
-	"github.com/cobalt77/kubecc/pkg/control"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -91,10 +89,9 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.BuildClusterReconciler{
-		Client:  mgr.GetClient(),
-		Log:     lll.Named("C").Named("BuildCluster"),
-		Scheme:  mgr.GetScheme(),
-		Binders: make(map[types.NamespacedName]*control.Binder),
+		Client: mgr.GetClient(),
+		Log:    lll.Named("C").Named("BuildCluster"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		lll.With(err).Error("unable to create controller", "controller", "BuildCluster")
 		os.Exit(1)

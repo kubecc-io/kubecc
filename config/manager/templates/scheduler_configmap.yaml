@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scheduler-config
+data:
+  scheduler.yaml: |-
+    scheduler: roundRobinDns

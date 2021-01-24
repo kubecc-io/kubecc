@@ -1,8 +1,6 @@
 package rec
 
 import (
-	"context"
-
 	"github.com/cobalt77/kubecc/internal/lll"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -11,24 +9,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ObjectCreator interface {
-	Create(rootCrd client.Object, name types.NamespacedName) error
-}
+type ObjectCreator func(ResolveContext) (client.Object, error)
 
 func FindOrCreate(
-	cli client.Client,
-	ctx context.Context,
-	rootCrd client.Object,
+	rc ResolveContext,
 	name types.NamespacedName,
-	obj client.Object,
+	out client.Object,
 	creator ObjectCreator,
 ) (ctrl.Result, error) {
-	err := cli.Get(ctx, name, obj)
+	err := rc.Client.Get(rc.Context, name, out)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			err := creator.Create(rootCrd, name)
+			out, err = creator(rc)
 			if err != nil {
 				lll.With(err).Error("Error creating object")
+			} else {
+				err = ctrl.SetControllerReference(rc.RootObject, out, rc.Client.Scheme())
+				if err != nil {
+					lll.With(err).Error("Error taking ownership of object")
+				}
 			}
 			return ctrl.Result{Requeue: true}, err
 		}
@@ -39,6 +38,6 @@ func FindOrCreate(
 	return ctrl.Result{}, nil
 }
 
-func Done(res ctrl.Result, err error) bool {
+func ShouldRequeue(res ctrl.Result, err error) bool {
 	return res.Requeue == false && res.RequeueAfter == 0 && err == nil
 }
