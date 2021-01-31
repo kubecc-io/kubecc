@@ -2,7 +2,7 @@ package templates
 
 import (
 	"bytes"
-	"fmt"
+	"path"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,9 +14,15 @@ type wrapper struct {
 	Spec interface{}
 }
 
+var pathPrefix = "/templates"
+
+func SetPathPrefix(prefix string) {
+	pathPrefix = prefix
+}
+
 func Load(name string, spec interface{}) ([]byte, error) {
 	tmpl := template.New(name).Funcs(Funcs())
-	tmpl, err := tmpl.ParseFiles(fmt.Sprintf("/templates/%s", name))
+	tmpl, err := tmpl.ParseFiles(path.Join(pathPrefix, name))
 	if err != nil {
 		return nil, err
 	}
@@ -31,5 +37,8 @@ func Load(name string, spec interface{}) ([]byte, error) {
 func Unmarshal(data []byte, scheme *runtime.Scheme) (client.Object, error) {
 	ds := serializer.NewCodecFactory(scheme).UniversalDeserializer()
 	out, _, err := ds.Decode(data, nil, nil)
-	return out.(client.Object), err
+	if err != nil {
+		return nil, err
+	}
+	return out.(client.Object), nil
 }

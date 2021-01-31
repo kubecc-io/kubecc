@@ -1,3 +1,4 @@
+// +kubebuilder:validation:Required
 package v1alpha1
 
 import (
@@ -7,63 +8,71 @@ import (
 
 type BuildClusterSpec struct {
 	Components ComponentsSpec `json:"components"`
-	Ingress    IngressSpec    `json:"ingress"`
-	Tracing    TracingSpec    `json:"tracing"`
+	Ingress    IngressSpec    `json:"ingress,omitempty"` // +optional
+	Tracing    TracingSpec    `json:"tracing,omitempty"` // +optional
 }
 
 type ComponentsSpec struct {
 	Agent     AgentSpec     `json:"agent"`
-	Scheduler SchedulerSpec `json:"scheduler"`
+	Scheduler SchedulerSpec `json:"scheduler,omitempty"` // +optional
 }
 
 type IngressSpec struct {
-	Kind string  `json:"kind"`
-	TLS  TLSSpec `json:"tls"`
+	Kind          string `json:"kind,omitempty"`
+	Host          string `json:"host,omitempty"`
+	TLSSecretName string `json:"tlsSecretName,omitempty"` // +optional
 }
 
 type TracingSpec struct {
-	Jaeger JaegerSpec `json:"jaeger"`
+	Jaeger JaegerSpec `json:"jaeger,omitempty"` // +optional
 }
 
 type JaegerSpec struct {
-	Collector CollectorSpec `json:"collector"`
-	Sampler   SamplerSpec   `json:"sampler"`
+	Collector CollectorSpec `json:"collector,omitempty"`
+	Sampler   SamplerSpec   `json:"sampler,omitempty"`
 }
 
 type CollectorSpec struct {
 	Endpoint         string `json:"endpoint"`
-	InternalEndpoint string `json:"internalEndpoint"`
-	User             string `json:"user"`
-	Password         string `json:"password"`
+	InternalEndpoint string `json:"internalEndpoint,omitempty"` // +optional
+	User             string `json:"user,omitempty"`             // +optional
+	Password         string `json:"password,omitempty"`         // +optional
 }
 
 type SamplerSpec struct {
-	Server string `json:"server"`
+	Server string `json:"server,omitempty"` // +optional
 	Type   string `json:"type"`
-	Param  string `json:"param"`
+	Param  string `json:"param,omitempty"` // +optional
 }
 
 type AgentSpec struct {
-	Placement        *v1.NodeSelector         `json:"placement"`
-	Resources        *v1.ResourceRequirements `json:"resources"`
-	Image            string                   `json:"image"`
-	AdditionalLabels map[string]string        `json:"additionalLabels"`
-	LogLevel         string                   `json:"logLevel"`
-	ImagePullPolicy  string                   `json:"imagePullPolicy"`
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity"`
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"` // +optional
+	// +kubebuilder:default:="gcr.io/kubecc/agent:latest"
+	Image            string            `json:"image"`                      // +optional
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
+	// +kubebuilder:default:=debug
+	LogLevel string `json:"logLevel"` // +optional
+	// +kubebuilder:default:=Always
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
 
 type SchedulerSpec struct {
-	Placement        *v1.NodeSelector         `json:"placement"`
-	Resources        *v1.ResourceRequirements `json:"resources"`
-	Image            string                   `json:"image"`
-	AdditionalLabels map[string]string        `json:"additionalLabels"`
-	LogLevel         string                   `json:"logLevel"`
-	ImagePullPolicy  string                   `json:"imagePullPolicy"`
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
+	// +kubebuilder:default:="gcr.io/kubecc/scheduler:latest"
+	Image            string            `json:"image"`                      // +optional
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
+	// +kubebuilder:default:=debug
+	LogLevel string `json:"logLevel"` // +optional
+	// +kubebuilder:default:=Always
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
 
 type TLSSpec struct {
-	Hosts      []string `json:"hosts"`
-	SecretName string   `json:"secretName"`
+	// +kubebuilder:validation:MinItems:=1
+	Hosts      []string `json:"hosts,omitempty"`
+	SecretName string   `json:"secretName,omitempty"`
 }
 
 // BuildClusterStatus defines the observed state of BuildCluster

@@ -65,7 +65,7 @@ rules:
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs
+  - buildclusters
   verbs:
   - create
   - delete
@@ -77,13 +77,13 @@ rules:
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs/finalizers
+  - buildclusters/finalizers
   verbs:
   - update
 - apiGroups:
   - kubecc.io
   resources:
-  - kubeccs/status
+  - buildclusters/status
   verbs:
   - get
   - patch
@@ -115,9 +115,9 @@ rules:
   - patch
   - update
 - apiGroups:
-  - linkerd.io
+  - traefik.containo.us
   resources:
-  - serviceprofiles
+  - ingressroutes
   verbs:
   - create
   - delete

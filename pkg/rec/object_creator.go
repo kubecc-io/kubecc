@@ -27,6 +27,11 @@ func FindOrCreate(
 				err = ctrl.SetControllerReference(rc.RootObject, out, rc.Client.Scheme())
 				if err != nil {
 					lll.With(err).Error("Error taking ownership of object")
+				} else {
+					err = rc.Client.Create(rc.Context, out)
+					if err != nil {
+						lll.With(err).Error("Error creating object in cluster")
+					}
 				}
 			}
 			return ctrl.Result{Requeue: true}, err
@@ -39,5 +44,5 @@ func FindOrCreate(
 }
 
 func ShouldRequeue(res ctrl.Result, err error) bool {
-	return res.Requeue == false && res.RequeueAfter == 0 && err == nil
+	return res.Requeue == true || res.RequeueAfter > 0 || err != nil
 }

@@ -34,6 +34,7 @@ import (
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
 	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/pkg/templates"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -51,11 +52,16 @@ func main() {
 	lll.Setup("M")
 	lll.PrintHeader()
 
-	var configFile string
+	var (
+		configFile string
+		tmplPrefix string
+	)
 	flag.StringVar(&configFile, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
+	flag.StringVar(&tmplPrefix, "templates-path", "/templates",
+		"Path prefix for resource templates")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -63,6 +69,7 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	templates.SetPathPrefix(tmplPrefix)
 
 	var err error
 	options := ctrl.Options{Scheme: scheme}

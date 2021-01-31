@@ -2,6 +2,7 @@ package resolvers
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/pkg/rec"
@@ -20,15 +21,38 @@ const (
 
 func (r *AgentResolver) Resolve(
 	rc rec.ResolveContext,
-	obj interface{},
 ) (ctrl.Result, error) {
+	agentSpec := rc.Object.(v1alpha1.AgentSpec)
 	daemonSet := &appsv1.DaemonSet{}
 	res, err := rec.FindOrCreate(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      agentDaemonSetName,
 	}, daemonSet, rec.FromTemplate("agent_daemonset.yaml", rc))
 	if rec.ShouldRequeue(res, err) {
-		return rec.Requeue(res, err)
+		return rec.RequeueWith(res, err)
+	}
+	staticLabels := map[string]string{
+		"app": "kubecc-agent",
+	}
+
+	res, err = rec.UpdateIfNeeded(rc, daemonSet,
+		[]rec.Updater{
+			rec.AffinityUpdater(agentSpec.NodeAffinity,
+				&daemonSet.Spec.Template.Spec),
+			rec.ResourceUpdater(agentSpec.Resources,
+				&daemonSet.Spec.Template.Spec, 0),
+			rec.ImageUpdater(agentSpec.Image,
+				&daemonSet.Spec.Template.Spec, 0),
+			rec.PullPolicyUpdater(v1.PullPolicy(agentSpec.ImagePullPolicy),
+				&daemonSet.Spec.Template.Spec, 0),
+			rec.LabelUpdater(agentSpec.AdditionalLabels,
+				&daemonSet.Spec.Template,
+				staticLabels,
+			),
+		},
+	)
+	if rec.ShouldRequeue(res, err) {
+		return rec.RequeueWith(res, err)
 	}
 	return rec.DoNotRequeue()
 }

@@ -13,9 +13,8 @@ type TracingResolver struct {
 
 func (r *TracingResolver) Resolve(
 	rc rec.ResolveContext,
-	obj interface{},
 ) (ctrl.Result, error) {
-	tracing := obj.(*v1alpha1.TracingSpec)
+	// tracing := obj.(*v1alpha1.TracingSpec)
 
 	/*
 			v1.EnvVar{
@@ -23,7 +22,7 @@ func (r *TracingResolver) Resolve(
 			Value: "http://simplest-collector.observability.svc.cluster.local:14268/api/traces",
 		},
 	*/
-
+	return rec.DoNotRequeue()
 }
 
 func (r *TracingResolver) Find(root client.Object) interface{} {

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 
+	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -26,6 +27,7 @@ type BuildClusterReconciler struct {
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -43,31 +45,31 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		Object:     cluster,
 	}, req.NamespacedName, cluster, rec.MustExist)
 	if rec.ShouldRequeue(res, err) {
-		return rec.Requeue(res, err)
+		return rec.RequeueWith(res, err)
 	}
 
-	return r.resolveTree.Walk(cluster)
+	return r.resolveTree.Walk(ctx, cluster)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.resolveTree = rec.BuildRootResolver(r.Client, rec.ResolverTree{
-		Nodes: []rec.ResolverTree{
-			rec.ResolverTree{
+	r.resolveTree = rec.BuildRootResolver(r.Client, &rec.ResolverTree{
+		Nodes: []*rec.ResolverTree{
+			{
 				Resolver: &resolvers.ComponentsResolver{},
-				Nodes: []rec.ResolverTree{
-					rec.ResolverTree{
+				Nodes: []*rec.ResolverTree{
+					{
 						Resolver: &resolvers.AgentResolver{},
 					},
-					rec.ResolverTree{
+					{
 						Resolver: &resolvers.SchedulerResolver{},
 					},
 				},
 			},
-			rec.ResolverTree{
+			{
 				Resolver: &resolvers.IngressResolver{},
 			},
-			rec.ResolverTree{
+			{
 				Resolver: &resolvers.TracingResolver{},
 			},
 		},
@@ -79,5 +81,6 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).
 		Owns(&v1.ConfigMap{}).
+		Owns(&traefikv1alpha1.IngressRoute{}).
 		Complete(r)
 }
