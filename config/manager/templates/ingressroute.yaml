@@ -14,5 +14,5 @@ spec:
           port: 9090
   tls:
     domains:
-      {{- .Spec.Hosts | toYaml -}}
+{{ .Spec.Hosts | toYaml | indent 6 }}
     secretName: {{ .Spec.SecretName }}

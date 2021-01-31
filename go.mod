@@ -7,6 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.16 // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.10 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
+	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-logr/zapr v0.3.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -16,7 +17,6 @@ require (
 	github.com/googleapis/gnostic v0.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/imdario/mergo v0.3.11 // indirect
-	github.com/linkerd/linkerd2 v0.5.1-0.20210108202414-308a1f3ff386
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
@@ -48,7 +48,7 @@ require (
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/api v0.20.1
 	k8s.io/apiextensions-apiserver v0.20.1 // indirect
 	k8s.io/apimachinery v0.20.1
@@ -56,6 +56,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20210113000636-45edf8a2a574 // indirect
 	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
 	sigs.k8s.io/controller-runtime v0.7.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // Needed to import traefik

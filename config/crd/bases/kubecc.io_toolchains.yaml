@@ -36,10 +36,21 @@ spec:
           spec:
             description: ToolchainSpec defines the desired state of Toolchain
             properties:
-              foo:
-                description: Foo is an example field of Toolchain. Edit Toolchain_types.go
-                  to remove/update
+              host:
                 type: string
+              kind:
+                type: string
+              location:
+                type: string
+              target:
+                type: string
+              triple:
+                type: string
+            required:
+            - host
+            - kind
+            - target
+            - triple
             type: object
           status:
             description: ToolchainStatus defines the observed state of Toolchain

@@ -12,10 +12,19 @@ spec:
       labels: 
         app: kubecc-scheduler
     spec:
+{{ if .Spec.NodeAffinity }}
+      affinity:
+        nodeAffinity:
+{{ .Spec.NodeAffinity | toYaml | indent 10 }}
+{{ end }}
       containers:
         - name: kubecc-scheduler
           image: {{ .Spec.Image }}
           imagePullPolicy: {{ .Spec.ImagePullPolicy }}
+{{ if .Spec.Resources }}
+          resources:
+{{ .Spec.Resources | toYaml | indent 12 }}
+{{ end }}
           env:
             - name: KUBECC_POD_NAME
               valueFrom:
@@ -34,8 +43,8 @@ spec:
               containerPort: 9090
               protocol: TCP
           volumeMounts:
-            name: config
-            mountPath: /config
+            - name: config
+              mountPath: /config
       volumes:
         - name: config
           configMap:

@@ -6,13 +6,14 @@ metadata:
 spec:
   components:
     agent:
-      placement:
-        nodeSelectorTerms:
-          - matchExpressions:
-            - key: allow-kubecc
-              operator: In
-              values: 
-                - "true"
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: allow-kubecc
+                operator: In
+                values: 
+                  - "true"
       resources:
         limits:
           memory: "16Gi"

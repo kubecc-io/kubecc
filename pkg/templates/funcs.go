@@ -5,7 +5,8 @@ import (
 	"strings"
 	"text/template"
 
-	"gopkg.in/yaml.v3"
+	"github.com/Masterminds/sprig"
+	"sigs.k8s.io/yaml"
 )
 
 func toYAML(i interface{}) (string, error) {
@@ -21,8 +22,8 @@ func toHost(i interface{}) string {
 }
 
 func Funcs() template.FuncMap {
-	return template.FuncMap{
-		"toYaml": toYAML,
-		"toHost": toHost,
-	}
+	m := sprig.TxtFuncMap()
+	m["toYaml"] = toYAML
+	m["toHost"] = toHost
+	return m
 }

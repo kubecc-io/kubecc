@@ -1,8 +1,6 @@
 package resolvers
 
 import (
-	"context"
-
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/pkg/rec"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,9 +12,7 @@ type ComponentsResolver struct {
 }
 
 func (r *ComponentsResolver) Resolve(
-	ctx context.Context,
-	client client.Client,
-	obj interface{},
+	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
 	return rec.DoNotRequeue()
 }
