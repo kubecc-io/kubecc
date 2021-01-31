@@ -19,9 +19,13 @@ func RequeueWithErr(err error) (ctrl.Result, error) {
 	return ctrl.Result{}, err
 }
 
-func Requeue(res ctrl.Result, err error) (ctrl.Result, error) {
+func RequeueWith(res ctrl.Result, err error) (ctrl.Result, error) {
 	if !ShouldRequeue(res, err) {
 		lll.DPanic("Logic error in reconciliation loop")
 	}
 	return res, err
+}
+
+func Requeue() (ctrl.Result, error) {
+	return ctrl.Result{Requeue: true}, nil
 }

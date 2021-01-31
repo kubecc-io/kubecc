@@ -23,12 +23,12 @@ type ResolverTree struct {
 	client   client.Client
 	Resolver Resolver
 	Find     func() interface{}
-	Nodes    []ResolverTree
+	Nodes    []*ResolverTree
 }
 
-func BuildRootResolver(client client.Client, tree ResolverTree) *ResolverTree {
+func BuildRootResolver(client client.Client, tree *ResolverTree) *ResolverTree {
 	tree.injectClient(client)
-	return &tree
+	return tree
 }
 
 func (t *ResolverTree) injectClient(client client.Client) {
@@ -46,10 +46,10 @@ func (t *ResolverTree) Walk(ctx context.Context, root client.Object) (ctrl.Resul
 			RootObject: root,
 			Object:     node.Resolver.Find(root),
 		}); ShouldRequeue(res, err) {
-			return Requeue(res, err)
+			return RequeueWith(res, err)
 		}
 		if res, err := node.Walk(ctx, root); ShouldRequeue(res, err) {
-			return Requeue(res, err)
+			return RequeueWith(res, err)
 		}
 	}
 	return DoNotRequeue()

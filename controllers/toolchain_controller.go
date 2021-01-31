@@ -32,7 +32,7 @@ type ToolchainReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *ToolchainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	lg := r.Log.With("buildcluster", req.NamespacedName)
+	// lg := r.Log.With("buildcluster", req.NamespacedName)
 
 	// your logic here
 
