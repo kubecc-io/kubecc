@@ -38,12 +38,13 @@ type BuildClusterReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	cluster := &v1alpha1.BuildCluster{}
-	res, err := rec.FindOrCreate(rec.ResolveContext{
+	res, err := rec.Find(rec.ResolveContext{
 		Context:    ctx,
 		Client:     r.Client,
 		RootObject: cluster,
 		Object:     cluster,
-	}, req.NamespacedName, cluster, rec.MustExist)
+	}, req.NamespacedName, cluster,
+		rec.WithCreator(rec.MustExist))
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}

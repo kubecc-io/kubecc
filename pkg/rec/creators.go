@@ -15,7 +15,7 @@ var (
 	}
 )
 
-func FromTemplate(templateName string, rc ResolveContext) ObjectCreator {
+func FromTemplate(templateName string) ObjectCreator {
 	return func(rc ResolveContext) (client.Object, error) {
 		tmplData, err := templates.Load(templateName, rc.Object)
 		lg := lll.With(zap.Error(err), zap.String("name", templateName), zap.Any("spec", rc.Object))

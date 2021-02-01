@@ -16,7 +16,7 @@ type AgentResolver struct {
 }
 
 const (
-	agentDaemonSetName = "kubecc-agent"
+	agentAppName = "kubecc-agent"
 )
 
 func (r *AgentResolver) Resolve(
@@ -24,15 +24,18 @@ func (r *AgentResolver) Resolve(
 ) (ctrl.Result, error) {
 	agentSpec := rc.Object.(v1alpha1.AgentSpec)
 	daemonSet := &appsv1.DaemonSet{}
-	res, err := rec.FindOrCreate(rc, types.NamespacedName{
+	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      agentDaemonSetName,
-	}, daemonSet, rec.FromTemplate("agent_daemonset.yaml", rc))
+		Name:      agentAppName,
+	}, daemonSet,
+		rec.WithCreator(rec.FromTemplate("agent_daemonset.yaml")),
+		rec.RecreateIfChanged(),
+	)
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
-		"app": "kubecc-agent",
+		"app": agentAppName,
 	}
 
 	res, err = rec.UpdateIfNeeded(rc, daemonSet,
@@ -54,6 +57,20 @@ func (r *AgentResolver) Resolve(
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
+
+	svc := &v1.Service{}
+	res, err = rec.Find(rc, types.NamespacedName{
+		Namespace: rc.RootObject.GetNamespace(),
+		Name:      agentAppName,
+	}, svc,
+		rec.WithCreator(rec.FromTemplate("agent_service.yaml")),
+		rec.RecreateIfChanged(),
+	)
+
+	if rec.ShouldRequeue(res, err) {
+		return rec.RequeueWith(res, err)
+	}
+
 	return rec.DoNotRequeue()
 }
 

@@ -1,0 +1,5 @@
+test:
+  string: testing
+  int: 123
+  more:
+  - data: 12.3
