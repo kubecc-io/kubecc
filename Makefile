@@ -62,7 +62,7 @@ scheduler:
 	CGO_ENABLED=0 go build -o ./build/bin/scheduler ./cmd/scheduler
 
 manager:
-	CGO_ENABLED=0 go build -o ./build/bin/manager ./cmd/manager
+	CGO_ENABLED=0 go build -o ./build/bin/manager
 
 make:
 	CGO_ENABLED=0 go build -o ./build/bin/make ./cmd/make
