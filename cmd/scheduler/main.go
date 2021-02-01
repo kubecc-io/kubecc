@@ -8,6 +8,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
@@ -21,6 +22,8 @@ func main() {
 
 	closer, err := tracing.Start("scheduler")
 	if err != nil {
+		lll.With(zap.Error(err)).Warn("Could not start tracing")
+	} else {
 		defer closer.Close()
 	}
 

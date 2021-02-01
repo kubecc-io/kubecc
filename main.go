@@ -24,12 +24,14 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	zapf "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
@@ -45,6 +47,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(traefikv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -62,13 +65,13 @@ func main() {
 			"Command-line flags override configuration from this file.")
 	flag.StringVar(&tmplPrefix, "templates-path", "/templates",
 		"Path prefix for resource templates")
-	opts := zap.Options{
+	opts := zapf.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zapf.New(zapf.UseFlagOptions(&opts)))
 	templates.SetPathPrefix(tmplPrefix)
 
 	var err error
@@ -76,14 +79,14 @@ func main() {
 	if configFile != "" {
 		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile))
 		if err != nil {
-			lll.With(err).Error("unable to load the config file")
+			lll.With(zap.Error(err)).Error("unable to load the config file")
 			os.Exit(1)
 		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		lll.With(err).Error("unable to start manager")
+		lll.With(zap.Error(err)).Error("unable to start manager")
 		os.Exit(1)
 	}
 
@@ -92,7 +95,7 @@ func main() {
 		Log:    lll.Named("C").Named("Toolchain"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		lll.With(err).Error("unable to create controller", "controller", "Toolchain")
+		lll.With(zap.Error(err)).Error("unable to create controller", "controller", "Toolchain")
 		os.Exit(1)
 	}
 	if err = (&controllers.BuildClusterReconciler{
@@ -100,23 +103,23 @@ func main() {
 		Log:    lll.Named("C").Named("BuildCluster"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		lll.With(err).Error("unable to create controller", "controller", "BuildCluster")
+		lll.With(zap.Error(err)).Error("unable to create controller", "controller", "BuildCluster")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		lll.With(err).Error("unable to set up health check")
+		lll.With(zap.Error(err)).Error("unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		lll.With(err).Error("unable to set up ready check")
+		lll.With(zap.Error(err)).Error("unable to set up ready check")
 		os.Exit(1)
 	}
 
 	lll.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		lll.With(err).Error("problem running manager")
+		lll.With(zap.Error(err)).Error("problem running manager")
 		os.Exit(1)
 	}
 }

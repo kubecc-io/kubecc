@@ -19,8 +19,11 @@ func main() {
 	lll.PrintHeader()
 	closer, err := tracing.Start("agent")
 	if err != nil {
+		lll.With(zap.Error(err)).Warn("Could not start tracing")
+	} else {
 		defer closer.Close()
 	}
+
 	srv := grpc.NewServer(
 		// grpc.MaxConcurrentStreams(uint32(runtime.NumCPU()*3)/2),
 		grpc.MaxRecvMsgSize(1e8), // 100MB
