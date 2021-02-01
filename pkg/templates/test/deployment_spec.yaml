@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Spec.Name }}
+  labels:
+{{ .Spec.Labels | toYaml | indent 4 }}
+spec:
+  selector:
+    matchLabels:
+{{ .Spec.Labels | toYaml | indent 6 }}
+  replicas: 1
+  template:
+    metadata:
+      labels:
+{{ .Spec.Labels | toYaml | indent 8 }}
+    spec:
+      containers:
+      - name: {{ .Spec.Name }}
+        image: test
+        imagePullPolicy: {{ .Spec.PullPolicy }}
+        ports:
+{{ .Spec.Ports | toYaml | indent 10 }}
+        resources:
+{{ .Spec.Resources | toYaml | indent 12 }}

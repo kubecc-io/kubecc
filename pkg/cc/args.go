@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/internal/lll"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -35,18 +35,18 @@ func (rm RunMode) String() string {
 }
 
 var (
-	ProfileArgs *tools.StringSet = tools.NewStringSet( // --arg or --arg value
+	ProfileArgs = mapset.NewSet( // --arg or --arg value
 		"-fprofile-arcs",
 		"-ftest-coverage",
 		"--coverage",
 		"-fprofile-correction",
 	)
-	ProfilePrefixArgs []string = []string{ // --arg=value or --arg value
+	ProfilePrefixArgs = []string{ // --arg=value or --arg value
 		"-fprofile-generate",
 		"-fprofile-use",
 		"-fauto-profile",
 	}
-	LocalArgsWithValues *tools.StringSet = tools.NewStringSet(
+	LocalArgsWithValues = mapset.NewSet(
 		"-D",
 		"-I",
 		"-U",
@@ -63,7 +63,7 @@ var (
 		"-iwithprefixbefore",
 		"-idirafter",
 	)
-	LocalArgsNoValues *tools.StringSet = tools.NewStringSet(
+	LocalArgsNoValues = mapset.NewSet(
 		"-undef",
 		"-nostdinc",
 		"-nostdinc++",
@@ -72,7 +72,7 @@ var (
 		"-MG",
 		"-MP",
 	)
-	LocalPrefixArgs []string = []string{
+	LocalPrefixArgs = []string{
 		"-Wp,",
 		"-Wl,",
 		"-D",

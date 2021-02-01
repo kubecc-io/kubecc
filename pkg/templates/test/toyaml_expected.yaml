@@ -1,0 +1,16 @@
+strTest: test
+numTest: 5
+stringSliceTest:
+- a
+- b
+- c
+nestedStruct:
+  numTest: 6
+  nestedStruct:
+    strTest: test2
+    stringSliceTest:
+    - |-
+      line 1
+      line 2
+      line 3
+    - test
