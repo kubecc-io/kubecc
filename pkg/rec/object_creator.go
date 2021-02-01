@@ -2,6 +2,7 @@ package rec
 
 import (
 	"github.com/cobalt77/kubecc/internal/lll"
+	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,15 +23,15 @@ func FindOrCreate(
 		if errors.IsNotFound(err) {
 			out, err = creator(rc)
 			if err != nil {
-				lll.With(err).Error("Error creating object")
+				lll.With(zap.Error(err)).Error("Error creating object")
 			} else {
 				err = ctrl.SetControllerReference(rc.RootObject, out, rc.Client.Scheme())
 				if err != nil {
-					lll.With(err).Error("Error taking ownership of object")
+					lll.With(zap.Error(err)).Error("Error taking ownership of object")
 				} else {
 					err = rc.Client.Create(rc.Context, out)
 					if err != nil {
-						lll.With(err).Error("Error creating object in cluster")
+						lll.With(zap.Error(err)).Error("Error creating object in cluster")
 					}
 				}
 			}

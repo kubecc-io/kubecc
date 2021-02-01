@@ -53,6 +53,8 @@ func (r *SchedulerResolver) Resolve(
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
+
+	// todo: add configmaps, services
 	return rec.DoNotRequeue()
 }
 
