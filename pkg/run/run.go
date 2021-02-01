@@ -36,84 +36,58 @@ type RunnerOptions struct {
 
 func (r *RunnerOptions) Apply(opts ...RunOption) {
 	for _, opt := range opts {
-		opt.apply(r)
+		opt(r)
 	}
 }
 
-type RunOption interface {
-	apply(*RunnerOptions)
-}
-
-type funcRunOption struct {
-	f func(*RunnerOptions)
-}
-
-func (fso *funcRunOption) apply(ops *RunnerOptions) {
-	fso.f(ops)
-}
+type RunOption func(*RunnerOptions)
 
 func WithEnv(env []string) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.Env = env
-		},
+	return func(ro *RunnerOptions) {
+		ro.Env = env
 	}
 }
 
 func WithWorkDir(dir string) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.WorkDir = dir
-		},
+	return func(ro *RunnerOptions) {
+		ro.WorkDir = dir
 	}
 }
 
 func WithOutputStreams(stdout, stderr io.Writer) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.Stdout = stdout
-			ro.Stderr = stderr
-		},
+	return func(ro *RunnerOptions) {
+		ro.Stdout = stdout
+		ro.Stderr = stderr
 	}
 }
 
 func WithStdin(stdin io.Reader) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.Stdin = stdin
-		},
+	return func(ro *RunnerOptions) {
+		ro.Stdin = stdin
 	}
 }
 
 func WithUidGid(uid, gid uint32) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.UID = uid
-			ro.GID = gid
-		},
+	return func(ro *RunnerOptions) {
+		ro.UID = uid
+		ro.GID = gid
 	}
 }
 
 func WithOutputWriter(w io.Writer) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.OutputWriter = w
-		},
+	return func(ro *RunnerOptions) {
+		ro.OutputWriter = w
 	}
 }
 
 func InPlace(inPlace bool) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.NoTempFile = inPlace
-		},
+	return func(ro *RunnerOptions) {
+		ro.NoTempFile = inPlace
 	}
 }
 
 func WithContext(ctx context.Context) RunOption {
-	return &funcRunOption{
-		func(ro *RunnerOptions) {
-			ro.Context = ctx
-		},
+	return func(ro *RunnerOptions) {
+		ro.Context = ctx
 	}
 }

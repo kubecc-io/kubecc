@@ -3,6 +3,7 @@ package lll
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -29,10 +31,24 @@ var (
 
 	startTime *atomic.Int64
 
-	hextable = [...]rune{
+	numTable = [10]rune{
 		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
 	}
+	colorTable = [10]colorer{
+		NoColor{},
+		Blue,
+		Blue,
+		Green,
+		Green,
+		Yellow,
+		Yellow,
+		Red,
+		Red,
+		Red,
+	}
+
 	globalLog *zap.SugaredLogger
+	useColor  bool
 )
 
 func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -42,14 +58,20 @@ func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	if since > 99 {
 		since = 99
 	}
-	enc.AppendString(
-		string([]rune{
+	if !useColor {
+		enc.AppendString(string([]rune{
 			'[', '+',
-			hextable[since/10],
-			hextable[since%10],
+			numTable[since/10],
+			numTable[since%10],
 			']',
-		}),
-	)
+		}))
+	} else {
+		enc.AppendString(fmt.Sprintf("[+%s]", colorTable[since/10].Add(
+			string([]rune{
+				numTable[since/10],
+				numTable[since%10],
+			}))))
+	}
 }
 
 func formatLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
@@ -57,60 +79,51 @@ func formatLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 }
 
 type LogOptions struct {
+	color            bool
 	outputPaths      []string
 	errorOutputPaths []string
 	logLevel         zapcore.Level
 }
+type logOption func(*LogOptions)
 
-var (
-	defaultLogOptions = LogOptions{
+func (o *LogOptions) Apply(opts ...logOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithOutputPaths(paths []string) logOption {
+	return func(opts *LogOptions) {
+		opts.outputPaths = paths
+	}
+}
+
+func WithErrorOutputPaths(paths []string) logOption {
+	return func(opts *LogOptions) {
+		opts.errorOutputPaths = paths
+	}
+}
+
+func WithLogLevel(level zapcore.Level) logOption {
+	return func(opts *LogOptions) {
+		opts.logLevel = level
+	}
+}
+
+func WithColor(color bool) logOption {
+	return func(opts *LogOptions) {
+		opts.color = color
+	}
+}
+
+func Setup(component string, ops ...logOption) {
+	options := LogOptions{
+		color:            useColor,
 		outputPaths:      []string{"stdout"},
 		errorOutputPaths: []string{"stderr"},
 		logLevel:         zapcore.DebugLevel,
 	}
-)
-
-type LogOption interface {
-	apply(*LogOptions)
-}
-
-type funcLogOption struct {
-	f func(*LogOptions)
-}
-
-func (fso *funcLogOption) apply(ops *LogOptions) {
-	fso.f(ops)
-}
-
-func WithOutputPaths(paths []string) LogOption {
-	return &funcLogOption{
-		func(lo *LogOptions) {
-			lo.outputPaths = paths
-		},
-	}
-}
-
-func WithErrorOutputPaths(paths []string) LogOption {
-	return &funcLogOption{
-		func(lo *LogOptions) {
-			lo.errorOutputPaths = paths
-		},
-	}
-}
-
-func WithLogLevel(level zapcore.Level) LogOption {
-	return &funcLogOption{
-		func(lo *LogOptions) {
-			lo.logLevel = level
-		},
-	}
-}
-
-func Setup(component string, ops ...LogOption) {
-	options := defaultLogOptions
-	for _, op := range ops {
-		op.apply(&options)
-	}
+	options.Apply(ops...)
 
 	startTime = atomic.NewInt64(time.Now().Unix())
 	conf := zap.Config{
@@ -148,7 +161,11 @@ func Setup(component string, ops ...LogOption) {
 }
 
 func PrintHeader() {
-	fmt.Println(BigAsciiTextColored)
+	if useColor {
+		fmt.Println(BigAsciiTextColored)
+	} else {
+		fmt.Println(BigAsciiText)
+	}
 	globalLog.Info(Green.Add("Starting component"))
 }
 
@@ -166,12 +183,25 @@ const (
 	White
 )
 
+type colorer interface {
+	Add(string) string
+}
+
 // Color represents a text color.
 type Color uint8
 
 // Add adds the coloring to the given string.
 func (c Color) Add(s string) string {
+	if !useColor {
+		return s
+	}
 	return fmt.Sprintf("\x1b[%dm%s\x1b[0m", uint8(c), s)
+}
+
+type NoColor struct{}
+
+func (c NoColor) Add(s string) string {
+	return s
 }
 
 var (
@@ -192,6 +222,7 @@ var (
 )
 
 func init() {
+	useColor = terminal.IsTerminal(int(os.Stdout.Fd()))
 	for level, color := range _levelToColor {
 		_levelToLowercaseColorString[level] = color.Add(level.String())
 		_levelToCapitalColorString[level] = color.Add(level.CapitalString()[:4])
@@ -227,8 +258,8 @@ func ShortCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEn
 	name := []byte(fmt.Sprintf("%s:%d", filepath.Base(caller.File), caller.Line))
 	if len(name) > 16 {
 		name[0] = '+'
-	} else if len(name) < 16 {
-		spaces := make([]byte, 16-len(name))
+	} else if len(name) <= 16 {
+		spaces := make([]byte, 16-len(name)+1)
 		for i := range spaces {
 			spaces[i] = ' '
 		}

@@ -15,7 +15,7 @@ type SchedulerResolver struct {
 }
 
 const (
-	schedulerDeploymentName = "kubecc-scheduler"
+	schedulerAppName = "kubecc-scheduler"
 )
 
 func (r *SchedulerResolver) Resolve(
@@ -23,15 +23,18 @@ func (r *SchedulerResolver) Resolve(
 ) (ctrl.Result, error) {
 	schedulerSpec := rc.Object.(v1alpha1.SchedulerSpec)
 	deployment := &appsv1.Deployment{}
-	res, err := rec.FindOrCreate(rc, types.NamespacedName{
+	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      schedulerDeploymentName,
-	}, deployment, rec.FromTemplate("scheduler_deployment.yaml", rc))
+		Name:      schedulerAppName,
+	}, deployment,
+		rec.WithCreator(rec.FromTemplate("scheduler_deployment.yaml")),
+		rec.RecreateIfChanged(),
+	)
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
-		"app": "kubecc-scheduler",
+		"app": schedulerAppName,
 	}
 
 	res, err = rec.UpdateIfNeeded(rc, deployment,
@@ -54,7 +57,31 @@ func (r *SchedulerResolver) Resolve(
 		return rec.RequeueWith(res, err)
 	}
 
-	// todo: add configmaps, services
+	svc := &v1.Service{}
+	res, err = rec.Find(rc, types.NamespacedName{
+		Namespace: rc.RootObject.GetNamespace(),
+		Name:      agentAppName,
+	}, svc,
+		rec.WithCreator(rec.FromTemplate("scheduler_service.yaml")),
+		rec.RecreateIfChanged(),
+	)
+
+	if rec.ShouldRequeue(res, err) {
+		return rec.RequeueWith(res, err)
+	}
+
+	cfg := &v1.ConfigMap{}
+	res, err = rec.Find(rc, types.NamespacedName{
+		Namespace: rc.RootObject.GetNamespace(),
+		Name:      agentAppName,
+	}, cfg,
+		rec.WithCreator(rec.FromTemplate("scheduler_configmap.yaml")),
+	)
+
+	if rec.ShouldRequeue(res, err) {
+		return rec.RequeueWith(res, err)
+	}
+
 	return rec.DoNotRequeue()
 }
 

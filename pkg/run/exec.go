@@ -16,22 +16,10 @@ type ExecutorOptions struct {
 }
 
 var (
-	defaultExecutorOptions = ExecutorOptions{}
-	cpuCount               = runtime.NumCPU()
+	cpuCount = runtime.NumCPU()
 )
 
-type ExecutorOption interface {
-	apply(*ExecutorOptions)
-}
-
-type funcExecutorOption struct {
-	f func(*ExecutorOptions)
-}
-
-func (fso *funcExecutorOption) apply(ops *ExecutorOptions) {
-	fso.f(ops)
-}
-
+type ExecutorOption func(*ExecutorOptions)
 type AllThreadsBusy struct {
 	error
 }
@@ -72,9 +60,9 @@ func (s *Executor) Exec(
 	task *Task,
 	opts ...ExecutorOption,
 ) error {
-	options := defaultExecutorOptions
+	options := ExecutorOptions{}
 	for _, op := range opts {
-		op.apply(&options)
+		op(&options)
 	}
 	s.taskQueue <- task
 	select {
