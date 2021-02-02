@@ -6,9 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	opentracing "github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
@@ -32,10 +30,8 @@ func Start(component string) (io.Closer, error) {
 	}
 	tracer, closer, err := cfg.NewTracer()
 	if err != nil {
-		lll.With(zap.Error(err)).Error("Could not create tracer")
 		return nil, err
 	}
-	lll.Info("Tracing started successfully")
 	opentracing.SetGlobalTracer(tracer)
 	return closer, err
 }

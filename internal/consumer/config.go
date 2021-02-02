@@ -1,11 +1,14 @@
 package consumer
 
 import (
-	"github.com/cobalt77/kubecc/internal/lll"
+	"fmt"
+
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
+
+// todo: delete this
 
 // InitConfig initializes the Viper config
 func InitConfig() {
@@ -27,6 +30,6 @@ func InitConfig() {
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
-		lll.With(zap.Error(err)).Debug("Error reading config file")
+		fmt.Println("Error reading config file")
 	}
 }

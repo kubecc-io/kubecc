@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -105,8 +106,9 @@ func (opt ActionOpt) String() string {
 	return string(opt)
 }
 
-// ArgsInfo represents GCC arguments
-type ArgsInfo struct {
+// ArgParser represents GCC arguments
+type ArgParser struct {
+	lg             *zap.SugaredLogger
 	Args           []string
 	Mode           RunMode
 	InputArgIndex  int
@@ -115,21 +117,20 @@ type ArgsInfo struct {
 }
 
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
-func NewArgsInfoFromOS() *ArgsInfo {
-	return &ArgsInfo{
-		Args: append([]string(nil), os.Args[1:]...), // deep copy
-	}
+func NewArgParserFromOS(ctx context.Context) *ArgParser {
+	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy
 }
 
-// NewArgsInfo creates a new ArgsInfo struct from the provided args
-// Args should not include the command
-func NewArgsInfo(args []string) *ArgsInfo {
-	return &ArgsInfo{
+// NewArgParser creates a new ArgsInfo struct from the provided args
+// Args should NOT include the command (argv[0])
+func NewArgParser(ctx context.Context, args []string) *ArgParser {
+	return &ArgParser{
+		lg:   lll.LogFromContext(ctx),
 		Args: args,
 	}
 }
 
-func (a *ArgsInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (a *ArgParser) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("args", types.NewStringSliceEncoder(a.Args))
 	enc.AddString("mode", a.Mode.String())
 	return nil
@@ -137,18 +138,18 @@ func (a *ArgsInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // Parse will parse the arguments in argsInfo.Args and store indexes of
 // several flags and values.
-func (info *ArgsInfo) Parse() {
-	info.InputArgIndex = -1
-	info.OutputArgIndex = -1
-	info.FlagIndexMap = map[string]int{}
+func (ap *ArgParser) Parse() {
+	ap.InputArgIndex = -1
+	ap.OutputArgIndex = -1
+	ap.FlagIndexMap = map[string]int{}
 
 	var (
 		skip, seenOptC, seenOptS, seenOptE bool
 		inputArg, outputArg                string
 	)
 
-	for i, a := range info.Args {
-		lg := lll.With(zap.String("arg", a))
+	for i, a := range ap.Args {
+		lg := ap.lg.With(zap.String("arg", a))
 		if skip {
 			skip = false
 			continue
@@ -157,14 +158,14 @@ func (info *ArgsInfo) Parse() {
 			// Option argument
 			switch {
 			case a == "-E": // Preprocess
-				info.FlagIndexMap[a] = i
-				info.Mode = RunLocal
+				ap.FlagIndexMap[a] = i
+				ap.Mode = RunLocal
 				seenOptE = true
 			case a == "-MD" || a == "-MMD":
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 				// OK
 			case a == "-MG" || a == "-MP":
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 				// OK
 			case strings.HasPrefix(a, "-MF") ||
 				strings.HasPrefix(a, "-MT") ||
@@ -173,29 +174,29 @@ func (info *ArgsInfo) Parse() {
 				if len(a) == 3 {
 					skip = true // --arg value
 				}
-				info.FlagIndexMap[a[:3]] = i
+				ap.FlagIndexMap[a[:3]] = i
 				// --arg=value
 			case strings.HasPrefix(a, "-M"):
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 				lg.Debug("-E possibly implied, compiling locally")
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case a == "-march=native":
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case a == "-mtune=native":
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case strings.HasPrefix(a, "-Wa,"):
-				info.FlagIndexMap["-Wa"] = i
+				ap.FlagIndexMap["-Wa"] = i
 				if strings.Contains(a, ",-a") || strings.Contains(a, "--MD") {
-					info.Mode = RunLocal
+					ap.Mode = RunLocal
 				}
 			case strings.HasPrefix(a, "-specs="):
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case a == "-S":
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 				seenOptS = true
 			case ProfileArgs.Contains(a):
 				lg.Debug("Compiling locally for profiling")
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case func() bool {
 				for _, prefix := range ProfilePrefixArgs {
 					if strings.HasPrefix(a, prefix) {
@@ -205,60 +206,60 @@ func (info *ArgsInfo) Parse() {
 				return false
 			}():
 				lg.Debug("Compiling locally for profiling")
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case a == "-frepo":
 				lg.Debug("Compiling locally, compiler will emit .rpo files")
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case strings.HasPrefix(a, "-x"):
-				if len(info.Args) > i+1 &&
-					!strings.HasPrefix(info.Args[i+1], "c") &&
-					!strings.HasPrefix(info.Args[i+1], "c++") &&
-					!strings.HasPrefix(info.Args[i+1], "objective-c") &&
-					!strings.HasPrefix(info.Args[i+1], "objective-c++") &&
-					!strings.HasPrefix(info.Args[i+1], "go") {
+				if len(ap.Args) > i+1 &&
+					!strings.HasPrefix(ap.Args[i+1], "c") &&
+					!strings.HasPrefix(ap.Args[i+1], "c++") &&
+					!strings.HasPrefix(ap.Args[i+1], "objective-c") &&
+					!strings.HasPrefix(ap.Args[i+1], "objective-c++") &&
+					!strings.HasPrefix(ap.Args[i+1], "go") {
 					lg.Debug("Compiling locally, possibly complex -x arguments")
-					info.Mode = RunLocal
+					ap.Mode = RunLocal
 				}
 				if a == "-x" {
 					skip = true
 				}
 				// OK
 			case strings.HasPrefix(a, "-dr"):
-				info.Mode = RunLocal
+				ap.Mode = RunLocal
 			case a == "-c":
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 				seenOptC = true
 			case a == "-o":
-				info.FlagIndexMap[a] = i
+				ap.FlagIndexMap[a] = i
 
-				if i == len(info.Args)-1 {
+				if i == len(ap.Args)-1 {
 					lg.Error("-o found as the last argument?")
-					info.Mode = RunLocal
+					ap.Mode = RunLocal
 					break
 				}
-				next := info.Args[i+1]
+				next := ap.Args[i+1]
 				ext := filepath.Ext(next)
 				if ext == ".o" {
 					// Args of the form `-o something.o`
-					lll.With(zap.String("path", next)).
+					ap.lg.With(zap.String("path", next)).
 						Debug("Found output file")
 					if outputArg != "" {
-						lll.With(zap.String("path", next)).
+						ap.lg.With(zap.String("path", next)).
 							Warn("Found multiple output files, possible invalid arguments")
-						info.Mode = RunLocal
+						ap.Mode = RunLocal
 					}
 				} else if ext == "" {
 					// Args of the form `-o something`
-					lll.With(zap.String("path", next)).
+					ap.lg.With(zap.String("path", next)).
 						Debug("Found executable target")
 					if outputArg != "" {
-						lll.With(zap.String("path", next)).
+						ap.lg.With(zap.String("path", next)).
 							Warn("Found multiple executable targets, possible invalid arguments")
 					}
-					info.Mode = RunLocal
+					ap.Mode = RunLocal
 				}
-				outputArg = info.Args[i+1]
-				info.OutputArgIndex = i + 1
+				outputArg = ap.Args[i+1]
+				ap.OutputArgIndex = i + 1
 				skip = true
 			}
 		} else {
@@ -267,28 +268,28 @@ func (info *ArgsInfo) Parse() {
 				lg.Debug("Found input file")
 				if inputArg != "" {
 					lg.Warn("Found multiple input files, compiling locally")
-					info.Mode = RunLocal
+					ap.Mode = RunLocal
 				}
 				inputArg = a
-				info.InputArgIndex = i
+				ap.InputArgIndex = i
 			}
 		}
 	}
 
-	if !seenOptC && !seenOptS && info.InputArgIndex == -1 {
-		lll.Debug("Compiler not called for a compile operation")
-		info.Mode = RunLocal
+	if !seenOptC && !seenOptS && ap.InputArgIndex == -1 {
+		ap.lg.Debug("Compiler not called for a compile operation")
+		ap.Mode = RunLocal
 	}
 
-	if info.InputArgIndex == -1 {
-		lll.Debug("No input file given")
-		info.Mode = RunLocal
+	if ap.InputArgIndex == -1 {
+		ap.lg.Debug("No input file given")
+		ap.Mode = RunLocal
 	}
 
 	if ShouldRunLocal(inputArg) {
-		lll.With(zap.String("input", inputArg)).
+		ap.lg.With(zap.String("input", inputArg)).
 			Debug("Compiling %s locally as a special case")
-		info.Mode = RunLocal
+		ap.Mode = RunLocal
 	}
 
 	if outputArg == "" {
@@ -303,45 +304,45 @@ func (info *ArgsInfo) Parse() {
 				outputArg = ReplaceExtension(inputArg, ".o")
 			}
 			if outputArg != "" {
-				lll.With(zap.String("output", outputArg)).
+				ap.lg.With(zap.String("output", outputArg)).
 					Debug("No output file specified, adding one to match input")
-				info.Args = append(info.Args, "-o", outputArg)
-				info.OutputArgIndex = len(info.Args) - 1
+				ap.Args = append(ap.Args, "-o", outputArg)
+				ap.OutputArgIndex = len(ap.Args) - 1
 			}
 		} else if inputArg != "" && !seenOptE {
 			// If preprocessing, output goes to stdout
 			outputArg = "a.out"
-			info.Args = append(info.Args, "-o", "a.out")
-			info.OutputArgIndex = len(info.Args) - 1
+			ap.Args = append(ap.Args, "-o", "a.out")
+			ap.OutputArgIndex = len(ap.Args) - 1
 		}
 	}
 
 	// Nothing set so far, allow remote
-	if info.Mode == Unset {
-		info.Mode = RunRemote
+	if ap.Mode == Unset {
+		ap.Mode = RunRemote
 	}
 
-	switch info.Mode {
+	switch ap.Mode {
 	case RunLocal:
-		lll.Debug("Remote compilation disabled")
+		ap.lg.Debug("Remote compilation disabled")
 	case RunRemote:
-		lll.Debug("Remote compilation enabled")
+		ap.lg.Debug("Remote compilation enabled")
 	}
 }
 
 // SetActionOpt modifies the arguments to replace the action opt
 // with a new one.
-func (info *ArgsInfo) SetActionOpt(opt ActionOpt) error {
+func (ap *ArgParser) SetActionOpt(opt ActionOpt) error {
 	replace := func(i int, oldOpt ActionOpt) {
-		info.Args[i] = opt.String()
-		delete(info.FlagIndexMap, oldOpt.String())
-		info.FlagIndexMap[opt.String()] = i
+		ap.Args[i] = opt.String()
+		delete(ap.FlagIndexMap, oldOpt.String())
+		ap.FlagIndexMap[opt.String()] = i
 	}
-	if i, ok := info.FlagIndexMap[Compile.String()]; ok {
+	if i, ok := ap.FlagIndexMap[Compile.String()]; ok {
 		replace(i, Compile)
-	} else if i, ok := info.FlagIndexMap[GenAssembly.String()]; ok {
+	} else if i, ok := ap.FlagIndexMap[GenAssembly.String()]; ok {
 		replace(i, GenAssembly)
-	} else if i, ok := info.FlagIndexMap[Preprocess.String()]; ok {
+	} else if i, ok := ap.FlagIndexMap[Preprocess.String()]; ok {
 		replace(i, Preprocess)
 	} else {
 		return errors.New("No -c -S or -E args found")
@@ -351,12 +352,12 @@ func (info *ArgsInfo) SetActionOpt(opt ActionOpt) error {
 
 // ActionOpt returns the current action according to the
 // argument list.
-func (info *ArgsInfo) ActionOpt() ActionOpt {
-	if _, ok := info.FlagIndexMap[Compile.String()]; ok {
+func (ap *ArgParser) ActionOpt() ActionOpt {
+	if _, ok := ap.FlagIndexMap[Compile.String()]; ok {
 		return Compile
-	} else if _, ok := info.FlagIndexMap[GenAssembly.String()]; ok {
+	} else if _, ok := ap.FlagIndexMap[GenAssembly.String()]; ok {
 		return GenAssembly
-	} else if _, ok := info.FlagIndexMap[Preprocess.String()]; ok {
+	} else if _, ok := ap.FlagIndexMap[Preprocess.String()]; ok {
 		return Preprocess
 	}
 	return None
@@ -364,9 +365,9 @@ func (info *ArgsInfo) ActionOpt() ActionOpt {
 
 // ReplaceOutputPath replaces the output path (the path after -o)
 // with a new path.
-func (info *ArgsInfo) ReplaceOutputPath(newPath string) error {
-	if info.OutputArgIndex != -1 {
-		info.Args[info.OutputArgIndex] = newPath
+func (ap *ArgParser) ReplaceOutputPath(newPath string) error {
+	if ap.OutputArgIndex != -1 {
+		ap.Args[ap.OutputArgIndex] = newPath
 		return nil
 	}
 	return errors.New("No -o arg found")
@@ -375,16 +376,16 @@ func (info *ArgsInfo) ReplaceOutputPath(newPath string) error {
 // ReplaceInputPath replaces the input path (the path after the action opt)
 // with a new path.
 // If the new input path is '-', this function adds '-x <language>' to the arguments
-func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
-	if info.InputArgIndex != -1 {
-		old := info.Args[info.InputArgIndex]
+func (ap *ArgParser) ReplaceInputPath(newPath string) error {
+	if ap.InputArgIndex != -1 {
+		old := ap.Args[ap.InputArgIndex]
 		if old == newPath {
 			return nil
 		}
-		info.Args[info.InputArgIndex] = newPath
+		ap.Args[ap.InputArgIndex] = newPath
 		if newPath == "-" {
-			lll.Debug("Replacing input flag with '-', adding language flag to args")
-			err := info.PrependLanguageFlag(old)
+			ap.lg.Debug("Replacing input flag with '-', adding language flag to args")
+			err := ap.PrependLanguageFlag(old)
 			if err != nil {
 				return err
 			}
@@ -399,9 +400,9 @@ func (info *ArgsInfo) ReplaceInputPath(newPath string) error {
 // 1. Replace "-Wp,-X,-Y,-Z" with "-X -Y -Z"
 // 2. Replace "-Wp,-MD,path" or "-Wp,-MMD,path" with "-M[M]D -MF path"
 // It also adds the -fdirectives-only option.
-func (info *ArgsInfo) ConfigurePreprocessorOptions() {
-	for i := 0; i < len(info.Args); i++ {
-		arg := info.Args[i]
+func (ap *ArgParser) ConfigurePreprocessorOptions() {
+	for i := 0; i < len(ap.Args); i++ {
+		arg := ap.Args[i]
 		if !strings.HasPrefix(arg, "-Wp") {
 			continue
 		}
@@ -410,7 +411,7 @@ func (info *ArgsInfo) ConfigurePreprocessorOptions() {
 			str := split[ii]
 			if str == "-MD" || str == "-MMD" {
 				if ii == len(split)-1 || split[ii+1][0] == '-' {
-					lll.Warnf("Possibly invalid options, missing path after -Wp,%s", str)
+					ap.lg.Warnf("Possibly invalid options, missing path after -Wp,%s", str)
 				} else {
 					split = append(split[:ii+1], split[ii:]...)
 					split[ii+1] = "-MF" // very important, without this GCC will [DATA EXPUNGED]
@@ -418,22 +419,22 @@ func (info *ArgsInfo) ConfigurePreprocessorOptions() {
 				}
 			}
 		}
-		left := append(append([]string(nil), info.Args[:i]...), split...) // deep copy
-		info.Args = append(left, info.Args[i+1:]...)
+		left := append(append([]string(nil), ap.Args[:i]...), split...) // deep copy
+		ap.Args = append(left, ap.Args[i+1:]...)
 		i = len(left) - 1
 	}
-	info.Args = append(info.Args, "-fdirectives-only")
-	info.Parse()
+	ap.Args = append(ap.Args, "-fdirectives-only")
+	ap.Parse()
 }
 
 // RemoveLocalArgs removes arguments that do not need to be
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
 // It also adds -fpreprocessed
-func (info *ArgsInfo) RemoveLocalArgs() {
+func (ap *ArgParser) RemoveLocalArgs() {
 	newArgs := []string{}
-	for i := 0; i < len(info.Args); i++ {
-		arg := info.Args[i]
+	for i := 0; i < len(ap.Args); i++ {
+		arg := ap.Args[i]
 		if LocalArgsWithValues.Contains(arg) {
 			i++ // Skip value (--arg value)
 			continue
@@ -451,16 +452,16 @@ func (info *ArgsInfo) RemoveLocalArgs() {
 		}
 		newArgs = append(newArgs, arg)
 	}
-	info.Args = append(newArgs, "-fpreprocessed")
-	info.Parse()
+	ap.Args = append(newArgs, "-fpreprocessed")
+	ap.Parse()
 }
 
-func (info *ArgsInfo) PrependLanguageFlag(input string) error {
+func (ap *ArgParser) PrependLanguageFlag(input string) error {
 	lang, err := SourceFileLanguage(input)
 	if err != nil {
 		return err
 	}
-	info.Args = append([]string{"-x", lang}, info.Args...)
-	info.Parse()
+	ap.Args = append([]string{"-x", lang}, ap.Args...)
+	ap.Parse()
 	return nil
 }

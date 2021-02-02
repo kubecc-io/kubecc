@@ -1,4 +1,4 @@
-package main
+package scheduler
 
 import (
 	"context"
@@ -40,23 +40,25 @@ func (s *DefaultScheduler) Schedule(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+	lg := lll.LogFromContext(ctx)
+
 	if s.agentClient == nil {
-		lll.Info("Starting resolver")
+		lg.Info("Starting resolver")
 		cc, err := s.resolver.Dial()
 		if err != nil {
 			return nil, err
 		}
 		s.agentClient = types.NewAgentClient(cc)
 	}
-	lll.Info("Scheduling")
+	lg.Info("Scheduling")
 	for {
 		response, err := s.agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
 		if status.Code(err) == codes.Unavailable {
-			lll.Info("Agent rejected task, re-scheduling...")
+			lg.Info("Agent rejected task, re-scheduling...")
 			continue
 		}
 		if err != nil {
-			lll.With(zap.Error(err)).Error("Error from agent")
+			lg.With(zap.Error(err)).Error("Error from agent")
 			return nil, err
 		}
 		return response, nil

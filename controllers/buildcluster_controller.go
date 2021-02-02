@@ -40,6 +40,7 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	cluster := &v1alpha1.BuildCluster{}
 	res, err := rec.Find(rec.ResolveContext{
 		Context:    ctx,
+		Log:        r.Log,
 		Client:     r.Client,
 		RootObject: cluster,
 		Object:     cluster,

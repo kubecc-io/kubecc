@@ -2,6 +2,7 @@
 package lll
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -116,7 +117,11 @@ func WithColor(color bool) logOption {
 	}
 }
 
-func Setup(component string, ops ...logOption) {
+func NewFromContext(
+	ctx context.Context,
+	component Component,
+	ops ...logOption,
+) context.Context {
 	options := LogOptions{
 		color:            useColor,
 		outputPaths:      []string{"stdout"},
@@ -124,7 +129,7 @@ func Setup(component string, ops ...logOption) {
 		logLevel:         zapcore.DebugLevel,
 	}
 	options.Apply(ops...)
-
+	color := component.Color()
 	startTime = atomic.NewInt64(time.Now().Unix())
 	conf := zap.Config{
 		Level:             zap.NewAtomicLevelAt(options.logLevel),
@@ -136,18 +141,20 @@ func Setup(component string, ops ...logOption) {
 		OutputPaths:       options.outputPaths,
 		ErrorOutputPaths:  options.errorOutputPaths,
 		EncoderConfig: zapcore.EncoderConfig{
-			MessageKey:       "M",
-			LevelKey:         "L",
-			TimeKey:          "T",
-			NameKey:          "N",
-			CallerKey:        "C",
-			FunctionKey:      "",
-			StacktraceKey:    "S",
-			LineEnding:       "\n",
-			EncodeLevel:      CapitalColorLevelEncoder,
-			EncodeTime:       formatTime,
-			EncodeCaller:     ShortCallerEncoder,
-			EncodeName:       FullNameEncoder,
+			MessageKey:    "M",
+			LevelKey:      "L",
+			TimeKey:       "T",
+			NameKey:       "N",
+			CallerKey:     "C",
+			FunctionKey:   "",
+			StacktraceKey: "S",
+			LineEnding:    "\n",
+			EncodeLevel:   CapitalColorLevelEncoder,
+			EncodeTime:    formatTime,
+			EncodeCaller:  ShortCallerEncoder,
+			EncodeName: func(loggerName string, enc zapcore.PrimitiveArrayEncoder) {
+				enc.AppendString(fmt.Sprintf("[%s]", color.Add(loggerName)))
+			},
 			EncodeDuration:   zapcore.SecondsDurationEncoder,
 			ConsoleSeparator: " ",
 		},
@@ -156,8 +163,23 @@ func Setup(component string, ops ...logOption) {
 	if err != nil {
 		panic(err)
 	}
-	globalLog = l.Named(component).Sugar()
-	loadFunctions()
+	s := l.Sugar().Named(component.ShortName())
+	s.Infof(color.Add("Starting %s"), component.String())
+	return ContextWithLog(ctx, s)
+}
+
+func ContextWithLog(
+	ctx context.Context,
+	log *zap.SugaredLogger,
+) context.Context {
+	return context.WithValue(ctx, "log", log)
+}
+
+func LogFromContext(ctx context.Context) *zap.SugaredLogger {
+	if log, ok := ctx.Value("log").(*zap.SugaredLogger); ok {
+		return log
+	}
+	panic("No logger stored in the given context")
 }
 
 func PrintHeader() {
@@ -166,7 +188,6 @@ func PrintHeader() {
 	} else {
 		fmt.Println(BigAsciiText)
 	}
-	globalLog.Info(Green.Add("Starting component"))
 }
 
 // internal code copied from zap below
@@ -266,9 +287,4 @@ func ShortCallerEncoder(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEn
 		enc.AppendByteString(spaces)
 	}
 	enc.AppendByteString(name[:])
-}
-
-// FullNameEncoder serializes the logger name as-is.
-func FullNameEncoder(loggerName string, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(Green.Add(loggerName))
 }
