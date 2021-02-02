@@ -1,4 +1,4 @@
-package main
+package consumer
 
 import (
 	"bytes"
@@ -15,13 +15,15 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 )
 
-func dispatchAndWait(cc *grpc.ClientConn) {
-	lll.Info("Dispatching to consumerd")
+func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
+	lg := lll.LogFromContext(ctx)
+
+	lg.Info("Dispatching to consumerd")
 
 	consumerd := types.NewConsumerdClient(cc)
 	wd, err := os.Getwd()
 	if err != nil {
-		lll.Fatal(err.Error())
+		lg.Fatal(err.Error())
 	}
 	stdin := new(bytes.Buffer)
 
@@ -39,7 +41,7 @@ func dispatchAndWait(cc *grpc.ClientConn) {
 		WorkDir:  wd,
 	}, grpc.WaitForReady(true), grpc.UseCompressor(gzip.Name))
 	if err != nil {
-		lll.With(zap.Error(err)).Error("Dispatch error")
+		lg.With(zap.Error(err)).Error("Dispatch error")
 		os.Exit(1)
 	}
 	io.Copy(os.Stdout, bytes.NewReader(resp.Stdout))

@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"go.uber.org/zap"
 )
@@ -21,9 +20,9 @@ func NewPreprocessRunner(opts ...RunOption) Runner {
 	return r
 }
 
-func (r *preprocessRunner) Run(compiler string, info *cc.ArgsInfo) error {
+func (r *preprocessRunner) Run(compiler string, info *cc.ArgParser) error {
 	if info.OutputArgIndex != -1 {
-		lll.Debug("Replacing output path with '-'")
+		r.lg.Debug("Replacing output path with '-'")
 		old := info.Args[info.OutputArgIndex]
 		info.ReplaceOutputPath("-")
 		defer info.ReplaceOutputPath(old)
@@ -58,7 +57,7 @@ func (r *preprocessRunner) Run(compiler string, info *cc.ArgsInfo) error {
 	}()
 	err = cmd.Wait()
 	if err != nil {
-		lll.With(zap.Error(err)).Error("Compiler error")
+		r.lg.With(zap.Error(err)).Error("Compiler error")
 		return NewCompilerError(stderrBuf.String())
 	}
 	return nil

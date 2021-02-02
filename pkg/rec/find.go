@@ -1,7 +1,6 @@
 package rec
 
 import (
-	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -43,6 +42,7 @@ func Find(
 	out client.Object,
 	opts ...findOption,
 ) (ctrl.Result, error) {
+	lg := rc.Log
 	findOptions := &FindOptions{
 		creator:           nil,
 		recreateIfChanged: false,
@@ -53,47 +53,47 @@ func Find(
 	if err != nil {
 		if errors.IsNotFound(err) && findOptions.creator != nil {
 			out, err = findOptions.creator(rc)
-			if err := tools.SetLastAppliedAnnotation(out); err != nil {
-				lll.With(zap.Error(err)).Error("Error applying annotation")
-			}
 			if err != nil {
-				lll.With(zap.Error(err)).Error("Error constructing object from creator")
+				lg.With(zap.Error(err)).Error("Error constructing object from creator")
 			} else {
+				if err := tools.SetLastAppliedAnnotation(out); err != nil {
+					lg.With(zap.Error(err)).Error("Error applying annotation")
+				}
 				err = ctrl.SetControllerReference(rc.RootObject, out, rc.Client.Scheme())
 				if err != nil {
-					lll.With(zap.Error(err)).Error("Error taking ownership of object")
+					lg.With(zap.Error(err)).Error("Error taking ownership of object")
 				} else {
 					err = rc.Client.Create(rc.Context, out)
 					if err != nil {
-						lll.With(zap.Error(err)).Error("Error creating object in cluster")
+						lg.With(zap.Error(err)).Error("Error creating object in cluster")
 					}
 				}
 			}
 			return ctrl.Result{Requeue: true}, err
 		}
-		lll.With(zap.Error(err)).Error("Failed to get resource")
+		lg.With(zap.Error(err)).Error("Failed to get resource")
 		return ctrl.Result{}, err
 	}
 
 	if findOptions.recreateIfChanged {
 		if findOptions.creator == nil {
-			lll.DPanic("recreateIfChanged set but creator unset")
+			lg.DPanic("recreateIfChanged set but creator unset")
 		}
 		templateObj, err := findOptions.creator(rc)
 		if err != nil {
-			lll.With(zap.Error(err)).Error("Error constructing object from creator")
+			lg.With(zap.Error(err)).Error("Error constructing object from creator")
 			return RequeueWithErr(err)
 		}
 		result, err := tools.CalculatePatch(out, templateObj)
 		if err != nil {
-			lll.With(zap.Error(err)).Error("Error calculating patch, not updating object.")
+			lg.With(zap.Error(err)).Error("Error calculating patch, not updating object.")
 			return RequeueWithErr(err)
 		}
 		if result.IsEmpty() {
 			return DoNotRequeue()
 		}
 		if err := tools.SetLastAppliedAnnotation(templateObj); err != nil {
-			lll.With(zap.Error(err)).Error("Error applying annotation")
+			lg.With(zap.Error(err)).Error("Error applying annotation")
 		} else {
 			err := rc.Client.Update(rc.Context, templateObj)
 			if err != nil {

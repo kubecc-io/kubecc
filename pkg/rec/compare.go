@@ -3,7 +3,6 @@ package rec
 import (
 	"reflect"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	v1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +39,7 @@ func UpdateIfNeeded(
 			}
 			err := rc.Client.Update(rc.Context, source)
 			if err != nil {
-				lll.Error(err)
+				rc.Log.Error(err)
 				return RequeueWithErr(err)
 			}
 			return Requeue()
@@ -79,7 +78,6 @@ func AffinityUpdater(a *v1.NodeAffinity, pod *v1.PodSpec) Updater {
 func CompareResources(a v1.ResourceRequirements, pod *v1.PodSpec, idx int) func() bool {
 	return func() bool {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return true // Nothing to compare
 		}
 		return Equal(a, pod.Containers[idx].Resources)
@@ -89,7 +87,6 @@ func CompareResources(a v1.ResourceRequirements, pod *v1.PodSpec, idx int) func(
 func ApplyResources(a v1.ResourceRequirements, pod *v1.PodSpec, idx int) func() {
 	return func() {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return // Nothing to compare
 		}
 		ctr := pod.Containers[idx]
@@ -108,7 +105,6 @@ func ResourceUpdater(a v1.ResourceRequirements, pod *v1.PodSpec, idx int) Update
 func CompareImage(a string, pod *v1.PodSpec, idx int) func() bool {
 	return func() bool {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return true // Nothing to compare
 		}
 		return a == pod.Containers[idx].Image
@@ -118,7 +114,6 @@ func CompareImage(a string, pod *v1.PodSpec, idx int) func() bool {
 func ApplyImage(a string, pod *v1.PodSpec, idx int) func() {
 	return func() {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return // Nothing to compare
 		}
 		ctr := pod.Containers[idx]
@@ -137,7 +132,6 @@ func ImageUpdater(a string, pod *v1.PodSpec, idx int) Updater {
 func ComparePullPolicy(a v1.PullPolicy, pod *v1.PodSpec, idx int) func() bool {
 	return func() bool {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return true // Nothing to compare
 		}
 		return a == pod.Containers[idx].ImagePullPolicy
@@ -147,7 +141,6 @@ func ComparePullPolicy(a v1.PullPolicy, pod *v1.PodSpec, idx int) func() bool {
 func ApplyPullPolicy(a v1.PullPolicy, pod *v1.PodSpec, idx int) func() {
 	return func() {
 		if len(pod.Containers) <= idx {
-			lll.Debug("Container index out of range, ignoring")
 			return // Nothing to compare
 		}
 		ctr := pod.Containers[idx]

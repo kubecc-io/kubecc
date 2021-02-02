@@ -5,12 +5,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
-	"go.uber.org/zap/zapcore"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -81,7 +79,6 @@ func TestTemplates(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	lll.Setup("Test", lll.WithLogLevel(zapcore.DebugLevel))
 	templates.SetPathPrefix("./test")
 })
 

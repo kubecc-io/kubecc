@@ -1,11 +1,4 @@
-package main
-
-// import (
-// 	"context"
-// 	"io"
-
-// 	"github.com/cobalt77/kubecc/pkg/types"
-// )
+package scheduler
 
 // type HandlerFunc func(*types.CompileStatus)
 

@@ -1,32 +1,30 @@
-// +build !integration
+// +build integration
 
 package cluster
 
 import (
 	"context"
 	"encoding/json"
-	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/spf13/viper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
-type AgentInfoKeyType string
-
 var (
 	// AgentInfoKey is a context value key containing AgentInfo data
-	AgentInfoKey AgentInfoKeyType = "kubecc_agent_info"
+	AgentInfoKey string = "kubecc_agent_info"
 )
 
 func MakeAgentInfo() *types.AgentInfo {
 	return &types.AgentInfo{
-		Arch:      runtime.GOARCH,
-		NumCpus:   int32(runtime.NumCPU()),
-		Node:      GetNode(),
-		Pod:       GetPodName(),
-		Namespace: GetNamespace(),
+		Arch:      viper.GetString("arch"),
+		NumCpus:   viper.GetInt32("cpus"),
+		Node:      viper.GetString("node"),
+		Pod:       viper.GetString("pod"),
+		Namespace: viper.GetString("namespace"),
 	}
 }
 
@@ -39,7 +37,7 @@ func NewAgentContext() context.Context {
 	}
 	return metadata.NewOutgoingContext(
 		context.Background(), metadata.Pairs(
-			string(AgentInfoKey), string(json),
+			AgentInfoKey, string(json),
 		))
 }
 
@@ -61,7 +59,7 @@ func AgentInfoFromContext(ctx context.Context) (info *types.AgentInfo, err error
 	if !ok {
 		return
 	}
-	values := meta.Get(string(AgentInfoKey))
+	values := meta.Get(AgentInfoKey)
 	if len(values) != 1 {
 		return
 	}

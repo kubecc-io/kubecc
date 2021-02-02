@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"bytes"
@@ -19,6 +19,8 @@ import (
 
 type agentServer struct {
 	types.AgentServer
+	srvContext context.Context
+	lg         *zap.SugaredLogger
 
 	// tasks           *atomic.Int32
 	// maxRunningTasks int
@@ -27,9 +29,11 @@ type agentServer struct {
 	executor *run.Executor
 }
 
-func NewAgentServer() types.AgentServer {
+func NewAgentServer(ctx context.Context) types.AgentServer {
 	srv := &agentServer{
-		executor: run.NewExecutor((runtime.NumCPU() * 3) / 2),
+		executor:   run.NewExecutor((runtime.NumCPU() * 3) / 2),
+		srvContext: ctx,
+		lg:         lll.LogFromContext(ctx),
 	}
 	// srv.tasks = atomic.NewInt32(0)
 	// srv.maxRunningTasks = 2 * runtime.NumCPU()
@@ -61,19 +65,20 @@ func (s *agentServer) Compile(
 	// 	s.runQueue <- token
 	// 	s.tasks.Dec()
 	// }()
-	info := cc.NewArgsInfo(req.Args)
-	info.Parse()
-	lll.With(zap.Object("args", info)).Info("Compile starting")
+	ap := cc.NewArgParser(s.srvContext, req.Args)
+	ap.Parse()
+	s.lg.With(zap.Object("args", ap)).Info("Compile starting")
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
 	runner := run.NewCompileRunner(
+		run.WithContext(lll.ContextWithLog(ctx, s.lg)),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(ioutil.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.NewTask(sctx, runner, req.Command, info)
+	task := run.NewTask(sctx, runner, req.Command, ap)
 	err := s.executor.Exec(task)
-	lll.With(zap.Error(err)).Info("Compile finished")
+	s.lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
 		return &types.CompileResponse{
 			CompileResult: types.CompileResponse_Fail,
@@ -86,14 +91,14 @@ func (s *agentServer) Compile(
 	}
 	data, err := ioutil.ReadFile(tmpFilename.String())
 	if err != nil {
-		lll.With(zap.Error(err)).Info("Error reading temp file")
+		s.lg.With(zap.Error(err)).Info("Error reading temp file")
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	err = os.Remove(tmpFilename.String())
 	if err != nil {
-		lll.With(zap.Error(err)).Info("Error removing temp file")
+		s.lg.With(zap.Error(err)).Info("Error removing temp file")
 	}
-	lll.With(zap.Error(err)).Info("Sending results")
+	s.lg.With(zap.Error(err)).Info("Sending results")
 	return &types.CompileResponse{
 		CompileResult: types.CompileResponse_Success,
 		Data: &types.CompileResponse_CompiledSource{
@@ -107,7 +112,7 @@ func (s *agentServer) Compile(
 // 	srv types.Agent_CompileServer,
 // ) error {
 // 	if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-// 		lll.Error("*** Hit the max number of tasks, rejecting")
+// 		s.lg.Error("*** Hit the max number of tasks, rejecting")
 // 		srv.Send(&types.CompileStatus{
 // 			CompileStatus: types.CompileStatus_Reject,
 // 			Data: &types.CompileStatus_Error{
@@ -122,26 +127,26 @@ func (s *agentServer) Compile(
 // 		s.tasks.Dec()
 // 	}()
 
-// 	lll.Info("Compile requested")
+// 	s.lg.Info("Compile requested")
 // 	srv.Send(&types.CompileStatus{
 // 		CompileStatus: types.CompileStatus_Accept,
 // 		Data: &types.CompileStatus_Info{
 // 			Info: cluster.MakeAgentInfo(),
 // 		},
 // 	})
-// 	info := cc.NewArgsInfo(req.Args, lll.Desugar())
+// 	info := cc.NewArgsInfo(req.Args, s.lg.Desugar())
 // 	info.Parse()
-// 	lll.With(zap.Object("args", info)).Info("Compile starting")
+// 	s.lg.With(zap.Object("args", info)).Info("Compile starting")
 // 	stderrBuf := new(bytes.Buffer)
 // 	tmpFilename := new(bytes.Buffer)
 // 	runner := run.NewCompileRunner(
-// 		run.WithLogger(lll.Desugar()),
+// 		run.WithLogger(s.lg.Desugar()),
 // 		run.WithOutputWriter(tmpFilename),
 // 		run.WithStderr(stderrBuf),
 // 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 // 	)
 // 	err := runner.Run(info)
-// 	lll.With(zap.Error(err)).Info("Compile finished")
+// 	s.lg.With(zap.Error(err)).Info("Compile finished")
 // 	if err != nil && run.IsCompilerError(err) {
 // 		srv.Send(
 // 			&types.CompileStatus{
@@ -156,7 +161,7 @@ func (s *agentServer) Compile(
 // 	}
 // 	data, err := ioutil.ReadFile(tmpFilename.String())
 // 	if err != nil {
-// 		lll.With(zap.Error(err)).Info("Error reading temp file")
+// 		s.lg.With(zap.Error(err)).Info("Error reading temp file")
 // 		return status.Error(codes.Internal, err.Error())
 // 	}
 // 	err = srv.Send(&types.CompileStatus{
@@ -165,6 +170,6 @@ func (s *agentServer) Compile(
 // 			CompiledSource: data,
 // 		},
 // 	})
-// 	lll.With(zap.Error(err)).Info("Sending results")
+// 	s.lg.With(zap.Error(err)).Info("Sending results")
 // 	return err
 // }

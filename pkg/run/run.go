@@ -4,17 +4,18 @@ import (
 	"context"
 	"io"
 
+	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"go.uber.org/zap"
 )
 
 type Runner interface {
-	Run(compiler string, info *cc.ArgsInfo) error
+	Run(compiler string, info *cc.ArgParser) error
 }
 
 type OutputType int
 
 type ProcessOptions struct {
-	Context context.Context
 	Stdout  io.Writer
 	Stderr  io.Writer
 	Stdin   io.Reader
@@ -32,6 +33,9 @@ type ResultOptions struct {
 type RunnerOptions struct {
 	ProcessOptions
 	ResultOptions
+
+	Context context.Context
+	lg      *zap.SugaredLogger
 }
 
 func (r *RunnerOptions) Apply(opts ...RunOption) {
@@ -89,5 +93,6 @@ func InPlace(inPlace bool) RunOption {
 func WithContext(ctx context.Context) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Context = ctx
+		ro.lg = lll.LogFromContext(ctx)
 	}
 }
