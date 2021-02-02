@@ -7,7 +7,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
-	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +43,9 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	lll.Setup("Test", lll.WithLogLevel(zapcore.DebugLevel))
+	ctx := lll.NewFromContext(context.Background(), lll.Controller)
+	lg := lll.LogFromContext(ctx)
+
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	templates.SetPathPrefix("../config/manager/templates")
@@ -74,14 +75,14 @@ var _ = BeforeSuite(func(done Done) {
 
 	err = (&BuildClusterReconciler{
 		Client: k8sManager.GetClient(),
-		Log:    lll.Named("M").Named("BuildCluster"),
+		Log:    lg.Named("BuildCluster"),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&ToolchainReconciler{
 		Client: k8sManager.GetClient(),
-		Log:    lll.Named("M").Named("Toolchain"),
+		Log:    lg.Named("Toolchain"),
 		Scheme: k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())

@@ -1,66 +1,60 @@
-package main
+package scheduler
 
-// import (
-// 	"context"
-// 	"errors"
-// 	"fmt"
-// 	"math/rand"
-// 	"net"
-// 	"sync"
+import (
+	"context"
+	"sync"
 
-// 	"github.com/cobalt77/kubecc/pkg/cluster"
-// 	"github.com/cobalt77/kubecc/pkg/types"
-// 	"google.golang.org/grpc"
-// 	"google.golang.org/grpc/codes"
-// 	"google.golang.org/grpc/peer"
-// 	"google.golang.org/grpc/status"
-// )
+	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
 
-// type Monitor struct {
-// 	AgentResolver
+type Monitor struct {
+	AgentResolver
 
-// 	agents sync.Map // map[types.AgentID]*Agent
-// }
+	agents sync.Map // map[types.AgentID]*Agent
+}
 
-// func NewMonitor() *Monitor {
-// 	return &Monitor{
-// 		agents: sync.Map{},
-// 	}
-// }
+func NewMonitor() *Monitor {
+	return &Monitor{
+		agents: sync.Map{},
+	}
+}
 
-// func (w *Monitor) AgentIsConnected(id types.AgentID) bool {
-// 	_, ok := w.agents.Load(id)
-// 	return ok
-// }
+func (w *Monitor) AgentIsConnected(id types.AgentID) bool {
+	_, ok := w.agents.Load(id)
+	return ok
+}
 
-// func (w *Monitor) AgentConnected(a *Agent) error {
-// 	id, err := a.Info.AgentID()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	w.agents.Store(id, a)
-// 	go func() {
-// 		<-a.Context.Done()
-// 		w.agents.Delete(id)
-// 	}()
-// 	return nil
-// }
+func (w *Monitor) AgentConnected(a *Agent) error {
+	id, err := a.Info.AgentID()
+	if err != nil {
+		return err
+	}
+	w.agents.Store(id, a)
+	go func() {
+		<-a.Context.Done()
+		w.agents.Delete(id)
+	}()
+	return nil
+}
 
-// func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
-// 	info, err := cluster.AgentInfoFromContext(ctx)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	id, err := info.AgentID()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if !w.AgentIsConnected(id) {
-// 		return nil, status.Error(codes.FailedPrecondition,
-// 			"Not connected, ensure a connection stream is active with Connect()")
-// 	}
-// 	return info, nil
-// }
+func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
+	info, err := cluster.AgentInfoFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := info.AgentID()
+	if err != nil {
+		return nil, err
+	}
+	if !w.AgentIsConnected(id) {
+		return nil, status.Error(codes.FailedPrecondition,
+			"Not connected, ensure a connection stream is active with Connect()")
+	}
+	return info, nil
+}
 
 // func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
 // 	lll.Info("=> Watching task")

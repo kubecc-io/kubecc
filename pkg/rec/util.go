@@ -3,7 +3,6 @@ package rec
 import (
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -21,7 +20,7 @@ func RequeueWithErr(err error) (ctrl.Result, error) {
 
 func RequeueWith(res ctrl.Result, err error) (ctrl.Result, error) {
 	if !ShouldRequeue(res, err) {
-		lll.DPanic("Logic error in reconciliation loop")
+		panic("Logic error in reconciliation loop")
 	}
 	return res, err
 }

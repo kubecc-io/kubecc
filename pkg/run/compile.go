@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/internal/lll"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -25,8 +24,8 @@ func NewCompileRunner(opts ...RunOption) Runner {
 }
 
 // Run the compiler with the current args.
-func (r *compileRunner) Run(compiler string, info *cc.ArgsInfo) error {
-	lll.With(
+func (r *compileRunner) Run(compiler string, info *cc.ArgParser) error {
+	r.lg.With(
 		zap.String("compiler", compiler),
 		zap.Object("info", info),
 	).Debug("Received run request")
@@ -41,16 +40,16 @@ func (r *compileRunner) Run(compiler string, info *cc.ArgsInfo) error {
 		tmp, err := ioutil.TempFile(
 			"", fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
-			lll.With(zap.Error(err)).Fatal("Can't create temporary files")
+			r.lg.With(zap.Error(err)).Fatal("Can't create temporary files")
 		}
 		tmpFileName = tmp.Name()
-		lll.With(
+		r.lg.With(
 			zap.String("old", info.Args[info.OutputArgIndex]),
 			zap.String("new", tmp.Name()),
 		).Info("Replacing output path")
 		err = info.ReplaceOutputPath(tmp.Name())
 		if err != nil {
-			lll.With(zap.Error(err)).Error("Error replacing output path")
+			r.lg.With(zap.Error(err)).Error("Error replacing output path")
 			return err
 		}
 	}
@@ -62,13 +61,13 @@ func (r *compileRunner) Run(compiler string, info *cc.ArgsInfo) error {
 	cmd.Stderr = io.MultiWriter(r.Stderr, stderrBuf)
 	cmd.Stdin = r.Stdin
 
-	lll.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
+	r.lg.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	err := cmd.Wait()
 	if err != nil {
-		lll.With(zap.Error(err)).Error("Compiler error")
+		r.lg.With(zap.Error(err)).Error("Compiler error")
 		return NewCompilerError(stderrBuf.String())
 	}
 	if r.OutputWriter != nil && !r.NoTempFile {

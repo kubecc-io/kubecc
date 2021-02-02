@@ -1,33 +1,32 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/cobalt77/kubecc/internal/consumer"
+	internal "github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/cobalt77/kubecc/internal/lll"
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
-	"github.com/opentracing/opentracing-go"
+	"github.com/cobalt77/kubecc/pkg/apps/consumer"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 )
 
+var lg *zap.SugaredLogger
+
 func main() {
-	lll.Setup("C",
+	ctx := lll.NewFromContext(context.Background(), lll.Consumer,
 		lll.WithOutputPaths([]string{"/tmp/consumer.log"}),
 		lll.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 	)
+	lg = lll.LogFromContext(ctx)
 
-	consumer.InitConfig()
-	c, err := grpc.Dial(
-		fmt.Sprintf("127.0.0.1:%d", viper.GetInt("port")),
-		grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(
-			otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1e8)), // 100 MB
-	)
+	internal.InitConfig()
+
+	cc, err := servers.Dial(
+		ctx, fmt.Sprintf("127.0.0.1:%d", viper.GetInt("port")))
 	if err != nil {
-		lll.With(zap.Error(err)).Fatal("Error connecting to leader")
+		lg.With(zap.Error(err)).Fatal("Error connecting to leader")
 	}
-	dispatchAndWait(c)
+	consumer.DispatchAndWait(ctx, cc)
 }

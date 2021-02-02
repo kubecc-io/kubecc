@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"os"
 
@@ -42,6 +43,7 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
+	lg     *zap.SugaredLogger
 )
 
 func init() {
@@ -52,7 +54,7 @@ func init() {
 }
 
 func main() {
-	lll.Setup("M")
+	lll.NewFromContext(context.Background(), lll.Controller)
 	lll.PrintHeader()
 
 	var (
@@ -79,47 +81,47 @@ func main() {
 	if configFile != "" {
 		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile))
 		if err != nil {
-			lll.With(zap.Error(err)).Error("unable to load the config file")
+			lg.With(zap.Error(err)).Error("unable to load the config file")
 			os.Exit(1)
 		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		lll.With(zap.Error(err)).Error("unable to start manager")
+		lg.With(zap.Error(err)).Error("unable to start manager")
 		os.Exit(1)
 	}
 
 	if err = (&controllers.ToolchainReconciler{
 		Client: mgr.GetClient(),
-		Log:    lll.Named("C").Named("Toolchain"),
+		Log:    lg.Named("Toolchain"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		lll.With(zap.Error(err)).Error("unable to create controller", "controller", "Toolchain")
+		lg.With(zap.Error(err)).Error("unable to create controller", "controller", "Toolchain")
 		os.Exit(1)
 	}
 	if err = (&controllers.BuildClusterReconciler{
 		Client: mgr.GetClient(),
-		Log:    lll.Named("C").Named("BuildCluster"),
+		Log:    lg.Named("BuildCluster"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		lll.With(zap.Error(err)).Error("unable to create controller", "controller", "BuildCluster")
+		lg.With(zap.Error(err)).Error("unable to create controller", "controller", "BuildCluster")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		lll.With(zap.Error(err)).Error("unable to set up health check")
+		lg.With(zap.Error(err)).Error("unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		lll.With(zap.Error(err)).Error("unable to set up ready check")
+		lg.With(zap.Error(err)).Error("unable to set up ready check")
 		os.Exit(1)
 	}
 
-	lll.Info("starting manager")
+	lg.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		lll.With(zap.Error(err)).Error("problem running manager")
+		lg.With(zap.Error(err)).Error("problem running manager")
 		os.Exit(1)
 	}
 }

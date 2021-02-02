@@ -1,4 +1,4 @@
-package main
+package consumerd
 
 import (
 	"bytes"
@@ -22,10 +22,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-func runPreprocessor(
+func (c *consumerd) runPreprocessor(
 	ctx context.Context,
 	req *types.RunRequest,
-	info *cc.ArgsInfo,
+	info *cc.ArgParser,
 ) ([]byte, *types.RunResponse) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "preprocess")
 	defer span.Finish()
@@ -35,6 +35,7 @@ func runPreprocessor(
 	stderrBuf := new(bytes.Buffer)
 
 	runner := run.NewPreprocessRunner(
+		run.WithContext(lll.ContextWithLog(ctx, c.lg)),
 		run.WithEnv(req.Env),
 		run.WithOutputWriter(outBuf),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),
@@ -44,7 +45,7 @@ func runPreprocessor(
 
 	if err := runner.Run(fmt.Sprintf("/usr/bin/%s", req.Compiler), info); err != nil {
 		stderr := stderrBuf.Bytes()
-		lll.With(
+		c.lg.With(
 			zap.Error(err),
 			zap.Object("info", info),
 			zap.ByteString("stderr", stderr),
@@ -58,10 +59,10 @@ func runPreprocessor(
 	return outBuf.Bytes(), nil
 }
 
-func runRequestLocal(
+func (c *consumerd) runRequestLocal(
 	ctx context.Context,
 	req *types.RunRequest,
-	info *cc.ArgsInfo,
+	info *cc.ArgParser,
 	executor *run.Executor,
 ) (*types.RunResponse, error) {
 	span, sctx := opentracing.StartSpanFromContext(ctx, "run-local")
@@ -83,9 +84,9 @@ func runRequestLocal(
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
-		lll.With(zap.Error(err), zap.Object("info", info)).Error("Compiler error")
+		c.lg.With(zap.Error(err), zap.Object("info", info)).Error("Compiler error")
 		errString := stderrBuf.String()
-		lll.Error(errString)
+		c.lg.Error(errString)
 		return &types.RunResponse{
 			ReturnCode: 1,
 			Stdout:     stdoutBuf.Bytes(),
@@ -95,7 +96,7 @@ func runRequestLocal(
 		return nil, err
 	}
 
-	lll.With(zap.Error(err)).Debug("Local run success")
+	c.lg.With(zap.Error(err)).Debug("Local run success")
 	return &types.RunResponse{
 		ReturnCode: 0,
 		Stdout:     stdoutBuf.Bytes(),
@@ -103,10 +104,10 @@ func runRequestLocal(
 	}, nil
 }
 
-func runRequestRemote(
+func (c *consumerd) runRequestRemote(
 	ctx context.Context,
 	req *types.RunRequest,
-	info *cc.ArgsInfo,
+	info *cc.ArgParser,
 	client types.SchedulerClient,
 ) (*types.RunResponse, error) {
 	span, sctx := opentracing.StartSpanFromContext(ctx, "run-remote")
@@ -116,9 +117,9 @@ func runRequestRemote(
 
 	opt := info.ActionOpt()
 
-	lll.Debug("Preprocessing")
+	c.lg.Debug("Preprocessing")
 	info.SetActionOpt(cc.Preprocess)
-	preprocessedSource, errResp := runPreprocessor(sctx, req, info)
+	preprocessedSource, errResp := c.runPreprocessor(sctx, req, info)
 	if errResp != nil {
 		return errResp, nil
 	}
@@ -138,28 +139,28 @@ func runRequestRemote(
 
 	// Compile remote
 	info.RemoveLocalArgs()
-	lll.Debug("Starting remote compile")
+	c.lg.Debug("Starting remote compile")
 	resp, err := client.Compile(ctx, &types.CompileRequest{
 		Command:            req.Compiler, // todo
 		Args:               info.Args,
 		PreprocessedSource: preprocessedSource,
 	}, grpc.UseCompressor(gzip.Name))
 	if err != nil {
-		lll.With(zap.Error(err)).Debug("Remote compile failed")
+		c.lg.With(zap.Error(err)).Debug("Remote compile failed")
 		return nil, err
 	}
-	lll.Debug("Remote compile completed")
+	c.lg.Debug("Remote compile completed")
 	switch resp.CompileResult {
 	case types.CompileResponse_Success:
 		f, err := os.OpenFile(outputPath,
 			os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0777)
 		if err != nil {
-			lll.With(zap.Error(err)).Debug("Failed to open output file")
+			c.lg.With(zap.Error(err)).Debug("Failed to open output file")
 			return nil, err
 		}
 		_, err = io.Copy(f, bytes.NewReader(resp.GetCompiledSource()))
 		if err != nil {
-			lll.With(zap.Error(err)).Debug("Copy failed")
+			c.lg.With(zap.Error(err)).Debug("Copy failed")
 			return nil, err
 		}
 		return &types.RunResponse{

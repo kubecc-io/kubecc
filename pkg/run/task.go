@@ -10,7 +10,7 @@ import (
 type Task struct {
 	ctx      context.Context
 	compiler string
-	info     *cc.ArgsInfo
+	info     *cc.ArgParser
 	runner   Runner
 	err      error
 	doneCh   chan struct{}
@@ -31,7 +31,7 @@ func (t *Task) Error() error {
 	return t.err
 }
 
-func NewTask(ctx context.Context, r Runner, compiler string, info *cc.ArgsInfo) *Task {
+func NewTask(ctx context.Context, r Runner, compiler string, info *cc.ArgParser) *Task {
 	return &Task{
 		doneCh:   make(chan struct{}),
 		ctx:      ctx,
