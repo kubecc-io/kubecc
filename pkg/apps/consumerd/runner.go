@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -35,7 +35,7 @@ func (c *consumerd) runPreprocessor(
 	stderrBuf := new(bytes.Buffer)
 
 	runner := run.NewPreprocessRunner(
-		run.WithContext(lll.ContextWithLog(ctx, c.lg)),
+		run.WithContext(logkc.ContextWithLog(ctx, c.lg)),
 		run.WithEnv(req.Env),
 		run.WithOutputWriter(outBuf),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),

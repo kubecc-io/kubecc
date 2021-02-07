@@ -7,7 +7,7 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -33,7 +33,7 @@ func NewAgentServer(ctx context.Context) types.AgentServer {
 	srv := &agentServer{
 		executor:   run.NewExecutor((runtime.NumCPU() * 3) / 2),
 		srvContext: ctx,
-		lg:         lll.LogFromContext(ctx),
+		lg:         logkc.LogFromContext(ctx),
 	}
 	// srv.tasks = atomic.NewInt32(0)
 	// srv.maxRunningTasks = 2 * runtime.NumCPU()
@@ -52,7 +52,7 @@ func (s *agentServer) Compile(
 	span, sctx := opentracing.StartSpanFromContext(ctx, "queue")
 	defer span.Finish()
 	// if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-	// 	lll.Error("*** Hit the max number of tasks, rejecting")
+	// 	logkc.Error("*** Hit the max number of tasks, rejecting")
 	// 	return nil, status.Error(codes.Unavailable, "Max number of concurrent tasks reached")
 	// }
 	// s.tasks.Inc()
@@ -71,7 +71,7 @@ func (s *agentServer) Compile(
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
 	runner := run.NewCompileRunner(
-		run.WithContext(lll.ContextWithLog(ctx, s.lg)),
+		run.WithContext(logkc.ContextWithLog(ctx, s.lg)),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(ioutil.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),

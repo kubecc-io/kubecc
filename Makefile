@@ -23,6 +23,13 @@ test: generate fmt vet manifests
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
+test-integration:
+	@KUBECC_LOG_COLOR=1 go test ./test/integration -tags integration -v -count=1
+
+test-e2e:
+	go build -tags integration -o bin/test-e2e ./test/e2e
+	bin/test-e2e
+
 install: manifests
 	kubectl kustomize config/crd | kubectl apply -f -
 

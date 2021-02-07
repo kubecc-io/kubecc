@@ -765,17 +765,19 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x74, 0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43,
 	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e,
 	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32,
-	0x8a, 0x01, 0x0a, 0x09, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x30, 0x0a,
+	0xb7, 0x01, 0x0a, 0x09, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x30, 0x0a,
 	0x0a, 0x41, 0x74, 0x43, 0x61, 0x70, 0x61, 0x63, 0x69, 0x74, 0x79, 0x12, 0x06, 0x2e, 0x45, 0x6d,
 	0x70, 0x74, 0x79, 0x1a, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12,
 	0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d,
 	0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f,
-	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a,
-	0x07, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79,
-	0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a, 0x0b,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x33,
+	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x22, 0x0a,
+	0x0c, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x06, 0x2e,
+	0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30,
+	0x01, 0x12, 0x26, 0x0a, 0x10, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x43, 0x6f, 0x6e, 0x73,
+	0x75, 0x6d, 0x65, 0x72, 0x64, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06, 0x2e,
+	0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a, 0x0b, 0x70, 0x72, 0x6f,
+	0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -813,14 +815,16 @@ var file_pkg_types_types_proto_depIdxs = []int32{
 	9,  // 3: Agent.Compile:input_type -> CompileRequest
 	1,  // 4: Scheduler.AtCapacity:input_type -> Empty
 	9,  // 5: Scheduler.Compile:input_type -> CompileRequest
-	1,  // 6: Scheduler.Connect:input_type -> Empty
-	5,  // 7: Consumerd.Run:output_type -> RunResponse
-	10, // 8: Agent.Compile:output_type -> CompileResponse
-	11, // 9: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
-	10, // 10: Scheduler.Compile:output_type -> CompileResponse
-	1,  // 11: Scheduler.Connect:output_type -> Empty
-	7,  // [7:12] is the sub-list for method output_type
-	2,  // [2:7] is the sub-list for method input_type
+	1,  // 6: Scheduler.ConnectAgent:input_type -> Empty
+	1,  // 7: Scheduler.ConnectConsumerd:input_type -> Empty
+	5,  // 8: Consumerd.Run:output_type -> RunResponse
+	10, // 9: Agent.Compile:output_type -> CompileResponse
+	11, // 10: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
+	10, // 11: Scheduler.Compile:output_type -> CompileResponse
+	1,  // 12: Scheduler.ConnectAgent:output_type -> Empty
+	1,  // 13: Scheduler.ConnectConsumerd:output_type -> Empty
+	8,  // [8:14] is the sub-list for method output_type
+	2,  // [2:8] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -1136,7 +1140,8 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 type SchedulerClient interface {
 	AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error)
+	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
+	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
 }
 
 type schedulerClient struct {
@@ -1165,30 +1170,61 @@ func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts 
 	return out, nil
 }
 
-func (c *schedulerClient) Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[0], "/Scheduler/Connect", opts...)
+func (c *schedulerClient) ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[0], "/Scheduler/ConnectAgent", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectClient{stream}
+	x := &schedulerConnectAgentClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectClient interface {
+type Scheduler_ConnectAgentClient interface {
 	Send(*Empty) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectClient struct {
+type schedulerConnectAgentClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectClient) Send(m *Empty) error {
+func (x *schedulerConnectAgentClient) Send(m *Empty) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectClient) Recv() (*Empty, error) {
+func (x *schedulerConnectAgentClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *schedulerClient) ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[1], "/Scheduler/ConnectConsumerd", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &schedulerConnectConsumerdClient{stream}
+	return x, nil
+}
+
+type Scheduler_ConnectConsumerdClient interface {
+	Send(*Empty) error
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type schedulerConnectConsumerdClient struct {
+	grpc.ClientStream
+}
+
+func (x *schedulerConnectConsumerdClient) Send(m *Empty) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1200,7 +1236,8 @@ func (x *schedulerConnectClient) Recv() (*Empty, error) {
 type SchedulerServer interface {
 	AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error)
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	Connect(Scheduler_ConnectServer) error
+	ConnectAgent(Scheduler_ConnectAgentServer) error
+	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
 }
 
 // UnimplementedSchedulerServer can be embedded to have forward compatible implementations.
@@ -1213,8 +1250,11 @@ func (*UnimplementedSchedulerServer) AtCapacity(context.Context, *Empty) (*wrapp
 func (*UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (*UnimplementedSchedulerServer) Connect(Scheduler_ConnectServer) error {
-	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+func (*UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectAgent not implemented")
+}
+func (*UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
 }
 
 func RegisterSchedulerServer(s *grpc.Server, srv SchedulerServer) {
@@ -1257,25 +1297,51 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Scheduler_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).Connect(&schedulerConnectServer{stream})
+func _Scheduler_ConnectAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectAgent(&schedulerConnectAgentServer{stream})
 }
 
-type Scheduler_ConnectServer interface {
+type Scheduler_ConnectAgentServer interface {
 	Send(*Empty) error
 	Recv() (*Empty, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectServer struct {
+type schedulerConnectAgentServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectServer) Send(m *Empty) error {
+func (x *schedulerConnectAgentServer) Send(m *Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectServer) Recv() (*Empty, error) {
+func (x *schedulerConnectAgentServer) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Scheduler_ConnectConsumerd_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectConsumerd(&schedulerConnectConsumerdServer{stream})
+}
+
+type Scheduler_ConnectConsumerdServer interface {
+	Send(*Empty) error
+	Recv() (*Empty, error)
+	grpc.ServerStream
+}
+
+type schedulerConnectConsumerdServer struct {
+	grpc.ServerStream
+}
+
+func (x *schedulerConnectConsumerdServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdServer) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1298,8 +1364,14 @@ var _Scheduler_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Connect",
-			Handler:       _Scheduler_Connect_Handler,
+			StreamName:    "ConnectAgent",
+			Handler:       _Scheduler_ConnectAgent_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "ConnectConsumerd",
+			Handler:       _Scheduler_ConnectConsumerd_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

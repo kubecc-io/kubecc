@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
@@ -125,7 +125,7 @@ func NewArgParserFromOS(ctx context.Context) *ArgParser {
 // Args should NOT include the command (argv[0])
 func NewArgParser(ctx context.Context, args []string) *ArgParser {
 	return &ArgParser{
-		lg:   lll.LogFromContext(ctx),
+		lg:   logkc.LogFromContext(ctx),
 		Args: args,
 	}
 }

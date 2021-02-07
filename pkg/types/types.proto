@@ -15,7 +15,8 @@ service Agent {
 service Scheduler {
   rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream Empty) returns (stream Empty);
+  rpc ConnectAgent(stream Empty) returns (stream Empty);
+  rpc ConnectConsumerd(stream Empty) returns (stream Empty);
 }
 
 message AgentToolchainInfo {

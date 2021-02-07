@@ -25,7 +25,6 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,7 +35,8 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	// +kubebuilder:scaffold:imports
 )
@@ -49,13 +49,12 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	utilruntime.Must(traefikv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
-	lll.NewFromContext(context.Background(), lll.Controller)
-	lll.PrintHeader()
+	logkc.NewFromContext(context.Background(), meta.Controller)
+	logkc.PrintHeader()
 
 	var (
 		configFile string

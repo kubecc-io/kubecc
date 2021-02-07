@@ -7,7 +7,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/balancer/roundrobin"
 )
 
 type dnsResolver struct {
@@ -33,11 +32,4 @@ func (r *dnsResolver) Dial() (*grpc.ClientConn, error) {
 			otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1e8)), // 100 MB
 	)
-}
-
-func init() {
-	roundRobinDns := &DefaultScheduler{
-		resolver: NewDnsResolver(roundrobin.Name),
-	}
-	AddScheduler("roundRobinDns", roundRobinDns)
 }

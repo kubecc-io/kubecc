@@ -4,7 +4,8 @@ import (
 	"context"
 	"net"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/apps/scheduler"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -16,13 +17,13 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := lll.NewFromContext(context.Background(), lll.Scheduler)
-	lg = lll.LogFromContext(ctx)
-	lll.PrintHeader()
+	ctx := logkc.NewFromContext(context.Background(), meta.Scheduler)
+	lg = logkc.LogFromContext(ctx)
+	logkc.PrintHeader()
 
 	initConfig()
 
-	closer, err := tracing.Start("scheduler")
+	closer, err := tracing.Start(meta.Scheduler)
 	if err != nil {
 		lg.With(zap.Error(err)).Warn("Could not start tracing")
 	} else {

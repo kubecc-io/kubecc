@@ -109,13 +109,13 @@ func Dial(
 	interceptors := []grpc.UnaryClientInterceptor{
 		otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer()),
 	}
-	dialOpts := []grpc.DialOption{
+	dialOpts := append([]grpc.DialOption{
 		grpc.WithChainUnaryInterceptor(interceptors...),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(1e8),
 			grpc.UseCompressor(gzip.Name),
 		),
-	}
+	}, options.dialOptions...)
 	if options.tls {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(
 			&tls.Config{

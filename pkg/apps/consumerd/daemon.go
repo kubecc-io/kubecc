@@ -14,7 +14,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
@@ -39,7 +39,7 @@ type consumerd struct {
 func NewConsumerdServer(ctx context.Context) *consumerd {
 	return &consumerd{
 		srvContext: ctx,
-		lg:         lll.LogFromContext(ctx),
+		lg:         logkc.LogFromContext(ctx),
 		executor:   run.NewExecutor(runtime.NumCPU()),
 		remoteOnly: viper.GetBool("remoteOnly"),
 	}
@@ -90,7 +90,7 @@ func (c *consumerd) Run(
 			mode = cc.RunLocal
 		}
 		// if s.schedulerAtCapacity() {
-		// 	lll.Info("Running local, scheduler says it is at capacity")
+		// 	logkc.Info("Running local, scheduler says it is at capacity")
 		// 	mode = cc.RunLocal
 		// }
 	}

@@ -5,7 +5,8 @@ import (
 	"fmt"
 
 	internal "github.com/cobalt77/kubecc/internal/consumer"
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/apps/consumer"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/spf13/viper"
@@ -15,11 +16,11 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := lll.NewFromContext(context.Background(), lll.Consumer,
-		lll.WithOutputPaths([]string{"/tmp/consumer.log"}),
-		lll.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
+	ctx := logkc.NewFromContext(context.Background(), meta.Consumer,
+		logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
+		logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 	)
-	lg = lll.LogFromContext(ctx)
+	lg = logkc.LogFromContext(ctx)
 
 	internal.InitConfig()
 
