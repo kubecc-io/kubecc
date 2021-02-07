@@ -57,7 +57,7 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 }
 
 // func (mon *Monitor) Wait(task *CompileTask) (*types.CompileResponse, error) {
-// 	lll.Info("=> Watching task")
+// 	logkc.Info("=> Watching task")
 // 	task.Start()
 // 	for {
 // 		select {
@@ -69,7 +69,7 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 // 				if err != nil {
 // 					return nil, err
 // 				}
-// 				lll.With("agent", info.Pod).Info("=> Agent accepted task")
+// 				logkc.With("agent", info.Pod).Info("=> Agent accepted task")
 // 				if agent, ok := mon.agents.Load(id); ok {
 // 					agent.(*Agent).ActiveTasks.Inc()
 // 				}
@@ -79,10 +79,10 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 // 					}
 // 				}()
 // 			case types.CompileStatus_Reject:
-// 				lll.Info("=> Agent rejected task")
+// 				logkc.Info("=> Agent rejected task")
 // 				return nil, status.Error(codes.Aborted, "Agent rejected task")
 // 			case types.CompileStatus_Success:
-// 				lll.Info("=> Compile completed successfully")
+// 				logkc.Info("=> Compile completed successfully")
 // 				return &types.CompileResponse{
 // 					CompileResult: types.CompileResponse_Success,
 // 					Data: &types.CompileResponse_CompiledSource{
@@ -90,7 +90,7 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 // 					},
 // 				}, nil
 // 			case types.CompileStatus_Fail:
-// 				lll.Info("=> Compile failed")
+// 				logkc.Info("=> Compile failed")
 // 				return &types.CompileResponse{
 // 					CompileResult: types.CompileResponse_Fail,
 // 					Data: &types.CompileResponse_Error{
@@ -99,10 +99,10 @@ func (w *Monitor) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
 // 				}, nil
 // 			}
 // 		case err := <-task.Error():
-// 			lll.With("err", err).Info("=> Error")
+// 			logkc.With("err", err).Info("=> Error")
 // 			return nil, err
 // 		case <-task.Canceled():
-// 			lll.Info("=> Task canceled by the consumer")
+// 			logkc.Info("=> Task canceled by the consumer")
 // 			return nil, status.Error(codes.Canceled, "Consumer canceled the request")
 // 		}
 // 	}

@@ -55,7 +55,7 @@ func (r *AgentResolver) Resolve(
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
-		return rec.RequeueWith(res, err)
+
 	}
 
 	svc := &v1.Service{}

@@ -2,15 +2,11 @@ package scheduler
 
 import (
 	"context"
-	"reflect"
-	"sync/atomic"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/fsnotify/fsnotify"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/opentracing/opentracing-go"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
 )
@@ -19,45 +15,16 @@ type schedulerServer struct {
 	types.SchedulerServer
 
 	lg        *zap.SugaredLogger
-	scheduler atomic.Value
+	scheduler *AgentScheduler
 	monitor   *Monitor
 }
 
-func (s *schedulerServer) atomicScheduler() AgentScheduler {
-	return s.scheduler.Load().(AgentScheduler)
-}
-
 func NewSchedulerServer(ctx context.Context) *schedulerServer {
-	lg := lll.LogFromContext(ctx)
-
-	mon := NewMonitor()
-	AddRandDirectScheduler(mon)
-
-	name := viper.GetString("scheduler")
-	scheduler, ok := GetScheduler(name)
-	if !ok {
-		lg.With(zap.String("scheduler", name)).Fatal("No such scheduler")
-	}
 	srv := &schedulerServer{
-		monitor: mon,
-		lg:      lg,
+		monitor:   NewMonitor(),
+		scheduler: NewAgentScheduler(ctx),
+		lg:        logkc.LogFromContext(ctx),
 	}
-	srv.scheduler.Store(scheduler)
-	viper.OnConfigChange(func(in fsnotify.Event) {
-		lg.Info("Processing config reload")
-		name := viper.GetString("scheduler")
-		sch, ok := GetScheduler(name)
-		if !ok {
-			lg.Error("Error when reloading config")
-			lg.With(zap.String("scheduler", name)).Fatal("No such scheduler")
-		}
-		if reflect.TypeOf(sch) != reflect.TypeOf(srv.scheduler) {
-			lg.With(zap.String("scheduler", name)).Info("Switching scheduler")
-			srv.scheduler.Store(sch)
-		} else {
-			lg.Info("No config changes found.")
-		}
-	})
 	return srv
 }
 
@@ -84,19 +51,19 @@ func (s *schedulerServer) Compile(
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.atomicScheduler().Schedule(
-		lll.ContextWithLog(sctx, s.lg), req)
+	return s.scheduler.Schedule(
+		logkc.ContextWithLog(sctx, s.lg), req)
 	// task, err := s.atomicScheduler().Schedule(ctx, req)
 	// if err != nil {
-	// 	lll.With(zap.Error(err)).Info("=> Schedule failed")
+	// 	logkc.With(zap.Error(err)).Info("=> Schedule failed")
 	// 	return nil, err
 	// }
-	// lll.Info("=> Schedule OK")
+	// logkc.Info("=> Schedule OK")
 	// return s.monitor.Wait(task)
 }
 
-func (s *schedulerServer) Connect(
-	srv types.Scheduler_ConnectServer,
+func (s *schedulerServer) ConnectAgent(
+	srv types.Scheduler_ConnectAgentServer,
 ) error {
 	agent, err := NewAgentFromContext(srv.Context())
 	if err != nil {
@@ -113,5 +80,19 @@ func (s *schedulerServer) Connect(
 	<-srv.Context().Done()
 
 	lg.Info("Agent disconnected")
+	return nil
+}
+
+func (s *schedulerServer) ConnectConsumerd(
+	srv types.Scheduler_ConnectConsumerdServer,
+) error {
+	s.lg.Info("Consumerd connected")
+
+	// add logic here maybe
+
+	// s.monitor.ConsumerdConnected(agent)
+	<-srv.Context().Done()
+
+	s.lg.Info("Consumerd disconnected")
 	return nil
 }

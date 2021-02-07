@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
@@ -16,7 +16,7 @@ import (
 )
 
 func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
-	lg := lll.LogFromContext(ctx)
+	lg := logkc.LogFromContext(ctx)
 
 	lg.Info("Dispatching to consumerd")
 

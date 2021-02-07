@@ -6,7 +6,8 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/consumer"
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -19,13 +20,13 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := lll.NewFromContext(context.Background(), lll.Consumerd,
-		lll.WithLogLevel(zapcore.DebugLevel),
+	ctx := logkc.NewFromContext(context.Background(), meta.Consumerd,
+		logkc.WithLogLevel(zapcore.DebugLevel),
 	)
-	lll.PrintHeader()
+	logkc.PrintHeader()
 
 	consumer.InitConfig()
-	closer, err := tracing.Start("consumerd")
+	closer, err := tracing.Start(meta.Consumerd)
 	if err != nil {
 		lg.With(zap.Error(err)).Warn("Could not start tracing")
 	} else {
