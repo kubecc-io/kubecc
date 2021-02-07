@@ -3,7 +3,6 @@ package controllers
 import (
 	"context"
 
-	traefikv1alpha1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -27,7 +26,6 @@ type BuildClusterReconciler struct {
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=kubecc.io,resources=buildclusters/finalizers,verbs=update
-// +kubebuilder:rbac:groups=traefik.containo.us,resources=ingressroutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -69,9 +67,6 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			},
 			{
-				Resolver: &resolvers.IngressResolver{},
-			},
-			{
 				Resolver: &resolvers.TracingResolver{},
 			},
 		},
@@ -83,6 +78,5 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&v1.Service{}).
 		Owns(&v1.ConfigMap{}).
-		Owns(&traefikv1alpha1.IngressRoute{}).
 		Complete(r)
 }

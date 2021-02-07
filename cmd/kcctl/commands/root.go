@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/zapkc"
 	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -17,7 +18,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "kcctl",
 	Short: "A brief description of your application",
-	Long: fmt.Sprintf("%s\n%s", lll.Yellow.Add(lll.BigAsciiTextColored), `
+	Long: fmt.Sprintf("%s\n%s", zapkc.Yellow.Add(logkc.BigAsciiTextColored), `
 The kubecc CLI utility`),
 
 	// Uncomment the following line if your bare application

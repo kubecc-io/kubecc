@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cobalt77/kubecc/internal/lll"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"go.uber.org/zap"
 )
@@ -93,6 +93,6 @@ func InPlace(inPlace bool) RunOption {
 func WithContext(ctx context.Context) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Context = ctx
-		ro.lg = lll.LogFromContext(ctx)
+		ro.lg = logkc.LogFromContext(ctx)
 	}
 }

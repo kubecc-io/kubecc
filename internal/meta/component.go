@@ -1,4 +1,6 @@
-package lll
+package meta
+
+import "github.com/cobalt77/kubecc/internal/zapkc"
 
 type Component int
 
@@ -47,20 +49,20 @@ func (c Component) ShortName() string {
 	return "????"
 }
 
-func (c Component) Color() Color {
+func (c Component) Color() zapkc.Color {
 	switch c {
 	case Agent:
-		return Magenta
+		return zapkc.Magenta
 	case Scheduler:
-		return Yellow
+		return zapkc.Yellow
 	case Controller:
-		return Blue
+		return zapkc.Blue
 	case Consumer:
-		return White
+		return zapkc.White
 	case Consumerd:
-		return Green
+		return zapkc.Green
 	case Make:
-		return White
+		return zapkc.NoColor
 	}
-	return White
+	return zapkc.NoColor
 }
