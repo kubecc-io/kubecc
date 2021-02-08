@@ -15,8 +15,41 @@ service Agent {
 service Scheduler {
   rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc ConnectAgent(stream Empty) returns (stream Empty);
-  rpc ConnectConsumerd(stream Empty) returns (stream Empty);
+  rpc Connect(stream Metadata) returns (stream Empty);
+}
+
+message Metadata {
+  Component Component = 1;
+  repeated Toolchain Toolchains = 2;
+}
+
+enum Component {
+	Agent_ = 0;
+	Scheduler_ = 1;
+	Controller_ = 2;
+	Consumer_ = 3;
+	Consumerd_ = 4;
+	Make_ = 5;
+}
+
+enum ToolchainKind {
+  Gnu_ = 0;
+  Clang_ = 1;
+}
+
+enum ToolchainLang {
+  C_ = 0;
+  CXX_ = 1;
+}
+
+message Toolchain {
+  ToolchainKind Kind = 1;
+  ToolchainLang Lang = 2;
+  bool Canonical = 3;
+  string Executable = 4;
+  string TargetArch = 5;
+  string Version = 6;
+  bool PicDefault = 7;
 }
 
 message AgentToolchainInfo {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -28,6 +29,10 @@ func connectToScheduler(ctx context.Context) {
 				lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
 				time.Sleep(5 * time.Second)
 			}
+			stream.Send(&types.Metadata{
+				Component:  types.Agent,
+				Toolchains: toolchains.FindToolchains(ctx),
+			})
 			lg.Info("Connected to the scheduler")
 			for {
 				_, err := stream.Recv()
