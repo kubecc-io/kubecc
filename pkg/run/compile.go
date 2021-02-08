@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -37,7 +37,7 @@ func (r *compileRunner) Run(compiler string, info *cc.ArgParser) error {
 		if ext == "" && info.Args[info.OutputArgIndex] == "-" {
 			ext = ".o"
 		}
-		tmp, err := ioutil.TempFile(
+		tmp, err := os.CreateTemp(
 			"", fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
 			r.lg.With(zap.Error(err)).Fatal("Can't create temporary files")

@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -18,11 +17,11 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(cluster.NewAgentContext(), meta.Agent)
+	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent)
 	lg = logkc.LogFromContext(ctx)
 
 	logkc.PrintHeader()
-	closer, err := tracing.Start(meta.Agent)
+	closer, err := tracing.Start(types.Agent)
 	if err != nil {
 		lg.With(zap.Error(err)).Warn("Could not start tracing")
 	} else {

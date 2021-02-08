@@ -6,20 +6,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
+
+var ctx = logkc.NewFromContext(context.Background(), types.Test)
 
 func BenchmarkParse(b *testing.B) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 	for i := 0; i < b.N; i++ {
-		info := NewArgParserFromOS(context.Background())
+		info := NewArgParserFromOS(ctx)
 		info.Parse()
 	}
 }
 
 func TestParse(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	assert.Equal(t, Compile, info.ActionOpt())
 	assert.Equal(t, 9, info.InputArgIndex)
@@ -30,7 +34,7 @@ func TestParse(t *testing.T) {
 
 func TestSetActionOpt(t *testing.T) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	assert.Equal(t, Compile, info.ActionOpt())
 	info.SetActionOpt(GenAssembly)
@@ -47,7 +51,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
@@ -57,7 +61,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y -Wp,-MD,path -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgParserFromOS(context.Background())
+	info = NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
@@ -67,7 +71,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-Z,-ZZ -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgParserFromOS(context.Background())
+	info = NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
@@ -77,7 +81,7 @@ func TestSubstitutePreprocessorOptions(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-MMD,path2 -o src/test.o -c src/test.c`, " ")
 
-	info = NewArgParserFromOS(context.Background())
+	info = NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ConfigurePreprocessorOptions()
 	assert.Equal(t,
@@ -93,7 +97,7 @@ func TestReplaceOutputPath(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ReplaceOutputPath("-")
 	assert.Equal(t,
@@ -124,7 +128,7 @@ func TestReplaceInputPath(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,
@@ -155,7 +159,7 @@ func TestRemoveLocalArgs(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -Wp,a,b -MD -L test -Ltest -l test -ltest -Da=b -I. -I test -D a=b -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	info.RemoveLocalArgs()
 	assert.Equal(t,
@@ -172,7 +176,7 @@ func TestPrependLanguageFlag(t *testing.T) {
 	}()
 	os.Args = strings.Split(`gcc -o src/test.o -c src/test.c`, " ")
 
-	info := NewArgParserFromOS(context.Background())
+	info := NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,
@@ -182,7 +186,7 @@ func TestPrependLanguageFlag(t *testing.T) {
 
 	os.Args = strings.Split(`gcc -o src/test.o -c src/test.cpp`, " ")
 
-	info = NewArgParserFromOS(context.Background())
+	info = NewArgParserFromOS(ctx)
 	info.Parse()
 	info.ReplaceInputPath("-")
 	assert.Equal(t,

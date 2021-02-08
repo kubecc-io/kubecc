@@ -30,6 +30,7 @@ enum Component {
 	Consumer_ = 3;
 	Consumerd_ = 4;
 	Make_ = 5;
+  Test_ = 6;
 }
 
 enum ToolchainKind {
@@ -40,16 +41,16 @@ enum ToolchainKind {
 enum ToolchainLang {
   C_ = 0;
   CXX_ = 1;
+  Multi_ = 2;
 }
 
 message Toolchain {
   ToolchainKind Kind = 1;
   ToolchainLang Lang = 2;
-  bool Canonical = 3;
-  string Executable = 4;
-  string TargetArch = 5;
-  string Version = 6;
-  bool PicDefault = 7;
+  string Executable = 3;
+  string TargetArch = 4;
+  string Version = 5;
+  bool PicDefault = 6;
 }
 
 message AgentToolchainInfo {

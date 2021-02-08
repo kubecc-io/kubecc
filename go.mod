@@ -1,6 +1,6 @@
 module github.com/cobalt77/kubecc
 
-go 1.15
+go 1.16
 
 require (
 	cloud.google.com/go v0.76.0 // indirect
@@ -12,14 +12,13 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/deckarep/golang-set v1.7.1
-	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.4.3
+	github.com/google/go-cmp v0.5.4
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0 // indirect
 	github.com/googleapis/gnostic v0.5.4 // indirect
-	github.com/gophercloud/gophercloud v0.15.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect

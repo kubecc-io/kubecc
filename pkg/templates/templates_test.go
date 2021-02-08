@@ -1,7 +1,7 @@
 package templates_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -92,7 +92,7 @@ var _ = Describe("Template Parser", func() {
 		})
 		Context("without spec substitutions", func() {
 			It("should load the exact file contents", func() {
-				data, err := ioutil.ReadFile("./test/deployment_nospec.yaml")
+				data, err := os.ReadFile("./test/deployment_nospec.yaml")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(templates.Load("deployment_nospec.yaml", struct{}{})).To(Equal(data))
 			})
@@ -117,7 +117,7 @@ var _ = Describe("Template Parser", func() {
 					Int:    123,
 					Float:  12.3,
 				}
-				data, err := ioutil.ReadFile("./test/simple_expected.yaml")
+				data, err := os.ReadFile("./test/simple_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(templates.Load("simple.yaml", spec)).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
@@ -143,7 +143,7 @@ line 3`,
       line 2
       line 3`,
 				}
-				data, err := ioutil.ReadFile("./test/multiline_expected.yaml")
+				data, err := os.ReadFile("./test/multiline_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(templates.Load("multiline_manual.yaml", spec)).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
@@ -173,7 +173,7 @@ line 3`, "test"},
 						},
 					},
 				}
-				data, err := ioutil.ReadFile("./test/toyaml_expected.yaml")
+				data, err := os.ReadFile("./test/toyaml_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
 				var expected, actual structField
 				Expect(yaml.Unmarshal(data, &expected)).To(Succeed())
