@@ -6,9 +6,9 @@ import (
 
 	internal "github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/apps/consumer"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -16,7 +16,7 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(context.Background(), meta.Consumer,
+	ctx := logkc.NewFromContext(context.Background(), types.Consumer,
 		logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
 		logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 	)

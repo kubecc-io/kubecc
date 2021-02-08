@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -122,7 +122,7 @@ func WithName(name string) logOption {
 
 func NewFromContext(
 	ctx context.Context,
-	component meta.Component,
+	component types.Component,
 	ops ...logOption,
 ) context.Context {
 	options := LogOptions{
@@ -167,7 +167,7 @@ func NewFromContext(
 	if options.name != "" {
 		s = s.Named(options.name)
 	}
-	s.Infof(color.Add("Starting %s"), component.String())
+	s.Infof(color.Add("Starting %s"), component.Name())
 	return ContextWithLog(ctx, s)
 }
 

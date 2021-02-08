@@ -3,7 +3,7 @@ package agent
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"os"
 	"runtime"
 
@@ -73,7 +73,7 @@ func (s *agentServer) Compile(
 	runner := run.NewCompileRunner(
 		run.WithContext(logkc.ContextWithLog(ctx, s.lg)),
 		run.WithOutputWriter(tmpFilename),
-		run.WithOutputStreams(ioutil.Discard, stderrBuf),
+		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
 	task := run.NewTask(sctx, runner, req.Command, ap)
@@ -89,7 +89,7 @@ func (s *agentServer) Compile(
 	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	data, err := ioutil.ReadFile(tmpFilename.String())
+	data, err := os.ReadFile(tmpFilename.String())
 	if err != nil {
 		s.lg.With(zap.Error(err)).Info("Error reading temp file")
 		return nil, status.Error(codes.Internal, err.Error())
@@ -159,7 +159,7 @@ func (s *agentServer) Compile(
 // 	} else if err != nil {
 // 		return status.Error(codes.Internal, err.Error())
 // 	}
-// 	data, err := ioutil.ReadFile(tmpFilename.String())
+// 	data, err := os.ReadFile(tmpFilename.String())
 // 	if err != nil {
 // 		s.lg.With(zap.Error(err)).Info("Error reading temp file")
 // 		return status.Error(codes.Internal, err.Error())

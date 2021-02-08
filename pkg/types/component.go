@@ -1,19 +1,8 @@
-package meta
+package types
 
 import "github.com/cobalt77/kubecc/internal/zapkc"
 
-type Component int
-
-const (
-	Agent Component = iota
-	Scheduler
-	Controller
-	Consumer
-	Consumerd
-	Make
-)
-
-func (c Component) String() string {
+func (c Component) Name() string {
 	switch c {
 	case Agent:
 		return "Agent"
@@ -27,6 +16,8 @@ func (c Component) String() string {
 		return "Consumerd"
 	case Make:
 		return "Make"
+	case Test:
+		return "Test"
 	}
 	return "Unknown"
 }
@@ -45,6 +36,8 @@ func (c Component) ShortName() string {
 		return "csrd"
 	case Make:
 		return "make"
+	case Test:
+		return "test"
 	}
 	return "????"
 }
@@ -63,6 +56,8 @@ func (c Component) Color() zapkc.Color {
 		return zapkc.Green
 	case Make:
 		return zapkc.NoColor
+	case Test:
+		return zapkc.White
 	}
 	return zapkc.NoColor
 }
