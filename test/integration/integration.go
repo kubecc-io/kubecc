@@ -57,10 +57,14 @@ func (tc *TestController) runAgent() {
 	go func() {
 		ctx, cc := dial(ctx, tc.schedListener)
 		client := types.NewSchedulerClient(cc)
-		c, err := client.ConnectAgent(ctx)
+		c, err := client.Connect(ctx)
 		if err != nil {
 			panic(err)
 		}
+		c.Send(&types.Metadata{
+			Component:  types.Agent,
+			Toolchains: []*types.Toolchain{},
+		})
 		select {
 		case <-ctx.Done():
 		case <-c.Context().Done():
@@ -94,10 +98,14 @@ func (tc *TestController) runConsumerd() {
 	go func() {
 		ctx, cc := dial(ctx, tc.schedListener)
 		client := types.NewSchedulerClient(cc)
-		c, err := client.ConnectConsumerd(ctx)
+		c, err := client.Connect(ctx)
 		if err != nil {
 			panic(err)
 		}
+		c.Send(&types.Metadata{
+			Component:  types.Consumerd,
+			Toolchains: []*types.Toolchain{},
+		})
 		select {
 		case <-ctx.Done():
 		case <-c.Context().Done():

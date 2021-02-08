@@ -62,37 +62,40 @@ func (s *schedulerServer) Compile(
 	// return s.monitor.Wait(task)
 }
 
-func (s *schedulerServer) ConnectAgent(
-	srv types.Scheduler_ConnectAgentServer,
+func (s *schedulerServer) Connect(
+	srv types.Scheduler_ConnectServer,
 ) error {
-	agent, err := NewAgentFromContext(srv.Context())
+	lg := s.lg
+	metadata, err := srv.Recv()
 	if err != nil {
-		s.lg.With(zap.Error(err)).Error("Error identifying agent using context")
-		return nil
+		return err
 	}
-	lg := s.lg.With("agent", agent)
+	switch metadata.Component {
+	case types.Agent:
+		agent, err := NewAgentFromContext(srv.Context())
+		if err != nil {
+			s.lg.With(zap.Error(err)).Error("Error identifying agent using context")
+			return nil
+		}
 
-	lg.Info("Agent connected")
+		lg.Info("Agent connected")
 
-	// add logic here maybe
+		// add logic here maybe
 
-	s.monitor.AgentConnected(agent)
-	<-srv.Context().Done()
+		s.monitor.AgentConnected(agent)
+		<-srv.Context().Done()
 
-	lg.Info("Agent disconnected")
-	return nil
-}
+		lg.Info("Agent disconnected")
+	case types.Consumerd:
+		lg.Info("Consumerd connected")
 
-func (s *schedulerServer) ConnectConsumerd(
-	srv types.Scheduler_ConnectConsumerdServer,
-) error {
-	s.lg.Info("Consumerd connected")
+		// add logic here maybe
 
-	// add logic here maybe
+		// s.monitor.AgentConnected(agent)
+		<-srv.Context().Done()
 
-	// s.monitor.ConsumerdConnected(agent)
-	<-srv.Context().Done()
+		lg.Info("Consumerd disconnected")
+	}
 
-	s.lg.Info("Consumerd disconnected")
 	return nil
 }

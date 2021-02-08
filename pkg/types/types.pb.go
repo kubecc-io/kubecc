@@ -30,6 +30,156 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
+type Component int32
+
+const (
+	Component_Agent_      Component = 0
+	Component_Scheduler_  Component = 1
+	Component_Controller_ Component = 2
+	Component_Consumer_   Component = 3
+	Component_Consumerd_  Component = 4
+	Component_Make_       Component = 5
+)
+
+// Enum value maps for Component.
+var (
+	Component_name = map[int32]string{
+		0: "Agent_",
+		1: "Scheduler_",
+		2: "Controller_",
+		3: "Consumer_",
+		4: "Consumerd_",
+		5: "Make_",
+	}
+	Component_value = map[string]int32{
+		"Agent_":      0,
+		"Scheduler_":  1,
+		"Controller_": 2,
+		"Consumer_":   3,
+		"Consumerd_":  4,
+		"Make_":       5,
+	}
+)
+
+func (x Component) Enum() *Component {
+	p := new(Component)
+	*p = x
+	return p
+}
+
+func (x Component) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Component) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_types_types_proto_enumTypes[0].Descriptor()
+}
+
+func (Component) Type() protoreflect.EnumType {
+	return &file_pkg_types_types_proto_enumTypes[0]
+}
+
+func (x Component) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Component.Descriptor instead.
+func (Component) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{0}
+}
+
+type ToolchainKind int32
+
+const (
+	ToolchainKind_Gnu_   ToolchainKind = 0
+	ToolchainKind_Clang_ ToolchainKind = 1
+)
+
+// Enum value maps for ToolchainKind.
+var (
+	ToolchainKind_name = map[int32]string{
+		0: "Gnu_",
+		1: "Clang_",
+	}
+	ToolchainKind_value = map[string]int32{
+		"Gnu_":   0,
+		"Clang_": 1,
+	}
+)
+
+func (x ToolchainKind) Enum() *ToolchainKind {
+	p := new(ToolchainKind)
+	*p = x
+	return p
+}
+
+func (x ToolchainKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ToolchainKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_types_types_proto_enumTypes[1].Descriptor()
+}
+
+func (ToolchainKind) Type() protoreflect.EnumType {
+	return &file_pkg_types_types_proto_enumTypes[1]
+}
+
+func (x ToolchainKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ToolchainKind.Descriptor instead.
+func (ToolchainKind) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{1}
+}
+
+type ToolchainLang int32
+
+const (
+	ToolchainLang_C_   ToolchainLang = 0
+	ToolchainLang_CXX_ ToolchainLang = 1
+)
+
+// Enum value maps for ToolchainLang.
+var (
+	ToolchainLang_name = map[int32]string{
+		0: "C_",
+		1: "CXX_",
+	}
+	ToolchainLang_value = map[string]int32{
+		"C_":   0,
+		"CXX_": 1,
+	}
+)
+
+func (x ToolchainLang) Enum() *ToolchainLang {
+	p := new(ToolchainLang)
+	*p = x
+	return p
+}
+
+func (x ToolchainLang) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ToolchainLang) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_types_types_proto_enumTypes[2].Descriptor()
+}
+
+func (ToolchainLang) Type() protoreflect.EnumType {
+	return &file_pkg_types_types_proto_enumTypes[2]
+}
+
+func (x ToolchainLang) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ToolchainLang.Descriptor instead.
+func (ToolchainLang) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{2}
+}
+
 type CompileResponse_Result int32
 
 const (
@@ -60,11 +210,11 @@ func (x CompileResponse_Result) String() string {
 }
 
 func (CompileResponse_Result) Descriptor() protoreflect.EnumDescriptor {
-	return file_pkg_types_types_proto_enumTypes[0].Descriptor()
+	return file_pkg_types_types_proto_enumTypes[3].Descriptor()
 }
 
 func (CompileResponse_Result) Type() protoreflect.EnumType {
-	return &file_pkg_types_types_proto_enumTypes[0]
+	return &file_pkg_types_types_proto_enumTypes[3]
 }
 
 func (x CompileResponse_Result) Number() protoreflect.EnumNumber {
@@ -73,7 +223,7 @@ func (x CompileResponse_Result) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CompileResponse_Result.Descriptor instead.
 func (CompileResponse_Result) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{9, 0}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{11, 0}
 }
 
 type Empty struct {
@@ -114,6 +264,156 @@ func (*Empty) Descriptor() ([]byte, []int) {
 	return file_pkg_types_types_proto_rawDescGZIP(), []int{0}
 }
 
+type Metadata struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Component  Component    `protobuf:"varint,1,opt,name=Component,proto3,enum=Component" json:"Component,omitempty"`
+	Toolchains []*Toolchain `protobuf:"bytes,2,rep,name=Toolchains,proto3" json:"Toolchains,omitempty"`
+}
+
+func (x *Metadata) Reset() {
+	*x = Metadata{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[1]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Metadata) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Metadata) ProtoMessage() {}
+
+func (x *Metadata) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[1]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Metadata.ProtoReflect.Descriptor instead.
+func (*Metadata) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Metadata) GetComponent() Component {
+	if x != nil {
+		return x.Component
+	}
+	return Component_Agent_
+}
+
+func (x *Metadata) GetToolchains() []*Toolchain {
+	if x != nil {
+		return x.Toolchains
+	}
+	return nil
+}
+
+type Toolchain struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Kind       ToolchainKind `protobuf:"varint,1,opt,name=Kind,proto3,enum=ToolchainKind" json:"Kind,omitempty"`
+	Lang       ToolchainLang `protobuf:"varint,2,opt,name=Lang,proto3,enum=ToolchainLang" json:"Lang,omitempty"`
+	Canonical  bool          `protobuf:"varint,3,opt,name=Canonical,proto3" json:"Canonical,omitempty"`
+	Executable string        `protobuf:"bytes,4,opt,name=Executable,proto3" json:"Executable,omitempty"`
+	TargetArch string        `protobuf:"bytes,5,opt,name=TargetArch,proto3" json:"TargetArch,omitempty"`
+	Version    string        `protobuf:"bytes,6,opt,name=Version,proto3" json:"Version,omitempty"`
+	PicDefault bool          `protobuf:"varint,7,opt,name=PicDefault,proto3" json:"PicDefault,omitempty"`
+}
+
+func (x *Toolchain) Reset() {
+	*x = Toolchain{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[2]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Toolchain) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Toolchain) ProtoMessage() {}
+
+func (x *Toolchain) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[2]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Toolchain.ProtoReflect.Descriptor instead.
+func (*Toolchain) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Toolchain) GetKind() ToolchainKind {
+	if x != nil {
+		return x.Kind
+	}
+	return ToolchainKind_Gnu_
+}
+
+func (x *Toolchain) GetLang() ToolchainLang {
+	if x != nil {
+		return x.Lang
+	}
+	return ToolchainLang_C_
+}
+
+func (x *Toolchain) GetCanonical() bool {
+	if x != nil {
+		return x.Canonical
+	}
+	return false
+}
+
+func (x *Toolchain) GetExecutable() string {
+	if x != nil {
+		return x.Executable
+	}
+	return ""
+}
+
+func (x *Toolchain) GetTargetArch() string {
+	if x != nil {
+		return x.TargetArch
+	}
+	return ""
+}
+
+func (x *Toolchain) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
+}
+
+func (x *Toolchain) GetPicDefault() bool {
+	if x != nil {
+		return x.PicDefault
+	}
+	return false
+}
+
 type AgentToolchainInfo struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -127,7 +427,7 @@ type AgentToolchainInfo struct {
 func (x *AgentToolchainInfo) Reset() {
 	*x = AgentToolchainInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[1]
+		mi := &file_pkg_types_types_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -140,7 +440,7 @@ func (x *AgentToolchainInfo) String() string {
 func (*AgentToolchainInfo) ProtoMessage() {}
 
 func (x *AgentToolchainInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[1]
+	mi := &file_pkg_types_types_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -153,7 +453,7 @@ func (x *AgentToolchainInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentToolchainInfo.ProtoReflect.Descriptor instead.
 func (*AgentToolchainInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{1}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *AgentToolchainInfo) GetKind() string {
@@ -188,7 +488,7 @@ type AgentToolchainInfoList struct {
 func (x *AgentToolchainInfoList) Reset() {
 	*x = AgentToolchainInfoList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[2]
+		mi := &file_pkg_types_types_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -201,7 +501,7 @@ func (x *AgentToolchainInfoList) String() string {
 func (*AgentToolchainInfoList) ProtoMessage() {}
 
 func (x *AgentToolchainInfoList) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[2]
+	mi := &file_pkg_types_types_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -214,7 +514,7 @@ func (x *AgentToolchainInfoList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentToolchainInfoList.ProtoReflect.Descriptor instead.
 func (*AgentToolchainInfoList) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{2}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *AgentToolchainInfoList) GetInfo() []*AgentToolchainInfo {
@@ -242,7 +542,7 @@ type RunRequest struct {
 func (x *RunRequest) Reset() {
 	*x = RunRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[3]
+		mi := &file_pkg_types_types_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -255,7 +555,7 @@ func (x *RunRequest) String() string {
 func (*RunRequest) ProtoMessage() {}
 
 func (x *RunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[3]
+	mi := &file_pkg_types_types_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -268,7 +568,7 @@ func (x *RunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunRequest.ProtoReflect.Descriptor instead.
 func (*RunRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{3}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RunRequest) GetCompiler() string {
@@ -334,7 +634,7 @@ type RunResponse struct {
 func (x *RunResponse) Reset() {
 	*x = RunResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[4]
+		mi := &file_pkg_types_types_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -347,7 +647,7 @@ func (x *RunResponse) String() string {
 func (*RunResponse) ProtoMessage() {}
 
 func (x *RunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[4]
+	mi := &file_pkg_types_types_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -360,7 +660,7 @@ func (x *RunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunResponse.ProtoReflect.Descriptor instead.
 func (*RunResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{4}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RunResponse) GetReturnCode() int32 {
@@ -394,7 +694,7 @@ type ScheduleRequest struct {
 func (x *ScheduleRequest) Reset() {
 	*x = ScheduleRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[5]
+		mi := &file_pkg_types_types_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -407,7 +707,7 @@ func (x *ScheduleRequest) String() string {
 func (*ScheduleRequest) ProtoMessage() {}
 
 func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[5]
+	mi := &file_pkg_types_types_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -420,7 +720,7 @@ func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleRequest.ProtoReflect.Descriptor instead.
 func (*ScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{5}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{7}
 }
 
 // scheduler -> consumer
@@ -433,7 +733,7 @@ type ScheduleResponse struct {
 func (x *ScheduleResponse) Reset() {
 	*x = ScheduleResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[6]
+		mi := &file_pkg_types_types_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -446,7 +746,7 @@ func (x *ScheduleResponse) String() string {
 func (*ScheduleResponse) ProtoMessage() {}
 
 func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[6]
+	mi := &file_pkg_types_types_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -459,7 +759,7 @@ func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleResponse.ProtoReflect.Descriptor instead.
 func (*ScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{6}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{8}
 }
 
 type AgentInfo struct {
@@ -479,7 +779,7 @@ type AgentInfo struct {
 func (x *AgentInfo) Reset() {
 	*x = AgentInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[7]
+		mi := &file_pkg_types_types_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -492,7 +792,7 @@ func (x *AgentInfo) String() string {
 func (*AgentInfo) ProtoMessage() {}
 
 func (x *AgentInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[7]
+	mi := &file_pkg_types_types_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -505,7 +805,7 @@ func (x *AgentInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentInfo.ProtoReflect.Descriptor instead.
 func (*AgentInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{7}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AgentInfo) GetArch() string {
@@ -557,7 +857,7 @@ type CompileRequest struct {
 func (x *CompileRequest) Reset() {
 	*x = CompileRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[8]
+		mi := &file_pkg_types_types_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -570,7 +870,7 @@ func (x *CompileRequest) String() string {
 func (*CompileRequest) ProtoMessage() {}
 
 func (x *CompileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[8]
+	mi := &file_pkg_types_types_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -583,7 +883,7 @@ func (x *CompileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileRequest.ProtoReflect.Descriptor instead.
 func (*CompileRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{8}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *CompileRequest) GetCommand() string {
@@ -623,7 +923,7 @@ type CompileResponse struct {
 func (x *CompileResponse) Reset() {
 	*x = CompileResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[9]
+		mi := &file_pkg_types_types_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -636,7 +936,7 @@ func (x *CompileResponse) String() string {
 func (*CompileResponse) ProtoMessage() {}
 
 func (x *CompileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[9]
+	mi := &file_pkg_types_types_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -649,7 +949,7 @@ func (x *CompileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileResponse.ProtoReflect.Descriptor instead.
 func (*CompileResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{9}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CompileResponse) GetCompileResult() CompileResponse_Result {
@@ -703,6 +1003,27 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x1a, 0x1e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2f,
 	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2f, 0x77, 0x72, 0x61, 0x70, 0x70, 0x65, 0x72,
 	0x73, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22, 0x07, 0x0a, 0x05, 0x45, 0x6d, 0x70, 0x74, 0x79,
+	0x22, 0x60, 0x0a, 0x08, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x12, 0x28, 0x0a, 0x09,
+	0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32,
+	0x0a, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x52, 0x09, 0x43, 0x6f, 0x6d,
+	0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x12, 0x2a, 0x0a, 0x0a, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68,
+	0x61, 0x69, 0x6e, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x54, 0x6f, 0x6f,
+	0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x0a, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69,
+	0x6e, 0x73, 0x22, 0xeb, 0x01, 0x0a, 0x09, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e,
+	0x12, 0x22, 0x0a, 0x04, 0x4b, 0x69, 0x6e, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x0e,
+	0x2e, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x4b, 0x69, 0x6e, 0x64, 0x52, 0x04,
+	0x4b, 0x69, 0x6e, 0x64, 0x12, 0x22, 0x0a, 0x04, 0x4c, 0x61, 0x6e, 0x67, 0x18, 0x02, 0x20, 0x01,
+	0x28, 0x0e, 0x32, 0x0e, 0x2e, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x4c, 0x61,
+	0x6e, 0x67, 0x52, 0x04, 0x4c, 0x61, 0x6e, 0x67, 0x12, 0x1c, 0x0a, 0x09, 0x43, 0x61, 0x6e, 0x6f,
+	0x6e, 0x69, 0x63, 0x61, 0x6c, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x43, 0x61, 0x6e,
+	0x6f, 0x6e, 0x69, 0x63, 0x61, 0x6c, 0x12, 0x1e, 0x0a, 0x0a, 0x45, 0x78, 0x65, 0x63, 0x75, 0x74,
+	0x61, 0x62, 0x6c, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x45, 0x78, 0x65, 0x63,
+	0x75, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x12, 0x1e, 0x0a, 0x0a, 0x54, 0x61, 0x72, 0x67, 0x65, 0x74,
+	0x41, 0x72, 0x63, 0x68, 0x18, 0x05, 0x20, 0x01, 0x28, 0x09, 0x52, 0x0a, 0x54, 0x61, 0x72, 0x67,
+	0x65, 0x74, 0x41, 0x72, 0x63, 0x68, 0x12, 0x18, 0x0a, 0x07, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f,
+	0x6e, 0x18, 0x06, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x56, 0x65, 0x72, 0x73, 0x69, 0x6f, 0x6e,
+	0x12, 0x1e, 0x0a, 0x0a, 0x50, 0x69, 0x63, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74, 0x18, 0x07,
+	0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x50, 0x69, 0x63, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c, 0x74,
 	0x22, 0x5c, 0x0a, 0x12, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61,
 	0x69, 0x6e, 0x49, 0x6e, 0x66, 0x6f, 0x12, 0x12, 0x0a, 0x04, 0x4b, 0x69, 0x6e, 0x64, 0x18, 0x01,
 	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4b, 0x69, 0x6e, 0x64, 0x12, 0x16, 0x0a, 0x06, 0x54, 0x61,
@@ -758,26 +1079,35 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x52, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65,
 	0x22, 0x1f, 0x0a, 0x06, 0x52, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x12, 0x0b, 0x0a, 0x07, 0x53, 0x75,
 	0x63, 0x63, 0x65, 0x73, 0x73, 0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x46, 0x61, 0x69, 0x6c, 0x10,
-	0x01, 0x42, 0x06, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x32, 0x2d, 0x0a, 0x09, 0x43, 0x6f, 0x6e,
-	0x73, 0x75, 0x6d, 0x65, 0x72, 0x64, 0x12, 0x20, 0x0a, 0x03, 0x52, 0x75, 0x6e, 0x12, 0x0b, 0x2e,
-	0x52, 0x75, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e, 0x52, 0x75, 0x6e,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x35, 0x0a, 0x05, 0x41, 0x67, 0x65, 0x6e,
-	0x74, 0x12, 0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43,
-	0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e,
-	0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32,
-	0xb7, 0x01, 0x0a, 0x09, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x30, 0x0a,
-	0x0a, 0x41, 0x74, 0x43, 0x61, 0x70, 0x61, 0x63, 0x69, 0x74, 0x79, 0x12, 0x06, 0x2e, 0x45, 0x6d,
-	0x70, 0x74, 0x79, 0x1a, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12,
+	0x01, 0x42, 0x06, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x2a, 0x62, 0x0a, 0x09, 0x43, 0x6f, 0x6d,
+	0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x12, 0x0a, 0x0a, 0x06, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x5f,
+	0x10, 0x00, 0x12, 0x0e, 0x0a, 0x0a, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x5f,
+	0x10, 0x01, 0x12, 0x0f, 0x0a, 0x0b, 0x43, 0x6f, 0x6e, 0x74, 0x72, 0x6f, 0x6c, 0x6c, 0x65, 0x72,
+	0x5f, 0x10, 0x02, 0x12, 0x0d, 0x0a, 0x09, 0x43, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x72, 0x5f,
+	0x10, 0x03, 0x12, 0x0e, 0x0a, 0x0a, 0x43, 0x6f, 0x6e, 0x73, 0x75, 0x6d, 0x65, 0x72, 0x64, 0x5f,
+	0x10, 0x04, 0x12, 0x09, 0x0a, 0x05, 0x4d, 0x61, 0x6b, 0x65, 0x5f, 0x10, 0x05, 0x2a, 0x25, 0x0a,
+	0x0d, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x4b, 0x69, 0x6e, 0x64, 0x12, 0x08,
+	0x0a, 0x04, 0x47, 0x6e, 0x75, 0x5f, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x43, 0x6c, 0x61, 0x6e,
+	0x67, 0x5f, 0x10, 0x01, 0x2a, 0x21, 0x0a, 0x0d, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69,
+	0x6e, 0x4c, 0x61, 0x6e, 0x67, 0x12, 0x06, 0x0a, 0x02, 0x43, 0x5f, 0x10, 0x00, 0x12, 0x08, 0x0a,
+	0x04, 0x43, 0x58, 0x58, 0x5f, 0x10, 0x01, 0x32, 0x2d, 0x0a, 0x09, 0x43, 0x6f, 0x6e, 0x73, 0x75,
+	0x6d, 0x65, 0x72, 0x64, 0x12, 0x20, 0x0a, 0x03, 0x52, 0x75, 0x6e, 0x12, 0x0b, 0x2e, 0x52, 0x75,
+	0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e, 0x52, 0x75, 0x6e, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x35, 0x0a, 0x05, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12,
 	0x2c, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d,
 	0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f,
-	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x22, 0x0a,
-	0x0c, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x41, 0x67, 0x65, 0x6e, 0x74, 0x12, 0x06, 0x2e,
-	0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30,
-	0x01, 0x12, 0x26, 0x0a, 0x10, 0x43, 0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x43, 0x6f, 0x6e, 0x73,
-	0x75, 0x6d, 0x65, 0x72, 0x64, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x1a, 0x06, 0x2e,
-	0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a, 0x0b, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x32, 0x8d, 0x01,
+	0x0a, 0x09, 0x53, 0x63, 0x68, 0x65, 0x64, 0x75, 0x6c, 0x65, 0x72, 0x12, 0x30, 0x0a, 0x0a, 0x41,
+	0x74, 0x43, 0x61, 0x70, 0x61, 0x63, 0x69, 0x74, 0x79, 0x12, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74,
+	0x79, 0x1a, 0x1a, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x62, 0x75, 0x66, 0x2e, 0x42, 0x6f, 0x6f, 0x6c, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x12, 0x2c, 0x0a,
+	0x07, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x12, 0x0f, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69,
+	0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x10, 0x2e, 0x43, 0x6f, 0x6d, 0x70,
+	0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x20, 0x0a, 0x07, 0x43,
+	0x6f, 0x6e, 0x6e, 0x65, 0x63, 0x74, 0x12, 0x09, 0x2e, 0x4d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74,
+	0x61, 0x1a, 0x06, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x42, 0x0d, 0x5a,
+	0x0b, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x3b, 0x74, 0x79, 0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -792,42 +1122,49 @@ func file_pkg_types_types_proto_rawDescGZIP() []byte {
 	return file_pkg_types_types_proto_rawDescData
 }
 
-var file_pkg_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_pkg_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_pkg_types_types_proto_goTypes = []interface{}{
-	(CompileResponse_Result)(0),    // 0: CompileResponse.Result
-	(*Empty)(nil),                  // 1: Empty
-	(*AgentToolchainInfo)(nil),     // 2: AgentToolchainInfo
-	(*AgentToolchainInfoList)(nil), // 3: AgentToolchainInfoList
-	(*RunRequest)(nil),             // 4: RunRequest
-	(*RunResponse)(nil),            // 5: RunResponse
-	(*ScheduleRequest)(nil),        // 6: ScheduleRequest
-	(*ScheduleResponse)(nil),       // 7: ScheduleResponse
-	(*AgentInfo)(nil),              // 8: AgentInfo
-	(*CompileRequest)(nil),         // 9: CompileRequest
-	(*CompileResponse)(nil),        // 10: CompileResponse
-	(*wrappers.BoolValue)(nil),     // 11: google.protobuf.BoolValue
+	(Component)(0),                 // 0: Component
+	(ToolchainKind)(0),             // 1: ToolchainKind
+	(ToolchainLang)(0),             // 2: ToolchainLang
+	(CompileResponse_Result)(0),    // 3: CompileResponse.Result
+	(*Empty)(nil),                  // 4: Empty
+	(*Metadata)(nil),               // 5: Metadata
+	(*Toolchain)(nil),              // 6: Toolchain
+	(*AgentToolchainInfo)(nil),     // 7: AgentToolchainInfo
+	(*AgentToolchainInfoList)(nil), // 8: AgentToolchainInfoList
+	(*RunRequest)(nil),             // 9: RunRequest
+	(*RunResponse)(nil),            // 10: RunResponse
+	(*ScheduleRequest)(nil),        // 11: ScheduleRequest
+	(*ScheduleResponse)(nil),       // 12: ScheduleResponse
+	(*AgentInfo)(nil),              // 13: AgentInfo
+	(*CompileRequest)(nil),         // 14: CompileRequest
+	(*CompileResponse)(nil),        // 15: CompileResponse
+	(*wrappers.BoolValue)(nil),     // 16: google.protobuf.BoolValue
 }
 var file_pkg_types_types_proto_depIdxs = []int32{
-	2,  // 0: AgentToolchainInfoList.info:type_name -> AgentToolchainInfo
-	0,  // 1: CompileResponse.CompileResult:type_name -> CompileResponse.Result
-	4,  // 2: Consumerd.Run:input_type -> RunRequest
-	9,  // 3: Agent.Compile:input_type -> CompileRequest
-	1,  // 4: Scheduler.AtCapacity:input_type -> Empty
-	9,  // 5: Scheduler.Compile:input_type -> CompileRequest
-	1,  // 6: Scheduler.ConnectAgent:input_type -> Empty
-	1,  // 7: Scheduler.ConnectConsumerd:input_type -> Empty
-	5,  // 8: Consumerd.Run:output_type -> RunResponse
-	10, // 9: Agent.Compile:output_type -> CompileResponse
-	11, // 10: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
-	10, // 11: Scheduler.Compile:output_type -> CompileResponse
-	1,  // 12: Scheduler.ConnectAgent:output_type -> Empty
-	1,  // 13: Scheduler.ConnectConsumerd:output_type -> Empty
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	0,  // 0: Metadata.Component:type_name -> Component
+	6,  // 1: Metadata.Toolchains:type_name -> Toolchain
+	1,  // 2: Toolchain.Kind:type_name -> ToolchainKind
+	2,  // 3: Toolchain.Lang:type_name -> ToolchainLang
+	7,  // 4: AgentToolchainInfoList.info:type_name -> AgentToolchainInfo
+	3,  // 5: CompileResponse.CompileResult:type_name -> CompileResponse.Result
+	9,  // 6: Consumerd.Run:input_type -> RunRequest
+	14, // 7: Agent.Compile:input_type -> CompileRequest
+	4,  // 8: Scheduler.AtCapacity:input_type -> Empty
+	14, // 9: Scheduler.Compile:input_type -> CompileRequest
+	5,  // 10: Scheduler.Connect:input_type -> Metadata
+	10, // 11: Consumerd.Run:output_type -> RunResponse
+	15, // 12: Agent.Compile:output_type -> CompileResponse
+	16, // 13: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
+	15, // 14: Scheduler.Compile:output_type -> CompileResponse
+	4,  // 15: Scheduler.Connect:output_type -> Empty
+	11, // [11:16] is the sub-list for method output_type
+	6,  // [6:11] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_pkg_types_types_proto_init() }
@@ -849,7 +1186,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentToolchainInfo); i {
+			switch v := v.(*Metadata); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -861,7 +1198,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentToolchainInfoList); i {
+			switch v := v.(*Toolchain); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -873,7 +1210,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunRequest); i {
+			switch v := v.(*AgentToolchainInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -885,7 +1222,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunResponse); i {
+			switch v := v.(*AgentToolchainInfoList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -897,7 +1234,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ScheduleRequest); i {
+			switch v := v.(*RunRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -909,7 +1246,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ScheduleResponse); i {
+			switch v := v.(*RunResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -921,7 +1258,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentInfo); i {
+			switch v := v.(*ScheduleRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -933,7 +1270,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompileRequest); i {
+			switch v := v.(*ScheduleResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -945,6 +1282,30 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*AgentInfo); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CompileRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CompileResponse); i {
 			case 0:
 				return &v.state
@@ -957,7 +1318,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 	}
-	file_pkg_types_types_proto_msgTypes[9].OneofWrappers = []interface{}{
+	file_pkg_types_types_proto_msgTypes[11].OneofWrappers = []interface{}{
 		(*CompileResponse_Error)(nil),
 		(*CompileResponse_CompiledSource)(nil),
 	}
@@ -966,8 +1327,8 @@ func file_pkg_types_types_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_types_types_proto_rawDesc,
-			NumEnums:      1,
-			NumMessages:   10,
+			NumEnums:      4,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
@@ -1140,8 +1501,7 @@ var _Agent_serviceDesc = grpc.ServiceDesc{
 type SchedulerClient interface {
 	AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
-	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
+	Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error)
 }
 
 type schedulerClient struct {
@@ -1170,61 +1530,30 @@ func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts 
 	return out, nil
 }
 
-func (c *schedulerClient) ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[0], "/Scheduler/ConnectAgent", opts...)
+func (c *schedulerClient) Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[0], "/Scheduler/Connect", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectAgentClient{stream}
+	x := &schedulerConnectClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectAgentClient interface {
-	Send(*Empty) error
+type Scheduler_ConnectClient interface {
+	Send(*Metadata) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectAgentClient struct {
+type schedulerConnectClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectAgentClient) Send(m *Empty) error {
+func (x *schedulerConnectClient) Send(m *Metadata) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectAgentClient) Recv() (*Empty, error) {
-	m := new(Empty)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *schedulerClient) ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_Scheduler_serviceDesc.Streams[1], "/Scheduler/ConnectConsumerd", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &schedulerConnectConsumerdClient{stream}
-	return x, nil
-}
-
-type Scheduler_ConnectConsumerdClient interface {
-	Send(*Empty) error
-	Recv() (*Empty, error)
-	grpc.ClientStream
-}
-
-type schedulerConnectConsumerdClient struct {
-	grpc.ClientStream
-}
-
-func (x *schedulerConnectConsumerdClient) Send(m *Empty) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
+func (x *schedulerConnectClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -1236,8 +1565,7 @@ func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 type SchedulerServer interface {
 	AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error)
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	ConnectAgent(Scheduler_ConnectAgentServer) error
-	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
+	Connect(Scheduler_ConnectServer) error
 }
 
 // UnimplementedSchedulerServer can be embedded to have forward compatible implementations.
@@ -1250,11 +1578,8 @@ func (*UnimplementedSchedulerServer) AtCapacity(context.Context, *Empty) (*wrapp
 func (*UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (*UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConnectAgent not implemented")
-}
-func (*UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
+func (*UnimplementedSchedulerServer) Connect(Scheduler_ConnectServer) error {
+	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
 
 func RegisterSchedulerServer(s *grpc.Server, srv SchedulerServer) {
@@ -1297,52 +1622,26 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Scheduler_ConnectAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).ConnectAgent(&schedulerConnectAgentServer{stream})
+func _Scheduler_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).Connect(&schedulerConnectServer{stream})
 }
 
-type Scheduler_ConnectAgentServer interface {
+type Scheduler_ConnectServer interface {
 	Send(*Empty) error
-	Recv() (*Empty, error)
+	Recv() (*Metadata, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectAgentServer struct {
+type schedulerConnectServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectAgentServer) Send(m *Empty) error {
+func (x *schedulerConnectServer) Send(m *Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectAgentServer) Recv() (*Empty, error) {
-	m := new(Empty)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _Scheduler_ConnectConsumerd_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).ConnectConsumerd(&schedulerConnectConsumerdServer{stream})
-}
-
-type Scheduler_ConnectConsumerdServer interface {
-	Send(*Empty) error
-	Recv() (*Empty, error)
-	grpc.ServerStream
-}
-
-type schedulerConnectConsumerdServer struct {
-	grpc.ServerStream
-}
-
-func (x *schedulerConnectConsumerdServer) Send(m *Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *schedulerConnectConsumerdServer) Recv() (*Empty, error) {
-	m := new(Empty)
+func (x *schedulerConnectServer) Recv() (*Metadata, error) {
+	m := new(Metadata)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -1364,14 +1663,8 @@ var _Scheduler_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "ConnectAgent",
-			Handler:       _Scheduler_ConnectAgent_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "ConnectConsumerd",
-			Handler:       _Scheduler_ConnectConsumerd_Handler,
+			StreamName:    "Connect",
+			Handler:       _Scheduler_Connect_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

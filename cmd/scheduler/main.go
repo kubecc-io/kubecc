@@ -21,8 +21,6 @@ func main() {
 	lg = logkc.LogFromContext(ctx)
 	logkc.PrintHeader()
 
-	initConfig()
-
 	closer, err := tracing.Start(meta.Scheduler)
 	if err != nil {
 		lg.With(zap.Error(err)).Warn("Could not start tracing")
