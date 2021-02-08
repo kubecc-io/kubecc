@@ -5,7 +5,6 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/meta"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
@@ -45,7 +44,7 @@ func dial(
 }
 
 func (tc *TestController) runAgent() {
-	ctx := logkc.NewFromContext(cluster.NewAgentContext(), meta.Agent,
+	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent,
 		logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
 	)
 	srv := servers.NewServer(ctx)
@@ -74,7 +73,7 @@ func (tc *TestController) runAgent() {
 }
 
 func (tc *TestController) runScheduler() {
-	ctx := logkc.NewFromContext(context.Background(), meta.Scheduler,
+	ctx := logkc.NewFromContext(context.Background(), types.Scheduler,
 		logkc.WithName("a"),
 	)
 	tc.schedListener = bufconn.Listen(bufSize)
@@ -86,7 +85,7 @@ func (tc *TestController) runScheduler() {
 }
 
 func (tc *TestController) runConsumerd() {
-	ctx := logkc.NewFromContext(context.Background(), meta.Consumerd,
+	ctx := logkc.NewFromContext(context.Background(), types.Consumerd,
 		logkc.WithName(string(rune('a'+len(tc.cdListeners)))),
 	)
 	listener := bufconn.Listen(bufSize)

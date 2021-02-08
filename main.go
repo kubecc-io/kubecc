@@ -36,8 +36,8 @@ import (
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
+	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,7 +53,7 @@ func init() {
 }
 
 func main() {
-	logkc.NewFromContext(context.Background(), meta.Controller)
+	logkc.NewFromContext(context.Background(), types.Controller)
 	logkc.PrintHeader()
 
 	var (

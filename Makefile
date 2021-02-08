@@ -11,6 +11,8 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+GO ?= go1.16rc1
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
@@ -18,17 +20,20 @@ all: generate manifests proto fmt vet bin
 
 # Run tests
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: generate fmt vet manifests
+test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -tags operator
 
 test-integration:
-	@KUBECC_LOG_COLOR=1 go test ./test/integration -tags integration -v -count=1
+	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
 
 test-e2e:
-	go build -tags integration -o bin/test-e2e ./test/e2e
+	$(GO) build -tags integration -coverprofile cover.out -o bin/test-e2e ./test/e2e
 	bin/test-e2e
+
+test-unit:
+	$(GO) test ./... -coverprofile cover.out
 
 install: manifests
 	kubectl kustomize config/crd | kubectl apply -f -
@@ -50,11 +55,11 @@ proto:
 
 # Run go fmt against code
 fmt:
-	go fmt ./...
+	$(GO) fmt ./...
 
 # Run go vet against code
 vet:
-	go vet ./...
+	$(GO) vet ./...
 
 # Generate code
 generate: 
@@ -63,25 +68,25 @@ generate:
 bin: agent scheduler manager make kcctl consumer consumerd
 
 agent:
-	CGO_ENABLED=0 go build -o ./build/bin/agent ./cmd/agent
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/agent ./cmd/agent
 
 scheduler:
-	CGO_ENABLED=0 go build -o ./build/bin/scheduler ./cmd/scheduler
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/scheduler ./cmd/scheduler
 
 manager:
-	CGO_ENABLED=0 go build -o ./build/bin/manager
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/manager
 
 make:
-	CGO_ENABLED=0 go build -o ./build/bin/make ./cmd/make
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/make ./cmd/make
 
 kcctl:
-	CGO_ENABLED=0 go build -o ./build/bin/kcctl ./cmd/kcctl
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/kcctl ./cmd/kcctl
 
 consumer:
-	CGO_ENABLED=0 go build -o ./build/bin/consumer ./cmd/consumer
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumer ./cmd/consumer
 
 consumerd:
-	CGO_ENABLED=0 go build -o ./build/bin/consumerd ./cmd/consumerd
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumerd ./cmd/consumerd
 
 agent-docker:
 	docker buildx bake -f bake.hcl agent --push

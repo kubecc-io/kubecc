@@ -1,12 +1,9 @@
 package toolchains
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io/ioutil"
+	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -17,89 +14,58 @@ import (
 	"go.uber.org/zap"
 )
 
-var picCheck = `
-#if defined __PIC__ || defined __pic__ || defined PIC || defined pic            
-# error                                                    
-#endif                                                                          
-`
-
-func isPicDefault(compiler string) (bool, error) {
-	cmd := exec.Command(compiler, "-E -o /dev/null -")
-	stderrBuf := new(bytes.Buffer)
-	cmd.Stdin = strings.NewReader(picCheck)
-	cmd.Stdout = nil
-	cmd.Stderr = stderrBuf
-	cmd.Env = []string{}
-	err := cmd.Run()
-	if _, ok := err.(*exec.ExitError); ok {
-		return false, err
-	}
-	if err == nil {
-		return false, nil
-	}
-	return strings.Contains(stderrBuf.String(), "#error"), nil
+type readDirStatFs interface {
+	fs.StatFS
+	fs.ReadDirFS
 }
 
-func targetArch(compiler string) (string, error) {
-	cmd := exec.Command(compiler, "-dumpmachine")
-	stdoutBuf := new(bytes.Buffer)
-	cmd.Stdin = nil
-	cmd.Stdout = stdoutBuf
-	cmd.Stderr = nil
-	cmd.Env = []string{}
-	err := cmd.Run()
-	if err != nil {
-		return "", err
-	}
-	triple := strings.Split(stdoutBuf.String(), "-")
-	if len(triple) != 3 {
-		return "", errors.New("GCC returned an invalid target triple with -dumpmachine")
-	}
-	return triple[0], nil
+type osFS struct {
+	readDirStatFs
 }
 
-func isCanonical(compiler string) bool {
-	basename := filepath.Base(compiler)
-	parts := strings.SplitN(basename, "-", 4)
-	// If the dereferenced symlink's filename is a canonical
-	// host triple concatenated with the binary name
-	// ex: x86_64-linux-gnu-gcc
-	// We aren't checking the actual contents of the host triple,
-	// just that the filename matches this pattern.
-	// Some binaries have dashes in the name (i.e. gcc-10) which
-	// would make the filename something like x86_64-linux-gnu-gcc-10
-	// so the split count is capped at 4. The parts would then be
-	// ["x86_64", "linux", "gnu", "gcc-10"] and we can match the
-	// given prefix against the "gcc-10" part to see if it is the
-	// expected binary.
-	return len(parts) == 4 &&
-		(strings.HasPrefix(parts[3], "gcc") ||
-			strings.HasPrefix(parts[3], "g++") ||
-			strings.HasPrefix(parts[3], "clang"))
+func (rfs osFS) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
+}
+func (rfs osFS) ReadDir(name string) ([]os.DirEntry, error) {
+	return os.ReadDir(name)
 }
 
-func compilerKindAndLanguage(
-	compiler string,
-) (types.ToolchainKind, types.ToolchainLang, error) {
-	switch base := filepath.Base(compiler); {
-	case strings.Contains(base, "clang++"):
-		return types.Clang, types.CXX, nil
-	case strings.Contains(base, "clang"):
-		return types.Clang, types.C, nil
-	case strings.Contains(base, "g++"):
-		return types.Gnu, types.CXX, nil
-	case strings.Contains(base, "gcc"):
-		return types.Gnu, types.C, nil
+type FindOptions struct {
+	fs      readDirStatFs
+	querier Querier
+}
+type findOption func(*FindOptions)
+
+func (o *FindOptions) Apply(opts ...findOption) {
+	for _, op := range opts {
+		op(o)
 	}
-	return 0, 0, errors.New("Unknown compiler")
 }
 
-func FindToolchains(ctx context.Context) (tcs []*types.Toolchain) {
+func WithFS(fs readDirStatFs) findOption {
+	return func(opts *FindOptions) {
+		opts.fs = fs
+	}
+}
+
+func WithQuerier(q Querier) findOption {
+	return func(opts *FindOptions) {
+		opts.querier = q
+	}
+}
+
+func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolchain) {
+	options := FindOptions{
+		fs:      osFS{},
+		querier: ExecQuerier{},
+	}
+	options.Apply(opts...)
+
 	lg := logkc.LogFromContext(ctx)
 	tcs = []*types.Toolchain{}
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		if _, err := options.fs.Stat(path); os.IsNotExist(err) {
 			return
 		}
 		realPath, err := filepath.EvalSymlinks(path)
@@ -125,13 +91,13 @@ func FindToolchains(ctx context.Context) (tcs []*types.Toolchain) {
 	// (one of: gcc, g++, clang, clang++)  followed by
 	// ('-' and a number) or (empty)       followed by
 	// (end of line)
-	pattern := `^(?:\w+\-\w+\-\w+\-)?(?:(?:g([c+])\1)|(?:clang(?:\+{2})?))(?:-[\d.]+)?$`
+	pattern := `^(?:\w+\-\w+\-\w+\-)?(?:(?:gcc)|(?:g\+\+)|(?:clang(?:\+{2})?))(?:-[\d.]+)?$`
 	re := regexp.MustCompile(pattern)
 
 	compilers := mapset.NewSet()
 	for p := range searchPaths.Iter() {
 		dirname := p.(string)
-		infos, err := ioutil.ReadDir(dirname)
+		infos, err := options.fs.ReadDir(dirname)
 		if err != nil {
 			lg.With(zap.Error(err)).Debug("Error listing directory contents")
 			continue
@@ -145,8 +111,7 @@ func FindToolchains(ctx context.Context) (tcs []*types.Toolchain) {
 
 	for c := range compilers.Iter() {
 		compiler := c.(string)
-		canonical := isCanonical(compiler)
-		arch, err := targetArch(compiler)
+		arch, err := options.querier.TargetArch(compiler)
 		if err != nil {
 			lg.With(
 				"compiler", compiler,
@@ -154,7 +119,15 @@ func FindToolchains(ctx context.Context) (tcs []*types.Toolchain) {
 			).Warn("Could not determine target arch")
 			continue
 		}
-		pic, err := isPicDefault(compiler)
+		version, err := options.querier.Version(compiler)
+		if err != nil {
+			lg.With(
+				"compiler", compiler,
+				zap.Error(err),
+			).Warn("Could not determine target version")
+			continue
+		}
+		pic, err := options.querier.IsPicDefault(compiler)
 		if err != nil {
 			lg.With(
 				"compiler", compiler,
@@ -162,21 +135,29 @@ func FindToolchains(ctx context.Context) (tcs []*types.Toolchain) {
 			).Warn("Could not determine compiler PIC defaults")
 			continue
 		}
-		kind, lang, err := compilerKindAndLanguage(compiler)
+		kind, err := options.querier.Kind(compiler)
 		if err != nil {
 			lg.With(
 				"compiler", compiler,
 				zap.Error(err),
-			).Warn("Could not determine compiler kind (gcc/clang) or language (c/cxx)")
+			).Warn("Could not determine compiler kind (gcc/clang)")
+			continue
+		}
+		lang, err := options.querier.Lang(compiler)
+		if err != nil {
+			lg.With(
+				"compiler", compiler,
+				zap.Error(err),
+			).Warn("Could not determine compiler language (c/cxx/multi)")
 			continue
 		}
 		tcs = append(tcs, &types.Toolchain{
 			Kind:       kind,
 			Lang:       lang,
-			Canonical:  canonical,
 			Executable: compiler,
 			TargetArch: arch,
 			PicDefault: pic,
+			Version:    version,
 		})
 	}
 

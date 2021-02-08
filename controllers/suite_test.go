@@ -1,3 +1,5 @@
+// +build operator
+
 package controllers
 
 import (
@@ -20,8 +22,8 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
+	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -43,7 +45,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	ctx := logkc.NewFromContext(context.Background(), meta.Controller)
+	ctx := logkc.NewFromContext(context.Background(), types.Controller)
 	lg := logkc.LogFromContext(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))

@@ -6,13 +6,13 @@ import (
 	"io"
 	"os"
 
-	"github.com/cobalt77/kubecc/internal/meta"
+	"github.com/cobalt77/kubecc/pkg/types"
 	opentracing "github.com/opentracing/opentracing-go"
 
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
-func Start(component meta.Component) (io.Closer, error) {
+func Start(component types.Component) (io.Closer, error) {
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
 		return nil, errors.New("JAEGER_ENDPOINT not defined, tracing disabled")
