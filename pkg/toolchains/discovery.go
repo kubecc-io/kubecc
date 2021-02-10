@@ -31,8 +31,10 @@ func (rfs osFS) ReadDir(name string) ([]os.DirEntry, error) {
 }
 
 type FindOptions struct {
-	fs      readDirStatFs
-	querier Querier
+	fs          readDirStatFs
+	querier     Querier
+	path        bool
+	searchPaths []string
 }
 type findOption func(*FindOptions)
 
@@ -54,10 +56,27 @@ func WithQuerier(q Querier) findOption {
 	}
 }
 
+func WithSearchPaths(paths []string) findOption {
+	return func(opts *FindOptions) {
+		opts.searchPaths = paths
+	}
+}
+
+func SearchPathEnv(search bool) findOption {
+	return func(opts *FindOptions) {
+		opts.path = search
+	}
+}
+
 func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolchain) {
 	options := FindOptions{
 		fs:      osFS{},
 		querier: ExecQuerier{},
+		searchPaths: []string{
+			"/usr/bin",
+			"/usr/local/bin",
+			"/bin",
+		},
 	}
 	options.Apply(opts...)
 
@@ -65,23 +84,28 @@ func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolc
 	tcs = []*types.Toolchain{}
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
-		if _, err := options.fs.Stat(path); os.IsNotExist(err) {
+		f, err := options.fs.Stat(path)
+		if os.IsNotExist(err) {
 			return
 		}
-		realPath, err := filepath.EvalSymlinks(path)
-		if err != nil {
-			lg.With("path", path).Debug("Symlink eval failed")
-			return
+		if f.Mode()&fs.ModeSymlink != 0 {
+			path, err = filepath.EvalSymlinks(path)
+			if err != nil {
+				lg.With("path", path).Debug("Symlink eval failed")
+				return
+			}
 		}
-		set.Add(realPath)
+		set.Add(path)
 	}
-	addPath(searchPaths, "/usr/bin")
-	addPath(searchPaths, "/usr/local/bin")
-	addPath(searchPaths, "/bin")
 
-	if paths, ok := os.LookupEnv("PATH"); ok {
-		for _, path := range strings.Split(paths, ":") {
-			addPath(searchPaths, path)
+	for _, path := range options.searchPaths {
+		addPath(searchPaths, path)
+	}
+	if options.path {
+		if paths, ok := os.LookupEnv("PATH"); ok {
+			for _, path := range strings.Split(paths, ":") {
+				addPath(searchPaths, path)
+			}
 		}
 	}
 
