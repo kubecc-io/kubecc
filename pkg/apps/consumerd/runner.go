@@ -34,7 +34,7 @@ func (c *consumerd) runPreprocessor(
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	runner := run.NewPreprocessRunner(
+	runner := cc.NewPreprocessRunner(info,
 		run.WithContext(logkc.ContextWithLog(ctx, c.lg)),
 		run.WithEnv(req.Env),
 		run.WithOutputWriter(outBuf),
@@ -43,7 +43,7 @@ func (c *consumerd) runPreprocessor(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	if err := runner.Run(fmt.Sprintf("/usr/bin/%s", req.Compiler), info); err != nil {
+	if err := runner.Run(fmt.Sprintf("/usr/bin/%s", req.Compiler)); err != nil {
 		stderr := stderrBuf.Bytes()
 		c.lg.With(
 			zap.Error(err),
@@ -71,7 +71,7 @@ func (c *consumerd) runRequestLocal(
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	runner := run.NewCompileRunner(
+	runner := cc.NewCompileRunner(info,
 		run.InPlace(true),
 		run.WithEnv(req.Env),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),
@@ -80,7 +80,7 @@ func (c *consumerd) runRequestLocal(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.NewTask(sctx, runner, fmt.Sprintf("/usr/bin/%s", req.Compiler), info)
+	t := run.NewTask(sctx, runner, fmt.Sprintf("/usr/bin/%s", req.Compiler))
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
@@ -141,7 +141,7 @@ func (c *consumerd) runRequestRemote(
 	info.RemoveLocalArgs()
 	c.lg.Debug("Starting remote compile")
 	resp, err := client.Compile(ctx, &types.CompileRequest{
-		Command:            req.Compiler, // todo
+		Command:            req.Compiler, // Todo: add logic to match toolchains given by the client
 		Args:               info.Args,
 		PreprocessedSource: preprocessedSource,
 	}, grpc.UseCompressor(gzip.Name))

@@ -5,12 +5,11 @@ import (
 	"io"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/cc"
 	"go.uber.org/zap"
 )
 
 type Runner interface {
-	Run(compiler string, info *cc.ArgParser) error
+	Run(compiler string) error
 }
 
 type OutputType int
@@ -35,7 +34,7 @@ type RunnerOptions struct {
 	ResultOptions
 
 	Context context.Context
-	lg      *zap.SugaredLogger
+	Log     *zap.SugaredLogger
 }
 
 func (r *RunnerOptions) Apply(opts ...RunOption) {
@@ -93,6 +92,6 @@ func InPlace(inPlace bool) RunOption {
 func WithContext(ctx context.Context) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Context = ctx
-		ro.lg = logkc.LogFromContext(ctx)
+		ro.Log = logkc.LogFromContext(ctx)
 	}
 }

@@ -1,4 +1,4 @@
-package run
+package cc
 
 import (
 	"bytes"
@@ -6,23 +6,28 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/run"
 	"go.uber.org/zap"
 )
 
 type preprocessRunner struct {
-	RunnerOptions
+	run.RunnerOptions
+
+	info *ArgParser
 }
 
-func NewPreprocessRunner(opts ...RunOption) Runner {
-	r := &preprocessRunner{}
+func NewPreprocessRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
+	r := &preprocessRunner{
+		info: info,
+	}
 	r.Apply(opts...)
 	return r
 }
 
-func (r *preprocessRunner) Run(compiler string, info *cc.ArgParser) error {
+func (r *preprocessRunner) Run(compiler string) error {
+	info := r.info
 	if info.OutputArgIndex != -1 {
-		r.lg.Debug("Replacing output path with '-'")
+		r.Log.Debug("Replacing output path with '-'")
 		old := info.Args[info.OutputArgIndex]
 		info.ReplaceOutputPath("-")
 		defer info.ReplaceOutputPath(old)
@@ -57,8 +62,8 @@ func (r *preprocessRunner) Run(compiler string, info *cc.ArgParser) error {
 	}()
 	err = cmd.Wait()
 	if err != nil {
-		r.lg.With(zap.Error(err)).Error("Compiler error")
-		return NewCompilerError(stderrBuf.String())
+		r.Log.With(zap.Error(err)).Error("Compiler error")
+		return run.NewCompilerError(stderrBuf.String())
 	}
 	return nil
 }

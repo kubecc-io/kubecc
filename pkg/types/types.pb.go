@@ -682,7 +682,7 @@ func (x *RunResponse) GetStderr() []byte {
 	return nil
 }
 
-// consumer -> scheduler
+// consumerd -> scheduler
 type ScheduleRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -721,7 +721,7 @@ func (*ScheduleRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_types_types_proto_rawDescGZIP(), []int{7}
 }
 
-// scheduler -> consumer
+// scheduler -> consumerd
 type ScheduleResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -841,15 +841,15 @@ func (x *AgentInfo) GetNamespace() string {
 	return ""
 }
 
-// scheduler -> agent
+// consumerd -> scheduler -> agent
 type CompileRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Command            string   `protobuf:"bytes,2,opt,name=Command,proto3" json:"Command,omitempty"`
-	Args               []string `protobuf:"bytes,3,rep,name=Args,proto3" json:"Args,omitempty"`
-	PreprocessedSource []byte   `protobuf:"bytes,4,opt,name=PreprocessedSource,proto3" json:"PreprocessedSource,omitempty"`
+	Toolchain          *Toolchain `protobuf:"bytes,1,opt,name=Toolchain,proto3" json:"Toolchain,omitempty"`
+	Args               []string   `protobuf:"bytes,2,rep,name=Args,proto3" json:"Args,omitempty"`
+	PreprocessedSource []byte     `protobuf:"bytes,3,opt,name=PreprocessedSource,proto3" json:"PreprocessedSource,omitempty"`
 }
 
 func (x *CompileRequest) Reset() {
@@ -884,11 +884,11 @@ func (*CompileRequest) Descriptor() ([]byte, []int) {
 	return file_pkg_types_types_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *CompileRequest) GetCommand() string {
+func (x *CompileRequest) GetToolchain() *Toolchain {
 	if x != nil {
-		return x.Command
+		return x.Toolchain
 	}
-	return ""
+	return nil
 }
 
 func (x *CompileRequest) GetArgs() []string {
@@ -905,7 +905,7 @@ func (x *CompileRequest) GetPreprocessedSource() []byte {
 	return nil
 }
 
-// scheduler -> consumer
+// agent -> scheduler -> consumerd
 type CompileResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1056,13 +1056,14 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x6f, 0x64, 0x65, 0x12, 0x10, 0x0a,
 	0x03, 0x50, 0x6f, 0x64, 0x18, 0x04, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x50, 0x6f, 0x64, 0x12,
 	0x1c, 0x0a, 0x09, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x18, 0x05, 0x20, 0x01,
-	0x28, 0x09, 0x52, 0x09, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x6e, 0x0a,
+	0x28, 0x09, 0x52, 0x09, 0x4e, 0x61, 0x6d, 0x65, 0x73, 0x70, 0x61, 0x63, 0x65, 0x22, 0x7e, 0x0a,
 	0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12,
-	0x18, 0x0a, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
-	0x52, 0x07, 0x43, 0x6f, 0x6d, 0x6d, 0x61, 0x6e, 0x64, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x67,
-	0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x67, 0x73, 0x12, 0x2e, 0x0a,
+	0x28, 0x0a, 0x09, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x52, 0x09,
+	0x54, 0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x12, 0x0a, 0x04, 0x41, 0x72, 0x67,
+	0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x09, 0x52, 0x04, 0x41, 0x72, 0x67, 0x73, 0x12, 0x2e, 0x0a,
 	0x12, 0x50, 0x72, 0x65, 0x70, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x64, 0x53, 0x6f, 0x75,
-	0x72, 0x63, 0x65, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x12, 0x50, 0x72, 0x65, 0x70, 0x72,
+	0x72, 0x63, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x12, 0x50, 0x72, 0x65, 0x70, 0x72,
 	0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x64, 0x53, 0x6f, 0x75, 0x72, 0x63, 0x65, 0x22, 0xbb, 0x01,
 	0x0a, 0x0f, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x12, 0x3d, 0x0a, 0x0d, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x75,
@@ -1146,22 +1147,23 @@ var file_pkg_types_types_proto_depIdxs = []int32{
 	1,  // 2: Toolchain.Kind:type_name -> ToolchainKind
 	2,  // 3: Toolchain.Lang:type_name -> ToolchainLang
 	7,  // 4: AgentToolchainInfoList.info:type_name -> AgentToolchainInfo
-	3,  // 5: CompileResponse.CompileResult:type_name -> CompileResponse.Result
-	9,  // 6: Consumerd.Run:input_type -> RunRequest
-	14, // 7: Agent.Compile:input_type -> CompileRequest
-	4,  // 8: Scheduler.AtCapacity:input_type -> Empty
-	14, // 9: Scheduler.Compile:input_type -> CompileRequest
-	5,  // 10: Scheduler.Connect:input_type -> Metadata
-	10, // 11: Consumerd.Run:output_type -> RunResponse
-	15, // 12: Agent.Compile:output_type -> CompileResponse
-	16, // 13: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
-	15, // 14: Scheduler.Compile:output_type -> CompileResponse
-	4,  // 15: Scheduler.Connect:output_type -> Empty
-	11, // [11:16] is the sub-list for method output_type
-	6,  // [6:11] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	6,  // 5: CompileRequest.Toolchain:type_name -> Toolchain
+	3,  // 6: CompileResponse.CompileResult:type_name -> CompileResponse.Result
+	9,  // 7: Consumerd.Run:input_type -> RunRequest
+	14, // 8: Agent.Compile:input_type -> CompileRequest
+	4,  // 9: Scheduler.AtCapacity:input_type -> Empty
+	14, // 10: Scheduler.Compile:input_type -> CompileRequest
+	5,  // 11: Scheduler.Connect:input_type -> Metadata
+	10, // 12: Consumerd.Run:output_type -> RunResponse
+	15, // 13: Agent.Compile:output_type -> CompileResponse
+	16, // 14: Scheduler.AtCapacity:output_type -> google.protobuf.BoolValue
+	15, // 15: Scheduler.Compile:output_type -> CompileResponse
+	4,  // 16: Scheduler.Connect:output_type -> Empty
+	12, // [12:17] is the sub-list for method output_type
+	7,  // [7:12] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_pkg_types_types_proto_init() }
