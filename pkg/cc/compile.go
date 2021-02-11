@@ -1,4 +1,4 @@
-package run
+package cc
 
 import (
 	"bytes"
@@ -8,24 +8,29 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
 
 type compileRunner struct {
-	RunnerOptions
+	run.RunnerOptions
+
+	info *ArgParser
 }
 
-func NewCompileRunner(opts ...RunOption) Runner {
-	r := &compileRunner{}
+func NewCompileRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
+	r := &compileRunner{
+		info: info,
+	}
 	r.Apply(opts...)
 	return r
 }
 
 // Run the compiler with the current args.
-func (r *compileRunner) Run(compiler string, info *cc.ArgParser) error {
-	r.lg.With(
+func (r *compileRunner) Run(compiler string) error {
+	info := r.info
+	r.Log.With(
 		zap.String("compiler", compiler),
 		zap.Object("info", info),
 	).Debug("Received run request")
@@ -40,16 +45,16 @@ func (r *compileRunner) Run(compiler string, info *cc.ArgParser) error {
 		tmp, err := os.CreateTemp(
 			"", fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
-			r.lg.With(zap.Error(err)).Fatal("Can't create temporary files")
+			r.Log.With(zap.Error(err)).Fatal("Can't create temporary files")
 		}
 		tmpFileName = tmp.Name()
-		r.lg.With(
+		r.Log.With(
 			zap.String("old", info.Args[info.OutputArgIndex]),
 			zap.String("new", tmp.Name()),
 		).Info("Replacing output path")
 		err = info.ReplaceOutputPath(tmp.Name())
 		if err != nil {
-			r.lg.With(zap.Error(err)).Error("Error replacing output path")
+			r.Log.With(zap.Error(err)).Error("Error replacing output path")
 			return err
 		}
 	}
@@ -61,14 +66,14 @@ func (r *compileRunner) Run(compiler string, info *cc.ArgParser) error {
 	cmd.Stderr = io.MultiWriter(r.Stderr, stderrBuf)
 	cmd.Stdin = r.Stdin
 
-	r.lg.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
+	r.Log.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	err := cmd.Wait()
 	if err != nil {
-		r.lg.With(zap.Error(err)).Error("Compiler error")
-		return NewCompilerError(stderrBuf.String())
+		r.Log.With(zap.Error(err)).Error("Compiler error")
+		return run.NewCompilerError(stderrBuf.String())
 	}
 	if r.OutputWriter != nil && !r.NoTempFile {
 		_, err = r.OutputWriter.Write([]byte(tmpFileName))

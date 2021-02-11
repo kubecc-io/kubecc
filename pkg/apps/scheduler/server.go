@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -70,6 +72,10 @@ func (s *schedulerServer) Connect(
 	if err != nil {
 		return err
 	}
+	tcNames := []string{}
+	for _, tc := range metadata.GetToolchains() {
+		tcNames = append(tcNames, fmt.Sprintf("%s%s%s", tc.Kind, tc.Lang, tc.TargetArch))
+	}
 	switch metadata.Component {
 	case types.Agent:
 		agent, err := NewAgentFromContext(srv.Context())
@@ -78,7 +84,7 @@ func (s *schedulerServer) Connect(
 			return nil
 		}
 
-		lg.Info("Agent connected")
+		lg.With("toolchains", strings.Join(tcNames, ", ")).Infof("Agent connected")
 
 		// add logic here maybe
 
@@ -87,7 +93,7 @@ func (s *schedulerServer) Connect(
 
 		lg.Info("Agent disconnected")
 	case types.Consumerd:
-		lg.Info("Consumerd connected")
+		lg.With("toolchains", strings.Join(tcNames, ", ")).Infof("Consumerd connected")
 
 		// add logic here maybe
 

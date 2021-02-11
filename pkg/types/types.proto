@@ -80,13 +80,11 @@ message RunResponse {
   bytes Stderr = 3;
 }
 
-// consumer -> scheduler
+// consumerd -> scheduler
 message ScheduleRequest {}
 
-// scheduler -> consumer
-message ScheduleResponse {
-
-}
+// scheduler -> consumerd
+message ScheduleResponse {}
 
 
 message AgentInfo {
@@ -100,30 +98,14 @@ message AgentInfo {
   string Namespace = 5;
 }
 
-// scheduler -> agent
+// consumerd -> scheduler -> agent
 message CompileRequest {
-  string Command = 2;
-  repeated string Args = 3;
-  bytes PreprocessedSource = 4;
+  Toolchain Toolchain = 1;
+  repeated string Args = 2;
+  bytes PreprocessedSource = 3;
 }
 
-// agent -> scheduler
-// message CompileStatus {
-//   enum Status {
-//     Accept = 0;
-//     Reject = 1;
-//     Success = 2;
-//     Fail = 3;
-//   }
-//   Status CompileStatus = 1;
-//   oneof Data {
-//     AgentInfo Info = 2;
-//     string Error = 3;
-//     bytes CompiledSource = 4;
-//   }
-// }
-
-// scheduler -> consumer
+// agent -> scheduler -> consumerd
 message CompileResponse {
   enum Result {
     Success = 0;
