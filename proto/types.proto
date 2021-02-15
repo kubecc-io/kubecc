@@ -1,6 +1,6 @@
 syntax = "proto3";
 import "google/protobuf/wrappers.proto";
-option go_package = "proto;types";
+option go_package = "pkg/types";
 
 message Empty {}
 
@@ -16,6 +16,16 @@ service Scheduler {
   rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
   rpc Connect(stream Metadata) returns (stream Empty);
+  rpc SystemStatus(Empty) returns (SystemStatusResponse);
+}
+
+message SystemStatusResponse {
+  repeated ComponentStatus StatusItems = 1;
+}
+
+message ComponentStatus {
+  Component Component = 1;
+  bool Alive = 2;
 }
 
 message Metadata {
@@ -24,24 +34,28 @@ message Metadata {
 }
 
 enum Component {
-	Agent_ = 0;
-	Scheduler_ = 1;
-	Controller_ = 2;
-	Consumer_ = 3;
-	Consumerd_ = 4;
-	Make_ = 5;
-  Test_ = 6;
+  Component_Unknown_ = 0;
+	Agent_ = 1;
+	Scheduler_ = 2;
+	Controller_ = 3;
+	Consumer_ = 4;
+	Consumerd_ = 5;
+	Make_ = 6;
+  Test_ = 7;
+  Dashboard_ = 8;
 }
 
 enum ToolchainKind {
-  Gnu_ = 0;
-  Clang_ = 1;
+  ToolchainKind_Unknown_ = 0;
+  Gnu_ = 1;
+  Clang_ = 2;
 }
 
 enum ToolchainLang {
-  C_ = 0;
-  CXX_ = 1;
-  Multi_ = 2;
+  ToolchainLang_Unknown_ = 0;
+  C_ = 1;
+  CXX_ = 2;
+  Multi_ = 3;
 }
 
 message Toolchain {
