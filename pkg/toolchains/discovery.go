@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 )
@@ -68,7 +67,7 @@ func SearchPathEnv(search bool) findOption {
 	}
 }
 
-func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolchain) {
+func FindToolchains(ctx context.Context, opts ...findOption) *Store {
 	options := FindOptions{
 		fs:      osFS{},
 		querier: ExecQuerier{},
@@ -81,7 +80,6 @@ func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolc
 	options.Apply(opts...)
 
 	lg := logkc.LogFromContext(ctx)
-	tcs = []*types.Toolchain{}
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
 		f, err := options.fs.Stat(path)
@@ -133,57 +131,17 @@ func FindToolchains(ctx context.Context, opts ...findOption) (tcs []*types.Toolc
 		}
 	}
 
+	store := NewStore()
 	for c := range compilers.Iter() {
 		compiler := c.(string)
-		arch, err := options.querier.TargetArch(compiler)
+		_, err := store.Add(compiler, options.querier)
 		if err != nil {
 			lg.With(
-				"compiler", compiler,
+				zap.String("compiler", compiler),
 				zap.Error(err),
-			).Warn("Could not determine target arch")
-			continue
+			).Warn("Error adding toolchain")
 		}
-		version, err := options.querier.Version(compiler)
-		if err != nil {
-			lg.With(
-				"compiler", compiler,
-				zap.Error(err),
-			).Warn("Could not determine target version")
-			continue
-		}
-		pic, err := options.querier.IsPicDefault(compiler)
-		if err != nil {
-			lg.With(
-				"compiler", compiler,
-				zap.Error(err),
-			).Warn("Could not determine compiler PIC defaults")
-			continue
-		}
-		kind, err := options.querier.Kind(compiler)
-		if err != nil {
-			lg.With(
-				"compiler", compiler,
-				zap.Error(err),
-			).Warn("Could not determine compiler kind (gcc/clang)")
-			continue
-		}
-		lang, err := options.querier.Lang(compiler)
-		if err != nil {
-			lg.With(
-				"compiler", compiler,
-				zap.Error(err),
-			).Warn("Could not determine compiler language (c/cxx/multi)")
-			continue
-		}
-		tcs = append(tcs, &types.Toolchain{
-			Kind:       kind,
-			Lang:       lang,
-			Executable: compiler,
-			TargetArch: arch,
-			PicDefault: pic,
-			Version:    version,
-		})
 	}
 
-	return
+	return store
 }
