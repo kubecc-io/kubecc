@@ -105,3 +105,25 @@ func (s *schedulerServer) Connect(
 
 	return nil
 }
+
+func (s *schedulerServer) SystemStatus(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.SystemStatusResponse, error) {
+	return &types.SystemStatusResponse{
+		StatusItems: []*types.ComponentStatus{
+			{
+				Component: types.Agent,
+				Alive:     true,
+			},
+			{
+				Component: types.Scheduler,
+				Alive:     true,
+			},
+			{
+				Component: types.Consumerd,
+				Alive:     true,
+			},
+		},
+	}, nil
+}

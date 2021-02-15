@@ -18,6 +18,8 @@ func (c Component) Name() string {
 		return "Make"
 	case Test:
 		return "Test"
+	case Dashboard:
+		return "Dashboard"
 	}
 	return "Unknown"
 }
@@ -38,6 +40,8 @@ func (c Component) ShortName() string {
 		return "make"
 	case Test:
 		return "test"
+	case Dashboard:
+		return "dash"
 	}
 	return "????"
 }

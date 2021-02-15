@@ -12,6 +12,8 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/deckarep/golang-set v1.7.1
+	github.com/gin-contrib/cors v1.3.1 // indirect
+	github.com/gin-gonic/gin v1.6.3 // indirect
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.4.3
@@ -32,6 +34,7 @@ require (
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/prometheus/client_golang v1.9.0 // indirect
 	github.com/prometheus/procfs v0.4.0 // indirect
+	github.com/rs/cors v1.7.0
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.1.1

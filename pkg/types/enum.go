@@ -15,4 +15,5 @@ var (
 	Consumerd  = Component_Consumerd_
 	Make       = Component_Make_
 	Test       = Component_Test_
+	Dashboard  = Component_Dashboard_
 )
