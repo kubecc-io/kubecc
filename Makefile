@@ -16,9 +16,12 @@ GO ?= go1.16rc1
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
+.PHONY: all
 all: generate manifests proto fmt vet bin
 
-# Run tests
+
+# Tests
+.PHONY: test-operator test-integration test-e2e test-unit
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -35,6 +38,9 @@ test-e2e:
 test-unit:
 	$(GO) test ./... -coverprofile cover.out
 
+
+# Installation and deployment
+.PHONY: install uninstall deploy undeploy manifests
 install: manifests
 	kubectl kustomize config/crd | kubectl apply -f -
 
@@ -50,9 +56,15 @@ undeploy:
 manifests: 
 	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-proto:
-	protoc pkg/types/types.proto --go_out=plugins=grpc,paths=source_relative:.
 
+# Protobuf code generators
+.PHONY: proto
+proto:
+	protoc proto/types.proto --go_out=. --go-grpc_out=.
+
+
+# Code generating, formatting, vetting
+.PHONY: fmt vet generate
 # Run go fmt against code
 fmt:
 	$(GO) fmt ./...
@@ -65,6 +77,9 @@ vet:
 generate: 
 	controller-gen object paths="./..."
 
+
+# Build binaries
+.PHONY: bin agent scheduler manager make kcctl consumer consumerd
 bin: agent scheduler manager make kcctl consumer consumerd
 
 agent:
@@ -88,6 +103,9 @@ consumer:
 consumerd:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumerd ./cmd/consumerd
 
+
+# Build container images
+.PHONY: agent-docker scheduler-docker manager-docker docker
 agent-docker:
 	docker buildx bake -f bake.hcl agent --push
 
@@ -100,14 +118,13 @@ manager-docker:
 docker: 
 	docker buildx bake -f bake.hcl --push
 
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
+
+# Generate bundle manifests and metadata
+.PHONY: bundle bundle-build
 bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
 	kubectl kustomize config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
-# Build the bundle image.
-.PHONY: bundle-build
 bundle-build:
 	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
