@@ -3,7 +3,6 @@ package consumerd
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -43,7 +42,7 @@ func (c *consumerd) runPreprocessor(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	if err := runner.Run(fmt.Sprintf("/usr/bin/%s", req.Compiler)); err != nil {
+	if err := runner.Run(req.GetToolchain().Executable); err != nil {
 		stderr := stderrBuf.Bytes()
 		c.lg.With(
 			zap.Error(err),
@@ -80,7 +79,7 @@ func (c *consumerd) runRequestLocal(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.NewTask(sctx, runner, fmt.Sprintf("/usr/bin/%s", req.Compiler))
+	t := run.NewTask(sctx, runner, req.GetToolchain().Executable)
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
@@ -141,7 +140,7 @@ func (c *consumerd) runRequestRemote(
 	info.RemoveLocalArgs()
 	c.lg.Debug("Starting remote compile")
 	resp, err := client.Compile(ctx, &types.CompileRequest{
-		Command:            req.Compiler, // Todo: add logic to match toolchains given by the client
+		Toolchain:          req.GetToolchain(),
 		Args:               info.Args,
 		PreprocessedSource: preprocessedSource,
 	}, grpc.UseCompressor(gzip.Name))

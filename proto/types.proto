@@ -79,13 +79,16 @@ message AgentToolchainInfoList {
 
 // consumer -> consumerd
 message RunRequest {
-  string Compiler = 1;
-  repeated string Args = 2;
-  uint32 UID = 3;
-  uint32 GID = 4;
-  string WorkDir = 5;
-  repeated string Env = 6;
-  bytes Stdin = 7;
+  oneof Compiler {
+    string Path = 1;
+    Toolchain Toolchain = 2;
+  }
+  repeated string Args = 3;
+  uint32 UID = 4;
+  uint32 GID = 5;
+  string WorkDir = 6;
+  repeated string Env = 7;
+  bytes Stdin = 8;
 }
 // consumerd -> consumer
 message RunResponse {

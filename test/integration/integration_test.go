@@ -24,7 +24,7 @@ func TestIntegration(t *testing.T) {
 	ctx := logkc.NewFromContext(context.Background(), types.Test)
 	for _, c := range tc.Consumers {
 		c.Run(ctx, &types.RunRequest{
-			Compiler: "g++",
+			Compiler: &types.RunRequest_Path{Path: "g++"},
 			Args:     strings.Split("-o test.o -c test.c", " "),
 			UID:      1000,
 			GID:      1000,

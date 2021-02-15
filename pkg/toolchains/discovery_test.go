@@ -199,6 +199,12 @@ func (q mockQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 	return 0, errors.New("Unknown compiler")
 }
 
+var sampleTime = time.Now()
+
+func (q mockQuerier) ModTime(compiler string) (time.Time, error) {
+	return sampleTime, nil
+}
+
 func TestFindToolchains(t *testing.T) {
 	ctx := logkc.NewFromContext(context.Background(), types.Test)
 
@@ -266,7 +272,7 @@ func TestFindToolchains(t *testing.T) {
 		},
 	}
 
-	tcs := toolchains.FindToolchains(ctx,
+	store := toolchains.FindToolchains(ctx,
 		toolchains.WithFS(fs),
 		toolchains.WithQuerier(mockQuerier{}),
 		toolchains.SearchPathEnv(false),
@@ -276,7 +282,7 @@ func TestFindToolchains(t *testing.T) {
 		}),
 	)
 	tcsMap := make(map[string]*types.Toolchain)
-	for _, tc := range tcs {
+	for tc := range store.Items() {
 		tcsMap[tc.Executable] = tc
 	}
 	assert.Empty(t, cmp.Diff(expected, tcsMap, protocmp.Transform()))

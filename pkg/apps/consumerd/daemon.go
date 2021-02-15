@@ -2,6 +2,7 @@ package consumerd
 
 import (
 	"context"
+	"io/fs"
 	"runtime"
 	"strconv"
 	"strings"
@@ -10,8 +11,10 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -29,6 +32,7 @@ type consumerd struct {
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
+	toolchains      *toolchains.Store
 	schedulerClient types.SchedulerClient
 	connection      *grpc.ClientConn
 	executor        *run.Executor
@@ -40,6 +44,8 @@ func NewConsumerdServer(ctx context.Context) *consumerd {
 	return &consumerd{
 		srvContext: ctx,
 		lg:         logkc.LogFromContext(ctx),
+		toolchains: toolchains.FindToolchains(
+			ctx, toolchains.SearchPathEnv(false)),
 		executor:   run.NewExecutor(runtime.NumCPU()),
 		remoteOnly: viper.GetBool("remoteOnly"),
 	}
@@ -50,11 +56,54 @@ func (c *consumerd) schedulerConnected() bool {
 		c.connection.GetState() == connectivity.Ready
 }
 
+func (c *consumerd) setToolchain(req *types.RunRequest) error {
+	path := req.GetPath()
+	if path == "" {
+		return status.Error(codes.InvalidArgument, "No compiler path given")
+	}
+	tc, err := c.toolchains.Find(path)
+	if err != nil {
+		// Add a new toolchain
+		c.lg.Info("Consumer sent unknown toolchain; attempting to add it")
+		tc, err = c.toolchains.Add(path, toolchains.ExecQuerier{})
+		if err != nil {
+			c.lg.With(zap.Error(err)).Error("Could not add toolchain")
+			return status.Error(codes.InvalidArgument,
+				errors.WithMessage(err, "Could not add toolchain").Error())
+		}
+		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
+	} else {
+		// Check if the found toolchain is up to date
+		if err := c.toolchains.UpdateIfNeeded(tc); err != nil {
+			// The toolchain was updated and is no longer valid
+			c.lg.With(
+				"compiler", tc.Executable,
+				zap.Error(err),
+			).Error("Error when updating toolchain")
+			if _, is := err.(*fs.PathError); is {
+				return status.Error(codes.NotFound,
+					errors.WithMessage(err, "Compiler no longer exists").Error())
+			}
+			return status.Error(codes.InvalidArgument,
+				errors.WithMessage(err, "Toolchain is no longer valid").Error())
+		}
+	}
+	req.Compiler = &types.RunRequest_Toolchain{
+		Toolchain: tc,
+	}
+	return nil
+}
+
 func (c *consumerd) Run(
 	ctx context.Context,
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
 	c.lg.Debug("Running request")
+	err := c.setToolchain(req)
+	if err != nil {
+		return nil, err
+	}
+
 	rootContext := ctx
 	for _, env := range req.Env {
 		spl := strings.Split(env, "=")
