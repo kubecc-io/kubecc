@@ -17,7 +17,7 @@ GO ?= go1.16rc1
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
 .PHONY: all setup
-all: generate manifests proto fmt vet bin
+all: generate manifests fmt vet bin
 setup:
 	$(GO) get github.com/operator-framework/operator-sdk/cmd/operator-sdk
 	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
