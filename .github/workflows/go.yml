@@ -23,7 +23,7 @@ jobs:
     - name: Build
       env:
         GO: go
-      run: make -j 2 setup && make -j 8 
+      run: make setup && make -j $(nproc)
 
     - name: Test
       env:
