@@ -8,7 +8,12 @@ import (
 
 type ExecutorStatus int
 
-type Executor struct {
+type Executor interface {
+	Exec(task *Task, opts ...ExecutorOption) error
+	Status() types.QueueStatus
+}
+
+type QueuedExecutor struct {
 	ExecutorOptions
 	workerPool *WorkerPool
 	taskQueue  chan *Task
@@ -18,27 +23,27 @@ type Executor struct {
 type ExecutorOptions struct {
 	cpuConfig *types.CpuConfig
 }
-type executorOption func(*ExecutorOptions)
+type ExecutorOption func(*ExecutorOptions)
 
-func (o *ExecutorOptions) Apply(opts ...executorOption) {
+func (o *ExecutorOptions) Apply(opts ...ExecutorOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithCpuConfig(cfg *types.CpuConfig) executorOption {
+func WithCpuConfig(cfg *types.CpuConfig) ExecutorOption {
 	return func(o *ExecutorOptions) {
 		o.cpuConfig = cfg
 	}
 }
 
-func NewExecutor(opts ...executorOption) *Executor {
+func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options := ExecutorOptions{
 		cpuConfig: cpuconfig.Default(),
 	}
 	options.Apply(opts...)
 	queue := make(chan *Task)
-	s := &Executor{
+	s := &QueuedExecutor{
 		ExecutorOptions: options,
 		taskQueue:       queue,
 		workerPool:      NewWorkerPool(queue),
@@ -48,13 +53,17 @@ func NewExecutor(opts ...executorOption) *Executor {
 	return s
 }
 
-func (x *Executor) SetCpuConfig(cfg *types.CpuConfig) {
+func NewUnqueuedExecutor() *UnqueuedExecutor {
+	return &UnqueuedExecutor{}
+}
+
+func (x *QueuedExecutor) SetCpuConfig(cfg *types.CpuConfig) {
 	go x.workerPool.SetWorkerCount(int(cfg.GetMaxRunningProcesses()))
 }
 
-func (x *Executor) Exec(
+func (x *QueuedExecutor) Exec(
 	task *Task,
-	opts ...executorOption,
+	opts ...ExecutorOption,
 ) error {
 	options := ExecutorOptions{}
 	for _, op := range opts {
@@ -71,7 +80,7 @@ func (x *Executor) Exec(
 	return task.Error()
 }
 
-func (x *Executor) Status() types.QueueStatus {
+func (x *QueuedExecutor) Status() types.QueueStatus {
 	queueLen := len(x.taskQueue)
 	switch {
 	case x.numRunning.Load() < x.cpuConfig.MaxRunningProcesses:
@@ -84,4 +93,21 @@ func (x *Executor) Status() types.QueueStatus {
 		return types.QueuePressure
 	}
 	return types.QueueFull
+}
+
+// UnqueuedExecutor is an executor that does not run a worker pool,
+// runs all tasks as soon as possible, and is always available.
+type UnqueuedExecutor struct{}
+
+func (x *UnqueuedExecutor) Exec(task *Task, opts ...ExecutorOption) error {
+	go task.Run()
+	select {
+	case <-task.Done():
+	case <-task.ctx.Done():
+	}
+	return task.Error()
+}
+
+func (x *UnqueuedExecutor) Status() types.QueueStatus {
+	return types.Available
 }

@@ -16,20 +16,23 @@ import (
 )
 
 type ccRunner struct {
-	ToolchainRunner
+	run.ToolchainRunner
 }
 
 func (r *ccRunner) Run(
-	ctx Contexts,
+	ctx run.Contexts,
 	executor run.Executor,
-	req *types.CompileRequest,
-) (*types.CompileResponse, error) {
+	request interface{},
+) (interface{}, error) {
 	span, sctx := opentracing.StartSpanFromContext(ctx.ClientContext, "queue")
 	defer span.Finish()
+
+	req := request.(*types.CompileRequest)
 	lg := logkc.LogFromContext(ctx.ServerContext)
 	ap := cc.NewArgParser(ctx.ServerContext, req.Args)
 	ap.Parse()
 	lg.With(zap.Object("args", ap)).Info("Compile starting")
+
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
 	runner := cc.NewCompileRunner(ap,
@@ -38,7 +41,7 @@ func (r *ccRunner) Run(
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.NewTask(sctx, runner, req.Toolchain.Executable)
+	task := run.NewTask(sctx, runner, req.Toolchain)
 	err := executor.Exec(task)
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {

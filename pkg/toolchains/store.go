@@ -2,6 +2,7 @@ package toolchains
 
 import (
 	"io/fs"
+	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,8 @@ func NewStore() *Store {
 }
 
 func (s Store) Contains(executable string) bool {
+	executable = evalPath(executable)
+
 	_, ok := s.toolchains[executable]
 	return ok
 }
@@ -52,30 +55,35 @@ func fillInfo(tc *types.Toolchain, q Querier) error {
 	var err error
 	tc.TargetArch, err = q.TargetArch(tc.Executable)
 	if err != nil {
-		return errors.Wrap(err, "Could not determine target arch")
+		return errors.WithMessage(err, "Could not determine target arch")
 	}
 	tc.Version, err = q.Version(tc.Executable)
 	if err != nil {
-		return errors.Wrap(err, "Could not determine target version")
+		return errors.WithMessage(err, "Could not determine target version")
 	}
 	tc.PicDefault, err = q.IsPicDefault(tc.Executable)
 	if err != nil {
-		return errors.Wrap(err, "Could not determine compiler PIC defaults")
+		return errors.WithMessage(err, "Could not determine compiler PIC defaults")
 	}
 	tc.Kind, err = q.Kind(tc.Executable)
 	if err != nil {
-		return errors.Wrap(err, "Could not determine compiler kind (gcc/clang)")
+		return errors.WithMessage(err, "Could not determine compiler kind (gcc/clang)")
 	}
 	tc.Lang, err = q.Lang(tc.Executable)
 	if err != nil {
-		return errors.Wrap(err, "Could not determine compiler language (c/cxx/multi)")
+		return errors.WithMessage(err, "Could not determine compiler language (c/cxx/multi)")
 	}
 	return nil
 }
 
 func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
+	executable = evalPath(executable)
+
+	if !filepath.IsAbs(executable) {
+		return nil, errors.New("Paths to executables must be absolute")
+	}
 	if s.Contains(executable) {
-		panic("Tried to add an already-existing toolchain")
+		return nil, errors.New("Tried to add an already-existing toolchain")
 	}
 	tc := &types.Toolchain{
 		Executable: executable,
@@ -86,7 +94,7 @@ func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	}
 	modTime, err := q.ModTime(executable)
 	if err != nil {
-		return nil, errors.Wrap(err, "Could not determine compiler modification time")
+		return nil, errors.WithMessage(err, "Could not determine compiler modification time")
 	}
 	s.toolchains[executable] = &toolchainData{
 		toolchain: tc,
@@ -96,10 +104,21 @@ func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	return tc, nil
 }
 
+func evalPath(executable string) string {
+	resolved, err := filepath.EvalSymlinks(executable)
+	if err != nil {
+		return executable
+	}
+	return resolved
+}
+
 func (s Store) Find(executable string) (*types.Toolchain, error) {
 	if data, ok := s.toolchains[executable]; ok {
 		return data.toolchain, nil
+	} else if data, ok := s.toolchains[evalPath(executable)]; ok {
+		return data.toolchain, nil
 	}
+
 	return nil, errors.New("Toolchain not found")
 }
 

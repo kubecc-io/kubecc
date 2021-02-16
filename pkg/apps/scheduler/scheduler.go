@@ -2,20 +2,17 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"sync"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/pkg/errors"
 	"github.com/smallnest/weighted"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding/gzip"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -40,6 +37,7 @@ The maximum number of concurrent processes is determined by:
 */
 
 type Scheduler struct {
+	SchedulerOptions
 	w     weighted.W
 	wLock *sync.Mutex
 
@@ -48,12 +46,36 @@ type Scheduler struct {
 	lg     *zap.SugaredLogger
 }
 
-func NewScheduler(ctx context.Context) *Scheduler {
+type SchedulerOptions struct {
+	agentDialer AgentDialer
+}
+
+type schedulerOption func(*SchedulerOptions)
+
+func (o *SchedulerOptions) Apply(opts ...schedulerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithAgentDialer(d AgentDialer) schedulerOption {
+	return func(o *SchedulerOptions) {
+		o.agentDialer = d
+	}
+}
+
+func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
+	options := SchedulerOptions{
+		agentDialer: &tcpDialer{},
+	}
+	options.Apply(opts...)
+
 	return &Scheduler{
-		w:     &weighted.RRW{},
-		wLock: &sync.Mutex{},
-		ctx:   ctx,
-		lg:    logkc.LogFromContext(ctx),
+		SchedulerOptions: options,
+		w:                &weighted.RRW{},
+		wLock:            &sync.Mutex{},
+		ctx:              ctx,
+		lg:               logkc.LogFromContext(ctx),
 	}
 }
 
@@ -98,20 +120,10 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
 
-	peer, ok := peer.FromContext(ctx)
-	if !ok {
-		return status.Error(codes.Internal,
-			"Error identifying agent peer")
-	}
-	cc, err := servers.Dial(context.Background(),
-		fmt.Sprintf("%s:9090", peer.Addr.(*net.TCPAddr).IP.String()))
+	agent.Client, err = s.agentDialer.Dial(ctx)
 	if err != nil {
-		if !ok {
-			return status.Error(codes.Internal,
-				"Error establishing connection to agent's server")
-		}
+		return err
 	}
-	agent.Client = types.NewAgentClient(cc)
 
 	s.lg.With(zap.Object("agent", agent.Info)).Info("Agent connected")
 	s.agents.Store(id, agent)
@@ -119,7 +131,8 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 	cpuConfig, err := agent.Client.GetCpuConfig(
 		context.Background(), &types.Empty{})
 	if err != nil {
-		return err
+		return status.Error(codes.Internal, errors.WithMessage(err,
+			"Error obtaining agent CPU config").Error())
 	}
 	agent.CpuConfig = cpuConfig
 	s.wLock.Lock()

@@ -18,15 +18,15 @@ import (
 )
 
 type AgentServer struct {
+	AgentServerOptions
+
 	types.AgentServer
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
 	toolchains *toolchains.Store
 
-	executor        *run.Executor
-	cpuConfig       *types.CpuConfig
-	schedulerClient types.SchedulerClient
+	executor run.Executor
 
 	queueStatus   types.QueueStatus
 	queueStatusCh chan types.QueueStatus
@@ -34,6 +34,8 @@ type AgentServer struct {
 
 type AgentServerOptions struct {
 	toolchainOptions []toolchains.FindOption
+	schedulerClient  types.SchedulerClient
+	cpuConfig        *types.CpuConfig
 }
 
 type agentServerOption func(*AgentServerOptions)
@@ -50,6 +52,18 @@ func WithToolchainArgs(args ...toolchains.FindOption) agentServerOption {
 	}
 }
 
+func WithSchedulerClient(client types.SchedulerClient) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.schedulerClient = client
+	}
+}
+
+func WithCpuConfig(cpuConfig *types.CpuConfig) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.cpuConfig = cpuConfig
+	}
+}
+
 func NewAgentServer(
 	ctx context.Context,
 	opts ...agentServerOption,
@@ -57,12 +71,17 @@ func NewAgentServer(
 	options := AgentServerOptions{}
 	options.Apply(opts...)
 
+	if options.cpuConfig == nil {
+		options.cpuConfig = cpuconfig.Default()
+	}
+
 	srv := &AgentServer{
-		srvContext:  ctx,
-		lg:          logkc.LogFromContext(ctx),
-		toolchains:  toolchains.FindToolchains(ctx, options.toolchainOptions...),
-		executor:    run.NewExecutor(run.WithCpuConfig(cpuconfig.Default())),
-		queueStatus: types.Available,
+		AgentServerOptions: options,
+		srvContext:         ctx,
+		lg:                 logkc.LogFromContext(ctx),
+		toolchains:         toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
+		queueStatus:        types.Available,
 	}
 	return srv
 }
@@ -74,10 +93,11 @@ func (s *AgentServer) Compile(
 	s.updateQueueStatus(s.executor.Status())
 
 	if runner, ok := toolchainRunners[req.Toolchain.Kind]; ok {
-		return runner.Run(Contexts{
+		resp, err := runner.Run(run.Contexts{
 			ServerContext: s.srvContext,
 			ClientContext: ctx,
 		}, s.executor, req)
+		return resp.(*types.CompileResponse), err
 	}
 	return nil, status.Error(codes.Unimplemented,
 		"No implementation available for the given Toolchain")
@@ -93,15 +113,18 @@ func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
 	}
 }
 
-func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServer) {
-	cc, err := grpc.Dial(
-		fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
-			cluster.GetNamespace()),
-		grpc.WithInsecure())
-	if err != nil {
-		s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
+func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
+	if s.schedulerClient == nil {
+		cc, err := grpc.Dial(
+			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+				cluster.GetNamespace()),
+			grpc.WithInsecure())
+		if err != nil {
+			s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
+		}
+		s.schedulerClient = types.NewSchedulerClient(cc)
 	}
-	s.schedulerClient = types.NewSchedulerClient(cc)
+
 	for {
 		s.lg.Info("Starting connection to the scheduler")
 		stream, err := s.schedulerClient.ConnectAgent(ctx, grpc.WaitForReady(true))
@@ -121,13 +144,11 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServe
 		}
 		s.lg.Info("Connected to the scheduler")
 
-		streamClosed := make(chan struct{})
+		streamClosed := make(chan error)
 		go func() {
 			for {
 				_, err := stream.Recv()
-				if err != nil {
-					s.lg.With(zap.Error(err)).Error("Connection lost, reconnecting...")
-				}
+				streamClosed <- err
 				close(streamClosed)
 				return
 			}
@@ -145,7 +166,9 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServe
 			if err != nil {
 				s.lg.Error(err)
 			}
-		case <-streamClosed:
+		case err := <-streamClosed:
+			s.lg.With(zap.Error(err)).Error("Connection lost. Reconnecting in 5 seconds...")
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
@@ -161,7 +184,7 @@ func (s *AgentServer) SetCpuConfig(
 	ctx context.Context,
 	cfg *types.CpuConfig,
 ) (*types.Empty, error) {
-	s.executor.SetCpuConfig(cfg)
+	s.executor.(*run.QueuedExecutor).SetCpuConfig(cfg)
 	s.cpuConfig = cfg
 	return &types.Empty{}, nil
 }

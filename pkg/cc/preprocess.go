@@ -2,11 +2,13 @@ package cc
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os/exec"
 	"syscall"
 
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
 
@@ -24,7 +26,7 @@ func NewPreprocessRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
 	return r
 }
 
-func (r *preprocessRunner) Run(compiler string) error {
+func (r *preprocessRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 	info := r.info
 	if info.OutputArgIndex != -1 {
 		r.Log.Debug("Replacing output path with '-'")
@@ -33,7 +35,7 @@ func (r *preprocessRunner) Run(compiler string) error {
 		defer info.ReplaceOutputPath(old)
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.Command(compiler, info.Args...) // todo
+	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...) // todo
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.OutputWriter

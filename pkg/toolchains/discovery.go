@@ -134,6 +134,9 @@ func FindToolchains(ctx context.Context, opts ...FindOption) *Store {
 	store := NewStore()
 	for c := range compilers.Iter() {
 		compiler := c.(string)
+		if store.Contains(compiler) {
+			continue
+		}
 		_, err := store.Add(compiler, options.querier)
 		if err != nil {
 			lg.With(
