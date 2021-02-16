@@ -23,7 +23,6 @@ var (
 func MakeAgentInfo() *types.AgentInfo {
 	return &types.AgentInfo{
 		Arch:      runtime.GOARCH,
-		NumCpus:   int32(runtime.NumCPU()),
 		Node:      GetNode(),
 		Pod:       GetPodName(),
 		Namespace: GetNamespace(),

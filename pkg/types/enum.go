@@ -1,6 +1,6 @@
 package types
 
-var (
+const (
 	Clang = ToolchainKind_Clang_
 	Gnu   = ToolchainKind_Gnu_
 
@@ -15,4 +15,9 @@ var (
 	Consumerd  = Component_Consumerd_
 	Make       = Component_Make_
 	Test       = Component_Test_
+
+	Available     = QueueStatus_Available
+	Queueing      = QueueStatus_Queueing
+	QueuePressure = QueueStatus_QueuePressure
+	QueueFull     = QueueStatus_QueueFull
 )

@@ -4,7 +4,6 @@ package types
 
 import (
 	context "context"
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -106,6 +105,8 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
+	GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error)
+	SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type agentClient struct {
@@ -125,11 +126,31 @@ func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...g
 	return out, nil
 }
 
+func (c *agentClient) GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error) {
+	out := new(CpuConfig)
+	err := c.cc.Invoke(ctx, "/Agent/GetCpuConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Agent/SetCpuConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
 type AgentServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
+	GetCpuConfig(context.Context, *Empty) (*CpuConfig, error)
+	SetCpuConfig(context.Context, *CpuConfig) (*Empty, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -139,6 +160,12 @@ type UnimplementedAgentServer struct {
 
 func (UnimplementedAgentServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
+}
+func (UnimplementedAgentServer) GetCpuConfig(context.Context, *Empty) (*CpuConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCpuConfig not implemented")
+}
+func (UnimplementedAgentServer) SetCpuConfig(context.Context, *CpuConfig) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetCpuConfig not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -171,6 +198,42 @@ func _Agent_Compile_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_GetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetCpuConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Agent/GetCpuConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetCpuConfig(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CpuConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SetCpuConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Agent/SetCpuConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SetCpuConfig(ctx, req.(*CpuConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -182,6 +245,14 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Compile",
 			Handler:    _Agent_Compile_Handler,
 		},
+		{
+			MethodName: "GetCpuConfig",
+			Handler:    _Agent_GetCpuConfig_Handler,
+		},
+		{
+			MethodName: "SetCpuConfig",
+			Handler:    _Agent_SetCpuConfig_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/types.proto",
@@ -191,7 +262,6 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SchedulerClient interface {
-	AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
 	Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error)
 	SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error)
@@ -203,15 +273,6 @@ type schedulerClient struct {
 
 func NewSchedulerClient(cc grpc.ClientConnInterface) SchedulerClient {
 	return &schedulerClient{cc}
-}
-
-func (c *schedulerClient) AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error) {
-	out := new(wrappers.BoolValue)
-	err := c.cc.Invoke(ctx, "/Scheduler/AtCapacity", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error) {
@@ -267,7 +328,6 @@ func (c *schedulerClient) SystemStatus(ctx context.Context, in *Empty, opts ...g
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
 type SchedulerServer interface {
-	AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error)
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	Connect(Scheduler_ConnectServer) error
 	SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error)
@@ -278,9 +338,6 @@ type SchedulerServer interface {
 type UnimplementedSchedulerServer struct {
 }
 
-func (UnimplementedSchedulerServer) AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AtCapacity not implemented")
-}
 func (UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
@@ -301,24 +358,6 @@ type UnsafeSchedulerServer interface {
 
 func RegisterSchedulerServer(s grpc.ServiceRegistrar, srv SchedulerServer) {
 	s.RegisterService(&Scheduler_ServiceDesc, srv)
-}
-
-func _Scheduler_AtCapacity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SchedulerServer).AtCapacity(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Scheduler/AtCapacity",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).AtCapacity(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -390,10 +429,6 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "Scheduler",
 	HandlerType: (*SchedulerServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "AtCapacity",
-			Handler:    _Scheduler_AtCapacity_Handler,
-		},
 		{
 			MethodName: "Compile",
 			Handler:    _Scheduler_Compile_Handler,

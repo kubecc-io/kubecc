@@ -67,7 +67,7 @@ func lookPath(file string, self string) (string, error) {
 		if err == nil {
 			return file, nil
 		}
-		return "", &exec.Error{file, err}
+		return "", &exec.Error{Name: file, Err: err}
 	}
 	path := os.Getenv("PATH")
 	for _, dir := range filepath.SplitList(path) {
@@ -83,5 +83,5 @@ func lookPath(file string, self string) (string, error) {
 			return path, nil
 		}
 	}
-	return "", &exec.Error{file, exec.ErrNotFound}
+	return "", &exec.Error{Name: file, Err: exec.ErrNotFound}
 }

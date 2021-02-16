@@ -26,8 +26,6 @@ func (a *AgentInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("node", a.GetNode())
 	enc.AddString("pod", a.GetPod())
 	enc.AddString("ns", a.GetNamespace())
-
-	enc.AddInt("cpus", int(a.GetNumCpus()))
 	enc.AddString("arch", a.GetArch())
 	return nil
 }
