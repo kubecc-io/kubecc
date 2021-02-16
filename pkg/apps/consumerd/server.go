@@ -3,7 +3,6 @@ package consumerd
 import (
 	"context"
 	"io/fs"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -40,13 +39,36 @@ type consumerd struct {
 	remoteWaitGroup sync.WaitGroup
 }
 
-func NewConsumerdServer(ctx context.Context) *consumerd {
+type ConsumerdServerOptions struct {
+	toolchainOptions []toolchains.FindOption
+}
+
+type consumerdServerOption func(*ConsumerdServerOptions)
+
+func (o *ConsumerdServerOptions) Apply(opts ...consumerdServerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithToolchainArgs(args ...toolchains.FindOption) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.toolchainOptions = args
+	}
+}
+
+func NewConsumerdServer(
+	ctx context.Context,
+	opts ...consumerdServerOption,
+) *consumerd {
+	options := ConsumerdServerOptions{}
+	options.Apply(opts...)
+
 	return &consumerd{
 		srvContext: ctx,
 		lg:         logkc.LogFromContext(ctx),
-		toolchains: toolchains.FindToolchains(
-			ctx, toolchains.SearchPathEnv(false)),
-		executor:   run.NewExecutor(runtime.NumCPU()),
+		toolchains: toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		executor:   run.NewExecutor(),
 		remoteOnly: viper.GetBool("remoteOnly"),
 	}
 }
@@ -134,7 +156,7 @@ func (c *consumerd) Run(
 		mode = cc.RunLocal
 	}
 	if !c.remoteOnly {
-		if !c.executor.AtCapacity() {
+		if c.executor.Status() == types.Available {
 			c.lg.Info("Running local, not at capacity yet")
 			mode = cc.RunLocal
 		}
@@ -169,14 +191,4 @@ func (s *consumerd) ConnectToRemote() {
 		s.connection = cc
 		s.schedulerClient = types.NewSchedulerClient(cc)
 	}
-}
-
-func (s *consumerd) schedulerAtCapacity() bool {
-	value, err := s.schedulerClient.AtCapacity(
-		context.Background(), &types.Empty{})
-	if err != nil {
-		s.lg.With(zap.Error(err)).Error("Scheduler error")
-		return false
-	}
-	return value.GetValue()
 }

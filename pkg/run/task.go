@@ -15,6 +15,9 @@ type Task struct {
 }
 
 func (t *Task) Run() {
+	if t == nil {
+		return
+	}
 	span, _ := opentracing.StartSpanFromContext(t.ctx, "task-run")
 	defer span.Finish()
 	defer close(t.doneCh)

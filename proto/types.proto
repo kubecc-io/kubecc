@@ -1,5 +1,4 @@
 syntax = "proto3";
-import "google/protobuf/wrappers.proto";
 option go_package = "pkg/types";
 
 message Empty {}
@@ -10,13 +9,21 @@ service Consumerd {
 
 service Agent {
   rpc Compile(CompileRequest) returns (CompileResponse);
+  rpc GetCpuConfig (Empty) returns (CpuConfig);
+  rpc SetCpuConfig (CpuConfig) returns (Empty);
 }
 
 service Scheduler {
-  rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream Metadata) returns (stream Empty);
+  rpc ConnectAgent(stream Metadata) returns (stream Empty);
+  rpc ConnectConsumerd(stream Metadata) returns (stream Empty);
   rpc SystemStatus(Empty) returns (SystemStatusResponse);
+}
+
+message CpuConfig {
+  int32 MaxRunningProcesses = 1;
+  double QueuePressureThreshold = 2;
+  double QueueRejectThreshold = 3;
 }
 
 message SystemStatusResponse {
@@ -28,9 +35,15 @@ message ComponentStatus {
   bool Alive = 2;
 }
 
+message Toolchains {
+  repeated Toolchain Items = 1;
+}
+
 message Metadata {
-  Component Component = 1;
-  repeated Toolchain Toolchains = 2;
+  oneof Contents {
+    Toolchains Toolchains = 2;
+    QueueStatus QueueStatus = 3;
+  }
 }
 
 enum Component {
@@ -43,6 +56,13 @@ enum Component {
 	Make_ = 6;
   Test_ = 7;
   Dashboard_ = 8;
+}
+
+enum QueueStatus {
+  Available = 0;
+  Queueing = 1;
+  QueuePressure = 2;
+  QueueFull = 3;
 }
 
 enum ToolchainKind {
@@ -107,7 +127,6 @@ message ScheduleResponse {}
 message AgentInfo {
   // System Info
   string Arch = 1;
-  int32 NumCpus = 2;
 
   // Downward API
   string Node = 3;

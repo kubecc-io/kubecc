@@ -62,22 +62,26 @@ func (tc *TestController) runAgent() {
 		}
 		c.Send(&types.Metadata{
 			Component: types.Agent,
-			Toolchains: []*types.Toolchain{
-				{
-					Kind:       types.Gnu,
-					Lang:       types.CXX,
-					Executable: "g++",
-					TargetArch: "x86_64",
-					Version:    "10",
-					PicDefault: true,
-				},
-				{
-					Kind:       types.Gnu,
-					Lang:       types.C,
-					Executable: "gcc",
-					TargetArch: "x86_64",
-					Version:    "10",
-					PicDefault: true,
+			Contents: &types.Metadata_Toolchains{
+				Toolchains: &types.Toolchains{
+					Items: []*types.Toolchain{
+						{
+							Kind:       types.Gnu,
+							Lang:       types.CXX,
+							Executable: "g++",
+							TargetArch: "x86_64",
+							Version:    "10",
+							PicDefault: true,
+						},
+						{
+							Kind:       types.Gnu,
+							Lang:       types.C,
+							Executable: "gcc",
+							TargetArch: "x86_64",
+							Version:    "10",
+							PicDefault: true,
+						},
+					},
 				},
 			},
 		})
@@ -120,22 +124,25 @@ func (tc *TestController) runConsumerd() {
 		}
 		c.Send(&types.Metadata{
 			Component: types.Consumerd,
-			Toolchains: []*types.Toolchain{
-				{
-					Kind:       types.Gnu,
-					Lang:       types.CXX,
-					Executable: "g++",
-					TargetArch: "x86_64",
-					Version:    "10",
-					PicDefault: true,
-				},
-				{
-					Kind:       types.Gnu,
-					Lang:       types.C,
-					Executable: "gcc",
-					TargetArch: "x86_64",
-					Version:    "10",
-					PicDefault: true,
+			Contents: &types.Metadata_Toolchains{
+				Toolchains: &types.Toolchains{
+					Items: []*types.Toolchain{{
+						Kind:       types.Gnu,
+						Lang:       types.CXX,
+						Executable: "g++",
+						TargetArch: "x86_64",
+						Version:    "10",
+						PicDefault: true,
+					},
+						{
+							Kind:       types.Gnu,
+							Lang:       types.C,
+							Executable: "gcc",
+							TargetArch: "x86_64",
+							Version:    "10",
+							PicDefault: true,
+						},
+					},
 				},
 			},
 		})

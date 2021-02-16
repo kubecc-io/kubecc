@@ -40,6 +40,14 @@ func (s Store) Items() chan *types.Toolchain {
 	return ch
 }
 
+func (s Store) ItemsList() []*types.Toolchain {
+	l := []*types.Toolchain{}
+	for _, data := range s.toolchains {
+		l = append(l, data.toolchain)
+	}
+	return l
+}
+
 func fillInfo(tc *types.Toolchain, q Querier) error {
 	var err error
 	tc.TargetArch, err = q.TargetArch(tc.Executable)
@@ -96,7 +104,7 @@ func (s Store) Find(executable string) (*types.Toolchain, error) {
 }
 
 func (s *Store) Remove(tc *types.Toolchain) {
-
+	delete(s.toolchains, tc.Executable)
 }
 
 func (s *Store) UpdateIfNeeded(tc *types.Toolchain) error {

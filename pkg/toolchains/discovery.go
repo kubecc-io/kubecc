@@ -35,39 +35,39 @@ type FindOptions struct {
 	path        bool
 	searchPaths []string
 }
-type findOption func(*FindOptions)
+type FindOption func(*FindOptions)
 
-func (o *FindOptions) Apply(opts ...findOption) {
+func (o *FindOptions) Apply(opts ...FindOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithFS(fs readDirStatFs) findOption {
+func WithFS(fs readDirStatFs) FindOption {
 	return func(opts *FindOptions) {
 		opts.fs = fs
 	}
 }
 
-func WithQuerier(q Querier) findOption {
+func WithQuerier(q Querier) FindOption {
 	return func(opts *FindOptions) {
 		opts.querier = q
 	}
 }
 
-func WithSearchPaths(paths []string) findOption {
+func WithSearchPaths(paths []string) FindOption {
 	return func(opts *FindOptions) {
 		opts.searchPaths = paths
 	}
 }
 
-func SearchPathEnv(search bool) findOption {
+func SearchPathEnv(search bool) FindOption {
 	return func(opts *FindOptions) {
 		opts.path = search
 	}
 }
 
-func FindToolchains(ctx context.Context, opts ...findOption) *Store {
+func FindToolchains(ctx context.Context, opts ...FindOption) *Store {
 	options := FindOptions{
 		fs:      osFS{},
 		querier: ExecQuerier{},

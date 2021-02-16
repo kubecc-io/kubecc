@@ -2,12 +2,9 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
@@ -17,29 +14,15 @@ type schedulerServer struct {
 	types.SchedulerServer
 
 	lg        *zap.SugaredLogger
-	scheduler *AgentScheduler
-	monitor   *Monitor
+	scheduler *Scheduler
 }
 
 func NewSchedulerServer(ctx context.Context) *schedulerServer {
 	srv := &schedulerServer{
-		monitor:   NewMonitor(),
-		scheduler: NewAgentScheduler(ctx),
+		scheduler: NewScheduler(ctx),
 		lg:        logkc.LogFromContext(ctx),
 	}
 	return srv
-}
-
-func (s *schedulerServer) AtCapacity(
-	ctx context.Context,
-	req *types.Empty,
-) (*wrappers.BoolValue, error) {
-	// this isnt used
-	peer, ok := peer.FromContext(ctx)
-	if ok {
-		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
-	}
-	return &wrappers.BoolValue{Value: false}, nil
 }
 
 func (s *schedulerServer) Compile(
@@ -55,53 +38,54 @@ func (s *schedulerServer) Compile(
 	}
 	return s.scheduler.Schedule(
 		logkc.ContextWithLog(sctx, s.lg), req)
-	// task, err := s.atomicScheduler().Schedule(ctx, req)
-	// if err != nil {
-	// 	logkc.With(zap.Error(err)).Info("=> Schedule failed")
-	// 	return nil, err
-	// }
-	// logkc.Info("=> Schedule OK")
-	// return s.monitor.Wait(task)
+
 }
 
-func (s *schedulerServer) Connect(
+func (s *schedulerServer) ConnectAgent(
 	srv types.Scheduler_ConnectServer,
 ) error {
 	lg := s.lg
-	metadata, err := srv.Recv()
-	if err != nil {
+	ctx := srv.Context()
+	if err := s.scheduler.AgentConnected(ctx); err != nil {
 		return err
 	}
-	tcNames := []string{}
-	for _, tc := range metadata.GetToolchains() {
-		tcNames = append(tcNames, fmt.Sprintf("%s%s%s", tc.Kind, tc.Lang, tc.TargetArch))
-	}
-	switch metadata.Component {
-	case types.Agent:
-		agent, err := NewAgentFromContext(srv.Context())
-		if err != nil {
-			s.lg.With(zap.Error(err)).Error("Error identifying agent using context")
-			return nil
+
+	go func() {
+		for {
+			metadata, err := srv.Recv()
+			if err != nil {
+				lg.Debug(err)
+				return
+			}
+			switch msg := metadata.Contents.(type) {
+			case *types.Metadata_QueueStatus:
+				if err := s.scheduler.SetQueueStatus(ctx, msg.QueueStatus); err != nil {
+					lg.Error(err)
+				}
+			case *types.Metadata_Toolchains:
+				if err := s.scheduler.SetToolchains(ctx, msg.Toolchains.GetItems()); err != nil {
+					lg.Error(err)
+				}
+			}
 		}
+	}()
 
-		lg.With("toolchains", strings.Join(tcNames, ", ")).Infof("Agent connected")
+	<-ctx.Done()
+	return nil
+}
 
-		// add logic here maybe
+func (s *schedulerServer) ConnectConsumerd(
+	srv types.Scheduler_ConnectServer,
+) error {
+	lg := s.lg
 
-		s.monitor.AgentConnected(agent)
-		<-srv.Context().Done()
+	lg.Info("Consumerd connected")
 
-		lg.Info("Agent disconnected")
-	case types.Consumerd:
-		lg.With("toolchains", strings.Join(tcNames, ", ")).Infof("Consumerd connected")
+	// add logic here maybe
 
-		// add logic here maybe
+	// s.monitor.AgentConnected(agent)
+	<-srv.Context().Done()
 
-		// s.monitor.AgentConnected(agent)
-		<-srv.Context().Done()
-
-		lg.Info("Consumerd disconnected")
-	}
-
+	lg.Info("Consumerd disconnected")
 	return nil
 }

@@ -2,62 +2,77 @@ package agent
 
 import (
 	"context"
-	"runtime"
+	"fmt"
+	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/cpuconfig"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type agentServer struct {
+type AgentServer struct {
 	types.AgentServer
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
-	// tasks           *atomic.Int32
-	// maxRunningTasks int
-	// maxWaitingTasks int
-	// runQueue        chan struct{}
-	executor *run.Executor
+	toolchains *toolchains.Store
+
+	executor        *run.Executor
+	cpuConfig       *types.CpuConfig
+	schedulerClient types.SchedulerClient
+
+	queueStatus   types.QueueStatus
+	queueStatusCh chan types.QueueStatus
 }
 
-func NewAgentServer(ctx context.Context) types.AgentServer {
-	srv := &agentServer{
-		executor:   run.NewExecutor((runtime.NumCPU() * 3) / 2),
-		srvContext: ctx,
-		lg:         logkc.LogFromContext(ctx),
+type AgentServerOptions struct {
+	toolchainOptions []toolchains.FindOption
+}
+
+type agentServerOption func(*AgentServerOptions)
+
+func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
+	for _, op := range opts {
+		op(o)
 	}
-	// srv.tasks = atomic.NewInt32(0)
-	// srv.maxRunningTasks = 2 * runtime.NumCPU()
-	// srv.maxWaitingTasks = 10 * runtime.NumCPU()
-	// srv.runQueue = make(chan struct{}, srv.maxRunningTasks)
-	// for i := 0; i < cap(srv.runQueue); i++ {
-	// 	srv.runQueue <- struct{}{}
-	// }
+}
+
+func WithToolchainArgs(args ...toolchains.FindOption) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.toolchainOptions = args
+	}
+}
+
+func NewAgentServer(
+	ctx context.Context,
+	opts ...agentServerOption,
+) *AgentServer {
+	options := AgentServerOptions{}
+	options.Apply(opts...)
+
+	srv := &AgentServer{
+		srvContext:  ctx,
+		lg:          logkc.LogFromContext(ctx),
+		toolchains:  toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		executor:    run.NewExecutor(run.WithCpuConfig(cpuconfig.Default())),
+		queueStatus: types.Available,
+	}
 	return srv
 }
 
-func (s *agentServer) Compile(
+func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	// if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-	// 	logkc.Error("*** Hit the max number of tasks, rejecting")
-	// 	return nil, status.Error(codes.Unavailable, "Max number of concurrent tasks reached")
-	// }
-	// s.tasks.Inc()
-	// token := <-s.runQueue
-	// span.Finish()
-	// span, _ = opentracing.StartSpanFromContext(ctx, "compile",
-	// 	opentracing.FollowsFrom(span.Context()))
-	// defer func() {
-	// 	span.Finish()
-	// 	s.runQueue <- token
-	// 	s.tasks.Dec()
-	// }()
+	s.updateQueueStatus(s.executor.Status())
+
 	if runner, ok := toolchainRunners[req.Toolchain.Kind]; ok {
 		return runner.Run(Contexts{
 			ServerContext: s.srvContext,
@@ -68,69 +83,87 @@ func (s *agentServer) Compile(
 		"No implementation available for the given Toolchain")
 }
 
-// func (s *agentServer) Compile(
-// 	req *types.CompileRequest,
-// 	srv types.Agent_CompileServer,
-// ) error {
-// 	if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-// 		s.lg.Error("*** Hit the max number of tasks, rejecting")
-// 		srv.Send(&types.CompileStatus{
-// 			CompileStatus: types.CompileStatus_Reject,
-// 			Data: &types.CompileStatus_Error{
-// 				Error: "Hit the max number of concurrent tasks",
-// 			},
-// 		})
-// 	}
-// 	s.tasks.Inc()
-// 	token := <-s.runQueue
-// 	defer func() {
-// 		s.runQueue <- token
-// 		s.tasks.Dec()
-// 	}()
+func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
+	if s.queueStatus != stat {
+		s.queueStatus = stat
+		select {
+		case s.queueStatusCh <- stat:
+		default:
+		}
+	}
+}
 
-// 	s.lg.Info("Compile requested")
-// 	srv.Send(&types.CompileStatus{
-// 		CompileStatus: types.CompileStatus_Accept,
-// 		Data: &types.CompileStatus_Info{
-// 			Info: cluster.MakeAgentInfo(),
-// 		},
-// 	})
-// 	info := cc.NewArgsInfo(req.Args, s.lg.Desugar())
-// 	info.Parse()
-// 	s.lg.With(zap.Object("args", info)).Info("Compile starting")
-// 	stderrBuf := new(bytes.Buffer)
-// 	tmpFilename := new(bytes.Buffer)
-// 	runner := run.NewCompileRunner(
-// 		run.WithLogger(s.lg.Desugar()),
-// 		run.WithOutputWriter(tmpFilename),
-// 		run.WithStderr(stderrBuf),
-// 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
-// 	)
-// 	err := runner.Run(info)
-// 	s.lg.With(zap.Error(err)).Info("Compile finished")
-// 	if err != nil && run.IsCompilerError(err) {
-// 		srv.Send(
-// 			&types.CompileStatus{
-// 				CompileStatus: types.CompileStatus_Fail,
-// 				Data: &types.CompileStatus_Error{
-// 					Error: stderrBuf.String(),
-// 				},
-// 			})
-// 		return nil
-// 	} else if err != nil {
-// 		return status.Error(codes.Internal, err.Error())
-// 	}
-// 	data, err := os.ReadFile(tmpFilename.String())
-// 	if err != nil {
-// 		s.lg.With(zap.Error(err)).Info("Error reading temp file")
-// 		return status.Error(codes.Internal, err.Error())
-// 	}
-// 	err = srv.Send(&types.CompileStatus{
-// 		CompileStatus: types.CompileStatus_Success,
-// 		Data: &types.CompileStatus_CompiledSource{
-// 			CompiledSource: data,
-// 		},
-// 	})
-// 	s.lg.With(zap.Error(err)).Info("Sending results")
-// 	return err
-// }
+func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServer) {
+	cc, err := grpc.Dial(
+		fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+			cluster.GetNamespace()),
+		grpc.WithInsecure())
+	if err != nil {
+		s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
+	}
+	s.schedulerClient = types.NewSchedulerClient(cc)
+	for {
+		s.lg.Info("Starting connection to the scheduler")
+		stream, err := s.schedulerClient.Connect(ctx, grpc.WaitForReady(true))
+		if err != nil {
+			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
+			time.Sleep(5 * time.Second)
+		}
+		err = stream.Send(&types.Metadata{
+			Component: types.Agent,
+			Contents: &types.Metadata_Toolchains{
+				Toolchains: &types.Toolchains{
+					Items: s.toolchains.ItemsList(),
+				},
+			},
+		})
+		if err != nil {
+			s.lg.Error(err)
+		}
+		s.lg.Info("Connected to the scheduler")
+
+		streamClosed := make(chan struct{})
+		go func() {
+			for {
+				_, err := stream.Recv()
+				if err != nil {
+					s.lg.With(zap.Error(err)).Error("Connection lost, reconnecting...")
+				}
+				close(streamClosed)
+				return
+			}
+		}()
+
+		select {
+		case stat := <-s.queueStatusCh:
+			s.lg.Info("Sending queue status update: %s",
+				types.QueueStatus_name[int32(stat)])
+			err := stream.Send(&types.Metadata{
+				Component: types.Agent,
+				Contents: &types.Metadata_QueueStatus{
+					QueueStatus: stat,
+				},
+			})
+			if err != nil {
+				s.lg.Error(err)
+			}
+		case <-streamClosed:
+		}
+	}
+}
+
+func (s *AgentServer) GetCpuConfig(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.CpuConfig, error) {
+	return s.cpuConfig, nil
+}
+
+func (s *AgentServer) SetCpuConfig(
+	ctx context.Context,
+	cfg *types.CpuConfig,
+) (*types.Empty, error) {
+	s.executor.SetCpuConfig(cfg)
+	s.cpuConfig = cfg
+	return &types.Empty{}, nil
+}
