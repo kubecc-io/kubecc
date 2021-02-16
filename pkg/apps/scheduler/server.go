@@ -17,9 +17,12 @@ type schedulerServer struct {
 	scheduler *Scheduler
 }
 
-func NewSchedulerServer(ctx context.Context) *schedulerServer {
+func NewSchedulerServer(
+	ctx context.Context,
+	opts ...schedulerOption,
+) *schedulerServer {
 	srv := &schedulerServer{
-		scheduler: NewScheduler(ctx),
+		scheduler: NewScheduler(ctx, opts...),
 		lg:        logkc.LogFromContext(ctx),
 	}
 	return srv

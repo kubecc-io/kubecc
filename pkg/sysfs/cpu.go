@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -15,7 +16,8 @@ func readInt64(path string) int64 {
 	if err != nil {
 		panic("Could not read CFS quota from sysfs")
 	}
-	value, err := strconv.ParseInt(string(data), 10, 64)
+	value, err := strconv.ParseInt(
+		strings.TrimSpace(string(data)), 10, 64)
 	if err != nil {
 		panic(err)
 	}

@@ -34,7 +34,8 @@ type consumerd struct {
 	toolchains      *toolchains.Store
 	schedulerClient types.SchedulerClient
 	connection      *grpc.ClientConn
-	executor        *run.Executor
+	localExecutor   run.Executor
+	remoteExecutor  run.Executor
 	remoteOnly      bool
 	remoteWaitGroup sync.WaitGroup
 }
@@ -65,11 +66,12 @@ func NewConsumerdServer(
 	options.Apply(opts...)
 
 	return &consumerd{
-		srvContext: ctx,
-		lg:         logkc.LogFromContext(ctx),
-		toolchains: toolchains.FindToolchains(ctx, options.toolchainOptions...),
-		executor:   run.NewExecutor(),
-		remoteOnly: viper.GetBool("remoteOnly"),
+		srvContext:     ctx,
+		lg:             logkc.LogFromContext(ctx),
+		toolchains:     toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		localExecutor:  run.NewQueuedExecutor(),
+		remoteExecutor: run.NewUnqueuedExecutor(),
+		remoteOnly:     viper.GetBool("remoteOnly"),
 	}
 }
 
@@ -156,7 +158,7 @@ func (c *consumerd) Run(
 		mode = cc.RunLocal
 	}
 	if !c.remoteOnly {
-		if c.executor.Status() == types.Available {
+		if c.localExecutor.Status() == types.Available {
 			c.lg.Info("Running local, not at capacity yet")
 			mode = cc.RunLocal
 		}
@@ -168,9 +170,21 @@ func (c *consumerd) Run(
 
 	switch mode {
 	case cc.RunLocal:
-		return c.runRequestLocal(sctx, req, info, c.executor)
+		resp, err := localToolchainRunner{
+			ArgParser: info,
+		}.Run(run.Contexts{
+			ServerContext: c.srvContext,
+			ClientContext: sctx,
+		}, c.localExecutor, req)
+		return resp.(*types.RunResponse), err
 	case cc.RunRemote:
-		return c.runRequestRemote(sctx, req, info, c.schedulerClient)
+		resp, err := remoteToolchainRunner{
+			ArgParser: info,
+		}.Run(run.Contexts{
+			ServerContext: c.srvContext,
+			ClientContext: sctx,
+		}, c.remoteExecutor, req)
+		return resp.(*types.RunResponse), err
 	case cc.Unset:
 		return nil, status.Error(codes.Internal, "Encountered RunError state")
 	default:

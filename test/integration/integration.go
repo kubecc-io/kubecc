@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -11,6 +12,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -22,16 +24,36 @@ const bufSize = 1024 * 1024
 type TestController struct {
 	Consumers []types.ConsumerdClient
 
-	agentListeners []*bufconn.Listener
+	agentListeners map[types.AgentID]*bufconn.Listener
 	cdListeners    []*bufconn.Listener
 	schedListener  *bufconn.Listener
+}
+
+func NewTestController() *TestController {
+	return &TestController{
+		agentListeners: make(map[types.AgentID]*bufconn.Listener),
+		cdListeners:    []*bufconn.Listener{},
+		Consumers:      []types.ConsumerdClient{},
+	}
+}
+
+type listenerKeyType struct{}
+
+var listenerKey listenerKeyType
+
+func (d *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
+	info, _ := cluster.AgentInfoFromContext(ctx)
+	id, _ := info.AgentID()
+	listener := d.agentListeners[id]
+	_, cc := dial(context.Background(), listener)
+	return types.NewAgentClient(cc), nil
 }
 
 func dial(
 	ctx context.Context,
 	dialer *bufconn.Listener,
 ) (context.Context, *grpc.ClientConn) {
-	cc, err := servers.Dial(ctx, "", servers.With(
+	cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
 		grpc.WithContextDialer(
 			func(context.Context, string) (net.Conn, error) {
 				return dialer.Dial()
@@ -47,48 +69,26 @@ func (tc *TestController) runAgent() {
 	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent,
 		logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
 	)
+	info := cluster.MakeAgentInfo()
+	ctx = cluster.ContextWithAgentInfo(ctx, info)
 	srv := servers.NewServer(ctx)
 
 	listener := bufconn.Listen(bufSize)
-	tc.agentListeners = append(tc.agentListeners, listener)
-	agent := agent.NewAgentServer(ctx)
-	types.RegisterAgentServer(srv, agent)
-	go func() {
-		ctx, cc := dial(ctx, tc.schedListener)
-		client := types.NewSchedulerClient(cc)
-		c, err := client.ConnectAgent(ctx)
-		if err != nil {
-			panic(err)
-		}
-		c.Send(&types.Metadata{
-			Contents: &types.Metadata_Toolchains{
-				Toolchains: &types.Toolchains{
-					Items: []*types.Toolchain{
-						{
-							Kind:       types.Gnu,
-							Lang:       types.CXX,
-							Executable: "g++",
-							TargetArch: "x86_64",
-							Version:    "10",
-							PicDefault: true,
-						},
-						{
-							Kind:       types.Gnu,
-							Lang:       types.C,
-							Executable: "gcc",
-							TargetArch: "x86_64",
-							Version:    "10",
-							PicDefault: true,
-						},
-					},
-				},
-			},
-		})
-		select {
-		case <-ctx.Done():
-		case <-c.Context().Done():
-		}
-	}()
+	id, _ := info.AgentID()
+	tc.agentListeners[id] = listener
+	ctx, cc := dial(ctx, tc.schedListener)
+	client := types.NewSchedulerClient(cc)
+	agentSrv := agent.NewAgentServer(ctx,
+		agent.WithSchedulerClient(client),
+		agent.WithCpuConfig(&types.CpuConfig{
+			MaxRunningProcesses:    4,
+			QueuePressureThreshold: 1.0,
+			QueueRejectThreshold:   2.0,
+		}),
+	)
+	types.RegisterAgentServer(srv, agentSrv)
+
+	go agentSrv.RunSchedulerClient(ctx)
 	go srv.Serve(listener)
 }
 
@@ -99,7 +99,7 @@ func (tc *TestController) runScheduler() {
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 
-	sc := scheduler.NewSchedulerServer(ctx)
+	sc := scheduler.NewSchedulerServer(ctx, scheduler.WithAgentDialer(tc))
 	types.RegisterSchedulerServer(srv, sc)
 	go srv.Serve(tc.schedListener)
 }
@@ -121,29 +121,6 @@ func (tc *TestController) runConsumerd() {
 		if err != nil {
 			panic(err)
 		}
-		c.Send(&types.Metadata{
-			Contents: &types.Metadata_Toolchains{
-				Toolchains: &types.Toolchains{
-					Items: []*types.Toolchain{{
-						Kind:       types.Gnu,
-						Lang:       types.CXX,
-						Executable: "g++",
-						TargetArch: "x86_64",
-						Version:    "10",
-						PicDefault: true,
-					},
-						{
-							Kind:       types.Gnu,
-							Lang:       types.C,
-							Executable: "gcc",
-							TargetArch: "x86_64",
-							Version:    "10",
-							PicDefault: true,
-						},
-					},
-				},
-			},
-		})
 		select {
 		case <-ctx.Done():
 		case <-c.Context().Done():
@@ -165,13 +142,12 @@ type TestOptions struct {
 func (tc *TestController) Start(ops TestOptions) {
 	viper.Set("remoteOnly", "false")
 	viper.Set("arch", "amd64")
-	viper.Set("cpus", 4)
-	viper.Set("node", "test-node")
-	viper.Set("pod", "test-pod")
 	viper.Set("namespace", "test-namespace")
 
 	tc.runScheduler()
 	for i := 0; i < ops.NumAgents; i++ {
+		viper.Set("node", fmt.Sprintf("test-node-%d", i))
+		viper.Set("pod", fmt.Sprintf("test-pod-%d", i))
 		tc.runAgent()
 	}
 	for i := 0; i < ops.NumClients; i++ {
