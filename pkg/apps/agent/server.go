@@ -104,13 +104,12 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServe
 	s.schedulerClient = types.NewSchedulerClient(cc)
 	for {
 		s.lg.Info("Starting connection to the scheduler")
-		stream, err := s.schedulerClient.Connect(ctx, grpc.WaitForReady(true))
+		stream, err := s.schedulerClient.ConnectAgent(ctx, grpc.WaitForReady(true))
 		if err != nil {
 			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
 			time.Sleep(5 * time.Second)
 		}
 		err = stream.Send(&types.Metadata{
-			Component: types.Agent,
 			Contents: &types.Metadata_Toolchains{
 				Toolchains: &types.Toolchains{
 					Items: s.toolchains.ItemsList(),
@@ -139,7 +138,6 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context, a types.AgentServe
 			s.lg.Info("Sending queue status update: %s",
 				types.QueueStatus_name[int32(stat)])
 			err := stream.Send(&types.Metadata{
-				Component: types.Agent,
 				Contents: &types.Metadata_QueueStatus{
 					QueueStatus: stat,
 				},

@@ -42,7 +42,7 @@ func (s *schedulerServer) Compile(
 }
 
 func (s *schedulerServer) ConnectAgent(
-	srv types.Scheduler_ConnectServer,
+	srv types.Scheduler_ConnectAgentServer,
 ) error {
 	lg := s.lg
 	ctx := srv.Context()
@@ -75,7 +75,7 @@ func (s *schedulerServer) ConnectAgent(
 }
 
 func (s *schedulerServer) ConnectConsumerd(
-	srv types.Scheduler_ConnectServer,
+	srv types.Scheduler_ConnectConsumerdServer,
 ) error {
 	lg := s.lg
 

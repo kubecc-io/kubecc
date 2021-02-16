@@ -263,7 +263,8 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SchedulerClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error)
+	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
+	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
 	SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error)
 }
 
@@ -284,30 +285,61 @@ func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts 
 	return out, nil
 }
 
-func (c *schedulerClient) Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/Scheduler/Connect", opts...)
+func (c *schedulerClient) ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/Scheduler/ConnectAgent", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectClient{stream}
+	x := &schedulerConnectAgentClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectClient interface {
+type Scheduler_ConnectAgentClient interface {
 	Send(*Metadata) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectClient struct {
+type schedulerConnectAgentClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectClient) Send(m *Metadata) error {
+func (x *schedulerConnectAgentClient) Send(m *Metadata) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectClient) Recv() (*Empty, error) {
+func (x *schedulerConnectAgentClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *schedulerClient) ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[1], "/Scheduler/ConnectConsumerd", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &schedulerConnectConsumerdClient{stream}
+	return x, nil
+}
+
+type Scheduler_ConnectConsumerdClient interface {
+	Send(*Metadata) error
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type schedulerConnectConsumerdClient struct {
+	grpc.ClientStream
+}
+
+func (x *schedulerConnectConsumerdClient) Send(m *Metadata) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -329,7 +361,8 @@ func (c *schedulerClient) SystemStatus(ctx context.Context, in *Empty, opts ...g
 // for forward compatibility
 type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	Connect(Scheduler_ConnectServer) error
+	ConnectAgent(Scheduler_ConnectAgentServer) error
+	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
 	SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
@@ -341,8 +374,11 @@ type UnimplementedSchedulerServer struct {
 func (UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (UnimplementedSchedulerServer) Connect(Scheduler_ConnectServer) error {
-	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+func (UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectAgent not implemented")
+}
+func (UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
 }
 func (UnimplementedSchedulerServer) SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SystemStatus not implemented")
@@ -378,25 +414,51 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Scheduler_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).Connect(&schedulerConnectServer{stream})
+func _Scheduler_ConnectAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectAgent(&schedulerConnectAgentServer{stream})
 }
 
-type Scheduler_ConnectServer interface {
+type Scheduler_ConnectAgentServer interface {
 	Send(*Empty) error
 	Recv() (*Metadata, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectServer struct {
+type schedulerConnectAgentServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectServer) Send(m *Empty) error {
+func (x *schedulerConnectAgentServer) Send(m *Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectServer) Recv() (*Metadata, error) {
+func (x *schedulerConnectAgentServer) Recv() (*Metadata, error) {
+	m := new(Metadata)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Scheduler_ConnectConsumerd_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectConsumerd(&schedulerConnectConsumerdServer{stream})
+}
+
+type Scheduler_ConnectConsumerdServer interface {
+	Send(*Empty) error
+	Recv() (*Metadata, error)
+	grpc.ServerStream
+}
+
+type schedulerConnectConsumerdServer struct {
+	grpc.ServerStream
+}
+
+func (x *schedulerConnectConsumerdServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
 	m := new(Metadata)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -440,8 +502,14 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Connect",
-			Handler:       _Scheduler_Connect_Handler,
+			StreamName:    "ConnectAgent",
+			Handler:       _Scheduler_ConnectAgent_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "ConnectConsumerd",
+			Handler:       _Scheduler_ConnectConsumerd_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
