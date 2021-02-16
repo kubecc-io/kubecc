@@ -79,9 +79,6 @@ func fillInfo(tc *types.Toolchain, q Querier) error {
 func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	executable = evalPath(executable)
 
-	if !filepath.IsAbs(executable) {
-		return nil, errors.New("Paths to executables must be absolute")
-	}
 	if s.Contains(executable) {
 		return nil, errors.New("Tried to add an already-existing toolchain")
 	}
