@@ -1,4 +1,4 @@
-package toolchains
+package cc
 
 import (
 	"context"
@@ -9,18 +9,19 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 )
 
-type GccClangFinder struct{}
+type CCFinder struct{}
 
-func (f GccClangFinder) FindToolchains(ctx context.Context, opts ...FindOption) *Store {
-	options := FindOptions{
-		fs:      tools.OSFS{},
-		querier: ExecQuerier{},
-		searchPaths: []string{
+func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOption) *toolchains.Store {
+	options := toolchains.FindOptions{
+		FS:      tools.OSFS{},
+		Querier: toolchains.ExecQuerier{},
+		SearchPaths: []string{
 			"/usr/bin",
 			"/usr/local/bin",
 			"/bin",
@@ -31,7 +32,7 @@ func (f GccClangFinder) FindToolchains(ctx context.Context, opts ...FindOption) 
 	lg := logkc.LogFromContext(ctx)
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
-		f, err := options.fs.Stat(path)
+		f, err := options.FS.Stat(path)
 		if os.IsNotExist(err) {
 			return
 		}
@@ -45,10 +46,10 @@ func (f GccClangFinder) FindToolchains(ctx context.Context, opts ...FindOption) 
 		set.Add(path)
 	}
 
-	for _, path := range options.searchPaths {
+	for _, path := range options.SearchPaths {
 		addPath(searchPaths, path)
 	}
-	if options.path {
+	if options.Path {
 		if paths, ok := os.LookupEnv("PATH"); ok {
 			for _, path := range strings.Split(paths, ":") {
 				addPath(searchPaths, path)
@@ -68,7 +69,7 @@ func (f GccClangFinder) FindToolchains(ctx context.Context, opts ...FindOption) 
 	compilers := mapset.NewSet()
 	for p := range searchPaths.Iter() {
 		dirname := p.(string)
-		infos, err := options.fs.ReadDir(dirname)
+		infos, err := options.FS.ReadDir(dirname)
 		if err != nil {
 			lg.With(zap.Error(err)).Debug("Error listing directory contents")
 			continue
@@ -80,13 +81,13 @@ func (f GccClangFinder) FindToolchains(ctx context.Context, opts ...FindOption) 
 		}
 	}
 
-	store := NewStore()
+	store := toolchains.NewStore()
 	for c := range compilers.Iter() {
 		compiler := c.(string)
 		if store.Contains(compiler) {
 			continue
 		}
-		_, err := store.Add(compiler, options.querier)
+		_, err := store.Add(compiler, options.Querier)
 		if err != nil {
 			lg.With(
 				zap.String("compiler", compiler),

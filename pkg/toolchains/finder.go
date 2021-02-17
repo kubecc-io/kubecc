@@ -11,10 +11,10 @@ type Finder interface {
 }
 
 type FindOptions struct {
-	fs          tools.ReadDirStatFS
-	querier     Querier
-	path        bool
-	searchPaths []string
+	FS          tools.ReadDirStatFS
+	Querier     Querier
+	Path        bool
+	SearchPaths []string
 }
 type FindOption func(*FindOptions)
 
@@ -26,24 +26,24 @@ func (o *FindOptions) Apply(opts ...FindOption) {
 
 func WithFS(fs tools.ReadDirStatFS) FindOption {
 	return func(opts *FindOptions) {
-		opts.fs = fs
+		opts.FS = fs
 	}
 }
 
 func WithQuerier(q Querier) FindOption {
 	return func(opts *FindOptions) {
-		opts.querier = q
+		opts.Querier = q
 	}
 }
 
 func WithSearchPaths(paths []string) FindOption {
 	return func(opts *FindOptions) {
-		opts.searchPaths = paths
+		opts.SearchPaths = paths
 	}
 }
 
 func SearchPathEnv(search bool) FindOption {
 	return func(opts *FindOptions) {
-		opts.path = search
+		opts.Path = search
 	}
 }

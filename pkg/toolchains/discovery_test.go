@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/go-cmp/cmp"
@@ -274,7 +275,7 @@ func TestFindToolchains(t *testing.T) {
 
 	store := toolchains.Aggregate(ctx,
 		toolchains.FinderWithOptions{
-			Finder: toolchains.GccClangFinder{},
+			Finder: cc.CCFinder{},
 			Opts: []toolchains.FindOption{
 				toolchains.WithFS(fs),
 				toolchains.WithQuerier(mockQuerier{}),

@@ -63,7 +63,7 @@ func NewConsumerdServer(
 	options := ConsumerdServerOptions{
 		toolchainFinders: []toolchains.FinderWithOptions{
 			{
-				Finder: toolchains.GccClangFinder{},
+				Finder: cc.CCFinder{},
 			},
 		},
 	}
@@ -84,7 +84,7 @@ func (c *consumerdServer) schedulerConnected() bool {
 		c.connection.GetState() == connectivity.Ready
 }
 
-func (c *consumerdServer) setToolchain(req *types.RunRequest) error {
+func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 	path := req.GetPath()
 	if path == "" {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
@@ -124,7 +124,7 @@ func (c *consumerdServer) Run(
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
 	c.lg.Debug("Running request")
-	err := c.setToolchain(req)
+	err := c.applyToolchainToReq(req)
 	if err != nil {
 		return nil, err
 	}
@@ -171,21 +171,27 @@ func (c *consumerdServer) Run(
 
 	switch mode {
 	case cc.RunLocal:
-		resp, err := localToolchainRunner{
+		resp, err := localRunnerManager{
 			ArgParser: info,
 		}.Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.localExecutor, req)
-		return resp.(*types.RunResponse), err
+		if err != nil {
+			return nil, err
+		}
+		return resp.(*types.RunResponse), nil
 	case cc.RunRemote:
-		resp, err := remoteToolchainRunner{
+		resp, err := remoteRunnerManager{
 			ArgParser: info,
 		}.Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.remoteExecutor, req)
-		return resp.(*types.RunResponse), err
+		if err != nil {
+			return nil, err
+		}
+		return resp.(*types.RunResponse), nil
 	case cc.Unset:
 		return nil, status.Error(codes.Internal, "Encountered RunError state")
 	default:

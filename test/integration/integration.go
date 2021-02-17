@@ -6,11 +6,13 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/testutil"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -81,6 +83,9 @@ func (tc *TestController) runAgent() {
 			QueuePressureThreshold: 1.0,
 			QueueRejectThreshold:   2.0,
 		}),
+		agent.WithToolchainFinders(toolchains.FinderWithOptions{
+			Finder: testutil.TestToolchainFinder{},
+		}),
 	)
 	types.RegisterAgentServer(srv, agentSrv)
 
@@ -107,7 +112,11 @@ func (tc *TestController) runConsumerd() {
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 
-	d := consumerd.NewConsumerdServer(ctx)
+	d := consumerd.NewConsumerdServer(ctx,
+		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
+			Finder: testutil.TestToolchainFinder{},
+		}),
+	)
 	types.RegisterConsumerdServer(srv, d)
 
 	go func() {
@@ -139,6 +148,8 @@ func (tc *TestController) Start(ops TestOptions) {
 	viper.Set("remoteOnly", "false")
 	viper.Set("arch", "amd64")
 	viper.Set("namespace", "test-namespace")
+
+	agent.AddRunnerManager(types.TestToolchain, &testutil.TestRunnerManager{})
 
 	tc.runScheduler()
 	for i := 0; i < ops.NumAgents; i++ {

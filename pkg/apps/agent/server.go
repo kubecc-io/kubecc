@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
 	"github.com/cobalt77/kubecc/pkg/run"
@@ -69,7 +70,7 @@ func NewAgentServer(
 	options := AgentServerOptions{
 		toolchainFinders: []toolchains.FinderWithOptions{
 			{
-				Finder: toolchains.GccClangFinder{},
+				Finder: cc.CCFinder{},
 			},
 		},
 	}

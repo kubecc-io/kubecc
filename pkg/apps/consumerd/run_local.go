@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
-type localToolchainRunner struct {
+type localRunnerManager struct {
 	ArgParser *cc.ArgParser
 }
 
-func (r localToolchainRunner) Run(
+func (r localRunnerManager) Run(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},

@@ -18,5 +18,6 @@ func (e *CompilerError) Error() string {
 }
 
 func IsCompilerError(err error) bool {
-	return errors.As(err, &CompilerError{})
+	var e *CompilerError
+	return errors.As(err, &e)
 }

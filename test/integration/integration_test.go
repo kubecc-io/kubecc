@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
 )
@@ -21,10 +22,13 @@ func TestIntegration(t *testing.T) {
 		NumAgents:  4,
 	})
 
-	ctx := logkc.NewFromContext(context.Background(), types.Test)
+	ctx := logkc.NewFromContext(context.Background(), types.TestComponent,
+		logkc.WithName("-"))
+	lg := logkc.LogFromContext(ctx)
+
 	for _, c := range tc.Consumers {
-		c.Run(ctx, &types.RunRequest{
-			Compiler: &types.RunRequest_Path{Path: "/usr/bin/g++"},
+		_, err := c.Run(ctx, &types.RunRequest{
+			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
 			Args:     strings.Split("-o test.o -c test.c", " "),
 			UID:      1000,
 			GID:      1000,
@@ -32,6 +36,9 @@ func TestIntegration(t *testing.T) {
 			Env:      []string{},
 			Stdin:    nil,
 		})
+		if err != nil {
+			lg.Error(err)
+		}
 	}
 
 	tc.Wait()

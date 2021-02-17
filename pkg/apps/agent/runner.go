@@ -5,9 +5,10 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 )
 
-var toolchainRunners map[types.ToolchainKind]run.ToolchainRunner
+var toolchainRunners = make(map[types.ToolchainKind]run.RunnerManager)
 
-func AddToolchainRunner(kind types.ToolchainKind, runner run.ToolchainRunner) {
+// todo move this somewhere else
+func AddRunnerManager(kind types.ToolchainKind, runner run.RunnerManager) {
 	if _, ok := toolchainRunners[kind]; ok {
 		panic("Toolchain already added")
 	}
