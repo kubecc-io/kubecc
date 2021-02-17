@@ -22,7 +22,6 @@ import (
 
 type remoteCompileRunner struct {
 	run.RunnerOptions
-	run.Runner
 
 	client types.SchedulerClient
 }

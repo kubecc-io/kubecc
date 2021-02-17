@@ -12,7 +12,6 @@ import (
 )
 
 type localToolchainRunner struct {
-	run.ToolchainRunner
 	ArgParser *cc.ArgParser
 }
 

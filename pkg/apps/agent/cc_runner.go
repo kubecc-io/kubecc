@@ -15,9 +15,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ccRunner struct {
-	run.ToolchainRunner
-}
+type ccRunner struct{}
 
 func (r *ccRunner) Run(
 	ctx run.Contexts,

@@ -9,67 +9,14 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 )
 
-type readDirStatFs interface {
-	fs.StatFS
-	fs.ReadDirFS
-}
-
-type osFS struct {
-	readDirStatFs
-}
-
-func (rfs osFS) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(name)
-}
-func (rfs osFS) ReadDir(name string) ([]os.DirEntry, error) {
-	return os.ReadDir(name)
-}
-
-type FindOptions struct {
-	fs          readDirStatFs
-	querier     Querier
-	path        bool
-	searchPaths []string
-}
-type FindOption func(*FindOptions)
-
-func (o *FindOptions) Apply(opts ...FindOption) {
-	for _, op := range opts {
-		op(o)
-	}
-}
-
-func WithFS(fs readDirStatFs) FindOption {
-	return func(opts *FindOptions) {
-		opts.fs = fs
-	}
-}
-
-func WithQuerier(q Querier) FindOption {
-	return func(opts *FindOptions) {
-		opts.querier = q
-	}
-}
-
-func WithSearchPaths(paths []string) FindOption {
-	return func(opts *FindOptions) {
-		opts.searchPaths = paths
-	}
-}
-
-func SearchPathEnv(search bool) FindOption {
-	return func(opts *FindOptions) {
-		opts.path = search
-	}
-}
-
 func FindToolchains(ctx context.Context, opts ...FindOption) *Store {
 	options := FindOptions{
-		fs:      osFS{},
+		fs:      tools.OSFS{},
 		querier: ExecQuerier{},
 		searchPaths: []string{
 			"/usr/bin",
