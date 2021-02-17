@@ -2,7 +2,6 @@ package consumer
 
 import (
 	"context"
-	"errors"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -46,9 +45,6 @@ func findCompilerOrDie(ctx context.Context) string {
 
 // Code below is copied from os/exec/lp_unix.go, but we need to modify it
 // to exclude the currently running executable to avoid infinite loops
-
-// ErrNotFound is the error resulting if a path search failed to find an executable file.
-var errNotFound = errors.New("executable file not found in $PATH")
 
 func findExecutable(file string) error {
 	d, err := os.Stat(file)

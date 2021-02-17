@@ -35,7 +35,7 @@ func (r *preprocessRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 		defer info.ReplaceOutputPath(old)
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...) // todo
+	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...)
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.OutputWriter
@@ -57,7 +57,10 @@ func (r *preprocessRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 		select {
 		case <-r.Context.Done():
 			if !cmd.ProcessState.Exited() {
-				cmd.Process.Kill()
+				if err := cmd.Process.Kill(); err != nil {
+					info.lg.With(zap.Error(err)).
+						Warn("Error trying to kill preprocessor")
+				}
 			}
 		case <-ch:
 		}

@@ -94,21 +94,18 @@ func (c *consumerdServer) setToolchain(req *types.RunRequest) error {
 				errors.WithMessage(err, "Could not add toolchain").Error())
 		}
 		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
-	} else {
-		// Check if the found toolchain is up to date
-		if err := c.toolchains.UpdateIfNeeded(tc); err != nil {
-			// The toolchain was updated and is no longer valid
-			c.lg.With(
-				"compiler", tc.Executable,
-				zap.Error(err),
-			).Error("Error when updating toolchain")
-			if _, is := err.(*fs.PathError); is {
-				return status.Error(codes.NotFound,
-					errors.WithMessage(err, "Compiler no longer exists").Error())
-			}
-			return status.Error(codes.InvalidArgument,
-				errors.WithMessage(err, "Toolchain is no longer valid").Error())
+	} else if err := c.toolchains.UpdateIfNeeded(tc); err != nil {
+		// The toolchain was updated and is no longer valid
+		c.lg.With(
+			"compiler", tc.Executable,
+			zap.Error(err),
+		).Error("Error when updating toolchain")
+		if errors.As(err, &fs.PathError{}) {
+			return status.Error(codes.NotFound,
+				errors.WithMessage(err, "Compiler no longer exists").Error())
 		}
+		return status.Error(codes.InvalidArgument,
+			errors.WithMessage(err, "Toolchain is no longer valid").Error())
 	}
 	req.Compiler = &types.RunRequest_Toolchain{
 		Toolchain: tc,

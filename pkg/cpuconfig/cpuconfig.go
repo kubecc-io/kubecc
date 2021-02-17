@@ -9,10 +9,9 @@ import (
 )
 
 func Default() *types.CpuConfig {
-	quota := sysfs.CfsQuota()
 	period := sysfs.CfsPeriod()
 	var maxRunning int32
-	if quota < 0 {
+	if quota := sysfs.CfsQuota(); quota < 0 {
 		// No limit, default to the number of cpu threads
 		maxRunning = int32(runtime.NumCPU())
 	} else {
