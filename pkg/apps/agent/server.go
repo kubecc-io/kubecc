@@ -18,18 +18,16 @@ import (
 )
 
 type AgentServer struct {
+	types.AgentServer
+
 	AgentServerOptions
 
-	types.AgentServer
-	srvContext context.Context
-	lg         *zap.SugaredLogger
-
-	toolchains *toolchains.Store
-
-	executor run.Executor
-
+	executor      run.Executor
+	lg            *zap.SugaredLogger
 	queueStatus   types.QueueStatus
 	queueStatusCh chan types.QueueStatus
+	srvContext    context.Context
+	toolchains    *toolchains.Store
 }
 
 type AgentServerOptions struct {
@@ -46,7 +44,7 @@ func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
 	}
 }
 
-func WithToolchainArgs(args ...toolchains.FindOption) agentServerOption {
+func WithToolchainOptions(args ...toolchains.FindOption) agentServerOption {
 	return func(o *AgentServerOptions) {
 		o.toolchainOptions = args
 	}

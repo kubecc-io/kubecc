@@ -25,7 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type consumerd struct {
+type consumerdServer struct {
 	types.ConsumerdServer
 
 	srvContext context.Context
@@ -61,11 +61,11 @@ func WithToolchainArgs(args ...toolchains.FindOption) consumerdServerOption {
 func NewConsumerdServer(
 	ctx context.Context,
 	opts ...consumerdServerOption,
-) *consumerd {
+) *consumerdServer {
 	options := ConsumerdServerOptions{}
 	options.Apply(opts...)
 
-	return &consumerd{
+	return &consumerdServer{
 		srvContext:     ctx,
 		lg:             logkc.LogFromContext(ctx),
 		toolchains:     toolchains.FindToolchains(ctx, options.toolchainOptions...),
@@ -75,12 +75,12 @@ func NewConsumerdServer(
 	}
 }
 
-func (c *consumerd) schedulerConnected() bool {
+func (c *consumerdServer) schedulerConnected() bool {
 	return c.schedulerClient != nil &&
 		c.connection.GetState() == connectivity.Ready
 }
 
-func (c *consumerd) setToolchain(req *types.RunRequest) error {
+func (c *consumerdServer) setToolchain(req *types.RunRequest) error {
 	path := req.GetPath()
 	if path == "" {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
@@ -118,7 +118,7 @@ func (c *consumerd) setToolchain(req *types.RunRequest) error {
 	return nil
 }
 
-func (c *consumerd) Run(
+func (c *consumerdServer) Run(
 	ctx context.Context,
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
@@ -192,7 +192,7 @@ func (c *consumerd) Run(
 	}
 }
 
-func (s *consumerd) ConnectToRemote() {
+func (s *consumerdServer) ConnectToRemote() {
 	addr := viper.GetString("schedulerAddress")
 	if addr == "" {
 		s.lg.Debug("Remote compilation unavailable: scheduler address not configured")
