@@ -80,7 +80,7 @@ func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	executable = evalPath(executable)
 
 	if s.Contains(executable) {
-		return nil, errors.New("Tried to add an already-existing toolchain")
+		return nil, errors.New("Tried to add an already existing toolchain")
 	}
 	tc := &types.Toolchain{
 		Executable: executable,

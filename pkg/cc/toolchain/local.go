@@ -1,4 +1,4 @@
-package consumerd
+package toolchain
 
 import (
 	"bytes"

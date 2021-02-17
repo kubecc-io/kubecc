@@ -1,4 +1,4 @@
-package agent
+package toolchain
 
 import (
 	"bytes"
@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type CCRunner struct{}
+type recvRemoteRunnerManager struct{}
 
-func (r *CCRunner) Run(
+func (r *recvRemoteRunnerManager) Run(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},

@@ -7,6 +7,7 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
+	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
@@ -86,6 +87,7 @@ func (tc *TestController) runAgent() {
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
+		agent.WithToolchainRunners(testtoolchain.AddToStore),
 	)
 	types.RegisterAgentServer(srv, agentSrv)
 
@@ -116,6 +118,7 @@ func (tc *TestController) runConsumerd() {
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
+		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 	)
 	types.RegisterConsumerdServer(srv, d)
 
@@ -148,8 +151,6 @@ func (tc *TestController) Start(ops TestOptions) {
 	viper.Set("remoteOnly", "false")
 	viper.Set("arch", "amd64")
 	viper.Set("namespace", "test-namespace")
-
-	agent.AddRunnerManager(types.TestToolchain, &testutil.TestRunnerManager{})
 
 	tc.runScheduler()
 	for i := 0; i < ops.NumAgents; i++ {

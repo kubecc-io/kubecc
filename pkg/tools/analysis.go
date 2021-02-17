@@ -1,12 +1,12 @@
-package consumerd
+package tools
 
 import (
 	"errors"
 	"strings"
 )
 
-// analyze error messages to find oddities and potential bugs.
-func analyzeErrors(msg string) error {
+// AnalyzeErrors analyzes error messages to find oddities and potential bugs.
+func AnalyzeErrors(msg string) error {
 	if strings.Contains(msg, "collect2") || strings.Contains(msg, "undefined reference") {
 		return errors.New("*** BUG! Linker invoked on remote agent ***")
 	}

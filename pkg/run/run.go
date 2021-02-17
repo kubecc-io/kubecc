@@ -22,6 +22,15 @@ type RunnerManager interface {
 	Run(ctx Contexts, x Executor, request interface{}) (response interface{}, err error)
 }
 
+// todo
+type ArgParserTodo interface{}
+
+type ToolchainRunner interface {
+	RunLocal(ArgParserTodo) RunnerManager
+	SendRemote(ArgParserTodo, types.SchedulerClient) RunnerManager
+	RecvRemote() RunnerManager
+}
+
 type OutputType int
 
 type ProcessOptions struct {

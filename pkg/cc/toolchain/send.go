@@ -1,4 +1,4 @@
-package consumerd
+package toolchain
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -53,9 +54,7 @@ func (r *remoteCompileRunner) Run(ctx context.Context, tc *types.Toolchain) erro
 	return err
 }
 
-type remoteRunnerManager struct {
-	run.RunnerOptions
-
+type sendRemoteRunnerManager struct {
 	schedulerClient types.SchedulerClient
 	ArgParser       *cc.ArgParser
 }
@@ -98,7 +97,7 @@ func runPreprocessor(
 	return outBuf.Bytes(), nil
 }
 
-func (r remoteRunnerManager) Run(
+func (r sendRemoteRunnerManager) Run(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},
@@ -173,7 +172,7 @@ func (r remoteRunnerManager) Run(
 			Stderr:     []byte(resp.GetError()),
 		}, nil
 	case types.CompileResponse_Fail:
-		err := analyzeErrors(resp.GetError())
+		err := tools.AnalyzeErrors(resp.GetError())
 		if err != nil {
 			return nil, status.Error(codes.Internal, "Internal error")
 		}
