@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// setupCmd represents the setup command
+// setupCmd represents the setup command.
 var setupCmd = &cobra.Command{
 	Use:   "setup",
 	Short: "A brief description of your command",

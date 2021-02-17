@@ -10,7 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
 )
@@ -27,7 +27,7 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	}
 	stdin := new(bytes.Buffer)
 
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		io.Copy(stdin, os.Stdin)
 	}
 

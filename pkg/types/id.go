@@ -17,6 +17,9 @@ func (a *AgentInfo) AgentID() (AgentID, error) {
 		return "", err
 	}
 	sha1 := crypto.SHA256.New()
-	sha1.Write(bytes)
+	_, err = sha1.Write(bytes)
+	if err != nil {
+		return "", err
+	}
 	return AgentID(sha1.Sum(nil)), nil
 }

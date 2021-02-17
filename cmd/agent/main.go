@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -30,7 +29,7 @@ func main() {
 	}
 
 	srv := servers.NewServer(ctx)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":9090"))
+	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
 	}

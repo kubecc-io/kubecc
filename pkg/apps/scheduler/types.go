@@ -32,8 +32,7 @@ func AgentFromContext(ctx context.Context) (*Agent, error) {
 }
 
 func (a Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddObject("info", a.Info)
-	return nil
+	return enc.AddObject("info", a.Info)
 }
 
 func (a Agent) Weight() int32 {

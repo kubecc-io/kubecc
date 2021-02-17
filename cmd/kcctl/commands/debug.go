@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// debugCmd represents the debug command
+// debugCmd represents the debug command.
 var debugCmd = &cobra.Command{
 	Use:   "debug",
 	Short: "A brief description of your command",

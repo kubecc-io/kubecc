@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
@@ -37,7 +36,6 @@ type consumerdServer struct {
 	localExecutor   run.Executor
 	remoteExecutor  run.Executor
 	remoteOnly      bool
-	remoteWaitGroup sync.WaitGroup
 }
 
 type ConsumerdServerOptions struct {
@@ -192,17 +190,17 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (s *consumerdServer) ConnectToRemote() {
+func (c *consumerdServer) ConnectToRemote() {
 	addr := viper.GetString("schedulerAddress")
 	if addr == "" {
-		s.lg.Debug("Remote compilation unavailable: scheduler address not configured")
+		c.lg.Debug("Remote compilation unavailable: scheduler address not configured")
 		return
 	}
-	cc, err := servers.Dial(s.srvContext, addr, servers.WithTLS(viper.GetBool("tls")))
+	cc, err := servers.Dial(c.srvContext, addr, servers.WithTLS(viper.GetBool("tls")))
 	if err != nil {
-		s.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
+		c.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
 	} else {
-		s.connection = cc
-		s.schedulerClient = types.NewSchedulerClient(cc)
+		c.connection = cc
+		c.schedulerClient = types.NewSchedulerClient(cc)
 	}
 }

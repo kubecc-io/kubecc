@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 
-	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/ssh/terminal"
 )
@@ -63,7 +62,6 @@ var (
 
 	_levelToLowercaseColorString = make(map[zapcore.Level]string, len(_levelToColor))
 	_levelToCapitalColorString   = make(map[zapcore.Level]string, len(_levelToColor))
-	_pool                        = buffer.NewPool()
 )
 
 func init() {

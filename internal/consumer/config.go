@@ -10,7 +10,7 @@ import (
 
 // todo: delete this
 
-// InitConfig initializes the Viper config
+// InitConfig initializes the Viper config.
 func InitConfig() {
 	viper.AddConfigPath("/etc")
 	// Find home directory.

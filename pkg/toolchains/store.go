@@ -16,7 +16,7 @@ type toolchainData struct {
 	querier   Querier
 }
 
-// Store stores toolchains and provides ways to access them
+// Store stores toolchains and provides ways to access them.
 type Store struct {
 	toolchains map[string]*toolchainData
 }

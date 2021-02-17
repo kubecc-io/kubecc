@@ -6,7 +6,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
-// GetPodName returns the current pod name from the downward API
+// GetPodName returns the current pod name from the downward API.
 func GetPodName() string {
 	value, ok := os.LookupEnv("KUBECC_POD_NAME")
 	if !ok {
@@ -15,7 +15,7 @@ func GetPodName() string {
 	return value
 }
 
-// GetNamespace returns the current namespace from the downward API
+// GetNamespace returns the current namespace from the downward API.
 func GetNamespace() string {
 	value, ok := os.LookupEnv("KUBECC_NAMESPACE")
 	if !ok {
@@ -24,7 +24,7 @@ func GetNamespace() string {
 	return value
 }
 
-// GetNode returns the current node from the downward API
+// GetNode returns the current node from the downward API.
 func GetNode() string {
 	value, ok := os.LookupEnv("KUBECC_NODE")
 	if !ok {

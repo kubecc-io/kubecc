@@ -37,14 +37,10 @@ func NewTestController() *TestController {
 	}
 }
 
-type listenerKeyType struct{}
-
-var listenerKey listenerKeyType
-
-func (d *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
+func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
 	info, _ := cluster.AgentInfoFromContext(ctx)
 	id, _ := info.AgentID()
-	listener := d.agentListeners[id]
+	listener := tc.agentListeners[id]
 	_, cc := dial(context.Background(), listener)
 	return types.NewAgentClient(cc), nil
 }

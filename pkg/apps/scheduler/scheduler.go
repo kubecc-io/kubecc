@@ -151,7 +151,7 @@ func (s *Scheduler) reweightAll() {
 	s.wLock.Lock()
 	defer s.wLock.Unlock()
 	s.w.RemoveAll()
-	s.agents.Range(func(key, value interface{}) bool {
+	s.agents.Range(func(_, value interface{}) bool {
 		s.w.Add(value, int(value.(*Agent).Weight()))
 		return true
 	})

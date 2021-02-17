@@ -75,7 +75,7 @@ type TLSSpec struct {
 	SecretName string   `json:"secretName,omitempty"`
 }
 
-// BuildClusterStatus defines the observed state of BuildCluster
+// BuildClusterStatus defines the observed state of BuildCluster.
 type BuildClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -84,7 +84,7 @@ type BuildClusterStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// BuildCluster is the Schema for the buildclusters API
+// BuildCluster is the Schema for the buildclusters API.
 type BuildCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -95,7 +95,7 @@ type BuildCluster struct {
 
 // +kubebuilder:object:root=true
 
-// BuildClusterList contains a list of BuildCluster
+// BuildClusterList contains a list of BuildCluster.
 type BuildClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
