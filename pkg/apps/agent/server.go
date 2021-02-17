@@ -31,7 +31,7 @@ type AgentServer struct {
 }
 
 type AgentServerOptions struct {
-	toolchainOptions []toolchains.FindOption
+	toolchainFinders []toolchains.FinderWithOptions
 	schedulerClient  types.SchedulerClient
 	cpuConfig        *types.CpuConfig
 }
@@ -44,9 +44,9 @@ func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
 	}
 }
 
-func WithToolchainOptions(args ...toolchains.FindOption) agentServerOption {
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) agentServerOption {
 	return func(o *AgentServerOptions) {
-		o.toolchainOptions = args
+		o.toolchainFinders = args
 	}
 }
 
@@ -66,7 +66,13 @@ func NewAgentServer(
 	ctx context.Context,
 	opts ...agentServerOption,
 ) *AgentServer {
-	options := AgentServerOptions{}
+	options := AgentServerOptions{
+		toolchainFinders: []toolchains.FinderWithOptions{
+			{
+				Finder: toolchains.GccClangFinder{},
+			},
+		},
+	}
 	options.Apply(opts...)
 
 	if options.cpuConfig == nil {
@@ -77,7 +83,7 @@ func NewAgentServer(
 		AgentServerOptions: options,
 		srvContext:         ctx,
 		lg:                 logkc.LogFromContext(ctx),
-		toolchains:         toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		toolchains:         toolchains.Aggregate(ctx, options.toolchainFinders...),
 		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
 		queueStatus:        types.Available,
 	}

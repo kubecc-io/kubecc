@@ -47,15 +47,15 @@ message Metadata {
 }
 
 enum Component {
-  Component_Unknown_ = 0;
-	Agent_ = 1;
-	Scheduler_ = 2;
-	Controller_ = 3;
-	Consumer_ = 4;
-	Consumerd_ = 5;
-	Make_ = 6;
-  Test_ = 7;
-  Dashboard_ = 8;
+  Component_Unknown = 0;
+	Component_Agent = 1;
+	Component_Scheduler = 2;
+	Component_Controller = 3;
+	Component_Consumer = 4;
+	Component_Consumerd = 5;
+	Component_Make = 6;
+  Component_Test = 7;
+  Component_Dashboard = 8;
 }
 
 enum QueueStatus {
@@ -66,16 +66,17 @@ enum QueueStatus {
 }
 
 enum ToolchainKind {
-  ToolchainKind_Unknown_ = 0;
-  Gnu_ = 1;
-  Clang_ = 2;
+  ToolchainKind_Unknown = 0;
+  ToolchainKind_Gnu = 1;
+  ToolchainKind_Clang = 2;
+  ToolchainKind_Test = 3;
 }
 
 enum ToolchainLang {
-  ToolchainLang_Unknown_ = 0;
-  C_ = 1;
-  CXX_ = 2;
-  Multi_ = 3;
+  ToolchainLang_Unknown = 0;
+  ToolchainLang_C = 1;
+  ToolchainLang_CXX = 2;
+  ToolchainLang_Multi = 3;
 }
 
 message Toolchain {

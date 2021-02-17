@@ -7,7 +7,7 @@ import (
 )
 
 type Finder interface {
-	FindToolchains(ctx context.Context, opts ...FindOption)
+	FindToolchains(ctx context.Context, opts ...FindOption) *Store
 }
 
 type FindOptions struct {
