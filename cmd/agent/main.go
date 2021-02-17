@@ -34,6 +34,8 @@ func main() {
 		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
 	}
 	a := agent.NewAgentServer(ctx)
+	agent.AddToolchainRunner(types.Gnu, &agent.CCRunner{})
+	agent.AddToolchainRunner(types.Clang, &agent.CCRunner{})
 	types.RegisterAgentServer(srv, a)
 	go a.RunSchedulerClient(ctx)
 	err = srv.Serve(listener)

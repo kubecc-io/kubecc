@@ -63,7 +63,7 @@ func ServerAgentContextInterceptor() grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
 		req interface{},
-		info *grpc.UnaryServerInfo,
+		_ *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
 	) (resp interface{}, err error) {
 		agentInfo, err := cluster.AgentInfoFromContext(ctx)
@@ -109,6 +109,10 @@ func Dial(
 	interceptors := []grpc.UnaryClientInterceptor{
 		otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer()),
 	}
+	if options.AgentInfo != nil {
+		interceptors = append(interceptors,
+			ClientAgentContextInterceptor(options.AgentInfo))
+	}
 	dialOpts := append([]grpc.DialOption{
 		grpc.WithChainUnaryInterceptor(interceptors...),
 		grpc.WithDefaultCallOptions(
@@ -125,9 +129,6 @@ func Dial(
 	} else {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	}
-	if options.AgentInfo != nil {
-		interceptors = append(interceptors,
-			ClientAgentContextInterceptor(options.AgentInfo))
-	}
+
 	return grpc.DialContext(ctx, target, dialOpts...)
 }

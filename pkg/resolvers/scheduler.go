@@ -45,7 +45,7 @@ func (r *SchedulerResolver) Resolve(
 				&deployment.Spec.Template.Spec, 0),
 			rec.ImageUpdater(schedulerSpec.Image,
 				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(v1.PullPolicy(schedulerSpec.ImagePullPolicy),
+			rec.PullPolicyUpdater(schedulerSpec.ImagePullPolicy,
 				&deployment.Spec.Template.Spec, 0),
 			rec.LabelUpdater(schedulerSpec.AdditionalLabels,
 				&deployment.Spec.Template,

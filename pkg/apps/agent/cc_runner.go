@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type ccRunner struct{}
+type CCRunner struct{}
 
-func (r *ccRunner) Run(
+func (r *CCRunner) Run(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},

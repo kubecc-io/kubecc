@@ -311,7 +311,6 @@ func (ap *ArgParser) Parse() {
 			}
 		} else if inputArg != "" && !seenOptE {
 			// If preprocessing, output goes to stdout
-			outputArg = "a.out"
 			ap.Args = append(ap.Args, "-o", "a.out")
 			ap.OutputArgIndex = len(ap.Args) - 1
 		}
@@ -327,6 +326,7 @@ func (ap *ArgParser) Parse() {
 		ap.lg.Debug("Remote compilation disabled")
 	case RunRemote:
 		ap.lg.Debug("Remote compilation enabled")
+	case Unset:
 	}
 }
 
@@ -435,24 +435,24 @@ func (ap *ArgParser) RemoveLocalArgs() {
 	newArgs := []string{}
 	for i := 0; i < len(ap.Args); i++ {
 		arg := ap.Args[i]
-		if LocalArgsWithValues.Contains(arg) {
+		switch {
+		case LocalArgsWithValues.Contains(arg):
 			i++ // Skip value (--arg value)
 			continue
-		} else if func() bool {
+		case func() bool {
 			for _, p := range LocalPrefixArgs {
 				if strings.HasPrefix(arg, p) {
 					return true
 				}
 			}
 			return false
-		}() {
-			continue
-		} else if LocalArgsNoValues.Contains(arg) {
+		}(), LocalArgsNoValues.Contains(arg):
 			continue
 		}
 		newArgs = append(newArgs, arg)
 	}
-	ap.Args = append(newArgs, "-fpreprocessed")
+	newArgs = append(newArgs, "-fpreprocessed")
+	ap.Args = newArgs
 	ap.Parse()
 }
 

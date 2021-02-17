@@ -60,7 +60,7 @@ func (r *compileRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 		}
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...) // todo
+	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...)
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.Stdout
