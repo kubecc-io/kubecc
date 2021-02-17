@@ -30,7 +30,8 @@ type consumerdServer struct {
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
-	toolchains      *toolchains.Store
+	tcRunStore      *run.ToolchainRunnerStore
+	tcStore         *toolchains.Store
 	schedulerClient types.SchedulerClient
 	connection      *grpc.ClientConn
 	localExecutor   run.Executor
@@ -40,6 +41,7 @@ type consumerdServer struct {
 
 type ConsumerdServerOptions struct {
 	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -56,6 +58,12 @@ func WithToolchainFinders(args ...toolchains.FinderWithOptions) consumerdServerO
 	}
 }
 
+func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.toolchainRunners = args
+	}
+}
+
 func NewConsumerdServer(
 	ctx context.Context,
 	opts ...consumerdServerOption,
@@ -69,10 +77,15 @@ func NewConsumerdServer(
 	}
 	options.Apply(opts...)
 
+	runStore := run.NewToolchainRunnerStore()
+	for _, add := range options.toolchainRunners {
+		add(runStore)
+	}
 	return &consumerdServer{
 		srvContext:     ctx,
 		lg:             logkc.LogFromContext(ctx),
-		toolchains:     toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(),
 		remoteExecutor: run.NewUnqueuedExecutor(),
 		remoteOnly:     viper.GetBool("remoteOnly"),
@@ -89,18 +102,18 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 	if path == "" {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
 	}
-	tc, err := c.toolchains.Find(path)
+	tc, err := c.tcStore.Find(path)
 	if err != nil {
 		// Add a new toolchain
 		c.lg.Info("Consumer sent unknown toolchain; attempting to add it")
-		tc, err = c.toolchains.Add(path, toolchains.ExecQuerier{})
+		tc, err = c.tcStore.Add(path, toolchains.ExecQuerier{})
 		if err != nil {
 			c.lg.With(zap.Error(err)).Error("Could not add toolchain")
 			return status.Error(codes.InvalidArgument,
 				errors.WithMessage(err, "Could not add toolchain").Error())
 		}
 		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
-	} else if err := c.toolchains.UpdateIfNeeded(tc); err != nil {
+	} else if err := c.tcStore.UpdateIfNeeded(tc); err != nil {
 		// The toolchain was updated and is no longer valid
 		c.lg.With(
 			"compiler", tc.Executable,
@@ -158,22 +171,20 @@ func (c *consumerdServer) Run(
 		c.lg.Info("Running local, scheduler disconnected")
 		mode = cc.RunLocal
 	}
-	if !c.remoteOnly {
-		if c.localExecutor.Status() == types.Available {
-			c.lg.Info("Running local, not at capacity yet")
-			mode = cc.RunLocal
-		}
-		// if s.schedulerAtCapacity() {
-		// 	logkc.Info("Running local, scheduler says it is at capacity")
-		// 	mode = cc.RunLocal
-		// }
+	if !c.remoteOnly && c.localExecutor.Status() == types.Available {
+		c.lg.Info("Running local, not at capacity yet")
+		mode = cc.RunLocal
+	}
+
+	runner, err := c.tcRunStore.Get(req.GetToolchain().Kind)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable,
+			"No toolchain runner available")
 	}
 
 	switch mode {
 	case cc.RunLocal:
-		resp, err := localRunnerManager{
-			ArgParser: info,
-		}.Run(run.Contexts{
+		resp, err := runner.RunLocal(info).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.localExecutor, req)
@@ -182,9 +193,7 @@ func (c *consumerdServer) Run(
 		}
 		return resp.(*types.RunResponse), nil
 	case cc.RunRemote:
-		resp, err := remoteRunnerManager{
-			ArgParser: info,
-		}.Run(run.Contexts{
+		resp, err := runner.RunLocal(info).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.remoteExecutor, req)

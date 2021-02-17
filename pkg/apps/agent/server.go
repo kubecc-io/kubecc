@@ -28,11 +28,13 @@ type AgentServer struct {
 	queueStatus   types.QueueStatus
 	queueStatusCh chan types.QueueStatus
 	srvContext    context.Context
-	toolchains    *toolchains.Store
+	tcStore       *toolchains.Store
+	tcRunStore    *run.ToolchainRunnerStore
 }
 
 type AgentServerOptions struct {
 	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
 	cpuConfig        *types.CpuConfig
 }
@@ -48,6 +50,12 @@ func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
 func WithToolchainFinders(args ...toolchains.FinderWithOptions) agentServerOption {
 	return func(o *AgentServerOptions) {
 		o.toolchainFinders = args
+	}
+}
+
+func WithToolchainRunners(args ...run.StoreAddFunc) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.toolchainRunners = args
 	}
 }
 
@@ -76,6 +84,11 @@ func NewAgentServer(
 	}
 	options.Apply(opts...)
 
+	runStore := run.NewToolchainRunnerStore()
+	for _, add := range options.toolchainRunners {
+		add(runStore)
+	}
+
 	if options.cpuConfig == nil {
 		options.cpuConfig = cpuconfig.Default()
 	}
@@ -84,7 +97,8 @@ func NewAgentServer(
 		AgentServerOptions: options,
 		srvContext:         ctx,
 		lg:                 logkc.LogFromContext(ctx),
-		toolchains:         toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
 		queueStatus:        types.Available,
 	}
@@ -97,15 +111,17 @@ func (s *AgentServer) Compile(
 ) (*types.CompileResponse, error) {
 	s.updateQueueStatus(s.executor.Status())
 
-	if runner, ok := toolchainRunners[req.Toolchain.Kind]; ok {
-		resp, err := runner.Run(run.Contexts{
-			ServerContext: s.srvContext,
-			ClientContext: ctx,
-		}, s.executor, req)
-		return resp.(*types.CompileResponse), err
+	runner, err := s.tcRunStore.Get(req.GetToolchain().Kind)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable,
+			"No toolchain runner available")
 	}
-	return nil, status.Error(codes.Unimplemented,
-		"No implementation available for the given Toolchain")
+
+	resp, err := runner.RecvRemote().Run(run.Contexts{
+		ServerContext: s.srvContext,
+		ClientContext: ctx,
+	}, s.executor, req)
+	return resp.(*types.CompileResponse), err
 }
 
 func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
@@ -140,7 +156,7 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
 		err = stream.Send(&types.Metadata{
 			Contents: &types.Metadata_Toolchains{
 				Toolchains: &types.Toolchains{
-					Items: s.toolchains.ItemsList(),
+					Items: s.tcStore.ItemsList(),
 				},
 			},
 		})

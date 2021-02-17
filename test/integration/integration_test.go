@@ -29,12 +29,9 @@ func TestIntegration(t *testing.T) {
 	for _, c := range tc.Consumers {
 		_, err := c.Run(ctx, &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     strings.Split("-o test.o -c test.c", " "),
+			Args:     strings.Split("-duration 1s", " "),
 			UID:      1000,
 			GID:      1000,
-			WorkDir:  "/tmp",
-			Env:      []string{},
-			Stdin:    nil,
 		})
 		if err != nil {
 			lg.Error(err)

@@ -8,6 +8,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
+	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -33,7 +34,9 @@ func main() {
 		defer closer.Close()
 	}
 
-	d := consumerd.NewConsumerdServer(ctx)
+	d := consumerd.NewConsumerdServer(ctx,
+		consumerd.WithToolchainRunners(cctoolchain.AddToStore))
+
 	go d.ConnectToRemote()
 	port := viper.GetInt("port")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
