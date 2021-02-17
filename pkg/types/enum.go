@@ -1,20 +1,21 @@
 package types
 
 const (
-	Clang = ToolchainKind_Clang_
-	Gnu   = ToolchainKind_Gnu_
+	Clang         = ToolchainKind_ToolchainKind_Clang
+	Gnu           = ToolchainKind_ToolchainKind_Gnu
+	TestToolchain = ToolchainKind_ToolchainKind_Test
 
-	C     = ToolchainLang_C_
-	CXX   = ToolchainLang_CXX_
-	Multi = ToolchainLang_Multi_
+	C     = ToolchainLang_ToolchainLang_C
+	CXX   = ToolchainLang_ToolchainLang_CXX
+	Multi = ToolchainLang_ToolchainLang_Multi
 
-	Agent      = Component_Agent_
-	Scheduler  = Component_Scheduler_
-	Controller = Component_Controller_
-	Consumer   = Component_Consumer_
-	Consumerd  = Component_Consumerd_
-	Make       = Component_Make_
-	Test       = Component_Test_
+	Agent         = Component_Component_Agent
+	Scheduler     = Component_Component_Scheduler
+	Controller    = Component_Component_Controller
+	Consumer      = Component_Component_Consumer
+	Consumerd     = Component_Component_Consumerd
+	Make          = Component_Component_Make
+	TestComponent = Component_Component_Test
 
 	Available     = QueueStatus_Available
 	Queueing      = QueueStatus_Queueing

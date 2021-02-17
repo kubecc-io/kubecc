@@ -206,7 +206,7 @@ func (q mockQuerier) ModTime(compiler string) (time.Time, error) {
 }
 
 func TestFindToolchains(t *testing.T) {
-	ctx := logkc.NewFromContext(context.Background(), types.Test)
+	ctx := logkc.NewFromContext(context.Background(), types.TestComponent)
 
 	fs := fstest.MapFS{
 		// "usr/bin/gcc":                     sym("gcc-10"),
@@ -272,15 +272,19 @@ func TestFindToolchains(t *testing.T) {
 		},
 	}
 
-	store := toolchains.FindToolchains(ctx,
-		toolchains.WithFS(fs),
-		toolchains.WithQuerier(mockQuerier{}),
-		toolchains.SearchPathEnv(false),
-		toolchains.WithSearchPaths([]string{
-			"usr/bin",
-			"usr/lib/llvm-11/bin",
-		}),
-	)
+	store := toolchains.Aggregate(ctx,
+		toolchains.FinderWithOptions{
+			Finder: toolchains.GccClangFinder{},
+			Opts: []toolchains.FindOption{
+				toolchains.WithFS(fs),
+				toolchains.WithQuerier(mockQuerier{}),
+				toolchains.SearchPathEnv(false),
+				toolchains.WithSearchPaths([]string{
+					"usr/bin",
+					"usr/lib/llvm-11/bin",
+				}),
+			},
+		})
 	tcsMap := make(map[string]*types.Toolchain)
 	for tc := range store.Items() {
 		tcsMap[tc.Executable] = tc

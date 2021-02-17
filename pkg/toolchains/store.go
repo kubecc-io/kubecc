@@ -141,3 +141,12 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) error {
 	}
 	return nil
 }
+
+func (s *Store) Merge(other *Store) {
+	for tc := range other.Items() {
+		if s.Contains(tc.Executable) {
+			continue
+		}
+		s.Add(tc.Executable, other.toolchains[tc.Executable].querier)
+	}
+}

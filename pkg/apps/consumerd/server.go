@@ -39,7 +39,7 @@ type consumerdServer struct {
 }
 
 type ConsumerdServerOptions struct {
-	toolchainOptions []toolchains.FindOption
+	toolchainFinders []toolchains.FinderWithOptions
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -50,9 +50,9 @@ func (o *ConsumerdServerOptions) Apply(opts ...consumerdServerOption) {
 	}
 }
 
-func WithToolchainArgs(args ...toolchains.FindOption) consumerdServerOption {
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
-		o.toolchainOptions = args
+		o.toolchainFinders = args
 	}
 }
 
@@ -60,13 +60,19 @@ func NewConsumerdServer(
 	ctx context.Context,
 	opts ...consumerdServerOption,
 ) *consumerdServer {
-	options := ConsumerdServerOptions{}
+	options := ConsumerdServerOptions{
+		toolchainFinders: []toolchains.FinderWithOptions{
+			{
+				Finder: toolchains.GccClangFinder{},
+			},
+		},
+	}
 	options.Apply(opts...)
 
 	return &consumerdServer{
 		srvContext:     ctx,
 		lg:             logkc.LogFromContext(ctx),
-		toolchains:     toolchains.FindToolchains(ctx, options.toolchainOptions...),
+		toolchains:     toolchains.Aggregate(ctx, options.toolchainFinders...),
 		localExecutor:  run.NewQueuedExecutor(),
 		remoteExecutor: run.NewUnqueuedExecutor(),
 		remoteOnly:     viper.GetBool("remoteOnly"),

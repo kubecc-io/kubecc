@@ -16,7 +16,7 @@ func (c Component) Name() string {
 		return "Consumerd"
 	case Make:
 		return "Make"
-	case Test:
+	case TestComponent:
 		return "Test"
 	}
 	return "Unknown"
@@ -36,7 +36,7 @@ func (c Component) ShortName() string {
 		return "csrd"
 	case Make:
 		return "make"
-	case Test:
+	case TestComponent:
 		return "test"
 	}
 	return "????"
@@ -56,7 +56,7 @@ func (c Component) Color() zapkc.Color {
 		return zapkc.Green
 	case Make:
 		return zapkc.NoColor
-	case Test:
+	case TestComponent:
 		return zapkc.White
 	}
 	return zapkc.NoColor
