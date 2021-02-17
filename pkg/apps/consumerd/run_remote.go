@@ -53,7 +53,7 @@ func (r *remoteCompileRunner) Run(ctx context.Context, tc *types.Toolchain) erro
 	return err
 }
 
-type remoteToolchainRunner struct {
+type remoteRunnerManager struct {
 	run.RunnerOptions
 
 	schedulerClient types.SchedulerClient
@@ -98,7 +98,7 @@ func runPreprocessor(
 	return outBuf.Bytes(), nil
 }
 
-func (r remoteToolchainRunner) Run(
+func (r remoteRunnerManager) Run(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},

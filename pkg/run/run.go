@@ -18,7 +18,7 @@ type Contexts struct {
 	ClientContext context.Context
 }
 
-type ToolchainRunner interface {
+type RunnerManager interface {
 	Run(ctx Contexts, x Executor, request interface{}) (response interface{}, err error)
 }
 
