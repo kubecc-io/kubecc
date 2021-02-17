@@ -106,7 +106,7 @@ func (opt ActionOpt) String() string {
 	return string(opt)
 }
 
-// ArgParser represents GCC arguments
+// ArgParser represents GCC arguments.
 type ArgParser struct {
 	lg             *zap.SugaredLogger
 	Args           []string
@@ -116,13 +116,13 @@ type ArgParser struct {
 	FlagIndexMap   map[string]int
 }
 
-// NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
+// NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args.
 func NewArgParserFromOS(ctx context.Context) *ArgParser {
 	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy
 }
 
 // NewArgParser creates a new ArgsInfo struct from the provided args
-// Args should NOT include the command (argv[0])
+// Args should NOT include the command (argv[0]).
 func NewArgParser(ctx context.Context, args []string) *ArgParser {
 	return &ArgParser{
 		lg:   logkc.LogFromContext(ctx),
@@ -375,7 +375,7 @@ func (ap *ArgParser) ReplaceOutputPath(newPath string) error {
 
 // ReplaceInputPath replaces the input path (the path after the action opt)
 // with a new path.
-// If the new input path is '-', this function adds '-x <language>' to the arguments
+// If the new input path is '-', this function adds '-x <language>' to the arguments.
 func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 	if ap.InputArgIndex != -1 {
 		old := ap.Args[ap.InputArgIndex]
@@ -430,7 +430,7 @@ func (ap *ArgParser) ConfigurePreprocessorOptions() {
 // RemoveLocalArgs removes arguments that do not need to be
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
-// It also adds -fpreprocessed
+// It also adds -fpreprocessed.
 func (ap *ArgParser) RemoveLocalArgs() {
 	newArgs := []string{}
 	for i := 0; i < len(ap.Args); i++ {

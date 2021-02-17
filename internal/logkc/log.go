@@ -45,8 +45,6 @@ var (
 		zapkc.Red,
 		zapkc.Red,
 	}
-
-	globalLog *zap.SugaredLogger
 )
 
 func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -76,10 +74,6 @@ func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		copy(buf[2:len(buf)-1], text)
 		enc.AppendByteString(buf)
 	}
-}
-
-func formatLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
-	enc.AppendString(l.CapitalString()[:4])
 }
 
 type LogOptions struct {
@@ -171,15 +165,19 @@ func NewFromContext(
 	return ContextWithLog(ctx, s)
 }
 
+type logContextKeyType struct{}
+
+var logContextKey logContextKeyType
+
 func ContextWithLog(
 	ctx context.Context,
 	log *zap.SugaredLogger,
 ) context.Context {
-	return context.WithValue(ctx, "log", log)
+	return context.WithValue(ctx, logContextKey, log)
 }
 
 func LogFromContext(ctx context.Context) *zap.SugaredLogger {
-	if log, ok := ctx.Value("log").(*zap.SugaredLogger); ok {
+	if log, ok := ctx.Value(logContextKey).(*zap.SugaredLogger); ok {
 		return log
 	}
 	panic("No logger stored in the given context")

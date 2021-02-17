@@ -16,7 +16,7 @@ import (
 type AgentInfoKeyType string
 
 var (
-	// AgentInfoKey is a context value key containing AgentInfo data
+	// AgentInfoKey is a context value key containing AgentInfo data.
 	AgentInfoKey AgentInfoKeyType = "kubecc_agent_info"
 )
 
@@ -30,7 +30,7 @@ func MakeAgentInfo() *types.AgentInfo {
 }
 
 // NewAgentContext creates a new cancellable context with
-// embedded system info and values from the downward API
+// embedded system info and values from the downward API.
 func NewAgentContext() context.Context {
 	json, err := json.Marshal(MakeAgentInfo())
 	if err != nil {

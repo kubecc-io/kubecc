@@ -41,7 +41,6 @@ func (s *schedulerServer) Compile(
 	}
 	return s.scheduler.Schedule(
 		logkc.ContextWithLog(sctx, s.lg), req)
-
 }
 
 func (s *schedulerServer) ConnectAgent(

@@ -15,7 +15,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/resolvers"
 )
 
-// BuildClusterReconciler reconciles a BuildCluster object
+// BuildClusterReconciler reconciles a BuildCluster object.
 type BuildClusterReconciler struct {
 	client.Client
 	Log         *zap.SugaredLogger

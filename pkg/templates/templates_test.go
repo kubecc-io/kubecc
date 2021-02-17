@@ -154,8 +154,8 @@ line 3`,
 			It("should convert spec fields to YAML", func() {
 				By("using the toYaml function")
 				type structField struct {
-					StrTest         string       `json:"strTest,omitEmpty"`
-					NumTest         int          `json:"numTest,omitEmpty"`
+					StrTest         string       `json:"strTest,omitempty"`
+					NumTest         int          `json:"numTest,omitempty"`
 					StringSliceTest []string     `json:"stringSliceTest"`
 					NestedStruct    *structField `json:"nestedStruct"`
 				}
