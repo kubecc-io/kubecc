@@ -29,13 +29,13 @@ func TestIntegration(t *testing.T) {
 
 	lg := logkc.LogFromContext(ctx)
 
-	numTasks := 1000
+	numTasks := 200
 	localJobs := 100
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(1800)+200)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(5800)+1200)},
 			UID:      1000,
 			GID:      1000,
 		}
