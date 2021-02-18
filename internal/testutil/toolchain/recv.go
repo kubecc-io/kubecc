@@ -5,6 +5,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
@@ -18,18 +19,22 @@ func (m recvRemoteRunnerManager) Run(
 	request interface{},
 ) (response interface{}, err error) {
 	lg := logkc.LogFromContext(ctx.ServerContext)
-	lg.Info("=> Receiving remote")
+	tracer := tracing.TracerFromContext(ctx.ServerContext)
 
-	span, _ := opentracing.StartSpanFromContext(ctx.ClientContext, "run-recv")
+	lg.Info("=> Receiving remote")
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx.ClientContext, tracer, "run-recv")
 	defer span.Finish()
 	req := request.(*types.CompileRequest)
 	ap := testutil.TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
-	task := run.NewTask(ctx.ClientContext, &testtoolchain.SleepRunner{
-		Duration: ap.Duration,
-	}, req.GetToolchain())
+	task := run.NewTask(
+		tracing.ContextWithTracer(sctx, tracer),
+		&testtoolchain.SleepRunner{
+			Duration: ap.Duration,
+		}, req.GetToolchain())
 	err = x.Exec(task)
 	if err != nil {
 		panic(err)

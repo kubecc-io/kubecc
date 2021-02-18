@@ -14,8 +14,10 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
+	"github.com/opentracing/opentracing-go"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -25,14 +27,18 @@ import (
 const bufSize = 1024 * 1024
 
 type TestController struct {
-	Consumers []types.ConsumerdClient
-
+	Consumers      []types.ConsumerdClient
+	ctx            context.Context
+	cancel         context.CancelFunc
 	agentListeners map[types.AgentID]*bufconn.Listener
 	schedListener  *bufconn.Listener
 }
 
-func NewTestController() *TestController {
+func NewTestController(ctx context.Context) *TestController {
+	ctx, cancel := context.WithCancel(ctx)
 	return &TestController{
+		ctx:            ctx,
+		cancel:         cancel,
 		agentListeners: make(map[types.AgentID]*bufconn.Listener),
 		Consumers:      []types.ConsumerdClient{},
 	}
@@ -42,7 +48,7 @@ func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
 	info, _ := cluster.AgentInfoFromContext(ctx)
 	id, _ := info.AgentID()
 	listener := tc.agentListeners[id]
-	_, cc := dial(context.Background(), listener)
+	_, cc := dial(ctx, listener)
 	return types.NewAgentClient(cc), nil
 }
 
@@ -62,12 +68,17 @@ func dial(
 	return ctx, cc
 }
 
-func (tc *TestController) runAgent() {
-	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent,
+func (tc *TestController) runAgent(cfg *types.CpuConfig) {
+	ctx := logkc.NewWithContext(
+		cluster.ContextWithAgentInfo(
+			tc.ctx, cluster.MakeAgentInfo()), types.Agent,
 		logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
 	)
+	lg := logkc.LogFromContext(ctx)
 	info := cluster.MakeAgentInfo()
 	ctx = cluster.ContextWithAgentInfo(ctx, info)
+	tracer, closer := tracing.Start(ctx, types.Agent)
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 	srv := servers.NewServer(ctx)
 
 	listener := bufconn.Listen(bufSize)
@@ -77,11 +88,7 @@ func (tc *TestController) runAgent() {
 	client := types.NewSchedulerClient(cc)
 	agentSrv := agent.NewAgentServer(ctx,
 		agent.WithSchedulerClient(client),
-		agent.WithCpuConfig(&types.CpuConfig{
-			MaxRunningProcesses:    4,
-			QueuePressureThreshold: 1.0,
-			QueueRejectThreshold:   2.0,
-		}),
+		agent.WithCpuConfig(cfg),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
@@ -90,26 +97,41 @@ func (tc *TestController) runAgent() {
 	types.RegisterAgentServer(srv, agentSrv)
 
 	go agentSrv.RunSchedulerClient(ctx)
-	go srv.Serve(listener)
+	go func() {
+		defer closer.Close()
+		if err := srv.Serve(listener); err != nil {
+			lg.Info(err)
+		}
+	}()
 }
 
 func (tc *TestController) runScheduler() {
-	ctx := logkc.NewFromContext(context.Background(), types.Scheduler,
+	ctx := logkc.NewWithContext(tc.ctx, types.Scheduler,
 		logkc.WithName("a"),
 	)
+	lg := logkc.LogFromContext(ctx)
+	tracer, closer := tracing.Start(ctx, types.Scheduler)
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 
 	sc := scheduler.NewSchedulerServer(ctx, scheduler.WithAgentDialer(tc))
 	types.RegisterSchedulerServer(srv, sc)
-	go srv.Serve(tc.schedListener)
+	go func() {
+		defer closer.Close()
+		if err := srv.Serve(tc.schedListener); err != nil {
+			lg.Info(err)
+		}
+	}()
 }
 
-func (tc *TestController) runConsumerd() {
-	ctx := logkc.NewFromContext(context.Background(), types.Consumerd,
+func (tc *TestController) runConsumerd(cfg *types.CpuConfig) {
+	ctx := logkc.NewWithContext(tc.ctx, types.Consumerd,
 		logkc.WithName(string(rune('a'+len(tc.Consumers)))),
 	)
 	lg := logkc.LogFromContext(ctx)
+	tracer, closer := tracing.Start(ctx, types.Consumerd)
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 	ctx, cc := dial(ctx, tc.schedListener)
@@ -119,11 +141,7 @@ func (tc *TestController) runConsumerd() {
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		consumerd.WithCpuConfig(&types.CpuConfig{
-			MaxRunningProcesses:    4,
-			QueuePressureThreshold: 1.0,
-			QueueRejectThreshold:   2.0,
-		}),
+		consumerd.WithCpuConfig(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithSchedulerClient(client, cc),
 	)
@@ -149,12 +167,17 @@ func (tc *TestController) runConsumerd() {
 	_, cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)
 	tc.Consumers = append(tc.Consumers, cdClient)
-	go srv.Serve(listener)
+	go func() {
+		defer closer.Close()
+		if err := srv.Serve(listener); err != nil {
+			lg.Info(err)
+		}
+	}()
 }
 
 type TestOptions struct {
-	NumClients int
-	NumAgents  int
+	Clients []*types.CpuConfig
+	Agents  []*types.CpuConfig
 }
 
 func (tc *TestController) Start(ops TestOptions) {
@@ -162,15 +185,26 @@ func (tc *TestController) Start(ops TestOptions) {
 	viper.Set("arch", "amd64")
 	viper.Set("namespace", "test-namespace")
 
+	tracer, _ := tracing.Start(tc.ctx, types.TestComponent)
+	opentracing.SetGlobalTracer(tracer)
+
 	tc.runScheduler()
-	for i := 0; i < ops.NumAgents; i++ {
+	for i, cfg := range ops.Agents {
 		viper.Set("node", fmt.Sprintf("test-node-%d", i))
 		viper.Set("pod", fmt.Sprintf("test-pod-%d", i))
-		tc.runAgent()
+		tc.runAgent(cfg)
 	}
-	for i := 0; i < ops.NumClients; i++ {
-		tc.runConsumerd()
+	for _, cfg := range ops.Clients {
+		tc.runConsumerd(cfg)
 	}
+}
+
+func (tc *TestController) Teardown() {
+	tc.schedListener.Close()
+	for _, v := range tc.agentListeners {
+		v.Close()
+	}
+	tc.cancel()
 }
 
 func (tc *TestController) Wait() {

@@ -207,7 +207,7 @@ func (q mockQuerier) ModTime(compiler string) (time.Time, error) {
 }
 
 func TestFindToolchains(t *testing.T) {
-	ctx := logkc.NewFromContext(context.Background(), types.TestComponent)
+	ctx := logkc.NewWithContext(context.Background(), types.TestComponent)
 
 	fs := fstest.MapFS{
 		// "usr/bin/gcc":                     sym("gcc-10"),

@@ -2,7 +2,9 @@ package run
 
 import (
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/opentracing/opentracing-go"
 	"go.uber.org/atomic"
 )
 
@@ -73,12 +75,18 @@ func (x *QueuedExecutor) Exec(
 		op(&options)
 	}
 
+	tracer := tracing.TracerFromContext(task.ctx)
+	span, _ := opentracing.StartSpanFromContextWithTracer(task.ctx, tracer, "queue")
+
 	x.numRunning.Inc()
 	x.taskQueue <- task
+	span.Finish()
+
 	select {
 	case <-task.Done():
 	case <-task.ctx.Done():
 	}
+
 	x.numRunning.Dec()
 	return task.Error()
 }

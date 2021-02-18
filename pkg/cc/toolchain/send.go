@@ -12,6 +12,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/tools"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -64,7 +65,9 @@ func runPreprocessor(
 	ap *cc.ArgParser,
 	req *types.RunRequest,
 ) ([]byte, *types.RunResponse) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "preprocess")
+	tracer := tracing.TracerFromContext(ctx)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx, tracer, "preprocess")
 	defer span.Finish()
 	lg := logkc.LogFromContext(ctx)
 
@@ -73,7 +76,7 @@ func runPreprocessor(
 	stderrBuf := new(bytes.Buffer)
 
 	runner := cc.NewPreprocessRunner(ap,
-		run.WithContext(logkc.ContextWithLog(ctx, lg)),
+		run.WithContext(logkc.ContextWithLog(sctx, lg)),
 		run.WithEnv(req.Env),
 		run.WithOutputWriter(outBuf),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),
@@ -81,7 +84,7 @@ func runPreprocessor(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	if err := runner.Run(ctx, req.GetToolchain()); err != nil {
+	if err := runner.Run(sctx, req.GetToolchain()); err != nil {
 		stderr := stderrBuf.Bytes()
 		lg.With(
 			zap.Error(err),
@@ -102,7 +105,9 @@ func (r sendRemoteRunnerManager) Run(
 	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
-	span, sctx := opentracing.StartSpanFromContext(ctx.ClientContext, "run-remote")
+	tracer := tracing.TracerFromContext(ctx.ServerContext)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx.ClientContext, tracer, "run-remote")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 	lg := logkc.LogFromContext(ctx.ServerContext)
@@ -115,7 +120,7 @@ func (r sendRemoteRunnerManager) Run(
 	lg.Debug("Preprocessing")
 	ap.SetActionOpt(cc.Preprocess)
 	preprocessedSource, errResp := runPreprocessor(
-		logkc.ContextWithLog(sctx, lg),
+		tracing.ContextWithTracer(logkc.ContextWithLog(sctx, lg), tracer),
 		ap,
 		req,
 	)
@@ -145,7 +150,9 @@ func (r sendRemoteRunnerManager) Run(
 		run.WithStdin(bytes.NewReader(preprocessedSource)),
 		run.WithOutputVar(resp),
 	)
-	task := run.NewTask(ctx.ClientContext, runner, req.GetToolchain())
+	task := run.NewTask(
+		tracing.ContextWithTracer(sctx, tracer),
+		runner, req.GetToolchain())
 	err := executor.Exec(task)
 
 	if err != nil {

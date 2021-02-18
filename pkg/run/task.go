@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
@@ -19,10 +20,12 @@ func (t *Task) Run() {
 	if t == nil {
 		return
 	}
-	span, _ := opentracing.StartSpanFromContext(t.ctx, "task-run")
+	tracer := tracing.TracerFromContext(t.ctx)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		t.ctx, tracer, "task-run")
 	defer span.Finish()
 	defer close(t.doneCh)
-	t.err = t.runner.Run(t.ctx, t.tc)
+	t.err = t.runner.Run(sctx, t.tc)
 }
 
 func (t *Task) Done() <-chan struct{} {

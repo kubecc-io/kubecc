@@ -188,7 +188,7 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
 				s.lg.Error(err)
 			}
 		case err := <-streamClosed:
-			s.lg.With(zap.Error(err)).Error("Connection lost. Reconnecting in 5 seconds...")
+			s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
 			time.Sleep(5 * time.Second)
 		}
 	}
