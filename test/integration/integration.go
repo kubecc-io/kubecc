@@ -28,14 +28,12 @@ type TestController struct {
 	Consumers []types.ConsumerdClient
 
 	agentListeners map[types.AgentID]*bufconn.Listener
-	cdListeners    []*bufconn.Listener
 	schedListener  *bufconn.Listener
 }
 
 func NewTestController() *TestController {
 	return &TestController{
 		agentListeners: make(map[types.AgentID]*bufconn.Listener),
-		cdListeners:    []*bufconn.Listener{},
 		Consumers:      []types.ConsumerdClient{},
 	}
 }
@@ -109,36 +107,48 @@ func (tc *TestController) runScheduler() {
 
 func (tc *TestController) runConsumerd() {
 	ctx := logkc.NewFromContext(context.Background(), types.Consumerd,
-		logkc.WithName(string(rune('a'+len(tc.cdListeners)))),
+		logkc.WithName(string(rune('a'+len(tc.Consumers)))),
 	)
+	lg := logkc.LogFromContext(ctx)
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
+	ctx, cc := dial(ctx, tc.schedListener)
+	client := types.NewSchedulerClient(cc)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
+		consumerd.WithCpuConfig(&types.CpuConfig{
+			MaxRunningProcesses:    4,
+			QueuePressureThreshold: 1.0,
+			QueueRejectThreshold:   2.0,
+		}),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
+		consumerd.WithSchedulerClient(client, cc),
 	)
 	types.RegisterConsumerdServer(srv, d)
 
+	ready := make(chan struct{})
+
 	go func() {
-		ctx, cc := dial(ctx, tc.schedListener)
-		client := types.NewSchedulerClient(cc)
-		c, err := client.ConnectConsumerd(ctx)
+		c, err := client.ConnectConsumerd(ctx, grpc.WaitForReady(true))
 		if err != nil {
 			panic(err)
 		}
+		close(ready)
 		select {
 		case <-ctx.Done():
 		case <-c.Context().Done():
 		}
 	}()
 
-	_, cc := dial(ctx, listener)
-	client := types.NewConsumerdClient(cc)
-	tc.Consumers = append(tc.Consumers, client)
+	<-ready
+	lg.Info(types.Consumerd.Color().Add("Connected to the scheduler"))
 
+	_, cdListener := dial(ctx, listener)
+	cdClient := types.NewConsumerdClient(cdListener)
+	tc.Consumers = append(tc.Consumers, cdClient)
 	go srv.Serve(listener)
 }
 

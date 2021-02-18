@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/cpuconfig"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -40,8 +41,11 @@ type consumerdServer struct {
 }
 
 type ConsumerdServerOptions struct {
-	toolchainFinders []toolchains.FinderWithOptions
-	toolchainRunners []run.StoreAddFunc
+	toolchainFinders    []toolchains.FinderWithOptions
+	toolchainRunners    []run.StoreAddFunc
+	schedulerClient     types.SchedulerClient
+	schedulerConnection *grpc.ClientConn
+	cpuConfig           *types.CpuConfig
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -64,6 +68,22 @@ func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
 	}
 }
 
+func WithSchedulerClient(
+	client types.SchedulerClient,
+	cc *grpc.ClientConn,
+) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.schedulerClient = client
+		o.schedulerConnection = cc
+	}
+}
+
+func WithCpuConfig(cpuConfig *types.CpuConfig) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.cpuConfig = cpuConfig
+	}
+}
+
 func NewConsumerdServer(
 	ctx context.Context,
 	opts ...consumerdServerOption,
@@ -77,19 +97,28 @@ func NewConsumerdServer(
 	}
 	options.Apply(opts...)
 
+	if options.cpuConfig == nil {
+		options.cpuConfig = cpuconfig.Default()
+	}
+
 	runStore := run.NewToolchainRunnerStore()
 	for _, add := range options.toolchainRunners {
 		add(runStore)
 	}
-	return &consumerdServer{
+	srv := &consumerdServer{
 		srvContext:     ctx,
 		lg:             logkc.LogFromContext(ctx),
 		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:     runStore,
-		localExecutor:  run.NewQueuedExecutor(),
+		localExecutor:  run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
 		remoteOnly:     viper.GetBool("remoteOnly"),
 	}
+	if options.schedulerClient != nil {
+		srv.schedulerClient = options.schedulerClient
+		srv.connection = options.schedulerConnection
+	}
+	return srv
 }
 
 func (c *consumerdServer) schedulerConnected() bool {
@@ -162,29 +191,27 @@ func (c *consumerdServer) Run(
 			"UID or GID cannot be 0")
 	}
 
-	info := cc.NewArgParser(c.srvContext, req.Args)
-	info.Parse()
-
-	mode := info.Mode
-
-	if !c.schedulerConnected() {
-		c.lg.Info("Running local, scheduler disconnected")
-		mode = cc.RunLocal
-	}
-	if !c.remoteOnly && c.localExecutor.Status() == types.Available {
-		c.lg.Info("Running local, not at capacity yet")
-		mode = cc.RunLocal
-	}
-
 	runner, err := c.tcRunStore.Get(req.GetToolchain().Kind)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable,
 			"No toolchain runner available")
 	}
 
-	switch mode {
-	case cc.RunLocal:
-		resp, err := runner.RunLocal(info).Run(run.Contexts{
+	ap := runner.NewArgParser(c.srvContext, req.Args)
+	ap.Parse()
+
+	canRunRemote := ap.CanRunRemote()
+	if !c.schedulerConnected() {
+		c.lg.Info("Running local, scheduler disconnected")
+		canRunRemote = false
+	}
+	if !c.remoteOnly && c.localExecutor.Status() == types.Available {
+		c.lg.Info("Running local, not at capacity yet")
+		canRunRemote = false
+	}
+
+	if !canRunRemote {
+		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.localExecutor, req)
@@ -192,8 +219,8 @@ func (c *consumerdServer) Run(
 			return nil, err
 		}
 		return resp.(*types.RunResponse), nil
-	case cc.RunRemote:
-		resp, err := runner.RunLocal(info).Run(run.Contexts{
+	} else {
+		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: sctx,
 		}, c.remoteExecutor, req)
@@ -201,10 +228,6 @@ func (c *consumerdServer) Run(
 			return nil, err
 		}
 		return resp.(*types.RunResponse), nil
-	case cc.Unset:
-		return nil, status.Error(codes.Internal, "Encountered RunError state")
-	default:
-		return nil, status.Error(codes.Internal, "Encountered unknown state")
 	}
 }
 

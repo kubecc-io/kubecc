@@ -26,15 +26,19 @@ func TestIntegration(t *testing.T) {
 		logkc.WithName("-"))
 	lg := logkc.LogFromContext(ctx)
 
-	for _, c := range tc.Consumers {
-		_, err := c.Run(ctx, &types.RunRequest{
-			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     strings.Split("-duration 1s", " "),
-			UID:      1000,
-			GID:      1000,
-		})
-		if err != nil {
-			lg.Error(err)
+	for i := 0; i < 50; i++ {
+		for _, c := range tc.Consumers {
+			go func(cd types.ConsumerdClient) {
+				_, err := cd.Run(ctx, &types.RunRequest{
+					Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
+					Args:     strings.Split("-duration 1s", " "),
+					UID:      1000,
+					GID:      1000,
+				})
+				if err != nil {
+					lg.Error(err)
+				}
+			}(c)
 		}
 	}
 

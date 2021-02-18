@@ -116,6 +116,10 @@ type ArgParser struct {
 	FlagIndexMap   map[string]int
 }
 
+func (ap ArgParser) CanRunRemote() bool {
+	return ap.Mode == RunRemote
+}
+
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args.
 func NewArgParserFromOS(ctx context.Context) *ArgParser {
 	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy

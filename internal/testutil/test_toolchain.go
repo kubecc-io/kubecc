@@ -2,9 +2,9 @@ package testutil
 
 import (
 	"context"
+	"flag"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -48,33 +48,39 @@ func (f TestToolchainFinder) FindToolchains(
 	return store
 }
 
+// SleepRunner will sleep for (probably slightly more than) the given duration.
+// This runner will "pause time" to a granularity of 1/100th the total duration
+// while its goroutine is paused (i.e. while debugging at a breakpoint) by
+// chaining multiple small timers in sequence instead of using one timer.
 type SleepRunner struct {
 	Duration time.Duration
 }
 
 func (r *SleepRunner) Run(_ context.Context, _ *types.Toolchain) error {
-	time.Sleep(r.Duration)
+	for i := 0; i < 100; i++ {
+		time.Sleep(r.Duration / 100)
+	}
 	return nil
 }
 
-type TestRunnerManager struct {
-	Executor run.Executor
+type TestArgParser struct {
+	Args     []string
+	Duration time.Duration
 }
-type TestRunRequest struct {
-	Toolchain *types.Toolchain
-	Duration  time.Duration
-}
-type TestRunResponse struct{}
 
-func (r *TestRunnerManager) Run(
-	ctx run.Contexts,
-	x run.Executor,
-	request interface{},
-) (response interface{}, err error) {
-	req := request.(*TestRunRequest)
-	task := run.NewTask(ctx.ClientContext, &SleepRunner{
-		Duration: req.Duration,
-	}, req.Toolchain)
-	err = x.Exec(task)
-	return &TestRunResponse{}, err
+func (ap *TestArgParser) Parse() {
+	var duration string
+	set := flag.NewFlagSet("test", flag.PanicOnError)
+	set.StringVar(&duration, "duration", "1s", "")
+	set.Parse(ap.Args)
+
+	d, err := time.ParseDuration(duration)
+	if err != nil {
+		panic(err)
+	}
+	ap.Duration = d
+}
+
+func (TestArgParser) CanRunRemote() bool {
+	return true
 }
