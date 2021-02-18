@@ -1,6 +1,8 @@
 package toolchain
 
 import (
+	"context"
+
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -8,13 +10,13 @@ import (
 
 type CCToolchainRunner struct{}
 
-func (r *CCToolchainRunner) RunLocal(ap run.ArgParserTodo) run.RunnerManager {
+func (r *CCToolchainRunner) RunLocal(ap run.ArgParser) run.RunnerManager {
 	return &localRunnerManager{
 		ArgParser: ap.(*cc.ArgParser),
 	}
 }
 
-func (r *CCToolchainRunner) SendRemote(ap run.ArgParserTodo, client types.SchedulerClient) run.RunnerManager {
+func (r *CCToolchainRunner) SendRemote(ap run.ArgParser, client types.SchedulerClient) run.RunnerManager {
 	return &sendRemoteRunnerManager{
 		ArgParser:       ap.(*cc.ArgParser),
 		schedulerClient: client,
@@ -23,6 +25,10 @@ func (r *CCToolchainRunner) SendRemote(ap run.ArgParserTodo, client types.Schedu
 
 func (r *CCToolchainRunner) RecvRemote() run.RunnerManager {
 	return &recvRemoteRunnerManager{}
+}
+
+func (r *CCToolchainRunner) NewArgParser(ctx context.Context, args []string) run.ArgParser {
+	return cc.NewArgParser(ctx, args)
 }
 
 func AddToStore(store *run.ToolchainRunnerStore) {

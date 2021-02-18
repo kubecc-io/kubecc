@@ -38,10 +38,12 @@ func WithCpuConfig(cfg *types.CpuConfig) ExecutorOption {
 }
 
 func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
-	options := ExecutorOptions{
-		cpuConfig: cpuconfig.Default(),
-	}
+	options := ExecutorOptions{}
 	options.Apply(opts...)
+	if options.cpuConfig == nil {
+		options.cpuConfig = cpuconfig.Default()
+	}
+
 	queue := make(chan *Task)
 	s := &QueuedExecutor{
 		ExecutorOptions: options,
@@ -58,6 +60,7 @@ func NewUnqueuedExecutor() *UnqueuedExecutor {
 }
 
 func (x *QueuedExecutor) SetCpuConfig(cfg *types.CpuConfig) {
+	x.cpuConfig = cfg
 	go x.workerPool.SetWorkerCount(int(cfg.GetMaxRunningProcesses()))
 }
 
@@ -70,8 +73,8 @@ func (x *QueuedExecutor) Exec(
 		op(&options)
 	}
 
-	x.taskQueue <- task
 	x.numRunning.Inc()
+	x.taskQueue <- task
 	select {
 	case <-task.Done():
 	case <-task.ctx.Done():
