@@ -3,6 +3,7 @@ package toolchain
 import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
@@ -17,12 +18,15 @@ func (m sendRemoteRunnerManager) Run(
 	request interface{},
 ) (response interface{}, err error) {
 	lg := logkc.LogFromContext(ctx.ServerContext)
+	tracer := tracing.TracerFromContext(ctx.ServerContext)
+
 	lg.Info("Sending remote")
-	span, _ := opentracing.StartSpanFromContext(ctx.ClientContext, "run-send")
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx.ClientContext, tracer, "run-send")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 
-	_, err = m.client.Compile(ctx.ClientContext, &types.CompileRequest{
+	_, err = m.client.Compile(sctx, &types.CompileRequest{
 		Toolchain: req.GetToolchain(),
 		Args:      req.Args,
 	})

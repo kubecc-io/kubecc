@@ -20,19 +20,15 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(context.Background(), types.Consumerd,
+	ctx := logkc.NewWithContext(context.Background(), types.Consumerd,
 		logkc.WithLogLevel(zapcore.DebugLevel),
 	)
 	logkc.PrintHeader()
 
 	consumer.InitConfig()
-	closer, err := tracing.Start(types.Consumerd)
-	if err != nil {
-		lg.With(zap.Error(err)).Warn("Could not start tracing")
-	} else {
-		lg.Info("Tracing started successfully")
-		defer closer.Close()
-	}
+	tracer, closer := tracing.Start(ctx, types.Consumerd)
+	defer closer.Close()
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainRunners(cctoolchain.AddToStore))

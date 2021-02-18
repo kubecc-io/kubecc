@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var ctx = logkc.NewFromContext(context.Background(), types.TestComponent)
+var ctx = logkc.NewWithContext(context.Background(), types.TestComponent)
 
 func BenchmarkParse(b *testing.B) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")

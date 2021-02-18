@@ -16,17 +16,13 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent)
+	ctx := logkc.NewWithContext(cluster.NewAgentContext(), types.Agent)
 	lg = logkc.LogFromContext(ctx)
 
 	logkc.PrintHeader()
-	closer, err := tracing.Start(types.Agent)
-	if err != nil {
-		lg.With(zap.Error(err)).Warn("Could not start tracing")
-	} else {
-		lg.Info("Tracing started successfully")
-		defer closer.Close()
-	}
+	tracer, closer := tracing.Start(ctx, types.Agent)
+	defer closer.Close()
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 
 	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", ":9090")

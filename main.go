@@ -53,7 +53,7 @@ func init() {
 }
 
 func main() {
-	logkc.NewFromContext(context.Background(), types.Controller)
+	logkc.NewWithContext(context.Background(), types.Controller)
 	logkc.PrintHeader()
 
 	var (

@@ -5,9 +5,9 @@ import (
 	"crypto/tls"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
-	"github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding/gzip"
 
@@ -87,7 +87,7 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 
 	options.Apply(opts...)
 	interceptors := []grpc.UnaryServerInterceptor{
-		otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer()),
+		otgrpc.OpenTracingServerInterceptor(tracing.TracerFromContext(ctx)),
 	}
 	if options.AgentInfo != nil {
 		interceptors = append(interceptors, ServerAgentContextInterceptor())
@@ -107,7 +107,7 @@ func Dial(
 	options := GRPCOptions{}
 	options.Apply(opts...)
 	interceptors := []grpc.UnaryClientInterceptor{
-		otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer()),
+		otgrpc.OpenTracingClientInterceptor(tracing.TracerFromContext(ctx)),
 	}
 	if options.AgentInfo != nil {
 		interceptors = append(interceptors,

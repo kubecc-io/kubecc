@@ -134,7 +134,7 @@ func WithName(name string) logOption {
 	}
 }
 
-func NewFromContext(
+func NewWithContext(
 	ctx context.Context,
 	component types.Component,
 	ops ...logOption,

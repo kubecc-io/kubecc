@@ -16,7 +16,7 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(context.Background(), types.Consumer,
+	ctx := logkc.NewWithContext(context.Background(), types.Consumer,
 		logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
 		logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 	)

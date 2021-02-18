@@ -170,8 +170,9 @@ func (c *consumerdServer) Run(
 	if err != nil {
 		return nil, err
 	}
+	tracer := tracing.TracerFromContext(c.srvContext)
 
-	rootContext := ctx
+	rootContext := tracing.ContextWithTracer(ctx, tracer)
 	for _, env := range req.Env {
 		spl := strings.Split(env, "=")
 		if len(spl) == 2 && spl[0] == "KUBECC_MAKE_PID" {
@@ -180,10 +181,12 @@ func (c *consumerdServer) Run(
 				c.lg.Debug("Invalid value for KUBECC_MAKE_PID, should be a number")
 				break
 			}
-			rootContext = tracing.PIDSpanContext(pid)
+			rootContext = tracing.PIDSpanContext(tracer, pid)
 		}
 	}
-	span, sctx := opentracing.StartSpanFromContext(rootContext, "run")
+
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		rootContext, tracer, "run")
 	defer span.Finish()
 
 	if req.UID == 0 || req.GID == 0 {

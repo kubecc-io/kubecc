@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -13,8 +14,9 @@ import (
 type schedulerServer struct {
 	types.SchedulerServer
 
-	lg        *zap.SugaredLogger
-	scheduler *Scheduler
+	srvContext context.Context
+	lg         *zap.SugaredLogger
+	scheduler  *Scheduler
 }
 
 func NewSchedulerServer(
@@ -22,8 +24,9 @@ func NewSchedulerServer(
 	opts ...schedulerOption,
 ) *schedulerServer {
 	srv := &schedulerServer{
-		scheduler: NewScheduler(ctx, opts...),
-		lg:        logkc.LogFromContext(ctx),
+		srvContext: ctx,
+		lg:         logkc.LogFromContext(ctx),
+		scheduler:  NewScheduler(ctx, opts...),
 	}
 	return srv
 }
@@ -32,7 +35,9 @@ func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	span, sctx := opentracing.StartSpanFromContext(ctx, "schedule-compile")
+	tracer := tracing.TracerFromContext(s.srvContext)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx, tracer, "schedule-compile")
 	defer span.Finish()
 
 	peer, ok := peer.FromContext(ctx)
@@ -48,7 +53,8 @@ func (s *schedulerServer) ConnectAgent(
 ) error {
 	lg := s.lg
 	ctx := srv.Context()
-	if err := s.scheduler.AgentConnected(ctx); err != nil {
+	tracer := tracing.TracerFromContext(s.srvContext)
+	if err := s.scheduler.AgentConnected(tracing.ContextWithTracer(ctx, tracer)); err != nil {
 		return err
 	}
 
