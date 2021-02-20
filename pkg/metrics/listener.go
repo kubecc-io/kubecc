@@ -43,32 +43,32 @@ func NewListener(ctx context.Context) *Listener {
 }
 
 func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid string)) {
-	l.OnValueChanged(
-		builtin.ProvidersKey, builtin.ProvidersValue, func(val interface{}) {
-			providers := val.(*builtin.Providers)
-			for uuid := range providers.Items {
-				if _, ok := l.knownProviders[uuid]; !ok {
-					pctx, cancel := context.WithCancel(context.Background())
-					l.knownProviders[uuid] = cancel
-					go handler(pctx, uuid)
-				}
+	l.OnValueChanged(&types.Key{
+		Bucket: builtin.Bucket,
+		Name:   builtin.ProvidersKey,
+	}, builtin.ProvidersValue, func(val interface{}) {
+		providers := val.(*builtin.Providers)
+		for uuid := range providers.Items {
+			if _, ok := l.knownProviders[uuid]; !ok {
+				pctx, cancel := context.WithCancel(context.Background())
+				l.knownProviders[uuid] = cancel
+				go handler(pctx, uuid)
 			}
-			for uuid, cancel := range l.knownProviders {
-				if _, ok := providers.Items[uuid]; !ok {
-					defer delete(l.knownProviders, uuid)
-					cancel()
-				}
+		}
+		for uuid, cancel := range l.knownProviders {
+			if _, ok := providers.Items[uuid]; !ok {
+				defer delete(l.knownProviders, uuid)
+				cancel()
 			}
-		})
+		}
+	})
 }
 
-func (l *Listener) OnValueChanged(key string, expected msgp.Decodable, handler func(interface{})) {
+func (l *Listener) OnValueChanged(key *types.Key, expected msgp.Decodable, handler func(interface{})) {
 	go func() {
 		valueType := reflect.TypeOf(expected)
 		for {
-			stream, err := l.monClient.Watch(l.ctx, &types.Key{
-				Data: key,
-			}, grpc.WaitForReady(true))
+			stream, err := l.monClient.Watch(l.ctx, key, grpc.WaitForReady(true))
 			if err != nil {
 				l.lg.With(zap.Error(err)).Debug("Error watching key, retrying in 1 second...")
 				time.Sleep(1)

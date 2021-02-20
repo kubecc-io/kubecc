@@ -23,6 +23,7 @@ type Provider struct {
 }
 
 func NewProvider(ctx context.Context, id *types.Identity) *Provider {
+	ctx = types.ContextWithIdentity(ctx, id)
 	lg := logkc.LogFromContext(ctx)
 	monAddr := viper.GetString("monitorAddr")
 	cc, err := servers.Dial(ctx, monAddr)
@@ -32,7 +33,7 @@ func NewProvider(ctx context.Context, id *types.Identity) *Provider {
 	client := types.NewMonitorClient(cc)
 	go func() {
 		for {
-			stream, err := client.Connect(ctx, id, grpc.WaitForReady(true))
+			stream, err := client.Connect(ctx, &types.Empty{}, grpc.WaitForReady(true))
 			if err != nil {
 				lg.Debug("Could not connect to monitor, retrying in 5 seconds...")
 				time.Sleep(5 * time.Second)
@@ -56,23 +57,25 @@ func NewProvider(ctx context.Context, id *types.Identity) *Provider {
 	}
 }
 
-func (p *Provider) Post(key string, value msgp.Encodable) bool {
+func (p *Provider) Post(key *types.Key, value msgp.Encodable) bool {
 	buf := new(bytes.Buffer)
 	err := value.EncodeMsg(msgp.NewWriter(buf))
 	if err != nil {
 		p.lg.With(
 			zap.Error(err),
-			zap.String("key", key),
+			zap.String("key", key.Canonical()),
 		).Fatal("Encoding error")
 	}
 	_, err = p.monClient.Post(p.ctx, &types.Metric{
-		Key:   key,
-		Value: buf.Bytes(),
+		Key: key,
+		Value: &types.Value{
+			Data: buf.Bytes(),
+		},
 	})
 	if err != nil {
 		p.lg.With(
 			zap.Error(err),
-			zap.String("key", key),
+			zap.String("key", key.Canonical()),
 		).Error("Error posting metric")
 		return false
 	}

@@ -21,18 +21,19 @@ service Scheduler {
 }
 
 service Monitor {
-  rpc Connect(Identity) returns (stream Empty);
+  rpc Connect(Empty) returns (stream Empty);
   rpc Post(Metric) returns (Empty);
   rpc Watch(Key) returns (stream Value);
 }
 
 message Metric {
-  string Key = 1;
-  bytes Value = 2;
+  Key Key = 1;
+  Value Value = 2;
 }
 
 message Key {
-  string Data = 1;
+  string Bucket = 1;
+  string Name = 2;
 }
 
 message Value {
