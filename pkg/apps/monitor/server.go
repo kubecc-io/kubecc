@@ -1,20 +1,23 @@
 package monitor
 
 import (
-	"bytes"
 	"context"
 	"sync"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/metrics/builtin"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type monitorServer struct {
+type Receiver interface {
+	Send(*types.Value) error
+}
+
+type MonitorServer struct {
 	types.MonitorServer
 
 	srvContext context.Context
@@ -22,37 +25,40 @@ type monitorServer struct {
 
 	buckets       map[string]KeyValueStore
 	bucketMutex   *sync.RWMutex
-	listeners     map[string]map[string]types.Monitor_WatchServer
+	listeners     map[string]map[string]Receiver
 	listenerMutex *sync.RWMutex
 
-	providers *builtin.Providers
+	storeCreator StoreCreator
+	providers    *builtin.Providers
 }
 
-func NewMonitorServer(ctx context.Context) types.MonitorServer {
-	return &monitorServer{
+func NewMonitorServer(
+	ctx context.Context,
+	storeCreator StoreCreator,
+) types.MonitorServer {
+	srv := &MonitorServer{
 		srvContext:    ctx,
 		lg:            logkc.LogFromContext(ctx),
 		buckets:       make(map[string]KeyValueStore),
 		bucketMutex:   &sync.RWMutex{},
-		listeners:     make(map[string]map[string]types.Monitor_WatchServer),
+		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
+		storeCreator:  storeCreator,
 		providers:     &builtin.Providers{},
 	}
+	srv.buckets[builtin.Bucket] = storeCreator.NewStore(ctx)
+	srv.providersUpdated()
+	return srv
 }
 
-func (m *monitorServer) encodeProviders() []byte {
+func (m *MonitorServer) encodeProviders() []byte {
 	m.bucketMutex.RLock()
 	defer m.bucketMutex.RUnlock()
-	buf := new(bytes.Buffer)
-	err := m.providers.EncodeMsg(msgp.NewWriter(buf))
-	if err != nil {
-		panic(err)
-	}
-	return buf.Bytes()
+	return tools.EncodeMsgp(m.providers)
 }
 
-// bucketMutex must not be held by the same thread when calling this function
-func (m *monitorServer) providersUpdated() {
+// bucketMutex must not be held by the same thread when calling this function.
+func (m *MonitorServer) providersUpdated() {
 	_, err := m.Post(m.srvContext, &types.Metric{
 		Key: &types.Key{
 			Bucket: builtin.Bucket,
@@ -67,11 +73,11 @@ func (m *monitorServer) providersUpdated() {
 	}
 }
 
-func (m *monitorServer) Connect(
+func (m *MonitorServer) Connect(
 	_ *types.Empty,
 	srv types.Monitor_ConnectServer,
 ) error {
-	id, err := types.IdentityFromContext(srv.Context())
+	id, err := types.IdentityFromIncomingContext(srv.Context())
 	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -81,8 +87,11 @@ func (m *monitorServer) Connect(
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
 	}
-	store := NewInMemoryStore(srv.Context())
+	store := m.storeCreator.NewStore(srv.Context())
 	m.buckets[id.UUID] = store
+	if m.providers.Items == nil {
+		m.providers.Items = make(map[string]int32)
+	}
 	m.providers.Items[id.UUID] = int32(id.Component)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
@@ -97,7 +106,7 @@ func (m *monitorServer) Connect(
 	return nil
 }
 
-func (m *monitorServer) notify(metric *types.Metric) {
+func (m *MonitorServer) notify(metric *types.Metric) {
 	m.listenerMutex.RLock()
 	defer m.listenerMutex.RUnlock()
 
@@ -111,7 +120,7 @@ func (m *monitorServer) notify(metric *types.Metric) {
 	}
 }
 
-func (m *monitorServer) Post(ctx context.Context, metric *types.Metric) (*types.Empty, error) {
+func (m *MonitorServer) Post(ctx context.Context, metric *types.Metric) (*types.Empty, error) {
 	m.bucketMutex.RLock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
@@ -125,8 +134,8 @@ func (m *monitorServer) Post(ctx context.Context, metric *types.Metric) (*types.
 	return &types.Empty{}, nil
 }
 
-func (m *monitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) error {
-	id, err := types.IdentityFromContext(srv.Context())
+func (m *MonitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) error {
+	id, err := types.IdentityFromIncomingContext(srv.Context())
 	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -144,7 +153,7 @@ func (m *monitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) err
 	m.listenerMutex.Lock()
 	canonical := key.Canonical()
 	if m.listeners[canonical] == nil {
-		m.listeners[canonical] = make(map[string]types.Monitor_WatchServer)
+		m.listeners[canonical] = make(map[string]Receiver)
 	}
 	m.listeners[canonical][id.UUID] = srv
 	m.listenerMutex.Unlock()

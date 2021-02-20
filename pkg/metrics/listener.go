@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"reflect"
@@ -10,6 +9,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/metrics/builtin"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 	"github.com/tinylib/msgp/msgp"
@@ -84,7 +84,7 @@ func (l *Listener) OnValueChanged(key *types.Key, expected msgp.Decodable, handl
 					break
 				}
 				typed := reflect.New(valueType).Interface().(msgp.Decodable)
-				err = typed.DecodeMsg(msgp.NewReader(bytes.NewReader(untyped.Data)))
+				err = tools.DecodeMsgp(untyped.Data, typed)
 				if err != nil {
 					l.lg.With(zap.Error(err)).Error("Error decoding value")
 					continue
