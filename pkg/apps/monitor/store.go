@@ -13,44 +13,51 @@ type KeyValueStore interface {
 	CAS(key string, value []byte) bool
 }
 
-type inMemoryStore struct {
+type StoreCreator interface {
+	NewStore(ctx context.Context) KeyValueStore
+}
+
+type InMemoryStore struct {
 	data  map[string][]byte
 	mutex *sync.RWMutex
+	ctx   context.Context
 	sync.Map
 }
 
-func NewInMemoryStore(ctx context.Context) *inMemoryStore {
-	return &inMemoryStore{
+type inMemoryStoreCreator struct{}
+
+var InMemoryStoreCreator inMemoryStoreCreator
+
+func (inMemoryStoreCreator) NewStore(ctx context.Context) KeyValueStore {
+	return &InMemoryStore{
 		data:  make(map[string][]byte),
 		mutex: &sync.RWMutex{},
+		ctx:   ctx,
 	}
 }
 
-func (m *inMemoryStore) Context() context.Context {
-	return m.Context()
+func (m *InMemoryStore) Context() context.Context {
+	return m.ctx
 }
 
-func (m *inMemoryStore) Set(key string, value []byte) {
+func (m *InMemoryStore) Set(key string, value []byte) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data[key] = value
 }
 
-func (m *inMemoryStore) Get(key string) ([]byte, bool) {
+func (m *InMemoryStore) Get(key string) ([]byte, bool) {
 	m.mutex.RLock()
-	m.mutex.RUnlock()
+	defer m.mutex.RUnlock()
 	data, ok := m.data[key]
 	return data, ok
 }
 
-func (m *inMemoryStore) CAS(key string, value []byte) bool {
+func (m *InMemoryStore) CAS(key string, value []byte) bool {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	data, ok := m.data[key]
-	if !ok {
-		return false
-	}
-	if !bytes.Equal(data, value) {
+	if !ok || !bytes.Equal(data, value) {
 		m.data[key] = value
 		return true
 	}

@@ -20,7 +20,20 @@ func (id *Identity) Equal(other *Identity) bool {
 	return id.UUID == other.UUID
 }
 
+type identityKeyType struct{}
+
+var identityKey identityKeyType
+
 func ContextWithIdentity(ctx context.Context, id *Identity) context.Context {
+	return context.WithValue(ctx, identityKey, id)
+}
+
+func IdentityFromContext(ctx context.Context) (*Identity, bool) {
+	id, ok := ctx.Value(identityKey).(*Identity)
+	return id, ok
+}
+
+func OutgoingContextWithIdentity(ctx context.Context, id *Identity) context.Context {
 	data, err := json.Marshal(id)
 	if err != nil {
 		panic(err)
@@ -28,10 +41,10 @@ func ContextWithIdentity(ctx context.Context, id *Identity) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "identity", string(data))
 }
 
-func IdentityFromContext(ctx context.Context) (*Identity, error) {
+func IdentityFromIncomingContext(ctx context.Context) (*Identity, error) {
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
 		values := md.Get("identity")
-		if len(values) == 1 {
+		if len(values) > 0 {
 			id := &Identity{}
 			err := json.Unmarshal([]byte(values[0]), id)
 			return id, err
