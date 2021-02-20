@@ -20,6 +20,30 @@ service Scheduler {
   rpc SystemStatus(Empty) returns (SystemStatusResponse);
 }
 
+service Monitor {
+  rpc Connect(Identity) returns (stream Empty);
+  rpc Post(Metric) returns (Empty);
+  rpc Watch(Key) returns (stream Value);
+}
+
+message Metric {
+  string Key = 1;
+  bytes Value = 2;
+}
+
+message Key {
+  string Data = 1;
+}
+
+message Value {
+  bytes Data = 1;
+}
+
+message Identity {
+  Component Component = 1;
+  string UUID = 2;
+}
+
 message CpuConfig {
   int32 MaxRunningProcesses = 1;
   double QueuePressureThreshold = 2;

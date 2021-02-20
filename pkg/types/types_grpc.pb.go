@@ -516,3 +516,216 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "proto/types.proto",
 }
+
+// MonitorClient is the client API for Monitor service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type MonitorClient interface {
+	Connect(ctx context.Context, in *Identity, opts ...grpc.CallOption) (Monitor_ConnectClient, error)
+	Post(ctx context.Context, in *Metric, opts ...grpc.CallOption) (*Empty, error)
+	Watch(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_WatchClient, error)
+}
+
+type monitorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMonitorClient(cc grpc.ClientConnInterface) MonitorClient {
+	return &monitorClient{cc}
+}
+
+func (c *monitorClient) Connect(ctx context.Context, in *Identity, opts ...grpc.CallOption) (Monitor_ConnectClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[0], "/Monitor/Connect", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &monitorConnectClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Monitor_ConnectClient interface {
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type monitorConnectClient struct {
+	grpc.ClientStream
+}
+
+func (x *monitorConnectClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *monitorClient) Post(ctx context.Context, in *Metric, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Monitor/Post", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *monitorClient) Watch(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[1], "/Monitor/Watch", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &monitorWatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Monitor_WatchClient interface {
+	Recv() (*Value, error)
+	grpc.ClientStream
+}
+
+type monitorWatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *monitorWatchClient) Recv() (*Value, error) {
+	m := new(Value)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// MonitorServer is the server API for Monitor service.
+// All implementations must embed UnimplementedMonitorServer
+// for forward compatibility
+type MonitorServer interface {
+	Connect(*Identity, Monitor_ConnectServer) error
+	Post(context.Context, *Metric) (*Empty, error)
+	Watch(*Key, Monitor_WatchServer) error
+	mustEmbedUnimplementedMonitorServer()
+}
+
+// UnimplementedMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedMonitorServer struct {
+}
+
+func (UnimplementedMonitorServer) Connect(*Identity, Monitor_ConnectServer) error {
+	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+}
+func (UnimplementedMonitorServer) Post(context.Context, *Metric) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Post not implemented")
+}
+func (UnimplementedMonitorServer) Watch(*Key, Monitor_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
+}
+func (UnimplementedMonitorServer) mustEmbedUnimplementedMonitorServer() {}
+
+// UnsafeMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MonitorServer will
+// result in compilation errors.
+type UnsafeMonitorServer interface {
+	mustEmbedUnimplementedMonitorServer()
+}
+
+func RegisterMonitorServer(s grpc.ServiceRegistrar, srv MonitorServer) {
+	s.RegisterService(&Monitor_ServiceDesc, srv)
+}
+
+func _Monitor_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Identity)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MonitorServer).Connect(m, &monitorConnectServer{stream})
+}
+
+type Monitor_ConnectServer interface {
+	Send(*Empty) error
+	grpc.ServerStream
+}
+
+type monitorConnectServer struct {
+	grpc.ServerStream
+}
+
+func (x *monitorConnectServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Monitor_Post_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Metric)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MonitorServer).Post(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Monitor/Post",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MonitorServer).Post(ctx, req.(*Metric))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Monitor_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Key)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(MonitorServer).Watch(m, &monitorWatchServer{stream})
+}
+
+type Monitor_WatchServer interface {
+	Send(*Value) error
+	grpc.ServerStream
+}
+
+type monitorWatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *monitorWatchServer) Send(m *Value) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Monitor_ServiceDesc is the grpc.ServiceDesc for Monitor service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Monitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "Monitor",
+	HandlerType: (*MonitorServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Post",
+			Handler:    _Monitor_Post_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Connect",
+			Handler:       _Monitor_Connect_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Watch",
+			Handler:       _Monitor_Watch_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
