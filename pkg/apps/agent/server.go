@@ -10,6 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -111,6 +112,14 @@ func (s *AgentServer) Compile(
 ) (*types.CompileResponse, error) {
 	s.updateQueueStatus(s.executor.Status())
 
+	span, sctx, err := servers.StartSpanFromServer(
+		ctx, s.srvContext, "compile")
+	if err != nil {
+		s.lg.Error(err)
+	} else {
+		defer span.Finish()
+	}
+
 	runner, err := s.tcRunStore.Get(req.GetToolchain().Kind)
 	if err != nil {
 		return nil, status.Error(codes.Unavailable,
@@ -119,7 +128,7 @@ func (s *AgentServer) Compile(
 
 	resp, err := runner.RecvRemote().Run(run.Contexts{
 		ServerContext: s.srvContext,
-		ClientContext: ctx,
+		ClientContext: sctx,
 	}, s.executor, req)
 	return resp.(*types.CompileResponse), err
 }

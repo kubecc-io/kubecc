@@ -43,7 +43,7 @@ func (r localRunnerManager) Run(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.NewTask(
+	t := run.Begin(
 		tracing.ContextWithTracer(sctx, tracer),
 		runner, req.GetToolchain())
 	err := executor.Exec(t)

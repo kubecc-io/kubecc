@@ -150,7 +150,7 @@ func (r sendRemoteRunnerManager) Run(
 		run.WithStdin(bytes.NewReader(preprocessedSource)),
 		run.WithOutputVar(resp),
 	)
-	task := run.NewTask(
+	task := run.Begin(
 		tracing.ContextWithTracer(sctx, tracer),
 		runner, req.GetToolchain())
 	err := executor.Exec(task)

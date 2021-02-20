@@ -10,7 +10,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -25,10 +24,6 @@ func (r *recvRemoteRunnerManager) Run(
 ) (interface{}, error) {
 	tracer := tracing.TracerFromContext(ctx.ServerContext)
 
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "queue")
-	defer span.Finish()
-
 	req := request.(*types.CompileRequest)
 	lg := logkc.LogFromContext(ctx.ServerContext)
 	ap := cc.NewArgParser(ctx.ServerContext, req.Args)
@@ -38,13 +33,13 @@ func (r *recvRemoteRunnerManager) Run(
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
 	runner := cc.NewCompileRunner(ap,
-		run.WithContext(logkc.ContextWithLog(sctx, lg)),
+		run.WithContext(logkc.ContextWithLog(ctx.ClientContext, lg)),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.NewTask(
-		tracing.ContextWithTracer(sctx, tracer),
+	task := run.Begin(
+		tracing.ContextWithTracer(ctx.ClientContext, tracer),
 		runner, req.Toolchain)
 	err := executor.Exec(task)
 	lg.With(zap.Error(err)).Info("Compile finished")
