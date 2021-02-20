@@ -521,7 +521,7 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MonitorClient interface {
-	Connect(ctx context.Context, in *Identity, opts ...grpc.CallOption) (Monitor_ConnectClient, error)
+	Connect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Monitor_ConnectClient, error)
 	Post(ctx context.Context, in *Metric, opts ...grpc.CallOption) (*Empty, error)
 	Watch(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_WatchClient, error)
 }
@@ -534,7 +534,7 @@ func NewMonitorClient(cc grpc.ClientConnInterface) MonitorClient {
 	return &monitorClient{cc}
 }
 
-func (c *monitorClient) Connect(ctx context.Context, in *Identity, opts ...grpc.CallOption) (Monitor_ConnectClient, error) {
+func (c *monitorClient) Connect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Monitor_ConnectClient, error) {
 	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[0], "/Monitor/Connect", opts...)
 	if err != nil {
 		return nil, err
@@ -611,7 +611,7 @@ func (x *monitorWatchClient) Recv() (*Value, error) {
 // All implementations must embed UnimplementedMonitorServer
 // for forward compatibility
 type MonitorServer interface {
-	Connect(*Identity, Monitor_ConnectServer) error
+	Connect(*Empty, Monitor_ConnectServer) error
 	Post(context.Context, *Metric) (*Empty, error)
 	Watch(*Key, Monitor_WatchServer) error
 	mustEmbedUnimplementedMonitorServer()
@@ -621,7 +621,7 @@ type MonitorServer interface {
 type UnimplementedMonitorServer struct {
 }
 
-func (UnimplementedMonitorServer) Connect(*Identity, Monitor_ConnectServer) error {
+func (UnimplementedMonitorServer) Connect(*Empty, Monitor_ConnectServer) error {
 	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
 }
 func (UnimplementedMonitorServer) Post(context.Context, *Metric) (*Empty, error) {
@@ -644,7 +644,7 @@ func RegisterMonitorServer(s grpc.ServiceRegistrar, srv MonitorServer) {
 }
 
 func _Monitor_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Identity)
+	m := new(Empty)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}

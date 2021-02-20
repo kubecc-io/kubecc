@@ -9,3 +9,7 @@ func (tc *Toolchain) Equal(other *Toolchain) bool {
 		tc.GetPicDefault() == other.GetPicDefault() &&
 		tc.GetVersion() == other.GetVersion()
 }
+
+func (k *Key) Canonical() string {
+	return k.Bucket + "." + k.Name
+}
