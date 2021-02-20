@@ -3,8 +3,6 @@ package consumerd
 import (
 	"context"
 	"io/fs"
-	"strconv"
-	"strings"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
@@ -12,12 +10,10 @@ import (
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -170,24 +166,26 @@ func (c *consumerdServer) Run(
 	if err != nil {
 		return nil, err
 	}
-	tracer := tracing.TracerFromContext(c.srvContext)
+	// rootContext := tracing.ContextWithTracer(ctx, tracer)
+	// for _, env := range req.Env {
+	// 	spl := strings.Split(env, "=")
+	// 	if len(spl) == 2 && spl[0] == "KUBECC_MAKE_PID" {
+	// 		pid, err := strconv.Atoi(spl[1])
+	// 		if err != nil {
+	// 			c.lg.Debug("Invalid value for KUBECC_MAKE_PID, should be a number")
+	// 			break
+	// 		}
+	// 		rootContext = tracing.PIDSpanContext(tracer, pid)
+	// 	}
+	// }
 
-	rootContext := tracing.ContextWithTracer(ctx, tracer)
-	for _, env := range req.Env {
-		spl := strings.Split(env, "=")
-		if len(spl) == 2 && spl[0] == "KUBECC_MAKE_PID" {
-			pid, err := strconv.Atoi(spl[1])
-			if err != nil {
-				c.lg.Debug("Invalid value for KUBECC_MAKE_PID, should be a number")
-				break
-			}
-			rootContext = tracing.PIDSpanContext(tracer, pid)
-		}
+	span, sctx, err := servers.StartSpanFromServer(ctx, c.srvContext, "run")
+	if err != nil {
+		c.lg.Error(err)
+	} else {
+		ctx = sctx
+		defer span.Finish()
 	}
-
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		rootContext, tracer, "run")
-	defer span.Finish()
 
 	if req.UID == 0 || req.GID == 0 {
 		return nil, status.Error(codes.InvalidArgument,
@@ -216,7 +214,7 @@ func (c *consumerdServer) Run(
 	if !canRunRemote {
 		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: sctx,
+			ClientContext: ctx,
 		}, c.localExecutor, req)
 		if err != nil {
 			return nil, err
@@ -225,7 +223,7 @@ func (c *consumerdServer) Run(
 	} else {
 		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: sctx,
+			ClientContext: ctx,
 		}, c.remoteExecutor, req)
 		if err != nil {
 			return nil, err

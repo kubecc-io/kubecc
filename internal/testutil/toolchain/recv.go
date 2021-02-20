@@ -30,7 +30,7 @@ func (m recvRemoteRunnerManager) Run(
 		Args: req.Args,
 	}
 	ap.Parse()
-	task := run.NewTask(
+	task := run.Begin(
 		tracing.ContextWithTracer(sctx, tracer),
 		&testtoolchain.SleepRunner{
 			Duration: ap.Duration,

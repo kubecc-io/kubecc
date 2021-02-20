@@ -14,15 +14,19 @@ type Task struct {
 	runner Runner
 	err    error
 	doneCh chan struct{}
+
+	tracer opentracing.Tracer
+	span   opentracing.Span
 }
 
 func (t *Task) Run() {
 	if t == nil {
 		return
 	}
-	tracer := tracing.TracerFromContext(t.ctx)
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		t.ctx, tracer, "task-run")
+	t.span.Finish()
+	span := t.tracer.StartSpan("task-run",
+		opentracing.FollowsFrom(t.span.Context()))
+	sctx := opentracing.ContextWithSpan(t.ctx, span)
 	defer span.Finish()
 	defer close(t.doneCh)
 	t.err = t.runner.Run(sctx, t.tc)
@@ -36,11 +40,16 @@ func (t *Task) Error() error {
 	return t.err
 }
 
-func NewTask(ctx context.Context, r Runner, tc *types.Toolchain) *Task {
+func Begin(ctx context.Context, r Runner, tc *types.Toolchain) *Task {
+	tracer := tracing.TracerFromContext(ctx)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
+		ctx, tracer, "task-wait")
 	return &Task{
 		doneCh: make(chan struct{}),
-		ctx:    ctx,
+		tracer: tracer,
+		ctx:    sctx,
 		tc:     tc,
 		runner: r,
+		span:   span,
 	}
 }

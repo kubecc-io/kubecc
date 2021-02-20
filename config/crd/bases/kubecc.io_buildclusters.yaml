@@ -19,7 +19,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BuildCluster is the Schema for the buildclusters API
+        description: BuildCluster is the Schema for the buildclusters API.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -610,7 +610,7 @@ spec:
             - components
             type: object
           status:
-            description: BuildClusterStatus defines the observed state of BuildCluster
+            description: BuildClusterStatus defines the observed state of BuildCluster.
             type: object
         type: object
     served: true

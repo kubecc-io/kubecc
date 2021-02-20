@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
 )
@@ -35,17 +35,21 @@ func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	tracer := tracing.TracerFromContext(s.srvContext)
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx, tracer, "schedule-compile")
-	defer span.Finish()
+	span, sctx, err := servers.StartSpanFromServer(
+		ctx, s.srvContext, "schedule-compile")
+	if err != nil {
+		s.lg.Error(err)
+	} else {
+		ctx = sctx
+		defer span.Finish()
+	}
 
 	peer, ok := peer.FromContext(ctx)
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
 	return s.scheduler.Schedule(
-		logkc.ContextWithLog(sctx, s.lg), req)
+		logkc.ContextWithLog(ctx, s.lg), req)
 }
 
 func (s *schedulerServer) ConnectAgent(

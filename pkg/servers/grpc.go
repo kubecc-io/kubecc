@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding/gzip"
 
@@ -107,7 +109,10 @@ func Dial(
 	options := GRPCOptions{}
 	options.Apply(opts...)
 	interceptors := []grpc.UnaryClientInterceptor{
-		otgrpc.OpenTracingClientInterceptor(tracing.TracerFromContext(ctx)),
+		otgrpc.OpenTracingClientInterceptor(
+			tracing.TracerFromContext(ctx),
+			otgrpc.CreateSpan(false),
+		),
 	}
 	if options.AgentInfo != nil {
 		interceptors = append(interceptors,
@@ -131,4 +136,22 @@ func Dial(
 	}
 
 	return grpc.DialContext(ctx, target, dialOpts...)
+}
+
+func StartSpanFromServer(
+	clientCtx, serverCtx context.Context,
+	operationName string,
+) (opentracing.Span, context.Context, error) {
+	tracer := tracing.TracerFromContext(serverCtx)
+	if tracer == nil {
+		panic("No tracer in server context")
+	}
+
+	spanContext, err := otgrpc.ExtractSpanContext(clientCtx, tracer)
+	if err != nil {
+		return nil, nil, err
+	}
+	span := tracer.StartSpan(operationName, ext.RPCServerOption(spanContext))
+	ctx := opentracing.ContextWithSpan(clientCtx, span)
+	return span, ctx, nil
 }
