@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/builtin"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -18,7 +18,8 @@ type Receiver interface {
 }
 
 type MonitorServer struct {
-	types.MonitorServer
+	types.InternalMonitorServer
+	types.ExternalMonitorServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
@@ -29,13 +30,13 @@ type MonitorServer struct {
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
-	providers    *builtin.Providers
+	providers    *meta.Providers
 }
 
 func NewMonitorServer(
 	ctx context.Context,
 	storeCreator StoreCreator,
-) types.MonitorServer {
+) *MonitorServer {
 	srv := &MonitorServer{
 		srvContext:    ctx,
 		lg:            logkc.LogFromContext(ctx),
@@ -44,9 +45,9 @@ func NewMonitorServer(
 		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &builtin.Providers{},
+		providers:     &meta.Providers{},
 	}
-	srv.buckets[builtin.Bucket] = storeCreator.NewStore(ctx)
+	srv.buckets[meta.Bucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 	return srv
 }
@@ -59,10 +60,10 @@ func (m *MonitorServer) encodeProviders() []byte {
 
 // bucketMutex must not be held by the same thread when calling this function.
 func (m *MonitorServer) providersUpdated() {
-	_, err := m.Post(m.srvContext, &types.Metric{
+	err := m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: builtin.Bucket,
-			Name:   builtin.Providers{}.Key(),
+			Bucket: meta.Bucket,
+			Name:   meta.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),
@@ -73,10 +74,9 @@ func (m *MonitorServer) providersUpdated() {
 	}
 }
 
-func (m *MonitorServer) Connect(
-	_ *types.Empty,
-	srv types.Monitor_ConnectServer,
-) error {
+func (m *MonitorServer) Stream(
+	srv types.InternalMonitor_StreamServer,
+) (streamError error) {
 	id, err := types.IdentityFromIncomingContext(srv.Context())
 	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())
@@ -96,14 +96,31 @@ func (m *MonitorServer) Connect(
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
 
-	<-srv.Context().Done()
+	m.lg.With(
+		zap.Object("identity", id),
+	).Info(types.Monitor.Color().Add("Provider connected"))
+	for {
+		metric, err := srv.Recv()
+		if err != nil {
+			m.lg.Error(err)
+			break
+		}
+		err = m.post(metric)
+		if err != nil {
+			streamError = err
+			break
+		}
+	}
+	m.lg.With(
+		zap.Object("identity", id),
+	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.bucketMutex.Lock()
 	delete(m.buckets, id.UUID)
 	delete(m.providers.Items, id.UUID)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
-	return nil
+	return
 }
 
 func (m *MonitorServer) notify(metric *types.Metric) {
@@ -120,7 +137,7 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
-func (m *MonitorServer) Post(ctx context.Context, metric *types.Metric) (*types.Empty, error) {
+func (m *MonitorServer) post(metric *types.Metric) error {
 	m.bucketMutex.RLock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
@@ -128,13 +145,16 @@ func (m *MonitorServer) Post(ctx context.Context, metric *types.Metric) (*types.
 			defer m.notify(metric)
 		}
 	} else {
-		return nil, status.Error(codes.InvalidArgument, "No such bucket")
+		return status.Error(codes.InvalidArgument, "No such bucket")
 	}
 	m.bucketMutex.RUnlock()
-	return &types.Empty{}, nil
+	return nil
 }
 
-func (m *MonitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) error {
+func (m *MonitorServer) Listen(
+	key *types.Key,
+	srv types.ExternalMonitor_ListenServer,
+) error {
 	id, err := types.IdentityFromIncomingContext(srv.Context())
 	if err != nil {
 		return status.Error(codes.InvalidArgument, err.Error())

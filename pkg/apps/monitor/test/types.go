@@ -9,8 +9,6 @@ import (
 	"go.uber.org/atomic"
 )
 
-//go:generate msgp
-
 type TestStoreCreator struct {
 	Count  *atomic.Int32
 	Stores sync.Map // map[string]monitor.KeyValueStore
@@ -29,20 +27,4 @@ func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
 	c.Stores.Store(id.UUID, store)
 	c.Count.Inc()
 	return store
-}
-
-type TestKey1 struct {
-	Counter int `msg:"counter"`
-}
-
-func (k TestKey1) Key() string {
-	return "TestKey1"
-}
-
-type TestKey2 struct {
-	Value string `msg:"value"`
-}
-
-func (k TestKey2) Key() string {
-	return "TestKey2"
 }

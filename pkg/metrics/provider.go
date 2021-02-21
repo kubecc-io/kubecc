@@ -2,71 +2,90 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
 type Provider struct {
 	ctx       context.Context
-	monClient types.MonitorClient
+	monClient types.InternalMonitorClient
 	id        *types.Identity
 	lg        *zap.SugaredLogger
+	postQueue chan KeyedMetric
 }
 
-func NewProvider(ctx context.Context, id *types.Identity, cc *grpc.ClientConn) *Provider {
-	ctx = types.OutgoingContextWithIdentity(ctx, id)
-	lg := logkc.LogFromContext(ctx)
-	client := types.NewMonitorClient(cc)
-	go func() {
+func (p *Provider) start() {
+	for {
+		stream, err := p.monClient.Stream(p.ctx, grpc.WaitForReady(true))
+		if err != nil {
+			p.lg.With(zap.Error(err)).Warn("Could not connect to monitor, retrying in 5 seconds...")
+			time.Sleep(5 * time.Second)
+			continue
+		}
 		for {
-			stream, err := client.Connect(ctx, &types.Empty{}, grpc.WaitForReady(true))
-			if err != nil {
-				lg.With(zap.Error(err)).Warn("Could not connect to monitor, retrying in 5 seconds...")
-				time.Sleep(5 * time.Second)
-				continue
-			}
 			select {
+			case metric := <-p.postQueue:
+				key := &types.Key{
+					Bucket: p.id.UUID,
+					Name:   metric.Key(),
+				}
+				err := stream.Send(&types.Metric{
+					Key: key,
+					Value: &types.Value{
+						Data: tools.EncodeMsgp(metric),
+					},
+				})
+				if err != nil {
+					p.lg.With(
+						zap.Error(err),
+						zap.String("key", key.Canonical()),
+					).Error("Error posting metric")
+				}
 			case err := <-tools.StreamClosed(stream):
-				if err == io.EOF {
-					lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
+				if errors.Is(err, io.EOF) {
+					p.lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
 				} else {
-					lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
+					p.lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
 				}
 				time.Sleep(5 * time.Second)
-				continue
-			case <-ctx.Done():
+				goto reconnect
+			case <-p.ctx.Done():
 				return
 			}
 		}
-	}()
-	return &Provider{
+	reconnect:
+	}
+}
+
+func NewProvider(
+	ctx context.Context,
+	id *types.Identity,
+	client types.InternalMonitorClient,
+) *Provider {
+	ctx = types.OutgoingContextWithIdentity(ctx, id)
+	lg := logkc.LogFromContext(ctx)
+	provider := &Provider{
 		ctx:       ctx,
 		monClient: client,
 		id:        id,
 		lg:        lg,
+		postQueue: make(chan KeyedMetric, 100),
 	}
+
+	go provider.start()
+	return provider
 }
 
-func (p *Provider) Post(key *types.Key, value msgp.Encodable) bool {
-	_, err := p.monClient.Post(p.ctx, &types.Metric{
-		Key: key,
-		Value: &types.Value{
-			Data: tools.EncodeMsgp(value),
-		},
-	})
-	if err != nil {
-		p.lg.With(
-			zap.Error(err),
-			zap.String("key", key.Canonical()),
-		).Error("Error posting metric")
-		return false
+func (p *Provider) Post(metric KeyedMetric) {
+	if p == nil {
+		return
 	}
-	return true
+	p.postQueue <- metric
 }

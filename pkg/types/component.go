@@ -41,7 +41,7 @@ func (c Component) ShortName() string {
 	case Make:
 		return "make"
 	case CLI:
-		return " cli"
+		return "❯cli"
 	case Monitor:
 		return "mntr"
 	case Dashboard:
@@ -60,15 +60,15 @@ func (c Component) Color() zapkc.Color {
 	case Scheduler:
 		return zapkc.Yellow
 	case Controller:
-		return zapkc.Blue
+		return zapkc.Red
 	case Consumerd:
 		return zapkc.Green
 	case Make:
 		return zapkc.NoColor
 	case CLI:
-		return zapkc.Cyan
+		return zapkc.Blue
 	case Monitor:
-		return zapkc.Red
+		return zapkc.Cyan
 	case TestComponent, Consumer, Dashboard:
 		return zapkc.White
 	}

@@ -1,24 +1,16 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package commands
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // statusCmd represents the status command.
@@ -32,20 +24,43 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("status called")
+		cc, err := servers.Dial(cliContext, "127.0.0.1:9960")
+		if err != nil {
+			cliLog.Fatal(err)
+		}
+		id := types.NewIdentity(types.CLI)
+		ctx := types.OutgoingContextWithIdentity(cliContext, id)
+		client := types.NewExternalMonitorClient(cc)
+		listener := metrics.NewListener(ctx, client)
+		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+			lg := cliLog.With("uuid", uuid)
+			lg.Info("Provider added")
+			listener.OnValueChanged(uuid, func(*meta.Alive) {
+				lg.Info("Alive")
+			}).OrExpired(func() metrics.RetryOptions {
+				lg.Info("Expired")
+				return metrics.NoRetry
+			})
+			listener.OnValueChanged(uuid, func(qp *status.QueueParams) {
+				lg.With(zap.Any("params", qp)).Info("Queue params")
+			})
+			listener.OnValueChanged(uuid, func(qs *status.QueueStatus) {
+				lg.With(zap.Any("status", types.QueueStatus(qs.QueueStatus).String())).
+					Info("Queue status")
+			})
+			listener.OnValueChanged(uuid, func(ts *status.TaskStatus) {
+				lg.With(zap.Any("status", ts)).Info("Task status")
+			})
+			<-pctx.Done()
+			lg.Info("Provider removed")
+		})
+		select {
+		case <-ctrl.SetupSignalHandler().Done():
+		case <-ctx.Done():
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// statusCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// statusCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

@@ -31,7 +31,7 @@ func main() {
 	}
 	a := agent.NewAgentServer(ctx)
 	types.RegisterAgentServer(srv, a)
-	go a.RunSchedulerClient(ctx)
+	go a.RunSchedulerClient()
 	err = srv.Serve(listener)
 	if err != nil {
 		lg.With(zap.Error(err)).Error("GRPC error")

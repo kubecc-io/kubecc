@@ -1,8 +1,11 @@
 package metrics
 
-import "reflect"
+import (
+	"github.com/tinylib/msgp/msgp"
+)
 
 type KeyedMetric interface {
+	msgp.Decodable
+	msgp.Encodable
 	Key() string
-	Type() reflect.Type
 }

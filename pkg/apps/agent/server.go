@@ -9,6 +9,9 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -24,19 +27,21 @@ type AgentServer struct {
 
 	AgentServerOptions
 
-	executor      run.Executor
-	lg            *zap.SugaredLogger
-	queueStatus   types.QueueStatus
-	queueStatusCh chan types.QueueStatus
-	srvContext    context.Context
-	tcStore       *toolchains.Store
-	tcRunStore    *run.ToolchainRunnerStore
+	executor        run.Executor
+	lg              *zap.SugaredLogger
+	queueStatus     types.QueueStatus
+	queueStatusCh   chan types.QueueStatus
+	srvContext      context.Context
+	tcStore         *toolchains.Store
+	tcRunStore      *run.ToolchainRunnerStore
+	metricsProvider *metrics.Provider
 }
 
 type AgentServerOptions struct {
 	toolchainFinders []toolchains.FinderWithOptions
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
+	monitorClient    types.InternalMonitorClient
 	cpuConfig        *types.CpuConfig
 }
 
@@ -63,6 +68,12 @@ func WithToolchainRunners(args ...run.StoreAddFunc) agentServerOption {
 func WithSchedulerClient(client types.SchedulerClient) agentServerOption {
 	return func(o *AgentServerOptions) {
 		o.schedulerClient = client
+	}
+}
+
+func WithMonitorClient(client types.InternalMonitorClient) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.monitorClient = client
 	}
 }
 
@@ -136,6 +147,7 @@ func (s *AgentServer) Compile(
 func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
 	if s.queueStatus != stat {
 		s.queueStatus = stat
+		s.postQueueStatus() // todo: remove old queue status system
 		select {
 		case s.queueStatusCh <- stat:
 		default:
@@ -143,7 +155,46 @@ func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
 	}
 }
 
-func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
+func (s *AgentServer) postAlive() {
+	s.metricsProvider.Post(&meta.Alive{})
+}
+
+func (s *AgentServer) postQueueParams() {
+	qp := &mstat.QueueParams{}
+	s.executor.CompleteQueueParams(qp)
+	s.metricsProvider.Post(qp)
+}
+
+func (s *AgentServer) postTaskStatus() {
+	ts := &mstat.TaskStatus{}
+	s.executor.CompleteTaskStatus(ts)
+	s.metricsProvider.Post(ts)
+}
+
+func (s *AgentServer) postQueueStatus() {
+	qs := &mstat.QueueStatus{}
+	s.executor.CompleteQueueStatus(qs)
+	s.metricsProvider.Post(qs)
+}
+
+func (s *AgentServer) StartMetricsProvider() {
+	id := types.NewIdentity(types.Agent)
+	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
+	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
+	s.postAlive()
+	s.postQueueParams()
+	s.postQueueStatus()
+
+	tick := time.NewTicker(time.Second / 10)
+	go func() {
+		for {
+			<-tick.C
+			s.postTaskStatus()
+		}
+	}()
+}
+
+func (s *AgentServer) RunSchedulerClient() {
 	if s.schedulerClient == nil {
 		cc, err := grpc.Dial(
 			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
@@ -157,7 +208,8 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
 
 	for {
 		s.lg.Info("Starting connection to the scheduler")
-		stream, err := s.schedulerClient.ConnectAgent(ctx, grpc.WaitForReady(true))
+		stream, err := s.schedulerClient.ConnectAgent(
+			s.srvContext, grpc.WaitForReady(true))
 		if err != nil {
 			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
 			time.Sleep(5 * time.Second)
@@ -172,7 +224,7 @@ func (s *AgentServer) RunSchedulerClient(ctx context.Context) {
 		if err != nil {
 			s.lg.Error(err)
 		}
-		s.lg.Info("Connected to the scheduler")
+		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
 
 		streamClosed := make(chan error)
 		go func() {
@@ -216,5 +268,6 @@ func (s *AgentServer) SetCpuConfig(
 ) (*types.Empty, error) {
 	s.executor.(*run.QueuedExecutor).SetCpuConfig(cfg)
 	s.cpuConfig = cfg
+	s.postQueueParams()
 	return &types.Empty{}, nil
 }

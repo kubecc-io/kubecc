@@ -20,10 +20,12 @@ service Scheduler {
   rpc SystemStatus(Empty) returns (SystemStatusResponse);
 }
 
-service Monitor {
-  rpc Connect(Empty) returns (stream Empty);
-  rpc Post(Metric) returns (Empty);
-  rpc Watch(Key) returns (stream Value);
+service InternalMonitor {
+  rpc Stream(stream Metric) returns (stream Empty);
+}
+
+service ExternalMonitor {
+  rpc Listen(Key) returns (stream Value);
 }
 
 message Metric {

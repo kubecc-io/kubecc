@@ -91,13 +91,13 @@ func (s *schedulerServer) ConnectConsumerd(
 ) error {
 	lg := s.lg
 
-	lg.Info("Consumerd connected")
+	lg.Info(types.Scheduler.Color().Add("Consumerd connected"))
 
 	// add logic here maybe
 
 	// s.monitor.AgentConnected(agent)
 	<-srv.Context().Done()
 
-	lg.Info("Consumerd disconnected")
+	lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
 	return nil
 }

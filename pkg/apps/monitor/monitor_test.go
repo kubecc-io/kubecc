@@ -10,7 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor/test"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/builtin"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -40,7 +40,8 @@ var _ = Describe("Monitor", func() {
 			mon := monitor.NewMonitorServer(ctx, storeCreator)
 			listener = bufconn.Listen(1024 * 1024)
 			srv := servers.NewServer(ctx)
-			types.RegisterMonitorServer(srv, mon)
+			types.RegisterInternalMonitorServer(srv, mon)
+			types.RegisterExternalMonitorServer(srv, mon)
 			go func() {
 				Expect(srv.Serve(listener)).NotTo(HaveOccurred())
 			}()
@@ -74,19 +75,21 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-
-			listener := metrics.NewListener(listenerCtx, cc)
+			client := types.NewExternalMonitorClient(cc)
+			listener := metrics.NewListener(listenerCtx, client)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				listenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *test.TestKey1) {
 					listenerEvents["testKey1Changed"] <- k1.Counter
-				}).OrExpired(func() {
+				}).OrExpired(func() metrics.RetryOptions {
 					listenerEvents["testKey1Expired"] <- struct{}{}
+					return metrics.NoRetry
 				})
 				listener.OnValueChanged(uuid, func(k2 *test.TestKey2) {
 					listenerEvents["testKey2Changed"] <- k2.Value
-				}).OrExpired(func() {
+				}).OrExpired(func() metrics.RetryOptions {
 					listenerEvents["testKey2Expired"] <- struct{}{}
+					return metrics.NoRetry
 				})
 				<-pctx.Done()
 				listenerEvents["providerRemoved"] <- uuid
@@ -112,7 +115,8 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			provider = metrics.NewProvider(providerCtx, providerId, cc)
+			client := types.NewInternalMonitorClient(cc)
+			provider = metrics.NewProvider(providerCtx, providerId, client)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -130,13 +134,13 @@ var _ = Describe("Monitor", func() {
 				if !ok {
 					return false
 				}
-				providers := &builtin.Providers{
+				providers := &meta.Providers{
 					Items: map[string]int32{
 						providerId.UUID: int32(providerId.Component),
 					},
 				}
 				expected := tools.EncodeMsgp(providers)
-				actual, ok := store.Get(builtin.Providers{}.Key())
+				actual, ok := store.Get(meta.Providers{}.Key())
 				if !ok {
 					return false
 				}
@@ -154,13 +158,9 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider updates a key", func() {
 		It("should succeed", func() {
-			ok := provider.Post(&types.Key{
-				Bucket: providerId.UUID,
-				Name:   test.TestKey1{}.Key(),
-			}, &test.TestKey1{
+			provider.Post(&test.TestKey1{
 				Counter: 1,
 			})
-			Expect(ok).To(BeTrue())
 		})
 		It("should notify the listener", func() {
 			Eventually(listenerEvents["testKey1Changed"]).Should(Receive(Equal(1)))
@@ -170,13 +170,9 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider updates a different key", func() {
 		It("should succeed", func() {
-			ok := provider.Post(&types.Key{
-				Bucket: providerId.UUID,
-				Name:   test.TestKey2{}.Key(),
-			}, &test.TestKey2{
+			provider.Post(&test.TestKey2{
 				Value: "test",
 			})
-			Expect(ok).To(BeTrue())
 		})
 		It("should notify the other listener", func() {
 			Eventually(listenerEvents["testKey2Changed"]).Should(Receive(Equal("test")))
@@ -186,13 +182,9 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider posts a key with the same value", func() {
 		It("should succeed", func() {
-			ok := provider.Post(&types.Key{
-				Bucket: providerId.UUID,
-				Name:   test.TestKey2{}.Key(),
-			}, &test.TestKey2{
+			provider.Post(&test.TestKey2{
 				Value: "test",
 			})
-			Expect(ok).To(BeTrue())
 		})
 		It("should not notify the listener", func() {
 			Consistently(listenerEvents["testKey2Changed"]).ShouldNot(Receive())
