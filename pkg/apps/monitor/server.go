@@ -62,7 +62,7 @@ func (m *MonitorServer) providersUpdated() {
 	_, err := m.Post(m.srvContext, &types.Metric{
 		Key: &types.Key{
 			Bucket: builtin.Bucket,
-			Name:   builtin.ProvidersKey,
+			Name:   builtin.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),

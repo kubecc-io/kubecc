@@ -78,19 +78,13 @@ var _ = Describe("Monitor", func() {
 			listener := metrics.NewListener(listenerCtx, cc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				listenerEvents["providerAdded"] <- uuid
-				listener.OnValueChanged(&types.Key{
-					Bucket: uuid,
-					Name:   test.TestKey1Name,
-				}, test.TestKey1Type, func(i interface{}) {
-					listenerEvents["testKey1Changed"] <- i.(*test.TestKey1).Counter
+				listener.OnValueChanged(uuid, func(k1 *test.TestKey1) {
+					listenerEvents["testKey1Changed"] <- k1.Counter
 				}).OrExpired(func() {
 					listenerEvents["testKey1Expired"] <- struct{}{}
 				})
-				listener.OnValueChanged(&types.Key{
-					Bucket: uuid,
-					Name:   test.TestKey2Name,
-				}, test.TestKey2Type, func(i interface{}) {
-					listenerEvents["testKey2Changed"] <- i.(*test.TestKey2).Value
+				listener.OnValueChanged(uuid, func(k2 *test.TestKey2) {
+					listenerEvents["testKey2Changed"] <- k2.Value
 				}).OrExpired(func() {
 					listenerEvents["testKey2Expired"] <- struct{}{}
 				})
@@ -142,7 +136,7 @@ var _ = Describe("Monitor", func() {
 					},
 				}
 				expected := tools.EncodeMsgp(providers)
-				actual, ok := store.Get(builtin.ProvidersKey)
+				actual, ok := store.Get(builtin.Providers{}.Key())
 				if !ok {
 					return false
 				}
@@ -162,7 +156,7 @@ var _ = Describe("Monitor", func() {
 		It("should succeed", func() {
 			ok := provider.Post(&types.Key{
 				Bucket: providerId.UUID,
-				Name:   test.TestKey1Name,
+				Name:   test.TestKey1{}.Key(),
 			}, &test.TestKey1{
 				Counter: 1,
 			})
@@ -178,7 +172,7 @@ var _ = Describe("Monitor", func() {
 		It("should succeed", func() {
 			ok := provider.Post(&types.Key{
 				Bucket: providerId.UUID,
-				Name:   test.TestKey2Name,
+				Name:   test.TestKey2{}.Key(),
 			}, &test.TestKey2{
 				Value: "test",
 			})
@@ -194,7 +188,7 @@ var _ = Describe("Monitor", func() {
 		It("should succeed", func() {
 			ok := provider.Post(&types.Key{
 				Bucket: providerId.UUID,
-				Name:   test.TestKey2Name,
+				Name:   test.TestKey2{}.Key(),
 			}, &test.TestKey2{
 				Value: "test",
 			})

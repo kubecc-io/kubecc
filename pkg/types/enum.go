@@ -17,6 +17,7 @@ const (
 	Make          = Component_Component_Make
 	CLI           = Component_Component_CLI
 	Dashboard     = Component_Component_Dashboard
+	Monitor       = Component_Component_Monitor
 	TestComponent = Component_Component_Test
 
 	Available     = QueueStatus_Available
