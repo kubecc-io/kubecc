@@ -30,7 +30,7 @@ func TestIntegration(t *testing.T) {
 	lg := logkc.LogFromContext(ctx)
 
 	numTasks := 4000
-	localJobs := 300
+	localJobs := 100
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
@@ -66,51 +66,51 @@ func TestIntegration(t *testing.T) {
 				QueuePressureThreshold: 1.0,
 				QueueRejectThreshold:   2.0,
 			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
-			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
-			},
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
+			// {
+			// 	MaxRunningProcesses:    16,
+			// 	QueuePressureThreshold: 1.0,
+			// 	QueueRejectThreshold:   2.0,
+			// },
 		},
 	})
 	defer tc.Teardown()

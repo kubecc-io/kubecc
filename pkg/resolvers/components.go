@@ -7,9 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ComponentsResolver struct {
-	rec.Resolver
-}
+type ComponentsResolver struct{}
 
 func (r *ComponentsResolver) Resolve(
 	rc rec.ResolveContext,

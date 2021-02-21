@@ -11,9 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AgentResolver struct {
-	rec.Resolver
-}
+type AgentResolver struct{}
 
 const (
 	agentAppName = "kubecc-agent"
