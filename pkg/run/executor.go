@@ -22,6 +22,7 @@ type QueuedExecutor struct {
 	workerPool *WorkerPool
 	taskQueue  chan *Task
 	numRunning *atomic.Int32
+	numQueued  *atomic.Int32
 }
 
 type ExecutorOptions struct {
@@ -54,6 +55,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 		taskQueue:       queue,
 		workerPool:      NewWorkerPool(queue),
 		numRunning:      atomic.NewInt32(0),
+		numQueued:       atomic.NewInt32(0),
 	}
 	s.workerPool.SetWorkerCount(int(s.cpuConfig.MaxRunningProcesses))
 	return s
@@ -77,27 +79,31 @@ func (x *QueuedExecutor) Exec(
 		op(&options)
 	}
 
-	x.numRunning.Inc()
+	x.numQueued.Inc()
 	x.taskQueue <- task
+	x.numQueued.Dec()
 
+	x.numRunning.Inc()
 	select {
 	case <-task.Done():
 	case <-task.ctx.Done():
 	}
-
 	x.numRunning.Dec()
+
 	return task.Error()
 }
 
 func (x *QueuedExecutor) Status() types.QueueStatus {
-	queueLen := len(x.taskQueue)
+	queued := x.numQueued.Load()
+	running := x.numRunning.Load()
+
 	switch {
-	case x.numRunning.Load() < x.cpuConfig.MaxRunningProcesses:
+	case running < x.cpuConfig.MaxRunningProcesses:
 		return types.Available
-	case queueLen < int(float64(x.cpuConfig.MaxRunningProcesses)*
+	case queued < int32(float64(x.cpuConfig.MaxRunningProcesses)*
 		x.cpuConfig.QueuePressureThreshold):
 		return types.Queueing
-	case queueLen < int(float64(x.cpuConfig.MaxRunningProcesses)*
+	case queued < int32(float64(x.cpuConfig.MaxRunningProcesses)*
 		x.cpuConfig.QueueRejectThreshold):
 		return types.QueuePressure
 	}
@@ -111,7 +117,7 @@ func (x *QueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
 }
 
 func (x *QueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
-	stat.NumQueuedProcesses = int32(len(x.taskQueue))
+	stat.NumQueuedProcesses = x.numQueued.Load()
 	stat.NumRunningProcesses = x.numRunning.Load()
 }
 
