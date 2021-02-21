@@ -15,6 +15,7 @@ type BuildClusterSpec struct {
 type ComponentsSpec struct {
 	Agent     AgentSpec     `json:"agent"`
 	Scheduler SchedulerSpec `json:"scheduler,omitempty"` // +optional
+	Monitor   MonitorSpec   `json:"monitor,omitempty"`   // +optional
 }
 
 type IngressSpec struct {
@@ -61,6 +62,18 @@ type SchedulerSpec struct {
 	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
 	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
 	// +kubebuilder:default:="gcr.io/kubecc/scheduler:latest"
+	Image            string            `json:"image"`                      // +optional
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
+	// +kubebuilder:default:=debug
+	LogLevel string `json:"logLevel"` // +optional
+	// +kubebuilder:default:=Always
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+}
+
+type MonitorSpec struct {
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
+	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
 	// +kubebuilder:default:=debug

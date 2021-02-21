@@ -10,42 +10,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type SchedulerResolver struct{}
+type MonitorResolver struct{}
 
 const (
-	schedulerAppName = "kubecc-scheduler"
+	monitorAppName = "kubecc-monitor"
 )
 
-func (r *SchedulerResolver) Resolve(
+func (r *MonitorResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
-	schedulerSpec := rc.Object.(v1alpha1.SchedulerSpec)
+	monitorSpec := rc.Object.(v1alpha1.MonitorSpec)
 	deployment := &appsv1.Deployment{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      schedulerAppName,
+		Name:      monitorAppName,
 	}, deployment,
-		rec.WithCreator(rec.FromTemplate("scheduler_deployment.yaml")),
+		rec.WithCreator(rec.FromTemplate("monitor_deployment.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
-		"app": schedulerAppName,
+		"app": monitorAppName,
 	}
 
 	res, err = rec.UpdateIfNeeded(rc, deployment,
 		[]rec.Updater{
-			rec.AffinityUpdater(schedulerSpec.NodeAffinity,
+			rec.AffinityUpdater(monitorSpec.NodeAffinity,
 				&deployment.Spec.Template.Spec),
-			rec.ResourceUpdater(schedulerSpec.Resources,
+			rec.ResourceUpdater(monitorSpec.Resources,
 				&deployment.Spec.Template.Spec, 0),
-			rec.ImageUpdater(schedulerSpec.Image,
+			rec.ImageUpdater(monitorSpec.Image,
 				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(schedulerSpec.ImagePullPolicy,
+			rec.PullPolicyUpdater(monitorSpec.ImagePullPolicy,
 				&deployment.Spec.Template.Spec, 0),
-			rec.LabelUpdater(schedulerSpec.AdditionalLabels,
+			rec.LabelUpdater(monitorSpec.AdditionalLabels,
 				&deployment.Spec.Template,
 				staticLabels,
 			),
@@ -58,24 +58,11 @@ func (r *SchedulerResolver) Resolve(
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      schedulerAppName,
+		Name:      monitorAppName,
 	}, svc,
-		rec.WithCreator(rec.FromTemplate("scheduler_service.yaml")),
+		rec.WithCreator(rec.FromTemplate("monitor_service.yaml")),
 		rec.RecreateIfChanged(),
 	)
-
-	if rec.ShouldRequeue(res, err) {
-		return rec.RequeueWith(res, err)
-	}
-
-	cfg := &v1.ConfigMap{}
-	res, err = rec.Find(rc, types.NamespacedName{
-		Namespace: rc.RootObject.GetNamespace(),
-		Name:      schedulerAppName,
-	}, cfg,
-		rec.WithCreator(rec.FromTemplate("scheduler_configmap.yaml")),
-	)
-
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
@@ -83,6 +70,6 @@ func (r *SchedulerResolver) Resolve(
 	return rec.DoNotRequeue()
 }
 
-func (r *SchedulerResolver) Find(root client.Object) interface{} {
-	return root.(*v1alpha1.BuildCluster).Spec.Components.Scheduler
+func (r *MonitorResolver) Find(root client.Object) interface{} {
+	return root.(*v1alpha1.BuildCluster).Spec.Components.Monitor
 }

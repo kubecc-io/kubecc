@@ -64,6 +64,9 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					{
 						Resolver: &resolvers.SchedulerResolver{},
 					},
+					{
+						Resolver: &resolvers.MonitorResolver{},
+					},
 				},
 			},
 			{
