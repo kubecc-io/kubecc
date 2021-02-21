@@ -8,7 +8,7 @@ const (
 )
 
 var (
-	ProvidersValue *Providers = nil
+	ProvidersValue *Providers
 )
 
 type Providers struct {
