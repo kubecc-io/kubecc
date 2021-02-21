@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/builtin"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/tinylib/msgp/msgp"
@@ -19,16 +19,15 @@ import (
 
 type Listener struct {
 	ctx       context.Context
-	monClient types.MonitorClient
+	monClient types.ExternalMonitorClient
 	lg        *zap.SugaredLogger
 
 	knownProviders map[string]context.CancelFunc
 	providersMutex *sync.Mutex
 }
 
-func NewListener(ctx context.Context, cc *grpc.ClientConn) *Listener {
+func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
 	lg := logkc.LogFromContext(ctx)
-	client := types.NewMonitorClient(cc)
 	listener := &Listener{
 		ctx:            ctx,
 		monClient:      client,
@@ -40,9 +39,7 @@ func NewListener(ctx context.Context, cc *grpc.ClientConn) *Listener {
 }
 
 func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid string)) {
-	l.OnValueChanged(builtin.Bucket, func(providers *builtin.Providers) {
-		l.providersMutex.Lock()
-		defer l.providersMutex.Unlock()
+	doUpdate := func(providers *meta.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
 				pctx, cancel := context.WithCancel(context.Background())
@@ -57,14 +54,34 @@ func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid strin
 				cancel()
 			}
 		}
+	}
+
+	l.OnValueChanged(meta.Bucket, func(providers *meta.Providers) {
+		l.providersMutex.Lock()
+		defer l.providersMutex.Unlock()
+		doUpdate(providers)
+	}).OrExpired(func() RetryOptions {
+		l.providersMutex.Lock()
+		defer l.providersMutex.Unlock()
+		doUpdate(&meta.Providers{
+			Items: map[string]int32{},
+		})
+		return Retry
 	})
 }
 
+type RetryOptions uint32
+
+const (
+	NoRetry RetryOptions = iota
+	Retry
+)
+
 type changeListener struct {
-	expiredHandler func()
+	expiredHandler func() RetryOptions
 }
 
-func (c *changeListener) OrExpired(handler func()) {
+func (c *changeListener) OrExpired(handler func() RetryOptions) {
 	c.expiredHandler = handler
 }
 
@@ -87,12 +104,16 @@ func (l *Listener) OnValueChanged(
 	cl := &changeListener{}
 	go func() {
 		for {
-			stream, err := l.monClient.Watch(l.ctx, &types.Key{
+			stream, err := l.monClient.Listen(l.ctx, &types.Key{
 				Bucket: bucket,
 				Name:   keyName,
 			}, grpc.WaitForReady(true))
 			if err != nil {
-				l.lg.With(zap.Error(err)).Warn("Error watching key, retrying in 1 second...")
+				l.lg.With(
+					zap.Error(err),
+					zap.String("bucket", bucket),
+					zap.String("key", keyName),
+				).Warn("Error watching key, retrying in 1 second...")
 				time.Sleep(1 * time.Second)
 				continue
 			}
@@ -108,13 +129,27 @@ func (l *Listener) OnValueChanged(
 						continue
 					}
 					funcValue.Call([]reflect.Value{val})
-				case codes.Aborted:
+				case codes.Aborted, codes.Unavailable:
 					if cl.expiredHandler != nil {
-						cl.expiredHandler()
+						retryOp := cl.expiredHandler()
+						if retryOp == Retry {
+							goto retry
+						}
 					}
 					return
+				case codes.InvalidArgument:
+					l.lg.With(
+						zap.Error(err),
+						zap.String("bucket", bucket),
+						zap.String("key", keyName),
+					).Error("Error watching key")
+					return
 				default:
-					l.lg.With(zap.Error(err)).Warn("Error watching key, retrying in 1 second...")
+					l.lg.With(
+						zap.Error(err),
+						zap.String("bucket", bucket),
+						zap.String("key", keyName),
+					).Warn("Error watching key, retrying in 1 second...")
 					time.Sleep(1 * time.Second)
 					goto retry
 				}

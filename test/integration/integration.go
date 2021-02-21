@@ -87,9 +87,12 @@ func (tc *TestController) runAgent(cfg *types.CpuConfig) {
 	id, _ := info.AgentID()
 	tc.agentListeners[id] = listener
 	ctx, cc := dial(ctx, tc.schedListener)
-	client := types.NewSchedulerClient(cc)
+	schedClient := types.NewSchedulerClient(cc)
+	ctx, cc = dial(ctx, tc.monListener)
+	internalMonClient := types.NewInternalMonitorClient(cc)
 	agentSrv := agent.NewAgentServer(ctx,
-		agent.WithSchedulerClient(client),
+		agent.WithSchedulerClient(schedClient),
+		agent.WithMonitorClient(internalMonClient),
 		agent.WithCpuConfig(cfg),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
@@ -98,7 +101,8 @@ func (tc *TestController) runAgent(cfg *types.CpuConfig) {
 	)
 	types.RegisterAgentServer(srv, agentSrv)
 
-	go agentSrv.RunSchedulerClient(ctx)
+	go agentSrv.RunSchedulerClient()
+	go agentSrv.StartMetricsProvider()
 	go func() {
 		defer closer.Close()
 		if err := srv.Serve(listener); err != nil {
@@ -135,13 +139,26 @@ func (tc *TestController) runMonitor() {
 	tracer, closer := tracing.Start(ctx, types.Monitor)
 	ctx = tracing.ContextWithTracer(ctx, tracer)
 	tc.monListener = bufconn.Listen(bufSize)
-	srv := servers.NewServer(ctx)
+	internalSrv := servers.NewServer(ctx)
+	externalSrv := servers.NewServer(ctx)
+	extListener, err := net.Listen("tcp", "127.0.0.1:9960")
+	if err != nil {
+		panic(err)
+	}
 
 	mon := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
-	types.RegisterMonitorServer(srv, mon)
+	types.RegisterInternalMonitorServer(internalSrv, mon)
+	types.RegisterExternalMonitorServer(externalSrv, mon)
+
 	go func() {
 		defer closer.Close()
-		if err := srv.Serve(tc.monListener); err != nil {
+		if err := internalSrv.Serve(tc.monListener); err != nil {
+			lg.Info(err)
+		}
+	}()
+
+	go func() {
+		if err := externalSrv.Serve(extListener); err != nil {
 			lg.Info(err)
 		}
 	}()

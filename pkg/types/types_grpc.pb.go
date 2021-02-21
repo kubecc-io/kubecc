@@ -517,48 +517,45 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	Metadata: "proto/types.proto",
 }
 
-// MonitorClient is the client API for Monitor service.
+// InternalMonitorClient is the client API for InternalMonitor service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type MonitorClient interface {
-	Connect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Monitor_ConnectClient, error)
-	Post(ctx context.Context, in *Metric, opts ...grpc.CallOption) (*Empty, error)
-	Watch(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_WatchClient, error)
+type InternalMonitorClient interface {
+	Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error)
 }
 
-type monitorClient struct {
+type internalMonitorClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewMonitorClient(cc grpc.ClientConnInterface) MonitorClient {
-	return &monitorClient{cc}
+func NewInternalMonitorClient(cc grpc.ClientConnInterface) InternalMonitorClient {
+	return &internalMonitorClient{cc}
 }
 
-func (c *monitorClient) Connect(ctx context.Context, in *Empty, opts ...grpc.CallOption) (Monitor_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[0], "/Monitor/Connect", opts...)
+func (c *internalMonitorClient) Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &InternalMonitor_ServiceDesc.Streams[0], "/InternalMonitor/Stream", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &monitorConnectClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &internalMonitorStreamClient{stream}
 	return x, nil
 }
 
-type Monitor_ConnectClient interface {
+type InternalMonitor_StreamClient interface {
+	Send(*Metric) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type monitorConnectClient struct {
+type internalMonitorStreamClient struct {
 	grpc.ClientStream
 }
 
-func (x *monitorConnectClient) Recv() (*Empty, error) {
+func (x *internalMonitorStreamClient) Send(m *Metric) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *internalMonitorStreamClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -566,21 +563,99 @@ func (x *monitorConnectClient) Recv() (*Empty, error) {
 	return m, nil
 }
 
-func (c *monitorClient) Post(ctx context.Context, in *Metric, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Monitor/Post", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+// InternalMonitorServer is the server API for InternalMonitor service.
+// All implementations must embed UnimplementedInternalMonitorServer
+// for forward compatibility
+type InternalMonitorServer interface {
+	Stream(InternalMonitor_StreamServer) error
+	mustEmbedUnimplementedInternalMonitorServer()
 }
 
-func (c *monitorClient) Watch(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_WatchClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[1], "/Monitor/Watch", opts...)
+// UnimplementedInternalMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedInternalMonitorServer struct {
+}
+
+func (UnimplementedInternalMonitorServer) Stream(InternalMonitor_StreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedInternalMonitorServer) mustEmbedUnimplementedInternalMonitorServer() {}
+
+// UnsafeInternalMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to InternalMonitorServer will
+// result in compilation errors.
+type UnsafeInternalMonitorServer interface {
+	mustEmbedUnimplementedInternalMonitorServer()
+}
+
+func RegisterInternalMonitorServer(s grpc.ServiceRegistrar, srv InternalMonitorServer) {
+	s.RegisterService(&InternalMonitor_ServiceDesc, srv)
+}
+
+func _InternalMonitor_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(InternalMonitorServer).Stream(&internalMonitorStreamServer{stream})
+}
+
+type InternalMonitor_StreamServer interface {
+	Send(*Empty) error
+	Recv() (*Metric, error)
+	grpc.ServerStream
+}
+
+type internalMonitorStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *internalMonitorStreamServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *internalMonitorStreamServer) Recv() (*Metric, error) {
+	m := new(Metric)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// InternalMonitor_ServiceDesc is the grpc.ServiceDesc for InternalMonitor service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var InternalMonitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "InternalMonitor",
+	HandlerType: (*InternalMonitorServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Stream",
+			Handler:       _InternalMonitor_Stream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
+
+// ExternalMonitorClient is the client API for ExternalMonitor service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ExternalMonitorClient interface {
+	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error)
+}
+
+type externalMonitorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewExternalMonitorClient(cc grpc.ClientConnInterface) ExternalMonitorClient {
+	return &externalMonitorClient{cc}
+}
+
+func (c *externalMonitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ExternalMonitor_ServiceDesc.Streams[0], "/ExternalMonitor/Listen", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &monitorWatchClient{stream}
+	x := &externalMonitorListenClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -590,16 +665,16 @@ func (c *monitorClient) Watch(ctx context.Context, in *Key, opts ...grpc.CallOpt
 	return x, nil
 }
 
-type Monitor_WatchClient interface {
+type ExternalMonitor_ListenClient interface {
 	Recv() (*Value, error)
 	grpc.ClientStream
 }
 
-type monitorWatchClient struct {
+type externalMonitorListenClient struct {
 	grpc.ClientStream
 }
 
-func (x *monitorWatchClient) Recv() (*Value, error) {
+func (x *externalMonitorListenClient) Recv() (*Value, error) {
 	m := new(Value)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -607,123 +682,66 @@ func (x *monitorWatchClient) Recv() (*Value, error) {
 	return m, nil
 }
 
-// MonitorServer is the server API for Monitor service.
-// All implementations must embed UnimplementedMonitorServer
+// ExternalMonitorServer is the server API for ExternalMonitor service.
+// All implementations must embed UnimplementedExternalMonitorServer
 // for forward compatibility
-type MonitorServer interface {
-	Connect(*Empty, Monitor_ConnectServer) error
-	Post(context.Context, *Metric) (*Empty, error)
-	Watch(*Key, Monitor_WatchServer) error
-	mustEmbedUnimplementedMonitorServer()
+type ExternalMonitorServer interface {
+	Listen(*Key, ExternalMonitor_ListenServer) error
+	mustEmbedUnimplementedExternalMonitorServer()
 }
 
-// UnimplementedMonitorServer must be embedded to have forward compatible implementations.
-type UnimplementedMonitorServer struct {
+// UnimplementedExternalMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedExternalMonitorServer struct {
 }
 
-func (UnimplementedMonitorServer) Connect(*Empty, Monitor_ConnectServer) error {
-	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+func (UnimplementedExternalMonitorServer) Listen(*Key, ExternalMonitor_ListenServer) error {
+	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
 }
-func (UnimplementedMonitorServer) Post(context.Context, *Metric) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Post not implemented")
-}
-func (UnimplementedMonitorServer) Watch(*Key, Monitor_WatchServer) error {
-	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
-}
-func (UnimplementedMonitorServer) mustEmbedUnimplementedMonitorServer() {}
+func (UnimplementedExternalMonitorServer) mustEmbedUnimplementedExternalMonitorServer() {}
 
-// UnsafeMonitorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to MonitorServer will
+// UnsafeExternalMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ExternalMonitorServer will
 // result in compilation errors.
-type UnsafeMonitorServer interface {
-	mustEmbedUnimplementedMonitorServer()
+type UnsafeExternalMonitorServer interface {
+	mustEmbedUnimplementedExternalMonitorServer()
 }
 
-func RegisterMonitorServer(s grpc.ServiceRegistrar, srv MonitorServer) {
-	s.RegisterService(&Monitor_ServiceDesc, srv)
+func RegisterExternalMonitorServer(s grpc.ServiceRegistrar, srv ExternalMonitorServer) {
+	s.RegisterService(&ExternalMonitor_ServiceDesc, srv)
 }
 
-func _Monitor_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Empty)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(MonitorServer).Connect(m, &monitorConnectServer{stream})
-}
-
-type Monitor_ConnectServer interface {
-	Send(*Empty) error
-	grpc.ServerStream
-}
-
-type monitorConnectServer struct {
-	grpc.ServerStream
-}
-
-func (x *monitorConnectServer) Send(m *Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _Monitor_Post_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Metric)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MonitorServer).Post(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Monitor/Post",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MonitorServer).Post(ctx, req.(*Metric))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Monitor_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _ExternalMonitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Key)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(MonitorServer).Watch(m, &monitorWatchServer{stream})
+	return srv.(ExternalMonitorServer).Listen(m, &externalMonitorListenServer{stream})
 }
 
-type Monitor_WatchServer interface {
+type ExternalMonitor_ListenServer interface {
 	Send(*Value) error
 	grpc.ServerStream
 }
 
-type monitorWatchServer struct {
+type externalMonitorListenServer struct {
 	grpc.ServerStream
 }
 
-func (x *monitorWatchServer) Send(m *Value) error {
+func (x *externalMonitorListenServer) Send(m *Value) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-// Monitor_ServiceDesc is the grpc.ServiceDesc for Monitor service.
+// ExternalMonitor_ServiceDesc is the grpc.ServiceDesc for ExternalMonitor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var Monitor_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Monitor",
-	HandlerType: (*MonitorServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Post",
-			Handler:    _Monitor_Post_Handler,
-		},
-	},
+var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ExternalMonitor",
+	HandlerType: (*ExternalMonitorServer)(nil),
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Connect",
-			Handler:       _Monitor_Connect_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "Watch",
-			Handler:       _Monitor_Watch_Handler,
+			StreamName:    "Listen",
+			Handler:       _ExternalMonitor_Listen_Handler,
 			ServerStreams: true,
 		},
 	},

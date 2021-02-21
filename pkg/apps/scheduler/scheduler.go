@@ -86,7 +86,12 @@ func (s *Scheduler) Schedule(
 	s.lg.Info("Scheduling")
 	for {
 		s.wLock.Lock()
-		agentClient := s.w.Next().(*Agent).Client
+		next := s.w.Next()
+		if next == nil {
+			// No agents available
+			return nil, status.Error(codes.Unavailable, "No agents available")
+		}
+		agentClient := next.(*Agent).Client
 		s.wLock.Unlock()
 		response, err := agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
 		if status.Code(err) == codes.Unavailable {
@@ -125,7 +130,9 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 		return err
 	}
 
-	s.lg.With(zap.Object("agent", agent.Info)).Info("Agent connected")
+	s.lg.With(
+		zap.Object("agent", agent.Info),
+	).Info(types.Scheduler.Color().Add("Agent connected"))
 	s.agents.Store(id, agent)
 
 	cpuConfig, err := agent.Client.GetCpuConfig(
@@ -142,7 +149,9 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 	go func() {
 		<-agent.Context.Done()
 		s.agents.Delete(id)
-		s.lg.With(zap.Object("agent", agent.Info)).Info("Agent disconnected")
+		s.lg.With(
+			zap.Object("agent", agent.Info),
+		).Info(types.Scheduler.Color().Add("Agent disconnected"))
 	}()
 	return nil
 }

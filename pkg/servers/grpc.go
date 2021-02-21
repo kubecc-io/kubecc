@@ -111,7 +111,7 @@ func Dial(
 	interceptors := []grpc.UnaryClientInterceptor{
 		otgrpc.OpenTracingClientInterceptor(
 			tracing.TracerFromContext(ctx),
-			otgrpc.CreateSpan(false),
+			otgrpc.CreateSpan(!tracing.IsEnabled),
 		),
 	}
 	if options.AgentInfo != nil {
@@ -145,6 +145,12 @@ func StartSpanFromServer(
 	tracer := tracing.TracerFromContext(serverCtx)
 	if tracer == nil {
 		panic("No tracer in server context")
+	}
+
+	if !tracing.IsEnabled {
+		span := tracer.StartSpan(operationName)
+		ctx := opentracing.ContextWithSpan(clientCtx, span)
+		return span, ctx, nil
 	}
 
 	spanContext, err := otgrpc.ExtractSpanContext(clientCtx, tracer)

@@ -13,6 +13,8 @@ import (
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
+var IsEnabled bool
+
 func Start(ctx context.Context, component types.Component) (opentracing.Tracer, io.Closer) {
 	lg := logkc.LogFromContext(ctx)
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
@@ -38,6 +40,7 @@ func Start(ctx context.Context, component types.Component) (opentracing.Tracer, 
 		return opentracing.NoopTracer{}, io.NopCloser(nil)
 	}
 	lg.Info("Tracing enabled")
+	IsEnabled = true
 	return tracer, closer
 }
 

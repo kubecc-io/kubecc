@@ -2,6 +2,7 @@ package run
 
 import (
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 )
@@ -9,6 +10,9 @@ import (
 type ExecutorStatus int
 
 type Executor interface {
+	status.QueueParamsCompleter
+	status.TaskStatusCompleter
+	status.QueueStatusCompleter
 	Exec(task *Task, opts ...ExecutorOption) error
 	Status() types.QueueStatus
 }
@@ -100,6 +104,21 @@ func (x *QueuedExecutor) Status() types.QueueStatus {
 	return types.QueueFull
 }
 
+func (x *QueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
+	stat.MaxRunningProcesses = x.cpuConfig.MaxRunningProcesses
+	stat.QueuePressureThreshold = x.cpuConfig.QueuePressureThreshold
+	stat.QueueRejectThreshold = x.cpuConfig.QueueRejectThreshold
+}
+
+func (x *QueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
+	stat.NumQueuedProcesses = int32(len(x.taskQueue))
+	stat.NumRunningProcesses = x.numRunning.Load()
+}
+
+func (x *QueuedExecutor) CompleteQueueStatus(stat *status.QueueStatus) {
+	stat.QueueStatus = int32(x.Status())
+}
+
 // UnqueuedExecutor is an executor that does not run a worker pool,
 // runs all tasks as soon as possible, and is always available.
 type UnqueuedExecutor struct{}
@@ -115,4 +134,19 @@ func (x *UnqueuedExecutor) Exec(task *Task, opts ...ExecutorOption) error {
 
 func (x *UnqueuedExecutor) Status() types.QueueStatus {
 	return types.Available
+}
+
+func (x *UnqueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
+	stat.MaxRunningProcesses = 0
+	stat.QueuePressureThreshold = 0
+	stat.QueueRejectThreshold = 0
+}
+
+func (x *UnqueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
+	stat.NumQueuedProcesses = 0
+	stat.NumRunningProcesses = 0
+}
+
+func (x *UnqueuedExecutor) CompleteQueueStatus(stat *status.QueueStatus) {
+	stat.QueueStatus = int32(x.Status())
 }
