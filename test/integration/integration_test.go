@@ -29,13 +29,13 @@ func TestIntegration(t *testing.T) {
 
 	lg := logkc.LogFromContext(ctx)
 
-	numTasks := 200
-	localJobs := 100
+	numTasks := 4000
+	localJobs := 300
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(5800)+1200)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(6000)+2000)},
 			UID:      1000,
 			GID:      1000,
 		}
@@ -58,6 +58,56 @@ func TestIntegration(t *testing.T) {
 			},
 			{
 				MaxRunningProcesses:    32,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
+				QueuePressureThreshold: 1.0,
+				QueueRejectThreshold:   2.0,
+			},
+			{
+				MaxRunningProcesses:    16,
 				QueuePressureThreshold: 1.0,
 				QueueRejectThreshold:   2.0,
 			},

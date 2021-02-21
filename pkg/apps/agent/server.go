@@ -147,7 +147,7 @@ func (s *AgentServer) Compile(
 func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
 	if s.queueStatus != stat {
 		s.queueStatus = stat
-		s.postQueueStatus() // todo: remove old queue status system
+		// todo: remove old queue status system
 		select {
 		case s.queueStatusCh <- stat:
 		default:
@@ -190,6 +190,7 @@ func (s *AgentServer) StartMetricsProvider() {
 		for {
 			<-tick.C
 			s.postTaskStatus()
+			s.postQueueStatus()
 		}
 	}()
 }

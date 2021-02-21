@@ -4,13 +4,11 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // statusCmd represents the status command.
@@ -32,32 +30,23 @@ to quickly create a Cobra application.`,
 		ctx := types.OutgoingContextWithIdentity(cliContext, id)
 		client := types.NewExternalMonitorClient(cc)
 		listener := metrics.NewListener(ctx, client)
+		display := ui.NewStatusDisplay()
+
 		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-			lg := cliLog.With("uuid", uuid)
-			lg.Info("Provider added")
-			listener.OnValueChanged(uuid, func(*meta.Alive) {
-				lg.Info("Alive")
-			}).OrExpired(func() metrics.RetryOptions {
-				lg.Info("Expired")
-				return metrics.NoRetry
-			})
+			display.AddAgent(pctx, uuid)
 			listener.OnValueChanged(uuid, func(qp *status.QueueParams) {
-				lg.With(zap.Any("params", qp)).Info("Queue params")
+				display.Update(uuid, qp)
 			})
 			listener.OnValueChanged(uuid, func(qs *status.QueueStatus) {
-				lg.With(zap.Any("status", types.QueueStatus(qs.QueueStatus).String())).
-					Info("Queue status")
+				display.Update(uuid, qs)
 			})
 			listener.OnValueChanged(uuid, func(ts *status.TaskStatus) {
-				lg.With(zap.Any("status", ts)).Info("Task status")
+				display.Update(uuid, ts)
 			})
 			<-pctx.Done()
-			lg.Info("Provider removed")
 		})
-		select {
-		case <-ctrl.SetupSignalHandler().Done():
-		case <-ctx.Done():
-		}
+
+		display.Run()
 	},
 }
 
