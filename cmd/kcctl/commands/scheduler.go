@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// schedulerCmd represents the scheduler command
+// schedulerCmd represents the scheduler command.
 var schedulerCmd = &cobra.Command{
 	Use:   "scheduler",
 	Short: "A brief description of your command",

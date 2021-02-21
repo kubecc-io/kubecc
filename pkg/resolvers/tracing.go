@@ -7,9 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type TracingResolver struct {
-	rec.Resolver
-}
+type TracingResolver struct{}
 
 func (r *TracingResolver) Resolve(
 	rc rec.ResolveContext,

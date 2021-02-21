@@ -21,7 +21,6 @@ var (
 func MakeAgentInfo() *types.AgentInfo {
 	return &types.AgentInfo{
 		Arch:      viper.GetString("arch"),
-		NumCpus:   viper.GetInt32("cpus"),
 		Node:      viper.GetString("node"),
 		Pod:       viper.GetString("pod"),
 		Namespace: viper.GetString("namespace"),

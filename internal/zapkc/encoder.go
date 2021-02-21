@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	// 16 char buffer for filenames
+	// 16 char buffer for filenames.
 	filenameBufferLen = 16
 )
 

@@ -7,7 +7,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ToolchainSpec defines the desired state of Toolchain
+// ToolchainSpec defines the desired state of Toolchain.
 type ToolchainSpec struct {
 	Kind     string `json:"kind"`
 	Triple   string `json:"triple"`
@@ -16,7 +16,7 @@ type ToolchainSpec struct {
 	Location string `json:"location,omitempty"`
 }
 
-// ToolchainStatus defines the observed state of Toolchain
+// ToolchainStatus defines the observed state of Toolchain.
 type ToolchainStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -25,7 +25,7 @@ type ToolchainStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// Toolchain is the Schema for the toolchains API
+// Toolchain is the Schema for the toolchains API.
 type Toolchain struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -36,7 +36,7 @@ type Toolchain struct {
 
 // +kubebuilder:object:root=true
 
-// ToolchainList contains a list of Toolchain
+// ToolchainList contains a list of Toolchain.
 type ToolchainList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

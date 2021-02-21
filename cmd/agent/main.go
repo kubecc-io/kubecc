@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -17,26 +16,22 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewFromContext(cluster.NewAgentContext(), types.Agent)
+	ctx := logkc.NewWithContext(cluster.NewAgentContext(), types.Agent)
 	lg = logkc.LogFromContext(ctx)
 
 	logkc.PrintHeader()
-	closer, err := tracing.Start(types.Agent)
-	if err != nil {
-		lg.With(zap.Error(err)).Warn("Could not start tracing")
-	} else {
-		lg.Info("Tracing started successfully")
-		defer closer.Close()
-	}
+	tracer, closer := tracing.Start(ctx, types.Agent)
+	defer closer.Close()
+	ctx = tracing.ContextWithTracer(ctx, tracer)
 
 	srv := servers.NewServer(ctx)
-	listener, err := net.Listen("tcp", fmt.Sprintf(":9090"))
+	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
 	}
 	a := agent.NewAgentServer(ctx)
 	types.RegisterAgentServer(srv, a)
-	connectToScheduler(ctx)
+	go a.RunSchedulerClient()
 	err = srv.Serve(listener)
 	if err != nil {
 		lg.With(zap.Error(err)).Error("GRPC error")

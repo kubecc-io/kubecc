@@ -1,4 +1,4 @@
-package agent
+package toolchain
 
 import (
 	"bytes"
@@ -8,28 +8,28 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type ccRunner struct {
-	ToolchainRunner
-}
+type recvRemoteRunnerManager struct{}
 
-func (r *ccRunner) Run(
-	ctx Contexts,
+func (r *recvRemoteRunnerManager) Run(
+	ctx run.Contexts,
 	executor run.Executor,
-	req *types.CompileRequest,
-) (*types.CompileResponse, error) {
-	span, sctx := opentracing.StartSpanFromContext(ctx.ClientContext, "queue")
-	defer span.Finish()
+	request interface{},
+) (interface{}, error) {
+	tracer := tracing.TracerFromContext(ctx.ServerContext)
+
+	req := request.(*types.CompileRequest)
 	lg := logkc.LogFromContext(ctx.ServerContext)
 	ap := cc.NewArgParser(ctx.ServerContext, req.Args)
 	ap.Parse()
 	lg.With(zap.Object("args", ap)).Info("Compile starting")
+
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
 	runner := cc.NewCompileRunner(ap,
@@ -38,7 +38,9 @@ func (r *ccRunner) Run(
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.NewTask(sctx, runner, req.Toolchain.Executable)
+	task := run.Begin(
+		tracing.ContextWithTracer(ctx.ClientContext, tracer),
+		runner, req.Toolchain)
 	err := executor.Exec(task)
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {

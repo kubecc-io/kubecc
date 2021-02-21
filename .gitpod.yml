@@ -1,0 +1,3 @@
+image: kubecc/gitpod-workspace:latest
+tasks:
+  - init: make setup

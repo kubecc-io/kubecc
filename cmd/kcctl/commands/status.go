@@ -1,27 +1,17 @@
-/*
-Copyright © 2021 NAME HERE <EMAIL ADDRESS>
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
 package commands
 
 import (
-	"fmt"
+	"context"
 
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
 )
 
-// statusCmd represents the status command
+// statusCmd represents the status command.
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "A brief description of your command",
@@ -32,20 +22,34 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("status called")
+		cc, err := servers.Dial(cliContext, "127.0.0.1:9960")
+		if err != nil {
+			cliLog.Fatal(err)
+		}
+		id := types.NewIdentity(types.CLI)
+		ctx := types.OutgoingContextWithIdentity(cliContext, id)
+		client := types.NewExternalMonitorClient(cc)
+		listener := metrics.NewListener(ctx, client)
+		display := ui.NewStatusDisplay()
+
+		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+			display.AddAgent(pctx, uuid)
+			listener.OnValueChanged(uuid, func(qp *status.QueueParams) {
+				display.Update(uuid, qp)
+			})
+			listener.OnValueChanged(uuid, func(qs *status.QueueStatus) {
+				display.Update(uuid, qs)
+			})
+			listener.OnValueChanged(uuid, func(ts *status.TaskStatus) {
+				display.Update(uuid, ts)
+			})
+			<-pctx.Done()
+		})
+
+		display.Run()
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// statusCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// statusCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

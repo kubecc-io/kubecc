@@ -1,20 +1,28 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/cobalt77/kubecc/pkg/tracing"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile    string
+	cliContext context.Context
+	cliLog     *zap.SugaredLogger
+)
 
-// rootCmd represents the base command when called without any subcommands
+// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:   "kcctl",
 	Short: "A brief description of your application",
@@ -29,6 +37,14 @@ The kubecc CLI utility`),
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	ctx := logkc.NewWithContext(context.Background(), types.CLI)
+	tracer, closer := tracing.Start(ctx, types.CLI)
+	defer closer.Close()
+	lg := logkc.LogFromContext(ctx)
+	ctx = tracing.ContextWithTracer(ctx, tracer)
+	cliContext = ctx
+	cliLog = lg
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

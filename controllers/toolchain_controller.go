@@ -11,7 +11,7 @@ import (
 	kubecciov1alpha1 "github.com/cobalt77/kubecc/api/v1alpha1"
 )
 
-// ToolchainReconciler reconciles a Toolchain object
+// ToolchainReconciler reconciles a Toolchain object.
 type ToolchainReconciler struct {
 	client.Client
 	Log    *zap.SugaredLogger

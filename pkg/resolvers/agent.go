@@ -11,9 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AgentResolver struct {
-	rec.Resolver
-}
+type AgentResolver struct{}
 
 const (
 	agentAppName = "kubecc-agent"
@@ -46,7 +44,7 @@ func (r *AgentResolver) Resolve(
 				&daemonSet.Spec.Template.Spec, 0),
 			rec.ImageUpdater(agentSpec.Image,
 				&daemonSet.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(v1.PullPolicy(agentSpec.ImagePullPolicy),
+			rec.PullPolicyUpdater(agentSpec.ImagePullPolicy,
 				&daemonSet.Spec.Template.Spec, 0),
 			rec.LabelUpdater(agentSpec.AdditionalLabels,
 				&daemonSet.Spec.Template,
@@ -55,7 +53,7 @@ func (r *AgentResolver) Resolve(
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
-
+		return rec.RequeueWith(res, err)
 	}
 
 	svc := &v1.Service{}

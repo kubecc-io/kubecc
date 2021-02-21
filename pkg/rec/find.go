@@ -106,5 +106,5 @@ func Find(
 }
 
 func ShouldRequeue(res ctrl.Result, err error) bool {
-	return res.Requeue == true || res.RequeueAfter > 0 || err != nil
+	return res.Requeue || res.RequeueAfter > 0 || err != nil
 }

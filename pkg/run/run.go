@@ -5,11 +5,33 @@ import (
 	"io"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
 
 type Runner interface {
-	Run(compiler string) error
+	Run(context.Context, *types.Toolchain) error
+}
+
+type Contexts struct {
+	ServerContext context.Context
+	ClientContext context.Context
+}
+
+type RunnerManager interface {
+	Run(ctx Contexts, x Executor, request interface{}) (response interface{}, err error)
+}
+
+type ArgParser interface {
+	Parse()
+	CanRunRemote() bool
+}
+
+type ToolchainRunner interface {
+	RunLocal(ArgParser) RunnerManager
+	SendRemote(ArgParser, types.SchedulerClient) RunnerManager
+	RecvRemote() RunnerManager
+	NewArgParser(ctx context.Context, args []string) ArgParser
 }
 
 type OutputType int
@@ -19,6 +41,7 @@ type ProcessOptions struct {
 	Stderr  io.Writer
 	Stdin   io.Reader
 	Env     []string
+	Args    []string
 	WorkDir string
 	UID     uint32
 	GID     uint32
@@ -26,6 +49,7 @@ type ProcessOptions struct {
 
 type ResultOptions struct {
 	OutputWriter io.Writer
+	OutputVar    interface{}
 	NoTempFile   bool
 }
 
@@ -48,6 +72,12 @@ type RunOption func(*RunnerOptions)
 func WithEnv(env []string) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Env = env
+	}
+}
+
+func WithArgs(args []string) RunOption {
+	return func(ro *RunnerOptions) {
+		ro.Args = args
 	}
 }
 
@@ -80,6 +110,12 @@ func WithUidGid(uid, gid uint32) RunOption {
 func WithOutputWriter(w io.Writer) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.OutputWriter = w
+	}
+}
+
+func WithOutputVar(v interface{}) RunOption {
+	return func(ro *RunnerOptions) {
+		ro.OutputVar = v
 	}
 }
 

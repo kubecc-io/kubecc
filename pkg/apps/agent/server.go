@@ -2,135 +2,273 @@ package agent
 
 import (
 	"context"
-	"runtime"
+	"fmt"
+	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type agentServer struct {
+type AgentServer struct {
 	types.AgentServer
-	srvContext context.Context
-	lg         *zap.SugaredLogger
 
-	// tasks           *atomic.Int32
-	// maxRunningTasks int
-	// maxWaitingTasks int
-	// runQueue        chan struct{}
-	executor *run.Executor
+	AgentServerOptions
+
+	executor        run.Executor
+	lg              *zap.SugaredLogger
+	queueStatus     types.QueueStatus
+	queueStatusCh   chan types.QueueStatus
+	srvContext      context.Context
+	tcStore         *toolchains.Store
+	tcRunStore      *run.ToolchainRunnerStore
+	metricsProvider *metrics.Provider
 }
 
-func NewAgentServer(ctx context.Context) types.AgentServer {
-	srv := &agentServer{
-		executor:   run.NewExecutor((runtime.NumCPU() * 3) / 2),
-		srvContext: ctx,
-		lg:         logkc.LogFromContext(ctx),
+type AgentServerOptions struct {
+	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
+	schedulerClient  types.SchedulerClient
+	monitorClient    types.InternalMonitorClient
+	cpuConfig        *types.CpuConfig
+}
+
+type agentServerOption func(*AgentServerOptions)
+
+func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
+	for _, op := range opts {
+		op(o)
 	}
-	// srv.tasks = atomic.NewInt32(0)
-	// srv.maxRunningTasks = 2 * runtime.NumCPU()
-	// srv.maxWaitingTasks = 10 * runtime.NumCPU()
-	// srv.runQueue = make(chan struct{}, srv.maxRunningTasks)
-	// for i := 0; i < cap(srv.runQueue); i++ {
-	// 	srv.runQueue <- struct{}{}
-	// }
+}
+
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.toolchainFinders = args
+	}
+}
+
+func WithToolchainRunners(args ...run.StoreAddFunc) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.toolchainRunners = args
+	}
+}
+
+func WithSchedulerClient(client types.SchedulerClient) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.schedulerClient = client
+	}
+}
+
+func WithMonitorClient(client types.InternalMonitorClient) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.monitorClient = client
+	}
+}
+
+func WithCpuConfig(cpuConfig *types.CpuConfig) agentServerOption {
+	return func(o *AgentServerOptions) {
+		o.cpuConfig = cpuConfig
+	}
+}
+
+func NewAgentServer(
+	ctx context.Context,
+	opts ...agentServerOption,
+) *AgentServer {
+	options := AgentServerOptions{
+		toolchainFinders: []toolchains.FinderWithOptions{
+			{
+				Finder: cc.CCFinder{},
+			},
+		},
+	}
+	options.Apply(opts...)
+
+	runStore := run.NewToolchainRunnerStore()
+	for _, add := range options.toolchainRunners {
+		add(runStore)
+	}
+
+	if options.cpuConfig == nil {
+		options.cpuConfig = cpuconfig.Default()
+	}
+
+	srv := &AgentServer{
+		AgentServerOptions: options,
+		srvContext:         ctx,
+		lg:                 logkc.LogFromContext(ctx),
+		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:         runStore,
+		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
+		queueStatus:        types.Available,
+	}
 	return srv
 }
 
-func (s *agentServer) Compile(
+func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	// if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-	// 	logkc.Error("*** Hit the max number of tasks, rejecting")
-	// 	return nil, status.Error(codes.Unavailable, "Max number of concurrent tasks reached")
-	// }
-	// s.tasks.Inc()
-	// token := <-s.runQueue
-	// span.Finish()
-	// span, _ = opentracing.StartSpanFromContext(ctx, "compile",
-	// 	opentracing.FollowsFrom(span.Context()))
-	// defer func() {
-	// 	span.Finish()
-	// 	s.runQueue <- token
-	// 	s.tasks.Dec()
-	// }()
-	if runner, ok := toolchainRunners[req.Toolchain.Kind]; ok {
-		return runner.Run(Contexts{
-			ServerContext: s.srvContext,
-			ClientContext: ctx,
-		}, s.executor, req)
+	s.updateQueueStatus(s.executor.Status())
+
+	span, sctx, err := servers.StartSpanFromServer(
+		ctx, s.srvContext, "compile")
+	if err != nil {
+		s.lg.Error(err)
+	} else {
+		defer span.Finish()
 	}
-	return nil, status.Error(codes.Unimplemented,
-		"No implementation available for the given Toolchain")
+
+	runner, err := s.tcRunStore.Get(req.GetToolchain().Kind)
+	if err != nil {
+		return nil, status.Error(codes.Unavailable,
+			"No toolchain runner available")
+	}
+
+	resp, err := runner.RecvRemote().Run(run.Contexts{
+		ServerContext: s.srvContext,
+		ClientContext: sctx,
+	}, s.executor, req)
+	return resp.(*types.CompileResponse), err
 }
 
-// func (s *agentServer) Compile(
-// 	req *types.CompileRequest,
-// 	srv types.Agent_CompileServer,
-// ) error {
-// 	if s.tasks.Load() >= int32(s.maxRunningTasks+s.maxWaitingTasks) {
-// 		s.lg.Error("*** Hit the max number of tasks, rejecting")
-// 		srv.Send(&types.CompileStatus{
-// 			CompileStatus: types.CompileStatus_Reject,
-// 			Data: &types.CompileStatus_Error{
-// 				Error: "Hit the max number of concurrent tasks",
-// 			},
-// 		})
-// 	}
-// 	s.tasks.Inc()
-// 	token := <-s.runQueue
-// 	defer func() {
-// 		s.runQueue <- token
-// 		s.tasks.Dec()
-// 	}()
+func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
+	if s.queueStatus != stat {
+		s.queueStatus = stat
+		// todo: remove old queue status system
+		select {
+		case s.queueStatusCh <- stat:
+		default:
+		}
+	}
+}
 
-// 	s.lg.Info("Compile requested")
-// 	srv.Send(&types.CompileStatus{
-// 		CompileStatus: types.CompileStatus_Accept,
-// 		Data: &types.CompileStatus_Info{
-// 			Info: cluster.MakeAgentInfo(),
-// 		},
-// 	})
-// 	info := cc.NewArgsInfo(req.Args, s.lg.Desugar())
-// 	info.Parse()
-// 	s.lg.With(zap.Object("args", info)).Info("Compile starting")
-// 	stderrBuf := new(bytes.Buffer)
-// 	tmpFilename := new(bytes.Buffer)
-// 	runner := run.NewCompileRunner(
-// 		run.WithLogger(s.lg.Desugar()),
-// 		run.WithOutputWriter(tmpFilename),
-// 		run.WithStderr(stderrBuf),
-// 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
-// 	)
-// 	err := runner.Run(info)
-// 	s.lg.With(zap.Error(err)).Info("Compile finished")
-// 	if err != nil && run.IsCompilerError(err) {
-// 		srv.Send(
-// 			&types.CompileStatus{
-// 				CompileStatus: types.CompileStatus_Fail,
-// 				Data: &types.CompileStatus_Error{
-// 					Error: stderrBuf.String(),
-// 				},
-// 			})
-// 		return nil
-// 	} else if err != nil {
-// 		return status.Error(codes.Internal, err.Error())
-// 	}
-// 	data, err := os.ReadFile(tmpFilename.String())
-// 	if err != nil {
-// 		s.lg.With(zap.Error(err)).Info("Error reading temp file")
-// 		return status.Error(codes.Internal, err.Error())
-// 	}
-// 	err = srv.Send(&types.CompileStatus{
-// 		CompileStatus: types.CompileStatus_Success,
-// 		Data: &types.CompileStatus_CompiledSource{
-// 			CompiledSource: data,
-// 		},
-// 	})
-// 	s.lg.With(zap.Error(err)).Info("Sending results")
-// 	return err
-// }
+func (s *AgentServer) postAlive() {
+	s.metricsProvider.Post(&meta.Alive{})
+}
+
+func (s *AgentServer) postQueueParams() {
+	qp := &mstat.QueueParams{}
+	s.executor.CompleteQueueParams(qp)
+	s.metricsProvider.Post(qp)
+}
+
+func (s *AgentServer) postTaskStatus() {
+	ts := &mstat.TaskStatus{}
+	s.executor.CompleteTaskStatus(ts)
+	s.metricsProvider.Post(ts)
+}
+
+func (s *AgentServer) postQueueStatus() {
+	qs := &mstat.QueueStatus{}
+	s.executor.CompleteQueueStatus(qs)
+	s.metricsProvider.Post(qs)
+}
+
+func (s *AgentServer) StartMetricsProvider() {
+	id := types.NewIdentity(types.Agent)
+	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
+	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
+	s.postAlive()
+	s.postQueueParams()
+	s.postQueueStatus()
+
+	tick := time.NewTicker(time.Second / 10)
+	go func() {
+		for {
+			<-tick.C
+			s.postTaskStatus()
+			s.postQueueStatus()
+		}
+	}()
+}
+
+func (s *AgentServer) RunSchedulerClient() {
+	if s.schedulerClient == nil {
+		cc, err := grpc.Dial(
+			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
+				cluster.GetNamespace()),
+			grpc.WithInsecure())
+		if err != nil {
+			s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
+		}
+		s.schedulerClient = types.NewSchedulerClient(cc)
+	}
+
+	for {
+		s.lg.Info("Starting connection to the scheduler")
+		stream, err := s.schedulerClient.ConnectAgent(
+			s.srvContext, grpc.WaitForReady(true))
+		if err != nil {
+			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
+			time.Sleep(5 * time.Second)
+		}
+		err = stream.Send(&types.Metadata{
+			Contents: &types.Metadata_Toolchains{
+				Toolchains: &types.Toolchains{
+					Items: s.tcStore.ItemsList(),
+				},
+			},
+		})
+		if err != nil {
+			s.lg.Error(err)
+		}
+		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
+
+		streamClosed := make(chan error)
+		go func() {
+			for {
+				_, err := stream.Recv()
+				streamClosed <- err
+				close(streamClosed)
+				return
+			}
+		}()
+
+		select {
+		case stat := <-s.queueStatusCh:
+			s.lg.Info("Sending queue status update: %s",
+				types.QueueStatus_name[int32(stat)])
+			err := stream.Send(&types.Metadata{
+				Contents: &types.Metadata_QueueStatus{
+					QueueStatus: stat,
+				},
+			})
+			if err != nil {
+				s.lg.Error(err)
+			}
+		case err := <-streamClosed:
+			s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
+			time.Sleep(5 * time.Second)
+		}
+	}
+}
+
+func (s *AgentServer) GetCpuConfig(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.CpuConfig, error) {
+	return s.cpuConfig, nil
+}
+
+func (s *AgentServer) SetCpuConfig(
+	ctx context.Context,
+	cfg *types.CpuConfig,
+) (*types.Empty, error) {
+	s.executor.(*run.QueuedExecutor).SetCpuConfig(cfg)
+	s.cpuConfig = cfg
+	s.postQueueParams()
+	return &types.Empty{}, nil
+}

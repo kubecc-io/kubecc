@@ -11,14 +11,16 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-GO ?= go1.16rc1
+GO ?= go
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
-.PHONY: all
-all: generate manifests proto fmt vet bin
-
+.PHONY: all setup
+all: generate manifests fmt vet bin
+setup:
+	$(GO) get github.com/operator-framework/operator-sdk/cmd/operator-sdk
+	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
 
 # Tests
 .PHONY: test-operator test-integration test-e2e test-unit
@@ -26,7 +28,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out -tags operator
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test ./... -coverprofile cover.out -tags operator
 
 test-integration:
 	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
@@ -54,7 +56,7 @@ undeploy:
 	kubectl kustomize config/default | kubectl delete -f -
 
 manifests: 
-	controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	GOROOT=$(shell $(GO) env GOROOT) controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 
 # Protobuf code generators
@@ -75,7 +77,7 @@ vet:
 
 # Generate code
 generate: 
-	controller-gen object paths="./..."
+	GOROOT=$(shell $(GO) env GOROOT) controller-gen object paths="./..."
 
 
 # Build binaries

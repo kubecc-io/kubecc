@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/go-cmp/cmp"
@@ -199,8 +200,14 @@ func (q mockQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 	return 0, errors.New("Unknown compiler")
 }
 
+var sampleTime = time.Now()
+
+func (q mockQuerier) ModTime(compiler string) (time.Time, error) {
+	return sampleTime, nil
+}
+
 func TestFindToolchains(t *testing.T) {
-	ctx := logkc.NewFromContext(context.Background(), types.Test)
+	ctx := logkc.NewWithContext(context.Background(), types.TestComponent)
 
 	fs := fstest.MapFS{
 		// "usr/bin/gcc":                     sym("gcc-10"),
@@ -266,17 +273,21 @@ func TestFindToolchains(t *testing.T) {
 		},
 	}
 
-	tcs := toolchains.FindToolchains(ctx,
-		toolchains.WithFS(fs),
-		toolchains.WithQuerier(mockQuerier{}),
-		toolchains.SearchPathEnv(false),
-		toolchains.WithSearchPaths([]string{
-			"usr/bin",
-			"usr/lib/llvm-11/bin",
-		}),
-	)
+	store := toolchains.Aggregate(ctx,
+		toolchains.FinderWithOptions{
+			Finder: cc.CCFinder{},
+			Opts: []toolchains.FindOption{
+				toolchains.WithFS(fs),
+				toolchains.WithQuerier(mockQuerier{}),
+				toolchains.SearchPathEnv(false),
+				toolchains.WithSearchPaths([]string{
+					"usr/bin",
+					"usr/lib/llvm-11/bin",
+				}),
+			},
+		})
 	tcsMap := make(map[string]*types.Toolchain)
-	for _, tc := range tcs {
+	for tc := range store.Items() {
 		tcsMap[tc.Executable] = tc
 	}
 	assert.Empty(t, cmp.Diff(expected, tcsMap, protocmp.Transform()))

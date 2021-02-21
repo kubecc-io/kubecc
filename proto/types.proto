@@ -1,5 +1,4 @@
 syntax = "proto3";
-import "google/protobuf/wrappers.proto";
 option go_package = "pkg/types";
 
 message Empty {}
@@ -10,13 +9,48 @@ service Consumerd {
 
 service Agent {
   rpc Compile(CompileRequest) returns (CompileResponse);
+  rpc GetCpuConfig (Empty) returns (CpuConfig);
+  rpc SetCpuConfig (CpuConfig) returns (Empty);
 }
 
 service Scheduler {
-  rpc AtCapacity(Empty) returns (google.protobuf.BoolValue);
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc Connect(stream Metadata) returns (stream Empty);
+  rpc ConnectAgent(stream Metadata) returns (stream Empty);
+  rpc ConnectConsumerd(stream Metadata) returns (stream Empty);
   rpc SystemStatus(Empty) returns (SystemStatusResponse);
+}
+
+service InternalMonitor {
+  rpc Stream(stream Metric) returns (stream Empty);
+}
+
+service ExternalMonitor {
+  rpc Listen(Key) returns (stream Value);
+}
+
+message Metric {
+  Key Key = 1;
+  Value Value = 2;
+}
+
+message Key {
+  string Bucket = 1;
+  string Name = 2;
+}
+
+message Value {
+  bytes Data = 1;
+}
+
+message Identity {
+  Component Component = 1;
+  string UUID = 2;
+}
+
+message CpuConfig {
+  int32 MaxRunningProcesses = 1;
+  double QueuePressureThreshold = 2;
+  double QueueRejectThreshold = 3;
 }
 
 message SystemStatusResponse {
@@ -28,34 +62,50 @@ message ComponentStatus {
   bool Alive = 2;
 }
 
+message Toolchains {
+  repeated Toolchain Items = 1;
+}
+
 message Metadata {
-  Component Component = 1;
-  repeated Toolchain Toolchains = 2;
+  oneof Contents {
+    Toolchains Toolchains = 2;
+    QueueStatus QueueStatus = 3;
+  }
 }
 
 enum Component {
-  Component_Unknown_ = 0;
-	Agent_ = 1;
-	Scheduler_ = 2;
-	Controller_ = 3;
-	Consumer_ = 4;
-	Consumerd_ = 5;
-	Make_ = 6;
-  Test_ = 7;
-  Dashboard_ = 8;
+  Component_Unknown = 0;
+  Component_Agent = 1;
+  Component_Scheduler = 2;
+  Component_Controller = 3;
+  Component_Consumer = 4;
+  Component_Consumerd = 5;
+  Component_Make = 6;
+  Component_Test = 7;
+  Component_Dashboard = 8;
+  Component_CLI = 9;
+  Component_Monitor = 10;
+}
+
+enum QueueStatus {
+  Available = 0;
+  Queueing = 1;
+  QueuePressure = 2;
+  QueueFull = 3;
 }
 
 enum ToolchainKind {
-  ToolchainKind_Unknown_ = 0;
-  Gnu_ = 1;
-  Clang_ = 2;
+  ToolchainKind_Unknown = 0;
+  ToolchainKind_Gnu = 1;
+  ToolchainKind_Clang = 2;
+  ToolchainKind_Test = 3;
 }
 
 enum ToolchainLang {
-  ToolchainLang_Unknown_ = 0;
-  C_ = 1;
-  CXX_ = 2;
-  Multi_ = 3;
+  ToolchainLang_Unknown = 0;
+  ToolchainLang_C = 1;
+  ToolchainLang_CXX = 2;
+  ToolchainLang_Multi = 3;
 }
 
 message Toolchain {
@@ -79,13 +129,16 @@ message AgentToolchainInfoList {
 
 // consumer -> consumerd
 message RunRequest {
-  string Compiler = 1;
-  repeated string Args = 2;
-  uint32 UID = 3;
-  uint32 GID = 4;
-  string WorkDir = 5;
-  repeated string Env = 6;
-  bytes Stdin = 7;
+  oneof Compiler {
+    string Path = 1;
+    Toolchain Toolchain = 2;
+  }
+  repeated string Args = 3;
+  uint32 UID = 4;
+  uint32 GID = 5;
+  string WorkDir = 6;
+  repeated string Env = 7;
+  bytes Stdin = 8;
 }
 // consumerd -> consumer
 message RunResponse {
@@ -104,7 +157,6 @@ message ScheduleResponse {}
 message AgentInfo {
   // System Info
   string Arch = 1;
-  int32 NumCpus = 2;
 
   // Downward API
   string Node = 3;

@@ -3,9 +3,11 @@ package toolchains
 import (
 	"bytes"
 	"errors"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -16,6 +18,7 @@ type Querier interface {
 	IsPicDefault(compiler string) (bool, error)
 	Kind(compiler string) (types.ToolchainKind, error)
 	Lang(compiler string) (types.ToolchainLang, error)
+	ModTime(compiler string) (time.Time, error)
 }
 
 type ExecQuerier struct{}
@@ -94,4 +97,12 @@ func (q ExecQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 		return types.C, nil
 	}
 	return 0, errors.New("Unknown compiler")
+}
+
+func (q ExecQuerier) ModTime(compiler string) (time.Time, error) {
+	info, err := os.Stat(compiler)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }

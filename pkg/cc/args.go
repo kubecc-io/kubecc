@@ -106,7 +106,7 @@ func (opt ActionOpt) String() string {
 	return string(opt)
 }
 
-// ArgParser represents GCC arguments
+// ArgParser represents GCC arguments.
 type ArgParser struct {
 	lg             *zap.SugaredLogger
 	Args           []string
@@ -116,13 +116,17 @@ type ArgParser struct {
 	FlagIndexMap   map[string]int
 }
 
-// NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args
+func (ap ArgParser) CanRunRemote() bool {
+	return ap.Mode == RunRemote
+}
+
+// NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args.
 func NewArgParserFromOS(ctx context.Context) *ArgParser {
 	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy
 }
 
 // NewArgParser creates a new ArgsInfo struct from the provided args
-// Args should NOT include the command (argv[0])
+// Args should NOT include the command (argv[0]).
 func NewArgParser(ctx context.Context, args []string) *ArgParser {
 	return &ArgParser{
 		lg:   logkc.LogFromContext(ctx),
@@ -311,7 +315,6 @@ func (ap *ArgParser) Parse() {
 			}
 		} else if inputArg != "" && !seenOptE {
 			// If preprocessing, output goes to stdout
-			outputArg = "a.out"
 			ap.Args = append(ap.Args, "-o", "a.out")
 			ap.OutputArgIndex = len(ap.Args) - 1
 		}
@@ -327,6 +330,7 @@ func (ap *ArgParser) Parse() {
 		ap.lg.Debug("Remote compilation disabled")
 	case RunRemote:
 		ap.lg.Debug("Remote compilation enabled")
+	case Unset:
 	}
 }
 
@@ -375,7 +379,7 @@ func (ap *ArgParser) ReplaceOutputPath(newPath string) error {
 
 // ReplaceInputPath replaces the input path (the path after the action opt)
 // with a new path.
-// If the new input path is '-', this function adds '-x <language>' to the arguments
+// If the new input path is '-', this function adds '-x <language>' to the arguments.
 func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 	if ap.InputArgIndex != -1 {
 		old := ap.Args[ap.InputArgIndex]
@@ -430,29 +434,29 @@ func (ap *ArgParser) ConfigurePreprocessorOptions() {
 // RemoveLocalArgs removes arguments that do not need to be
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
-// It also adds -fpreprocessed
+// It also adds -fpreprocessed.
 func (ap *ArgParser) RemoveLocalArgs() {
 	newArgs := []string{}
 	for i := 0; i < len(ap.Args); i++ {
 		arg := ap.Args[i]
-		if LocalArgsWithValues.Contains(arg) {
+		switch {
+		case LocalArgsWithValues.Contains(arg):
 			i++ // Skip value (--arg value)
 			continue
-		} else if func() bool {
+		case func() bool {
 			for _, p := range LocalPrefixArgs {
 				if strings.HasPrefix(arg, p) {
 					return true
 				}
 			}
 			return false
-		}() {
-			continue
-		} else if LocalArgsNoValues.Contains(arg) {
+		}(), LocalArgsNoValues.Contains(arg):
 			continue
 		}
 		newArgs = append(newArgs, arg)
 	}
-	ap.Args = append(newArgs, "-fpreprocessed")
+	newArgs = append(newArgs, "-fpreprocessed")
+	ap.Args = newArgs
 	ap.Parse()
 }
 

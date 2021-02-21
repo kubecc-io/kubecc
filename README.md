@@ -1,4 +1,2 @@
 ![logo](docs/media/logo.png)
-
-<h1 align="center">The Distributed Compiler System for Kubernetes</h2>
-
+[![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/cobalt77/kubecc)

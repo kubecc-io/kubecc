@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// pluginsCmd represents the plugins command
+// pluginsCmd represents the plugins command.
 var pluginsCmd = &cobra.Command{
 	Use:   "plugins",
 	Short: "A brief description of your command",

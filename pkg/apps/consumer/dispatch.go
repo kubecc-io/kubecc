@@ -10,7 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding/gzip"
 )
@@ -27,18 +27,26 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	}
 	stdin := new(bytes.Buffer)
 
-	if !terminal.IsTerminal(int(os.Stdin.Fd())) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		io.Copy(stdin, os.Stdin)
 	}
 
+	var compilerPath string
+	if filepath.IsAbs(os.Args[0]) {
+		compilerPath = os.Args[0]
+	} else {
+		compilerPath = findCompilerOrDie(ctx)
+	}
 	resp, err := consumerd.Run(context.Background(), &types.RunRequest{
-		Compiler: filepath.Base(os.Args[0]),
-		Args:     os.Args[1:],
-		Env:      os.Environ(),
-		UID:      uint32(os.Getuid()),
-		GID:      uint32(os.Getgid()),
-		Stdin:    stdin.Bytes(),
-		WorkDir:  wd,
+		Compiler: &types.RunRequest_Path{
+			Path: compilerPath,
+		},
+		Args:    os.Args[1:],
+		Env:     os.Environ(),
+		UID:     uint32(os.Getuid()),
+		GID:     uint32(os.Getgid()),
+		Stdin:   stdin.Bytes(),
+		WorkDir: wd,
 	}, grpc.WaitForReady(true), grpc.UseCompressor(gzip.Name))
 	if err != nil {
 		lg.With(zap.Error(err)).Error("Dispatch error")

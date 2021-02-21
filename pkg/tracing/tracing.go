@@ -1,24 +1,29 @@
 package tracing
 
 import (
-	"errors"
-	"fmt"
+	"context"
 	"io"
 	"os"
 
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	opentracing "github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
-func Start(component types.Component) (io.Closer, error) {
+var IsEnabled bool
+
+func Start(ctx context.Context, component types.Component) (opentracing.Tracer, io.Closer) {
+	lg := logkc.LogFromContext(ctx)
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
-		return nil, errors.New("JAEGER_ENDPOINT not defined, tracing disabled")
+		lg.Warn("JAEGER_ENDPOINT not defined, tracing disabled")
+		return opentracing.NoopTracer{}, io.NopCloser(nil)
 	}
 	cfg := jaegercfg.Configuration{
-		ServiceName: fmt.Sprintf("kubecc-%s", component),
+		ServiceName: component.Name(),
 		Disabled:    false,
 		RPCMetrics:  false,
 		Sampler: &jaegercfg.SamplerConfig{
@@ -31,8 +36,26 @@ func Start(component types.Component) (io.Closer, error) {
 	}
 	tracer, closer, err := cfg.NewTracer()
 	if err != nil {
-		return nil, err
+		lg.With(zap.Error(err)).Error("tracing disabled")
+		return opentracing.NoopTracer{}, io.NopCloser(nil)
 	}
-	opentracing.SetGlobalTracer(tracer)
-	return closer, err
+	lg.Info("Tracing enabled")
+	IsEnabled = true
+	return tracer, closer
+}
+
+type tracerKeyType struct{}
+
+var tracerKey tracerKeyType
+
+func ContextWithTracer(ctx context.Context, tracer opentracing.Tracer) context.Context {
+	return context.WithValue(ctx, tracerKey, tracer)
+}
+
+func TracerFromContext(ctx context.Context) opentracing.Tracer {
+	tracer := ctx.Value(tracerKey)
+	if tracer == nil {
+		panic("No tracer associated with context")
+	}
+	return tracer.(opentracing.Tracer)
 }

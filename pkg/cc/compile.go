@@ -2,6 +2,7 @@ package cc
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -28,10 +29,10 @@ func NewCompileRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
 }
 
 // Run the compiler with the current args.
-func (r *compileRunner) Run(compiler string) error {
+func (r *compileRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 	info := r.info
 	r.Log.With(
-		zap.String("compiler", compiler),
+		zap.String("compiler", tc.Executable),
 		zap.Object("info", info),
 	).Debug("Received run request")
 
@@ -59,7 +60,7 @@ func (r *compileRunner) Run(compiler string) error {
 		}
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.Command(compiler, info.Args...) // todo
+	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...)
 	cmd.Env = r.Env
 	cmd.Dir = r.WorkDir
 	cmd.Stdout = r.Stdout

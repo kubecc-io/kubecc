@@ -4,7 +4,6 @@ package types
 
 import (
 	context "context"
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -106,6 +105,8 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
+	GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error)
+	SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type agentClient struct {
@@ -125,11 +126,31 @@ func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...g
 	return out, nil
 }
 
+func (c *agentClient) GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error) {
+	out := new(CpuConfig)
+	err := c.cc.Invoke(ctx, "/Agent/GetCpuConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Agent/SetCpuConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility
 type AgentServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
+	GetCpuConfig(context.Context, *Empty) (*CpuConfig, error)
+	SetCpuConfig(context.Context, *CpuConfig) (*Empty, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -139,6 +160,12 @@ type UnimplementedAgentServer struct {
 
 func (UnimplementedAgentServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
+}
+func (UnimplementedAgentServer) GetCpuConfig(context.Context, *Empty) (*CpuConfig, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetCpuConfig not implemented")
+}
+func (UnimplementedAgentServer) SetCpuConfig(context.Context, *CpuConfig) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetCpuConfig not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -171,6 +198,42 @@ func _Agent_Compile_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_GetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).GetCpuConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Agent/GetCpuConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).GetCpuConfig(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Agent_SetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CpuConfig)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).SetCpuConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Agent/SetCpuConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).SetCpuConfig(ctx, req.(*CpuConfig))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -182,6 +245,14 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Compile",
 			Handler:    _Agent_Compile_Handler,
 		},
+		{
+			MethodName: "GetCpuConfig",
+			Handler:    _Agent_GetCpuConfig_Handler,
+		},
+		{
+			MethodName: "SetCpuConfig",
+			Handler:    _Agent_SetCpuConfig_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/types.proto",
@@ -191,9 +262,9 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SchedulerClient interface {
-	AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error)
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error)
+	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
+	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
 	SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error)
 }
 
@@ -205,15 +276,6 @@ func NewSchedulerClient(cc grpc.ClientConnInterface) SchedulerClient {
 	return &schedulerClient{cc}
 }
 
-func (c *schedulerClient) AtCapacity(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*wrappers.BoolValue, error) {
-	out := new(wrappers.BoolValue)
-	err := c.cc.Invoke(ctx, "/Scheduler/AtCapacity", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error) {
 	out := new(CompileResponse)
 	err := c.cc.Invoke(ctx, "/Scheduler/Compile", in, out, opts...)
@@ -223,30 +285,61 @@ func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts 
 	return out, nil
 }
 
-func (c *schedulerClient) Connect(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/Scheduler/Connect", opts...)
+func (c *schedulerClient) ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/Scheduler/ConnectAgent", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectClient{stream}
+	x := &schedulerConnectAgentClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectClient interface {
+type Scheduler_ConnectAgentClient interface {
 	Send(*Metadata) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectClient struct {
+type schedulerConnectAgentClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectClient) Send(m *Metadata) error {
+func (x *schedulerConnectAgentClient) Send(m *Metadata) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectClient) Recv() (*Empty, error) {
+func (x *schedulerConnectAgentClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *schedulerClient) ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[1], "/Scheduler/ConnectConsumerd", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &schedulerConnectConsumerdClient{stream}
+	return x, nil
+}
+
+type Scheduler_ConnectConsumerdClient interface {
+	Send(*Metadata) error
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type schedulerConnectConsumerdClient struct {
+	grpc.ClientStream
+}
+
+func (x *schedulerConnectConsumerdClient) Send(m *Metadata) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -267,9 +360,9 @@ func (c *schedulerClient) SystemStatus(ctx context.Context, in *Empty, opts ...g
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
 type SchedulerServer interface {
-	AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error)
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	Connect(Scheduler_ConnectServer) error
+	ConnectAgent(Scheduler_ConnectAgentServer) error
+	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
 	SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
@@ -278,14 +371,14 @@ type SchedulerServer interface {
 type UnimplementedSchedulerServer struct {
 }
 
-func (UnimplementedSchedulerServer) AtCapacity(context.Context, *Empty) (*wrappers.BoolValue, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AtCapacity not implemented")
-}
 func (UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (UnimplementedSchedulerServer) Connect(Scheduler_ConnectServer) error {
-	return status.Errorf(codes.Unimplemented, "method Connect not implemented")
+func (UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectAgent not implemented")
+}
+func (UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
+	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
 }
 func (UnimplementedSchedulerServer) SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SystemStatus not implemented")
@@ -301,24 +394,6 @@ type UnsafeSchedulerServer interface {
 
 func RegisterSchedulerServer(s grpc.ServiceRegistrar, srv SchedulerServer) {
 	s.RegisterService(&Scheduler_ServiceDesc, srv)
-}
-
-func _Scheduler_AtCapacity_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SchedulerServer).AtCapacity(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Scheduler/AtCapacity",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).AtCapacity(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -339,25 +414,51 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Scheduler_Connect_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).Connect(&schedulerConnectServer{stream})
+func _Scheduler_ConnectAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectAgent(&schedulerConnectAgentServer{stream})
 }
 
-type Scheduler_ConnectServer interface {
+type Scheduler_ConnectAgentServer interface {
 	Send(*Empty) error
 	Recv() (*Metadata, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectServer struct {
+type schedulerConnectAgentServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectServer) Send(m *Empty) error {
+func (x *schedulerConnectAgentServer) Send(m *Empty) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectServer) Recv() (*Metadata, error) {
+func (x *schedulerConnectAgentServer) Recv() (*Metadata, error) {
+	m := new(Metadata)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Scheduler_ConnectConsumerd_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).ConnectConsumerd(&schedulerConnectConsumerdServer{stream})
+}
+
+type Scheduler_ConnectConsumerdServer interface {
+	Send(*Empty) error
+	Recv() (*Metadata, error)
+	grpc.ServerStream
+}
+
+type schedulerConnectConsumerdServer struct {
+	grpc.ServerStream
+}
+
+func (x *schedulerConnectConsumerdServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
 	m := new(Metadata)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -391,10 +492,6 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SchedulerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "AtCapacity",
-			Handler:    _Scheduler_AtCapacity_Handler,
-		},
-		{
 			MethodName: "Compile",
 			Handler:    _Scheduler_Compile_Handler,
 		},
@@ -405,10 +502,247 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Connect",
-			Handler:       _Scheduler_Connect_Handler,
+			StreamName:    "ConnectAgent",
+			Handler:       _Scheduler_ConnectAgent_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "ConnectConsumerd",
+			Handler:       _Scheduler_ConnectConsumerd_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
+
+// InternalMonitorClient is the client API for InternalMonitor service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type InternalMonitorClient interface {
+	Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error)
+}
+
+type internalMonitorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewInternalMonitorClient(cc grpc.ClientConnInterface) InternalMonitorClient {
+	return &internalMonitorClient{cc}
+}
+
+func (c *internalMonitorClient) Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &InternalMonitor_ServiceDesc.Streams[0], "/InternalMonitor/Stream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &internalMonitorStreamClient{stream}
+	return x, nil
+}
+
+type InternalMonitor_StreamClient interface {
+	Send(*Metric) error
+	Recv() (*Empty, error)
+	grpc.ClientStream
+}
+
+type internalMonitorStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *internalMonitorStreamClient) Send(m *Metric) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *internalMonitorStreamClient) Recv() (*Empty, error) {
+	m := new(Empty)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// InternalMonitorServer is the server API for InternalMonitor service.
+// All implementations must embed UnimplementedInternalMonitorServer
+// for forward compatibility
+type InternalMonitorServer interface {
+	Stream(InternalMonitor_StreamServer) error
+	mustEmbedUnimplementedInternalMonitorServer()
+}
+
+// UnimplementedInternalMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedInternalMonitorServer struct {
+}
+
+func (UnimplementedInternalMonitorServer) Stream(InternalMonitor_StreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedInternalMonitorServer) mustEmbedUnimplementedInternalMonitorServer() {}
+
+// UnsafeInternalMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to InternalMonitorServer will
+// result in compilation errors.
+type UnsafeInternalMonitorServer interface {
+	mustEmbedUnimplementedInternalMonitorServer()
+}
+
+func RegisterInternalMonitorServer(s grpc.ServiceRegistrar, srv InternalMonitorServer) {
+	s.RegisterService(&InternalMonitor_ServiceDesc, srv)
+}
+
+func _InternalMonitor_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(InternalMonitorServer).Stream(&internalMonitorStreamServer{stream})
+}
+
+type InternalMonitor_StreamServer interface {
+	Send(*Empty) error
+	Recv() (*Metric, error)
+	grpc.ServerStream
+}
+
+type internalMonitorStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *internalMonitorStreamServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *internalMonitorStreamServer) Recv() (*Metric, error) {
+	m := new(Metric)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// InternalMonitor_ServiceDesc is the grpc.ServiceDesc for InternalMonitor service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var InternalMonitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "InternalMonitor",
+	HandlerType: (*InternalMonitorServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Stream",
+			Handler:       _InternalMonitor_Stream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
+
+// ExternalMonitorClient is the client API for ExternalMonitor service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ExternalMonitorClient interface {
+	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error)
+}
+
+type externalMonitorClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewExternalMonitorClient(cc grpc.ClientConnInterface) ExternalMonitorClient {
+	return &externalMonitorClient{cc}
+}
+
+func (c *externalMonitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ExternalMonitor_ServiceDesc.Streams[0], "/ExternalMonitor/Listen", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &externalMonitorListenClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ExternalMonitor_ListenClient interface {
+	Recv() (*Value, error)
+	grpc.ClientStream
+}
+
+type externalMonitorListenClient struct {
+	grpc.ClientStream
+}
+
+func (x *externalMonitorListenClient) Recv() (*Value, error) {
+	m := new(Value)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// ExternalMonitorServer is the server API for ExternalMonitor service.
+// All implementations must embed UnimplementedExternalMonitorServer
+// for forward compatibility
+type ExternalMonitorServer interface {
+	Listen(*Key, ExternalMonitor_ListenServer) error
+	mustEmbedUnimplementedExternalMonitorServer()
+}
+
+// UnimplementedExternalMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedExternalMonitorServer struct {
+}
+
+func (UnimplementedExternalMonitorServer) Listen(*Key, ExternalMonitor_ListenServer) error {
+	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
+}
+func (UnimplementedExternalMonitorServer) mustEmbedUnimplementedExternalMonitorServer() {}
+
+// UnsafeExternalMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ExternalMonitorServer will
+// result in compilation errors.
+type UnsafeExternalMonitorServer interface {
+	mustEmbedUnimplementedExternalMonitorServer()
+}
+
+func RegisterExternalMonitorServer(s grpc.ServiceRegistrar, srv ExternalMonitorServer) {
+	s.RegisterService(&ExternalMonitor_ServiceDesc, srv)
+}
+
+func _ExternalMonitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(Key)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ExternalMonitorServer).Listen(m, &externalMonitorListenServer{stream})
+}
+
+type ExternalMonitor_ListenServer interface {
+	Send(*Value) error
+	grpc.ServerStream
+}
+
+type externalMonitorListenServer struct {
+	grpc.ServerStream
+}
+
+func (x *externalMonitorListenServer) Send(m *Value) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// ExternalMonitor_ServiceDesc is the grpc.ServiceDesc for ExternalMonitor service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ExternalMonitor",
+	HandlerType: (*ExternalMonitorServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Listen",
+			Handler:       _ExternalMonitor_Listen_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "proto/types.proto",

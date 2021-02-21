@@ -1,5 +1,7 @@
 package run
 
+import "errors"
+
 type CompilerError struct {
 	error
 	text string
@@ -16,6 +18,6 @@ func (e *CompilerError) Error() string {
 }
 
 func IsCompilerError(err error) bool {
-	_, ok := err.(*CompilerError)
-	return ok
+	var e *CompilerError
+	return errors.As(err, &e)
 }

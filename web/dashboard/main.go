@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	ctx := logkc.NewFromContext(context.Background(), types.Dashboard)
+	ctx := logkc.NewWithContext(context.Background(), types.Dashboard)
 	lg := logkc.LogFromContext(ctx)
 	cc, err := grpc.Dial("localhost:9090", grpc.WithInsecure())
 	if err != nil {

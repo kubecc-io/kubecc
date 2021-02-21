@@ -1,15 +1,21 @@
 package rec
 
 import (
-	"errors"
-
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type mustExist struct {
+	error
+}
+
+func (e mustExist) Error() string {
+	return "Object must already exist"
+}
+
 var (
 	MustExist ObjectCreator = func(ResolveContext) (client.Object, error) {
-		return nil, errors.New("Object must already exist")
+		return nil, &mustExist{}
 	}
 )
 

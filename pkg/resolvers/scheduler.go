@@ -10,9 +10,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type SchedulerResolver struct {
-	rec.Resolver
-}
+type SchedulerResolver struct{}
 
 const (
 	schedulerAppName = "kubecc-scheduler"
@@ -45,7 +43,7 @@ func (r *SchedulerResolver) Resolve(
 				&deployment.Spec.Template.Spec, 0),
 			rec.ImageUpdater(schedulerSpec.Image,
 				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(v1.PullPolicy(schedulerSpec.ImagePullPolicy),
+			rec.PullPolicyUpdater(schedulerSpec.ImagePullPolicy,
 				&deployment.Spec.Template.Spec, 0),
 			rec.LabelUpdater(schedulerSpec.AdditionalLabels,
 				&deployment.Spec.Template,
@@ -60,7 +58,7 @@ func (r *SchedulerResolver) Resolve(
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      agentAppName,
+		Name:      schedulerAppName,
 	}, svc,
 		rec.WithCreator(rec.FromTemplate("scheduler_service.yaml")),
 		rec.RecreateIfChanged(),
@@ -73,7 +71,7 @@ func (r *SchedulerResolver) Resolve(
 	cfg := &v1.ConfigMap{}
 	res, err = rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
-		Name:      agentAppName,
+		Name:      schedulerAppName,
 	}, cfg,
 		rec.WithCreator(rec.FromTemplate("scheduler_configmap.yaml")),
 	)

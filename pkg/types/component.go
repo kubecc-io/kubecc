@@ -16,7 +16,11 @@ func (c Component) Name() string {
 		return "Consumerd"
 	case Make:
 		return "Make"
-	case Test:
+	case CLI:
+		return "CLI"
+	case Monitor:
+		return "Monitor"
+	case TestComponent:
 		return "Test"
 	case Dashboard:
 		return "Dashboard"
@@ -38,10 +42,15 @@ func (c Component) ShortName() string {
 		return "csrd"
 	case Make:
 		return "make"
-	case Test:
-		return "test"
+	case CLI:
+		return "❯cli"
+	case Monitor:
+		return "mntr"
 	case Dashboard:
 		return "dash"
+	case TestComponent:
+		return "test"
+	default:
 	}
 	return "????"
 }
@@ -53,14 +62,16 @@ func (c Component) Color() zapkc.Color {
 	case Scheduler:
 		return zapkc.Yellow
 	case Controller:
-		return zapkc.Blue
-	case Consumer:
-		return zapkc.White
+		return zapkc.Red
 	case Consumerd:
 		return zapkc.Green
 	case Make:
 		return zapkc.NoColor
-	case Test:
+	case CLI:
+		return zapkc.Blue
+	case Monitor:
+		return zapkc.Cyan
+	case TestComponent, Consumer, Dashboard:
 		return zapkc.White
 	}
 	return zapkc.NoColor

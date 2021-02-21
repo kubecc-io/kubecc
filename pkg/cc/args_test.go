@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var ctx = logkc.NewFromContext(context.Background(), types.Test)
+var ctx = logkc.NewWithContext(context.Background(), types.TestComponent)
 
 func BenchmarkParse(b *testing.B) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
@@ -41,7 +41,6 @@ func TestSetActionOpt(t *testing.T) {
 	assert.Equal(t, GenAssembly, info.ActionOpt())
 	info.SetActionOpt(Preprocess)
 	assert.Equal(t, Preprocess, info.ActionOpt())
-
 }
 
 func TestSubstitutePreprocessorOptions(t *testing.T) {
@@ -166,7 +165,6 @@ func TestRemoveLocalArgs(t *testing.T) {
 		strings.Split(`-o src/test.o -c src/test.c -fpreprocessed`, " "),
 		info.Args,
 	)
-
 }
 
 func TestPrependLanguageFlag(t *testing.T) {
