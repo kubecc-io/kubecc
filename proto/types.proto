@@ -82,6 +82,7 @@ enum Component {
   Component_Test = 7;
   Component_Dashboard = 8;
   Component_CLI = 9;
+  Component_Monitor = 10;
 }
 
 enum QueueStatus {

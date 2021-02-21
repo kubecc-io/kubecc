@@ -31,20 +31,18 @@ func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
 	return store
 }
 
-const (
-	TestKey1Name = "test-key1"
-	TestKey2Name = "test-key2"
-)
-
-var (
-	TestKey1Type *TestKey1
-	TestKey2Type *TestKey2
-)
-
 type TestKey1 struct {
 	Counter int `msg:"counter"`
 }
 
+func (k TestKey1) Key() string {
+	return "TestKey1"
+}
+
 type TestKey2 struct {
 	Value string `msg:"value"`
+}
+
+func (k TestKey2) Key() string {
+	return "TestKey2"
 }

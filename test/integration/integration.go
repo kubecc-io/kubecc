@@ -10,6 +10,7 @@ import (
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
+	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -32,6 +33,7 @@ type TestController struct {
 	cancel         context.CancelFunc
 	agentListeners map[types.AgentID]*bufconn.Listener
 	schedListener  *bufconn.Listener
+	monListener    *bufconn.Listener
 }
 
 func NewTestController(ctx context.Context) *TestController {
@@ -125,6 +127,26 @@ func (tc *TestController) runScheduler() {
 	}()
 }
 
+func (tc *TestController) runMonitor() {
+	ctx := logkc.NewWithContext(tc.ctx, types.Monitor,
+		logkc.WithName("a"),
+	)
+	lg := logkc.LogFromContext(ctx)
+	tracer, closer := tracing.Start(ctx, types.Monitor)
+	ctx = tracing.ContextWithTracer(ctx, tracer)
+	tc.monListener = bufconn.Listen(bufSize)
+	srv := servers.NewServer(ctx)
+
+	mon := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
+	types.RegisterMonitorServer(srv, mon)
+	go func() {
+		defer closer.Close()
+		if err := srv.Serve(tc.monListener); err != nil {
+			lg.Info(err)
+		}
+	}()
+}
+
 func (tc *TestController) runConsumerd(cfg *types.CpuConfig) {
 	ctx := logkc.NewWithContext(tc.ctx, types.Consumerd,
 		logkc.WithName(string(rune('a'+len(tc.Consumers)))),
@@ -189,6 +211,7 @@ func (tc *TestController) Start(ops TestOptions) {
 	opentracing.SetGlobalTracer(tracer)
 
 	tc.runScheduler()
+	tc.runMonitor()
 	for i, cfg := range ops.Agents {
 		viper.Set("node", fmt.Sprintf("test-node-%d", i))
 		viper.Set("pod", fmt.Sprintf("test-pod-%d", i))
