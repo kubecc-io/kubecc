@@ -81,6 +81,7 @@ enum Component {
   Component_Make = 6;
   Component_Test = 7;
   Component_Dashboard = 8;
+  Component_CLI = 9;
 }
 
 enum QueueStatus {

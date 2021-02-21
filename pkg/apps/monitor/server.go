@@ -143,7 +143,8 @@ func (m *MonitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) err
 	m.bucketMutex.RLock()
 
 	var bucketCtx context.Context
-	if bucket, ok := m.buckets[key.Bucket]; !ok {
+	bucket, ok := m.buckets[key.Bucket]
+	if !ok {
 		m.bucketMutex.RUnlock()
 		return status.Error(codes.InvalidArgument, "No such bucket")
 	} else {
@@ -158,15 +159,28 @@ func (m *MonitorServer) Watch(key *types.Key, srv types.Monitor_WatchServer) err
 	m.listeners[canonical][id.UUID] = srv
 	m.listenerMutex.Unlock()
 
+	// late join
+	if value, ok := bucket.Get(key.Name); ok {
+		err := srv.Send(&types.Value{
+			Data: value,
+		})
+		if err != nil {
+			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
+		}
+	}
+
 	m.bucketMutex.RUnlock()
+
+	defer func() {
+		m.listenerMutex.Lock()
+		delete(m.listeners[canonical], id.UUID)
+		m.listenerMutex.Unlock()
+	}()
 
 	select {
 	case <-srv.Context().Done():
+		return status.Error(codes.Canceled, "Context canceled")
 	case <-bucketCtx.Done():
+		return status.Error(codes.Aborted, "Bucket closed")
 	}
-
-	m.listenerMutex.Lock()
-	delete(m.listeners[canonical], id.UUID)
-	m.listenerMutex.Unlock()
-	return nil
 }

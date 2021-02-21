@@ -15,6 +15,8 @@ const (
 	Consumer      = Component_Component_Consumer
 	Consumerd     = Component_Component_Consumerd
 	Make          = Component_Component_Make
+	CLI           = Component_Component_CLI
+	Dashboard     = Component_Component_Dashboard
 	TestComponent = Component_Component_Test
 
 	Available     = QueueStatus_Available
