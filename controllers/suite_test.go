@@ -45,7 +45,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	ctx := logkc.NewFromContext(context.Background(), types.Controller)
+	ctx := logkc.NewWithContext(context.Background(), types.Controller)
 	lg := logkc.LogFromContext(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))

@@ -22,15 +22,13 @@ spec:
       logLevel: debug
       imagePullPolicy: Always
     scheduler:
-      image: gcr.io/kubecc/scheduler
+      image: gcr.io/kubecc/scheduler:latest
       logLevel: debug
       imagePullPolicy: Always
-  ingress:
-    kind: IngressRoute
-    tls:
-      hosts:
-      - kubecc.example.com
-      secretName: 
+    monitor:
+      image: gcr.io/kubecc/monitor:latest
+      logLevel: debug
+      imagePullPolicy: Always
   tracing:
     jaeger:
       collector:

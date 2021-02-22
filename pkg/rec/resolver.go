@@ -3,6 +3,7 @@ package rec
 import (
 	"context"
 
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +48,7 @@ func (t *ResolverTree) Walk(ctx context.Context, root client.Object) (ctrl.Resul
 			Client:     t.client,
 			RootObject: root,
 			Object:     node.Resolver.Find(root),
+			Log:        logkc.LogFromContext(ctx),
 		}); ShouldRequeue(res, err) {
 			return RequeueWith(res, err)
 		}

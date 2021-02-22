@@ -6,13 +6,13 @@ COPY . .
 
 RUN go mod download
 
-RUN make scheduler
+RUN make monitor
 
-# Use distroless as minimal base image to package the scheduler binary
+# Use distroless as minimal base image to package the monitor binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
-COPY --from=builder /workspace/build/bin/scheduler .
+COPY --from=builder /workspace/build/bin/monitor .
 USER 65532:65532
 
-ENTRYPOINT ["/scheduler"]
+ENTRYPOINT ["/monitor"]

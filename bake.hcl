@@ -28,3 +28,12 @@ target "scheduler" {
   cache-from = ["type=local,src=build/cache/scheduler"]
   cache-to = ["type=local,dest=build/cache/scheduler"]
 }
+
+target "monitor" {
+  dockerfile = "images/monitor/Dockerfile"
+  tags = ["gcr.io/kubecc/monitor"]
+  platforms = ["linux/amd64"]
+  context = "."
+  cache-from = ["type=local,src=build/cache/monitor"]
+  cache-to = ["type=local,dest=build/cache/monitor"]
+}
