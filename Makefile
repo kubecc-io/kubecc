@@ -28,7 +28,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
 	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test ./... -coverprofile cover.out -tags operator
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test -v ./... -coverprofile cover.out -tags operator
 
 test-integration:
 	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
@@ -81,8 +81,8 @@ generate:
 
 
 # Build binaries
-.PHONY: bin agent scheduler manager make kcctl consumer consumerd
-bin: agent scheduler manager make kcctl consumer consumerd
+.PHONY: bin agent scheduler manager make kcctl consumer consumerd monitor
+bin: agent scheduler manager make kcctl consumer consumerd monitor
 
 agent:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/agent ./cmd/agent
@@ -105,9 +105,12 @@ consumer:
 consumerd:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumerd ./cmd/consumerd
 
+monitor:
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/monitor ./cmd/monitor
+
 
 # Build container images
-.PHONY: agent-docker scheduler-docker manager-docker docker
+.PHONY: agent-docker scheduler-docker manager-docker monitor-docker docker
 agent-docker:
 	docker buildx bake -f bake.hcl agent --push
 
@@ -116,6 +119,9 @@ scheduler-docker:
 
 manager-docker:
 	docker buildx bake -f bake.hcl manager --push
+
+monitor-docker:
+	docker buildx bake -f bake.hcl monitor --push
 
 docker: 
 	docker buildx bake -f bake.hcl --push

@@ -25,9 +25,9 @@ func UpdateIfNeeded(
 	updates []Updater,
 ) (ctrl.Result, error) {
 	for _, update := range updates {
-		eq := func() bool {
-			return Equal(update.Actual, update.Desired)
-		}
+		eq := func(u Updater) func() bool {
+			return func() bool { return Equal(update.Actual, update.Desired) }
+		}(update)
 		if update.Equal != nil {
 			eq = update.Equal
 		}

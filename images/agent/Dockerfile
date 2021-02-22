@@ -1,4 +1,4 @@
-FROM golang:1.15 as builder
+FROM golang:1.16 as builder
 
 WORKDIR /workspace
 
@@ -15,7 +15,7 @@ FROM ubuntu:20.10
 WORKDIR /
 COPY --from=builder /workspace/build/bin/agent .
 RUN apt update \
- && apt -y install build-essential 
+  && apt -y install build-essential 
 USER 65532:65532
 
 ENTRYPOINT ["/agent"]

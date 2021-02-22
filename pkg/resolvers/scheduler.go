@@ -63,19 +63,6 @@ func (r *SchedulerResolver) Resolve(
 		rec.WithCreator(rec.FromTemplate("scheduler_service.yaml")),
 		rec.RecreateIfChanged(),
 	)
-
-	if rec.ShouldRequeue(res, err) {
-		return rec.RequeueWith(res, err)
-	}
-
-	cfg := &v1.ConfigMap{}
-	res, err = rec.Find(rc, types.NamespacedName{
-		Namespace: rc.RootObject.GetNamespace(),
-		Name:      schedulerAppName,
-	}, cfg,
-		rec.WithCreator(rec.FromTemplate("scheduler_configmap.yaml")),
-	)
-
 	if rec.ShouldRequeue(res, err) {
 		return rec.RequeueWith(res, err)
 	}
