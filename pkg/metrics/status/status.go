@@ -19,9 +19,9 @@ type QueueStatusCompleter interface {
 }
 
 type QueueParams struct {
-	MaxRunningProcesses    int32   `msg:"maxRunningProcesses"`
-	QueuePressureThreshold float64 `msg:"queuePressureThreshold"`
-	QueueRejectThreshold   float64 `msg:"queueRejectThreshold"`
+	ConcurrentProcessLimit  int32   `msg:"ConcurrentProcessLimit"`
+	QueuePressureMultiplier float64 `msg:"queuePressureThreshold"`
+	QueueRejectMultiplier   float64 `msg:"queueRejectThreshold"`
 }
 
 func (QueueParams) Key() string {

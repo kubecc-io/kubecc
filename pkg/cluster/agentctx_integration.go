@@ -5,6 +5,7 @@ package cluster
 import (
 	"context"
 	"encoding/json"
+	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
@@ -19,11 +20,15 @@ var (
 )
 
 func MakeAgentInfo() *types.AgentInfo {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
 	return &types.AgentInfo{
-		Arch:      viper.GetString("arch"),
-		Node:      viper.GetString("node"),
-		Pod:       viper.GetString("pod"),
-		Namespace: viper.GetString("namespace"),
+		Arch:         viper.GetString("arch"),
+		Node:         viper.GetString("node"),
+		Pod:          viper.GetString("pod"),
+		Namespace:    viper.GetString("namespace"),
+		CpuThreads:   int32(runtime.NumCPU()),
+		SystemMemory: memStats.Sys,
 	}
 }
 

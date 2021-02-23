@@ -42,7 +42,7 @@ type AgentServerOptions struct {
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
 	monitorClient    types.InternalMonitorClient
-	cpuConfig        *types.CpuConfig
+	usageLimits      *types.UsageLimits
 }
 
 type agentServerOption func(*AgentServerOptions)
@@ -77,9 +77,9 @@ func WithMonitorClient(client types.InternalMonitorClient) agentServerOption {
 	}
 }
 
-func WithCpuConfig(cpuConfig *types.CpuConfig) agentServerOption {
+func WithUsageLimits(usageLimits *types.UsageLimits) agentServerOption {
 	return func(o *AgentServerOptions) {
-		o.cpuConfig = cpuConfig
+		o.usageLimits = usageLimits
 	}
 }
 
@@ -101,8 +101,8 @@ func NewAgentServer(
 		add(runStore)
 	}
 
-	if options.cpuConfig == nil {
-		options.cpuConfig = cpuconfig.Default()
+	if options.usageLimits == nil {
+		options.usageLimits = cpuconfig.Default()
 	}
 
 	srv := &AgentServer{
@@ -111,7 +111,7 @@ func NewAgentServer(
 		lg:                 logkc.LogFromContext(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
-		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
+		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		queueStatus:        types.Available,
 	}
 	return srv
@@ -216,10 +216,8 @@ func (s *AgentServer) RunSchedulerClient() {
 			time.Sleep(5 * time.Second)
 		}
 		err = stream.Send(&types.Metadata{
-			Contents: &types.Metadata_Toolchains{
-				Toolchains: &types.Toolchains{
-					Items: s.tcStore.ItemsList(),
-				},
+			Toolchains: &types.Toolchains{
+				Items: s.tcStore.ItemsList(),
 			},
 		})
 		if err != nil {
@@ -237,38 +235,18 @@ func (s *AgentServer) RunSchedulerClient() {
 			}
 		}()
 
-		select {
-		case stat := <-s.queueStatusCh:
-			s.lg.Info("Sending queue status update: %s",
-				types.QueueStatus_name[int32(stat)])
-			err := stream.Send(&types.Metadata{
-				Contents: &types.Metadata_QueueStatus{
-					QueueStatus: stat,
-				},
-			})
-			if err != nil {
-				s.lg.Error(err)
-			}
-		case err := <-streamClosed:
-			s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-			time.Sleep(5 * time.Second)
-		}
+		<-streamClosed
+		s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
+		time.Sleep(5 * time.Second)
 	}
 }
 
-func (s *AgentServer) GetCpuConfig(
+func (s *AgentServer) SetUsageLimits(
 	ctx context.Context,
-	_ *types.Empty,
-) (*types.CpuConfig, error) {
-	return s.cpuConfig, nil
-}
-
-func (s *AgentServer) SetCpuConfig(
-	ctx context.Context,
-	cfg *types.CpuConfig,
+	usageLimits *types.UsageLimits,
 ) (*types.Empty, error) {
-	s.executor.(*run.QueuedExecutor).SetCpuConfig(cfg)
-	s.cpuConfig = cfg
+	s.executor.(*run.QueuedExecutor).SetUsageLimits(usageLimits)
+	s.usageLimits = usageLimits
 	s.postQueueParams()
 	return &types.Empty{}, nil
 }

@@ -24,20 +24,20 @@ func (z *QueueParams) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "maxRunningProcesses":
-			z.MaxRunningProcesses, err = dc.ReadInt32()
+		case "ConcurrentProcessLimit":
+			z.ConcurrentProcessLimit, err = dc.ReadInt32()
 			if err != nil {
-				err = msgp.WrapError(err, "MaxRunningProcesses")
+				err = msgp.WrapError(err, "ConcurrentProcessLimit")
 				return
 			}
 		case "queuePressureThreshold":
-			z.QueuePressureThreshold, err = dc.ReadFloat64()
+			z.QueuePressureMultiplier, err = dc.ReadFloat64()
 			if err != nil {
 				err = msgp.WrapError(err, "QueuePressureThreshold")
 				return
 			}
 		case "queueRejectThreshold":
-			z.QueueRejectThreshold, err = dc.ReadFloat64()
+			z.QueueRejectMultiplier, err = dc.ReadFloat64()
 			if err != nil {
 				err = msgp.WrapError(err, "QueueRejectThreshold")
 				return
@@ -56,14 +56,14 @@ func (z *QueueParams) DecodeMsg(dc *msgp.Reader) (err error) {
 // EncodeMsg implements msgp.Encodable
 func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 3
-	// write "maxRunningProcesses"
+	// write "ConcurrentProcessLimit"
 	err = en.Append(0x83, 0xb3, 0x6d, 0x61, 0x78, 0x52, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73)
 	if err != nil {
 		return
 	}
-	err = en.WriteInt32(z.MaxRunningProcesses)
+	err = en.WriteInt32(z.ConcurrentProcessLimit)
 	if err != nil {
-		err = msgp.WrapError(err, "MaxRunningProcesses")
+		err = msgp.WrapError(err, "ConcurrentProcessLimit")
 		return
 	}
 	// write "queuePressureThreshold"
@@ -71,7 +71,7 @@ func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteFloat64(z.QueuePressureThreshold)
+	err = en.WriteFloat64(z.QueuePressureMultiplier)
 	if err != nil {
 		err = msgp.WrapError(err, "QueuePressureThreshold")
 		return
@@ -81,7 +81,7 @@ func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	if err != nil {
 		return
 	}
-	err = en.WriteFloat64(z.QueueRejectThreshold)
+	err = en.WriteFloat64(z.QueueRejectMultiplier)
 	if err != nil {
 		err = msgp.WrapError(err, "QueueRejectThreshold")
 		return
@@ -93,15 +93,15 @@ func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 func (z QueueParams) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 3
-	// string "maxRunningProcesses"
+	// string "ConcurrentProcessLimit"
 	o = append(o, 0x83, 0xb3, 0x6d, 0x61, 0x78, 0x52, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73)
-	o = msgp.AppendInt32(o, z.MaxRunningProcesses)
+	o = msgp.AppendInt32(o, z.ConcurrentProcessLimit)
 	// string "queuePressureThreshold"
 	o = append(o, 0xb6, 0x71, 0x75, 0x65, 0x75, 0x65, 0x50, 0x72, 0x65, 0x73, 0x73, 0x75, 0x72, 0x65, 0x54, 0x68, 0x72, 0x65, 0x73, 0x68, 0x6f, 0x6c, 0x64)
-	o = msgp.AppendFloat64(o, z.QueuePressureThreshold)
+	o = msgp.AppendFloat64(o, z.QueuePressureMultiplier)
 	// string "queueRejectThreshold"
 	o = append(o, 0xb4, 0x71, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x6a, 0x65, 0x63, 0x74, 0x54, 0x68, 0x72, 0x65, 0x73, 0x68, 0x6f, 0x6c, 0x64)
-	o = msgp.AppendFloat64(o, z.QueueRejectThreshold)
+	o = msgp.AppendFloat64(o, z.QueueRejectMultiplier)
 	return
 }
 
@@ -123,20 +123,20 @@ func (z *QueueParams) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "maxRunningProcesses":
-			z.MaxRunningProcesses, bts, err = msgp.ReadInt32Bytes(bts)
+		case "ConcurrentProcessLimit":
+			z.ConcurrentProcessLimit, bts, err = msgp.ReadInt32Bytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "MaxRunningProcesses")
+				err = msgp.WrapError(err, "ConcurrentProcessLimit")
 				return
 			}
 		case "queuePressureThreshold":
-			z.QueuePressureThreshold, bts, err = msgp.ReadFloat64Bytes(bts)
+			z.QueuePressureMultiplier, bts, err = msgp.ReadFloat64Bytes(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "QueuePressureThreshold")
 				return
 			}
 		case "queueRejectThreshold":
-			z.QueueRejectThreshold, bts, err = msgp.ReadFloat64Bytes(bts)
+			z.QueueRejectMultiplier, bts, err = msgp.ReadFloat64Bytes(bts)
 			if err != nil {
 				err = msgp.WrapError(err, "QueueRejectThreshold")
 				return

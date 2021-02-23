@@ -85,10 +85,7 @@ func (c *changeListener) OrExpired(handler func() RetryOptions) {
 	c.expiredHandler = handler
 }
 
-func (l *Listener) OnValueChanged(
-	bucket string,
-	handler interface{}, // func(type)
-) *changeListener {
+func handlerArgType(handler interface{}) (reflect.Type, reflect.Value) {
 	funcType := reflect.TypeOf(handler)
 	if funcType.NumIn() != 1 {
 		panic("handler must be a function with one argument")
@@ -98,9 +95,16 @@ func (l *Listener) OnValueChanged(
 	if !valuePtrType.Implements(reflect.TypeOf((*msgp.Decodable)(nil)).Elem()) {
 		panic("argument must implement msgp.Decodable")
 	}
-	keyName := valueType.Name()
 	funcValue := reflect.ValueOf(handler)
+	return valueType, funcValue
+}
 
+func (l *Listener) OnValueChanged(
+	bucket string,
+	handler interface{}, // func(type)
+) *changeListener {
+	valueType, funcValue := handlerArgType(handler)
+	keyName := valueType.Name()
 	cl := &changeListener{}
 	go func() {
 		for {

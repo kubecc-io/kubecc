@@ -7,7 +7,6 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/pkg/errors"
 	"github.com/smallnest/weighted"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -135,13 +134,6 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 	).Info(types.Scheduler.Color().Add("Agent connected"))
 	s.agents.Store(id, agent)
 
-	cpuConfig, err := agent.Client.GetCpuConfig(
-		context.Background(), &types.Empty{})
-	if err != nil {
-		return status.Error(codes.Internal, errors.WithMessage(err,
-			"Error obtaining agent CPU config").Error())
-	}
-	agent.CpuConfig = cpuConfig
 	s.wLock.Lock()
 	s.w.Add(agent, int(agent.Weight()))
 	s.wLock.Unlock()
