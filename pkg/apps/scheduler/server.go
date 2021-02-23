@@ -69,15 +69,8 @@ func (s *schedulerServer) ConnectAgent(
 				lg.Debug(err)
 				return
 			}
-			switch msg := metadata.Contents.(type) {
-			case *types.Metadata_QueueStatus:
-				if err := s.scheduler.SetQueueStatus(ctx, msg.QueueStatus); err != nil {
-					lg.Error(err)
-				}
-			case *types.Metadata_Toolchains:
-				if err := s.scheduler.SetToolchains(ctx, msg.Toolchains.GetItems()); err != nil {
-					lg.Error(err)
-				}
+			if err := s.scheduler.SetToolchains(ctx, metadata.Toolchains.GetItems()); err != nil {
+				lg.Error(err)
 			}
 		}
 	}()

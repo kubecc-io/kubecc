@@ -5,7 +5,6 @@ import (
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 // todo: delete this
@@ -23,8 +22,6 @@ func InitConfig() {
 	viper.AutomaticEnv() // read in environment variables that match
 
 	viper.SetDefault("port", 23632)
-	viper.SetDefault("loglevel", zap.DebugLevel)
-	viper.SetDefault("schedulerAddress", "")
 	viper.SetDefault("tls", true)
 	viper.SetDefault("remoteOnly", false)
 

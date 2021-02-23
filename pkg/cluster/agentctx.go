@@ -21,11 +21,15 @@ var (
 )
 
 func MakeAgentInfo() *types.AgentInfo {
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
 	return &types.AgentInfo{
-		Arch:      runtime.GOARCH,
-		Node:      GetNode(),
-		Pod:       GetPodName(),
-		Namespace: GetNamespace(),
+		Arch:         runtime.GOARCH,
+		Node:         GetNode(),
+		Pod:          GetPodName(),
+		Namespace:    GetNamespace(),
+		CpuThreads:   int32(runtime.NumCPU()),
+		SystemMemory: memStats.Sys,
 	}
 }
 

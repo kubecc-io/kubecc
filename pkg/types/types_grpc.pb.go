@@ -105,8 +105,7 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error)
-	SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error)
+	SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type agentClient struct {
@@ -126,18 +125,9 @@ func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...g
 	return out, nil
 }
 
-func (c *agentClient) GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error) {
-	out := new(CpuConfig)
-	err := c.cc.Invoke(ctx, "/Agent/GetCpuConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error) {
+func (c *agentClient) SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Agent/SetCpuConfig", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Agent/SetUsageLimits", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +139,7 @@ func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...g
 // for forward compatibility
 type AgentServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	GetCpuConfig(context.Context, *Empty) (*CpuConfig, error)
-	SetCpuConfig(context.Context, *CpuConfig) (*Empty, error)
+	SetUsageLimits(context.Context, *UsageLimits) (*Empty, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -161,11 +150,8 @@ type UnimplementedAgentServer struct {
 func (UnimplementedAgentServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (UnimplementedAgentServer) GetCpuConfig(context.Context, *Empty) (*CpuConfig, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCpuConfig not implemented")
-}
-func (UnimplementedAgentServer) SetCpuConfig(context.Context, *CpuConfig) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetCpuConfig not implemented")
+func (UnimplementedAgentServer) SetUsageLimits(context.Context, *UsageLimits) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetUsageLimits not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -198,38 +184,20 @@ func _Agent_Compile_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_GetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+func _Agent_SetUsageLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UsageLimits)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).GetCpuConfig(ctx, in)
+		return srv.(AgentServer).SetUsageLimits(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Agent/GetCpuConfig",
+		FullMethod: "/Agent/SetUsageLimits",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).GetCpuConfig(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Agent_SetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CpuConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServer).SetCpuConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Agent/SetCpuConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).SetCpuConfig(ctx, req.(*CpuConfig))
+		return srv.(AgentServer).SetUsageLimits(ctx, req.(*UsageLimits))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -246,12 +214,8 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_Compile_Handler,
 		},
 		{
-			MethodName: "GetCpuConfig",
-			Handler:    _Agent_GetCpuConfig_Handler,
-		},
-		{
-			MethodName: "SetCpuConfig",
-			Handler:    _Agent_SetCpuConfig_Handler,
+			MethodName: "SetUsageLimits",
+			Handler:    _Agent_SetUsageLimits_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -265,7 +229,6 @@ type SchedulerClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
 	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
 	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
-	SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error)
 }
 
 type schedulerClient struct {
@@ -347,15 +310,6 @@ func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 	return m, nil
 }
 
-func (c *schedulerClient) SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error) {
-	out := new(SystemStatusResponse)
-	err := c.cc.Invoke(ctx, "/Scheduler/SystemStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // SchedulerServer is the server API for Scheduler service.
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
@@ -363,7 +317,6 @@ type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	ConnectAgent(Scheduler_ConnectAgentServer) error
 	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
-	SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
 
@@ -379,9 +332,6 @@ func (UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) e
 }
 func (UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
 	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
-}
-func (UnimplementedSchedulerServer) SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SystemStatus not implemented")
 }
 func (UnimplementedSchedulerServer) mustEmbedUnimplementedSchedulerServer() {}
 
@@ -466,24 +416,6 @@ func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
 	return m, nil
 }
 
-func _Scheduler_SystemStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SchedulerServer).SystemStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Scheduler/SystemStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).SystemStatus(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Scheduler_ServiceDesc is the grpc.ServiceDesc for Scheduler service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -494,10 +426,6 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Compile",
 			Handler:    _Scheduler_Compile_Handler,
-		},
-		{
-			MethodName: "SystemStatus",
-			Handler:    _Scheduler_SystemStatus_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

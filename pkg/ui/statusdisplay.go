@@ -43,7 +43,7 @@ func (s *StatusDisplay) makeRows() [][]string {
 	for _, agent := range s.agents {
 		row := []string{
 			agent.uuid,
-			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunningProcesses, agent.queueParams.MaxRunningProcesses),
+			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunningProcesses, agent.queueParams.ConcurrentProcessLimit),
 			fmt.Sprint(agent.taskStatus.NumQueuedProcesses),
 			types.QueueStatus(agent.queueStatus.QueueStatus).String(),
 		}

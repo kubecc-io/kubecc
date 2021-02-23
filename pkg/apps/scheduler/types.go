@@ -14,7 +14,7 @@ type Agent struct {
 	Context context.Context
 	Client  types.AgentClient
 
-	CpuConfig   *types.CpuConfig
+	UsageLimits *types.UsageLimits
 	Info        *types.AgentInfo
 	QueueStatus types.QueueStatus
 	Toolchains  []*types.Toolchain
@@ -38,9 +38,9 @@ func (a Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 func (a Agent) Weight() int32 {
 	switch a.QueueStatus {
 	case types.Available, types.Queueing:
-		return a.CpuConfig.GetMaxRunningProcesses()
+		return a.UsageLimits.GetConcurrentProcessLimit()
 	case types.QueuePressure:
-		return a.CpuConfig.GetMaxRunningProcesses() / 2
+		return a.UsageLimits.GetConcurrentProcessLimit() / 2
 	case types.QueueFull:
 		return 0
 	}

@@ -9,15 +9,13 @@ service Consumerd {
 
 service Agent {
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc GetCpuConfig (Empty) returns (CpuConfig);
-  rpc SetCpuConfig (CpuConfig) returns (Empty);
+  rpc SetUsageLimits (UsageLimits) returns (Empty);
 }
 
 service Scheduler {
   rpc Compile(CompileRequest) returns (CompileResponse);
   rpc ConnectAgent(stream Metadata) returns (stream Empty);
   rpc ConnectConsumerd(stream Metadata) returns (stream Empty);
-  rpc SystemStatus(Empty) returns (SystemStatusResponse);
 }
 
 service InternalMonitor {
@@ -47,19 +45,10 @@ message Identity {
   string UUID = 2;
 }
 
-message CpuConfig {
-  int32 MaxRunningProcesses = 1;
-  double QueuePressureThreshold = 2;
-  double QueueRejectThreshold = 3;
-}
-
-message SystemStatusResponse {
-  repeated ComponentStatus StatusItems = 1;
-}
-
-message ComponentStatus {
-  Component Component = 1;
-  bool Alive = 2;
+message UsageLimits {
+  int32 ConcurrentProcessLimit = 1;
+  double QueuePressureMultiplier = 2;
+  double QueueRejectMultiplier = 3;
 }
 
 message Toolchains {
@@ -67,10 +56,7 @@ message Toolchains {
 }
 
 message Metadata {
-  oneof Contents {
-    Toolchains Toolchains = 2;
-    QueueStatus QueueStatus = 3;
-  }
+  Toolchains Toolchains = 2;
 }
 
 enum Component {
@@ -157,11 +143,13 @@ message ScheduleResponse {}
 message AgentInfo {
   // System Info
   string Arch = 1;
+  int32 CpuThreads = 2;
+  uint64 SystemMemory = 3;
 
   // Downward API
-  string Node = 3;
-  string Pod = 4;
-  string Namespace = 5;
+  string Node = 4;
+  string Pod = 5;
+  string Namespace = 6;
 }
 
 // consumerd -> scheduler -> agent

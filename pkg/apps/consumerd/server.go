@@ -41,7 +41,7 @@ type ConsumerdServerOptions struct {
 	toolchainRunners    []run.StoreAddFunc
 	schedulerClient     types.SchedulerClient
 	schedulerConnection *grpc.ClientConn
-	cpuConfig           *types.CpuConfig
+	usageLimits         *types.UsageLimits
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -74,9 +74,9 @@ func WithSchedulerClient(
 	}
 }
 
-func WithCpuConfig(cpuConfig *types.CpuConfig) consumerdServerOption {
+func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
-		o.cpuConfig = cpuConfig
+		o.usageLimits = cpuConfig
 	}
 }
 
@@ -93,8 +93,8 @@ func NewConsumerdServer(
 	}
 	options.Apply(opts...)
 
-	if options.cpuConfig == nil {
-		options.cpuConfig = cpuconfig.Default()
+	if options.usageLimits == nil {
+		options.usageLimits = cpuconfig.Default()
 	}
 
 	runStore := run.NewToolchainRunnerStore()
@@ -106,7 +106,7 @@ func NewConsumerdServer(
 		lg:             logkc.LogFromContext(ctx),
 		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:     runStore,
-		localExecutor:  run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
+		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
 		remoteOnly:     viper.GetBool("remoteOnly"),
 	}

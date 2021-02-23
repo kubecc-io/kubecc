@@ -70,7 +70,7 @@ func dial(
 	return ctx, cc
 }
 
-func (tc *TestController) runAgent(cfg *types.CpuConfig) {
+func (tc *TestController) runAgent(cfg *types.UsageLimits) {
 	ctx := logkc.NewWithContext(
 		cluster.ContextWithAgentInfo(
 			tc.ctx, cluster.MakeAgentInfo()), types.Agent,
@@ -93,7 +93,7 @@ func (tc *TestController) runAgent(cfg *types.CpuConfig) {
 	agentSrv := agent.NewAgentServer(ctx,
 		agent.WithSchedulerClient(schedClient),
 		agent.WithMonitorClient(internalMonClient),
-		agent.WithCpuConfig(cfg),
+		agent.WithUsageLimits(cfg),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
@@ -164,7 +164,7 @@ func (tc *TestController) runMonitor() {
 	}()
 }
 
-func (tc *TestController) runConsumerd(cfg *types.CpuConfig) {
+func (tc *TestController) runConsumerd(cfg *types.UsageLimits) {
 	ctx := logkc.NewWithContext(tc.ctx, types.Consumerd,
 		logkc.WithName(string(rune('a'+len(tc.Consumers)))),
 	)
@@ -180,7 +180,7 @@ func (tc *TestController) runConsumerd(cfg *types.CpuConfig) {
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		consumerd.WithCpuConfig(cfg),
+		consumerd.WithUsageLimits(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithSchedulerClient(client, cc),
 	)
@@ -215,8 +215,8 @@ func (tc *TestController) runConsumerd(cfg *types.CpuConfig) {
 }
 
 type TestOptions struct {
-	Clients []*types.CpuConfig
-	Agents  []*types.CpuConfig
+	Clients []*types.UsageLimits
+	Agents  []*types.UsageLimits
 }
 
 func (tc *TestController) Start(ops TestOptions) {

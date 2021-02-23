@@ -26,7 +26,7 @@ type QueuedExecutor struct {
 }
 
 type ExecutorOptions struct {
-	cpuConfig *types.CpuConfig
+	usageLimits *types.UsageLimits
 }
 type ExecutorOption func(*ExecutorOptions)
 
@@ -36,17 +36,17 @@ func (o *ExecutorOptions) Apply(opts ...ExecutorOption) {
 	}
 }
 
-func WithCpuConfig(cfg *types.CpuConfig) ExecutorOption {
+func WithUsageLimits(cfg *types.UsageLimits) ExecutorOption {
 	return func(o *ExecutorOptions) {
-		o.cpuConfig = cfg
+		o.usageLimits = cfg
 	}
 }
 
 func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options := ExecutorOptions{}
 	options.Apply(opts...)
-	if options.cpuConfig == nil {
-		options.cpuConfig = cpuconfig.Default()
+	if options.usageLimits == nil {
+		options.usageLimits = cpuconfig.Default()
 	}
 
 	queue := make(chan *Task)
@@ -57,7 +57,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 		numRunning:      atomic.NewInt32(0),
 		numQueued:       atomic.NewInt32(0),
 	}
-	s.workerPool.SetWorkerCount(int(s.cpuConfig.MaxRunningProcesses))
+	s.workerPool.SetWorkerCount(int(s.usageLimits.ConcurrentProcessLimit))
 	return s
 }
 
@@ -65,9 +65,9 @@ func NewUnqueuedExecutor() *UnqueuedExecutor {
 	return &UnqueuedExecutor{}
 }
 
-func (x *QueuedExecutor) SetCpuConfig(cfg *types.CpuConfig) {
-	x.cpuConfig = cfg
-	go x.workerPool.SetWorkerCount(int(cfg.GetMaxRunningProcesses()))
+func (x *QueuedExecutor) SetUsageLimits(cfg *types.UsageLimits) {
+	x.usageLimits = cfg
+	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
 }
 
 func (x *QueuedExecutor) Exec(
@@ -98,22 +98,22 @@ func (x *QueuedExecutor) Status() types.QueueStatus {
 	running := x.numRunning.Load()
 
 	switch {
-	case running < x.cpuConfig.MaxRunningProcesses:
+	case running < x.usageLimits.ConcurrentProcessLimit:
 		return types.Available
-	case queued < int32(float64(x.cpuConfig.MaxRunningProcesses)*
-		x.cpuConfig.QueuePressureThreshold):
+	case queued < int32(float64(x.usageLimits.ConcurrentProcessLimit)*
+		x.usageLimits.QueuePressureMultiplier):
 		return types.Queueing
-	case queued < int32(float64(x.cpuConfig.MaxRunningProcesses)*
-		x.cpuConfig.QueueRejectThreshold):
+	case queued < int32(float64(x.usageLimits.ConcurrentProcessLimit)*
+		x.usageLimits.QueueRejectMultiplier):
 		return types.QueuePressure
 	}
 	return types.QueueFull
 }
 
 func (x *QueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
-	stat.MaxRunningProcesses = x.cpuConfig.MaxRunningProcesses
-	stat.QueuePressureThreshold = x.cpuConfig.QueuePressureThreshold
-	stat.QueueRejectThreshold = x.cpuConfig.QueueRejectThreshold
+	stat.ConcurrentProcessLimit = x.usageLimits.ConcurrentProcessLimit
+	stat.QueuePressureMultiplier = x.usageLimits.QueuePressureMultiplier
+	stat.QueueRejectMultiplier = x.usageLimits.QueueRejectMultiplier
 }
 
 func (x *QueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
@@ -143,9 +143,9 @@ func (x *UnqueuedExecutor) Status() types.QueueStatus {
 }
 
 func (x *UnqueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
-	stat.MaxRunningProcesses = 0
-	stat.QueuePressureThreshold = 0
-	stat.QueueRejectThreshold = 0
+	stat.ConcurrentProcessLimit = 0
+	stat.QueuePressureMultiplier = 0
+	stat.QueueRejectMultiplier = 0
 }
 
 func (x *UnqueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
