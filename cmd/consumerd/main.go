@@ -33,7 +33,9 @@ func main() {
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainRunners(cctoolchain.AddToStore))
 
-	go d.ConnectToRemote()
+	d.ConnectToRemote()
+	go d.RunSchedulerClient()
+
 	port := viper.GetInt("port")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {

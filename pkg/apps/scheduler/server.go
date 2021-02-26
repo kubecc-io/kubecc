@@ -2,6 +2,8 @@ package scheduler
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -58,7 +60,8 @@ func (s *schedulerServer) ConnectAgent(
 	lg := s.lg
 	ctx := srv.Context()
 	tracer := tracing.TracerFromContext(s.srvContext)
-	if err := s.scheduler.AgentConnected(tracing.ContextWithTracer(ctx, tracer)); err != nil {
+	if err := s.scheduler.AgentConnected(
+		tracing.ContextWithTracer(ctx, tracer)); err != nil {
 		return err
 	}
 
@@ -66,10 +69,15 @@ func (s *schedulerServer) ConnectAgent(
 		for {
 			metadata, err := srv.Recv()
 			if err != nil {
-				lg.Debug(err)
+				if errors.Is(err, io.EOF) {
+					lg.Debug(err)
+				} else {
+					lg.Error(err)
+				}
 				return
 			}
-			if err := s.scheduler.SetToolchains(ctx, metadata.Toolchains.GetItems()); err != nil {
+			if err := s.scheduler.SetToolchains(
+				ctx, metadata.Toolchains.GetItems()); err != nil {
 				lg.Error(err)
 			}
 		}
@@ -83,14 +91,31 @@ func (s *schedulerServer) ConnectConsumerd(
 	srv types.Scheduler_ConnectConsumerdServer,
 ) error {
 	lg := s.lg
+	ctx := srv.Context()
 
 	lg.Info(types.Scheduler.Color().Add("Consumerd connected"))
+	defer lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
 
-	// add logic here maybe
+	go func() {
+		for {
+			_, err := srv.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					lg.Debug(err)
+				} else {
+					lg.Error(err)
+				}
+				return
+			}
 
-	// s.monitor.AgentConnected(agent)
-	<-srv.Context().Done()
+			// if err := s.scheduler.SetToolchains(
+			// 	ctx, metadata.Toolchains.GetItems()); err != nil {
+			// 	lg.Error(err)
+			// }
+		}
+	}()
 
-	lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
+	<-ctx.Done()
+
 	return nil
 }

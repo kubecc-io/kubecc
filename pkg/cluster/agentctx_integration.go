@@ -39,10 +39,8 @@ func NewAgentContext() context.Context {
 	if err != nil {
 		panic(err)
 	}
-	return metadata.NewOutgoingContext(
-		context.Background(), metadata.Pairs(
-			AgentInfoKey, string(json),
-		))
+	return metadata.AppendToOutgoingContext(
+		context.Background(), AgentInfoKey, string(json))
 }
 
 func ContextWithAgentInfo(ctx context.Context, info *types.AgentInfo) context.Context {
@@ -50,10 +48,8 @@ func ContextWithAgentInfo(ctx context.Context, info *types.AgentInfo) context.Co
 	if err != nil {
 		panic(err)
 	}
-	return metadata.NewOutgoingContext(
-		ctx, metadata.Pairs(
-			string(AgentInfoKey), string(json),
-		))
+	return metadata.AppendToOutgoingContext(
+		ctx, string(AgentInfoKey), string(json))
 }
 
 func AgentInfoFromContext(ctx context.Context) (info *types.AgentInfo, err error) {

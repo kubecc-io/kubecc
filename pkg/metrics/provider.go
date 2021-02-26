@@ -2,8 +2,6 @@ package metrics
 
 import (
 	"context"
-	"errors"
-	"io"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -48,12 +46,12 @@ func (p *Provider) start() {
 						zap.String("key", key.Canonical()),
 					).Error("Error posting metric")
 				}
-			case err := <-tools.StreamClosed(stream):
-				if errors.Is(err, io.EOF) {
-					p.lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
-				} else {
-					p.lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
-				}
+			case <-stream.Context().Done():
+				// if errors.Is(err, io.EOF) {
+				// 	p.lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
+				// } else {
+				p.lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
+				// }
 				time.Sleep(5 * time.Second)
 				goto reconnect
 			case <-p.ctx.Done():
@@ -84,8 +82,5 @@ func NewProvider(
 }
 
 func (p *Provider) Post(metric KeyedMetric) {
-	if p == nil {
-		return
-	}
 	p.postQueue <- metric
 }

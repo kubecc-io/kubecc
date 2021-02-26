@@ -29,7 +29,7 @@ var (
 		"\x1b[33m/_/|_|\\__,_/_.___/\\___/\x1b[0m\x1b[34m\\___/\\___/  \x1b[0m\n",
 	}, "\n")
 
-	startTime *atomic.Int64
+	startTime = atomic.NewInt64(time.Now().Unix())
 )
 
 func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -102,7 +102,6 @@ func NewWithContext(
 	}
 	options.Apply(ops...)
 	color := component.Color()
-	startTime = atomic.NewInt64(time.Now().Unix())
 	conf := zap.Config{
 		Level:             zap.NewAtomicLevelAt(options.logLevel),
 		Development:       false,

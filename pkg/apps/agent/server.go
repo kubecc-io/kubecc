@@ -178,7 +178,7 @@ func (s *AgentServer) postQueueStatus() {
 }
 
 func (s *AgentServer) StartMetricsProvider() {
-	id := types.NewIdentity(types.Agent)
+	id := types.NewIdentity(types.Agent) // todo: identities are screwed up
 	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
 	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
 	s.postAlive()
@@ -222,6 +222,8 @@ func (s *AgentServer) RunSchedulerClient() {
 		})
 		if err != nil {
 			s.lg.Error(err)
+			time.Sleep(5 * time.Second)
+			continue
 		}
 		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
 
