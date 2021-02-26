@@ -3,6 +3,7 @@ package consumerd
 import (
 	"context"
 	"io/fs"
+	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
@@ -19,6 +20,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type consumerdServer struct {
@@ -29,6 +31,7 @@ type consumerdServer struct {
 
 	tcRunStore      *run.ToolchainRunnerStore
 	tcStore         *toolchains.Store
+	storeUpdateCh   chan struct{}
 	schedulerClient types.SchedulerClient
 	connection      *grpc.ClientConn
 	localExecutor   run.Executor
@@ -109,6 +112,7 @@ func NewConsumerdServer(
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
 		remoteOnly:     viper.GetBool("remoteOnly"),
+		storeUpdateCh:  make(chan struct{}),
 	}
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
@@ -238,11 +242,68 @@ func (c *consumerdServer) ConnectToRemote() {
 		c.lg.Debug("Remote compilation unavailable: scheduler address not configured")
 		return
 	}
-	cc, err := servers.Dial(c.srvContext, addr, servers.WithTLS(viper.GetBool("tls")))
+	cc, err := servers.Dial(c.srvContext, addr,
+		servers.WithTLS(viper.GetBool("tls")))
 	if err != nil {
 		c.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
 	} else {
 		c.connection = cc
 		c.schedulerClient = types.NewSchedulerClient(cc)
+	}
+}
+
+func (c *consumerdServer) streamMetadata(
+	srv types.Scheduler_ConnectConsumerdClient,
+) {
+	go func() {
+		for {
+			select {
+			case <-srv.Context().Done():
+				return
+			case <-c.storeUpdateCh:
+				copiedItems := []*types.Toolchain{}
+				for tc := range c.tcStore.Items() {
+					copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
+				}
+				err := srv.Send(&types.Metadata{
+					Toolchains: &types.Toolchains{
+						Items: copiedItems,
+					},
+				})
+				if err != nil {
+					c.lg.With(
+						zap.Error(err),
+					).Error("Error sending updated toolchains to scheduler")
+					return
+				}
+			}
+		}
+	}()
+	c.storeUpdateCh <- struct{}{}
+}
+
+func (c *consumerdServer) RunSchedulerClient() {
+	if c.schedulerClient == nil {
+		// Errors should already have shown up elsewhere
+		c.lg.Debug("Not running scheduler client since it is unconfigured")
+		return
+	}
+	for {
+		stream, err := c.schedulerClient.ConnectConsumerd(
+			c.srvContext, grpc.WaitForReady(true))
+		if err != nil {
+			c.lg.With(
+				zap.Error(err),
+			).Error("Error connecting to the scheduler, retrying in 5 seconds...")
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		c.streamMetadata(stream)
+		select {
+		case <-c.srvContext.Done():
+		case <-stream.Context().Done():
+		}
+		c.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
+		time.Sleep(5 * time.Second)
 	}
 }

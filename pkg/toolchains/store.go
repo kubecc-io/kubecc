@@ -3,6 +3,7 @@ package toolchains
 import (
 	"io/fs"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,22 +20,29 @@ type toolchainData struct {
 // Store stores toolchains and provides ways to access them.
 type Store struct {
 	toolchains map[string]*toolchainData
+	tcMutex    *sync.RWMutex
 }
 
 func NewStore() *Store {
 	return &Store{
 		toolchains: make(map[string]*toolchainData),
+		tcMutex:    &sync.RWMutex{},
 	}
 }
 
-func (s Store) Contains(executable string) bool {
-	executable = evalPath(executable)
+func (s *Store) Contains(executable string) bool {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
 
+	executable = evalPath(executable)
 	_, ok := s.toolchains[executable]
 	return ok
 }
 
-func (s Store) Items() chan *types.Toolchain {
+func (s *Store) Items() chan *types.Toolchain {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
+
 	ch := make(chan *types.Toolchain, len(s.toolchains))
 	for _, data := range s.toolchains {
 		ch <- data.toolchain
@@ -43,7 +51,10 @@ func (s Store) Items() chan *types.Toolchain {
 	return ch
 }
 
-func (s Store) ItemsList() []*types.Toolchain {
+func (s *Store) ItemsList() []*types.Toolchain {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
+
 	l := []*types.Toolchain{}
 	for _, data := range s.toolchains {
 		l = append(l, data.toolchain)
@@ -78,10 +89,13 @@ func fillInfo(tc *types.Toolchain, q Querier) error {
 
 func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	executable = evalPath(executable)
-
 	if s.Contains(executable) {
 		return nil, errors.New("Tried to add an already existing toolchain")
 	}
+
+	s.tcMutex.Lock()
+	defer s.tcMutex.Unlock()
+
 	tc := &types.Toolchain{
 		Executable: executable,
 	}
@@ -110,6 +124,9 @@ func evalPath(executable string) string {
 }
 
 func (s Store) Find(executable string) (*types.Toolchain, error) {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
+
 	if data, ok := s.toolchains[executable]; ok {
 		return data.toolchain, nil
 	} else if data, ok := s.toolchains[evalPath(executable)]; ok {
@@ -120,17 +137,26 @@ func (s Store) Find(executable string) (*types.Toolchain, error) {
 }
 
 func (s *Store) Remove(tc *types.Toolchain) {
+	s.tcMutex.Lock()
+	defer s.tcMutex.Unlock()
+
 	delete(s.toolchains, tc.Executable)
 }
 
 func (s *Store) UpdateIfNeeded(tc *types.Toolchain) error {
+	s.tcMutex.RLock()
+
 	data := s.toolchains[tc.Executable]
 	timestamp, err := data.querier.ModTime(tc.Executable)
-	if _, is := err.(*fs.PathError); is {
+	var pathError *fs.PathError
+	if errors.Is(err, pathError) {
 		// Executable no longer exists; remove toolchain
+		s.tcMutex.RUnlock()
 		s.Remove(tc)
 		return err
 	}
+
+	defer s.tcMutex.RUnlock()
 
 	if timestamp != data.modTime {
 		err := fillInfo(tc, data.querier)
@@ -149,4 +175,19 @@ func (s *Store) Merge(other *Store) {
 		}
 		s.Add(tc.Executable, other.toolchains[tc.Executable].querier)
 	}
+}
+
+func (s *Store) Intersection(other *Store) []*types.Toolchain {
+	other.tcMutex.RLock()
+	defer other.tcMutex.RUnlock()
+
+	tcList := []*types.Toolchain{}
+	for tc := range s.Items() {
+		for otherTc := range other.Items() {
+			if tc.EquivalentTo(otherTc) {
+				tcList = append(tcList, tc)
+			}
+		}
+	}
+	return tcList
 }

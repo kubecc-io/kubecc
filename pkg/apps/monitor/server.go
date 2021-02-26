@@ -107,6 +107,7 @@ func (m *MonitorServer) Stream(
 		}
 		err = m.post(metric)
 		if err != nil {
+			m.lg.Error(err)
 			streamError = err
 			break
 		}

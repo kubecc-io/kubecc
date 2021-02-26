@@ -11,6 +11,8 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
@@ -41,8 +43,7 @@ func TestIntegration(t *testing.T) {
 		}
 	}
 
-	tc := integration.NewTestController(ctx)
-	tc.Start(integration.TestOptions{
+	testOptions := integration.TestOptions{
 		Clients: []*types.UsageLimits{
 			{
 				ConcurrentProcessLimit:  18,
@@ -67,11 +68,33 @@ func TestIntegration(t *testing.T) {
 				QueueRejectMultiplier:   2.0,
 			},
 		},
+	}
+	tc := integration.NewTestController(ctx)
+	tc.Start(testOptions)
+
+	cc, err := servers.Dial(
+		tracing.ContextWithTracer(ctx, tracer), "127.0.0.1:9960")
+	if err != nil {
+		panic(err)
+	}
+	wg := sync.WaitGroup{}
+	wg.Add(len(testOptions.Agents))
+	testId := types.NewIdentity(types.TestComponent)
+	extClient := types.NewExternalMonitorClient(cc)
+	listener := metrics.NewListener(
+		types.OutgoingContextWithIdentity(ctx, testId), extClient)
+	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+		wg.Done()
+		<-pctx.Done()
+		wg.Add(1)
 	})
 	defer tc.Teardown()
 
-	wg := &sync.WaitGroup{}
+	// Wait until all agents connect
+	wg.Wait()
+
 	wg.Add(len(tc.Consumers) * localJobs)
+
 	for _, c := range tc.Consumers {
 		for i := 0; i < localJobs; i++ {
 			go func(cd types.ConsumerdClient) {
@@ -93,6 +116,4 @@ func TestIntegration(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	//tc.Wait()
 }

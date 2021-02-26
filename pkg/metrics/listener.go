@@ -79,9 +79,12 @@ const (
 
 type changeListener struct {
 	expiredHandler func() RetryOptions
+	ehMutex        *sync.Mutex
 }
 
 func (c *changeListener) OrExpired(handler func() RetryOptions) {
+	c.ehMutex.Lock()
+	defer c.ehMutex.Unlock()
 	c.expiredHandler = handler
 }
 
@@ -105,7 +108,9 @@ func (l *Listener) OnValueChanged(
 ) *changeListener {
 	valueType, funcValue := handlerArgType(handler)
 	keyName := valueType.Name()
-	cl := &changeListener{}
+	cl := &changeListener{
+		ehMutex: &sync.Mutex{},
+	}
 	go func() {
 		for {
 			stream, err := l.monClient.Listen(l.ctx, &types.Key{
@@ -134,12 +139,15 @@ func (l *Listener) OnValueChanged(
 					}
 					funcValue.Call([]reflect.Value{val})
 				case codes.Aborted, codes.Unavailable:
+					cl.ehMutex.Lock()
 					if cl.expiredHandler != nil {
 						retryOp := cl.expiredHandler()
 						if retryOp == Retry {
+							cl.ehMutex.Unlock()
 							goto retry
 						}
 					}
+					cl.ehMutex.Unlock()
 					return
 				case codes.InvalidArgument:
 					l.lg.With(

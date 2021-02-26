@@ -40,7 +40,7 @@ type Scheduler struct {
 	w     weighted.W
 	wLock *sync.Mutex
 
-	agents sync.Map // map[types.AgentID]*Agent
+	agents sync.Map // map[string]*Agent
 	ctx    context.Context
 	lg     *zap.SugaredLogger
 }
@@ -105,7 +105,7 @@ func (s *Scheduler) Schedule(
 	}
 }
 
-func (s *Scheduler) AgentIsConnected(id types.AgentID) bool {
+func (s *Scheduler) AgentIsConnected(id string) bool {
 	_, ok := s.agents.Load(id)
 	return ok
 }
@@ -116,11 +116,11 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 		return status.Error(codes.InvalidArgument,
 			"Error identifying agent using context")
 	}
-	id, err := agent.Info.AgentID()
+	id, err := types.IdentityFromIncomingContext(ctx)
 	if err != nil {
 		return err
 	}
-	if s.AgentIsConnected(id) {
+	if s.AgentIsConnected(id.UUID) {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
 
@@ -132,7 +132,7 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 	s.lg.With(
 		zap.Object("agent", agent.Info),
 	).Info(types.Scheduler.Color().Add("Agent connected"))
-	s.agents.Store(id, agent)
+	s.agents.Store(id.UUID, agent)
 
 	s.wLock.Lock()
 	s.w.Add(agent, int(agent.Weight()))
@@ -140,7 +140,7 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 
 	go func() {
 		<-agent.Context.Done()
-		s.agents.Delete(id)
+		s.agents.Delete(id.UUID)
 		s.lg.With(
 			zap.Object("agent", agent.Info),
 		).Info(types.Scheduler.Color().Add("Agent disconnected"))
@@ -163,11 +163,11 @@ func (s *Scheduler) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) 
 	if err != nil {
 		return nil, err
 	}
-	id, err := info.AgentID()
+	id, err := types.IdentityFromIncomingContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !s.AgentIsConnected(id) {
+	if !s.AgentIsConnected(id.UUID) {
 		return nil, status.Error(codes.FailedPrecondition,
 			"Not connected, ensure a connection stream is active with Connect()")
 	}
@@ -175,15 +175,11 @@ func (s *Scheduler) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) 
 }
 
 func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) error {
-	info, err := cluster.AgentInfoFromContext(ctx)
+	id, err := types.IdentityFromIncomingContext(ctx)
 	if err != nil {
 		return err
 	}
-	id, err := info.AgentID()
-	if err != nil {
-		return err
-	}
-	if agent, ok := s.agents.Load(id); ok {
+	if agent, ok := s.agents.Load(id.UUID); ok {
 		agent.(*Agent).QueueStatus = stat
 		s.reweightAll()
 	}
@@ -191,15 +187,11 @@ func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) 
 }
 
 func (s *Scheduler) SetToolchains(ctx context.Context, tcs []*types.Toolchain) error {
-	info, err := cluster.AgentInfoFromContext(ctx)
+	id, err := types.IdentityFromIncomingContext(ctx)
 	if err != nil {
 		return err
 	}
-	id, err := info.AgentID()
-	if err != nil {
-		return err
-	}
-	if agent, ok := s.agents.Load(id); ok {
+	if agent, ok := s.agents.Load(id.UUID); ok {
 		agent.(*Agent).Toolchains = tcs
 	}
 	return nil
