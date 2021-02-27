@@ -16,6 +16,7 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
+
 	ctx := logkc.NewWithContext(cluster.NewAgentContext(), types.Agent)
 	lg = logkc.LogFromContext(ctx)
 

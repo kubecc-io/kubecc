@@ -1,4 +1,4 @@
-package sysfs
+package host
 
 import (
 	"os"
