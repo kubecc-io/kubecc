@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -14,7 +14,6 @@ import (
 type Provider struct {
 	ctx       context.Context
 	monClient types.InternalMonitorClient
-	id        *types.Identity
 	lg        *zap.SugaredLogger
 	postQueue chan KeyedMetric
 }
@@ -31,7 +30,7 @@ func (p *Provider) start() {
 			select {
 			case metric := <-p.postQueue:
 				key := &types.Key{
-					Bucket: p.id.UUID,
+					Bucket: p.ctx.Value(mdkeys.UUIDKey).(string),
 					Name:   metric.Key(),
 				}
 				err := stream.Send(&types.Metric{
@@ -64,16 +63,12 @@ func (p *Provider) start() {
 
 func NewProvider(
 	ctx context.Context,
-	id *types.Identity,
 	client types.InternalMonitorClient,
 ) *Provider {
-	ctx = types.OutgoingContextWithIdentity(ctx, id)
-	lg := logkc.LogFromContext(ctx)
 	provider := &Provider{
 		ctx:       ctx,
 		monClient: client,
-		id:        id,
-		lg:        lg,
+		lg:        ctx.Value(mdkeys.LogKey).(*zap.SugaredLogger),
 		postQueue: make(chan KeyedMetric, 100),
 	}
 

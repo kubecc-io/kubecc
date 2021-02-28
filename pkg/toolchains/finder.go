@@ -1,13 +1,12 @@
 package toolchains
 
 import (
-	"context"
-
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 )
 
 type Finder interface {
-	FindToolchains(ctx context.Context, opts ...FindOption) *Store
+	FindToolchains(ctx meta.Context, opts ...FindOption) *Store
 }
 
 type FindOptions struct {

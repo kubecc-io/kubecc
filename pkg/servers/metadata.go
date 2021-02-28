@@ -4,11 +4,10 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/cluster"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"google.golang.org/grpc"
 )
 
-func ClientContextInterceptor(agentInfo *types.AgentInfo) grpc.UnaryClientInterceptor {
+func ClientContextInterceptor() grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -17,7 +16,6 @@ func ClientContextInterceptor(agentInfo *types.AgentInfo) grpc.UnaryClientInterc
 		invoker grpc.UnaryInvoker,
 		opts ...grpc.CallOption,
 	) error {
-		ctx.
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
 }

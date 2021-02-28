@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
 	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -27,11 +27,11 @@ type AgentServer struct {
 
 	AgentServerOptions
 
+	srvContext      meta.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
 	queueStatus     types.QueueStatus
 	queueStatusCh   chan types.QueueStatus
-	srvContext      context.Context
 	tcStore         *toolchains.Store
 	tcRunStore      *run.ToolchainRunnerStore
 	metricsProvider *metrics.Provider
@@ -84,7 +84,7 @@ func WithUsageLimits(usageLimits *types.UsageLimits) agentServerOption {
 }
 
 func NewAgentServer(
-	ctx context.Context,
+	ctx meta.Context,
 	opts ...agentServerOption,
 ) *AgentServer {
 	options := AgentServerOptions{
@@ -108,7 +108,7 @@ func NewAgentServer(
 	srv := &AgentServer{
 		AgentServerOptions: options,
 		srvContext:         ctx,
-		lg:                 logkc.LogFromContext(ctx),
+		lg:                 ctx.Log(),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
@@ -121,6 +121,10 @@ func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
+
 	s.updateQueueStatus(s.executor.Status())
 
 	span, sctx, err := servers.StartSpanFromServer(
@@ -139,7 +143,8 @@ func (s *AgentServer) Compile(
 
 	resp, err := runner.RecvRemote().Run(run.Contexts{
 		ServerContext: s.srvContext,
-		ClientContext: sctx,
+		ClientContext: ctx.(meta.Context),
+		SpanContext:   sctx,
 	}, s.executor, req)
 	return resp.(*types.CompileResponse), err
 }
@@ -156,7 +161,7 @@ func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
 }
 
 func (s *AgentServer) postAlive() {
-	s.metricsProvider.Post(&meta.Alive{})
+	s.metricsProvider.Post(&mmeta.Alive{})
 }
 
 func (s *AgentServer) postQueueParams() {
@@ -178,9 +183,9 @@ func (s *AgentServer) postQueueStatus() {
 }
 
 func (s *AgentServer) StartMetricsProvider() {
-	id := types.NewIdentity(types.Agent) // todo: identities are screwed up
-	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
+
+	s.lg.Info("Starting metrics provider")
+	s.metricsProvider = metrics.NewProvider(s.srvContext, s.monitorClient)
 	s.postAlive()
 	s.postQueueParams()
 	s.postQueueStatus()

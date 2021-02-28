@@ -1,9 +1,8 @@
 package toolchain
 
 import (
-	"context"
-
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -27,7 +26,7 @@ func (r *CCToolchainRunner) RecvRemote() run.RunnerManager {
 	return &recvRemoteRunnerManager{}
 }
 
-func (r *CCToolchainRunner) NewArgParser(ctx context.Context, args []string) run.ArgParser {
+func (r *CCToolchainRunner) NewArgParser(ctx meta.Context, args []string) run.ArgParser {
 	return cc.NewArgParser(ctx, args)
 }
 

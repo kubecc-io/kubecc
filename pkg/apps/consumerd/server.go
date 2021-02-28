@@ -7,6 +7,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -14,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +26,7 @@ import (
 type consumerdServer struct {
 	types.ConsumerdServer
 
-	srvContext context.Context
+	srvContext meta.Context
 	lg         *zap.SugaredLogger
 
 	tcRunStore      *run.ToolchainRunnerStore
@@ -84,7 +84,7 @@ func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
 }
 
 func NewConsumerdServer(
-	ctx context.Context,
+	ctx meta.Context,
 	opts ...consumerdServerOption,
 ) *consumerdServer {
 	options := ConsumerdServerOptions{
@@ -106,7 +106,7 @@ func NewConsumerdServer(
 	}
 	srv := &consumerdServer{
 		srvContext:     ctx,
-		lg:             logkc.LogFromContext(ctx),
+		lg:             ctx.Log(),
 		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
@@ -165,6 +165,10 @@ func (c *consumerdServer) Run(
 	ctx context.Context,
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
+
 	c.lg.Debug("Running request")
 	err := c.applyToolchainToReq(req)
 	if err != nil {
@@ -218,7 +222,7 @@ func (c *consumerdServer) Run(
 	if !canRunRemote {
 		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: ctx,
+			ClientContext: ctx.(meta.Context),
 		}, c.localExecutor, req)
 		if err != nil {
 			return nil, err
@@ -227,7 +231,7 @@ func (c *consumerdServer) Run(
 	} else {
 		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: ctx,
+			ClientContext: ctx.(meta.Context),
 		}, c.remoteExecutor, req)
 		if err != nil {
 			return nil, err

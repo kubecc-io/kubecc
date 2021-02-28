@@ -1,14 +1,13 @@
 package cc
 
 import (
-	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	mapset "github.com/deckarep/golang-set"
@@ -17,7 +16,7 @@ import (
 
 type CCFinder struct{}
 
-func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOption) *toolchains.Store {
+func (f CCFinder) FindToolchains(ctx meta.Context, opts ...toolchains.FindOption) *toolchains.Store {
 	options := toolchains.FindOptions{
 		FS:      tools.OSFS{},
 		Querier: toolchains.ExecQuerier{},
@@ -29,7 +28,7 @@ func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOpt
 	}
 	options.Apply(opts...)
 
-	lg := logkc.LogFromContext(ctx)
+	lg := ctx.Log()
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
 		f, err := options.FS.Stat(path)

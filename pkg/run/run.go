@@ -4,7 +4,7 @@ import (
 	"context"
 	"io"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
@@ -14,8 +14,9 @@ type Runner interface {
 }
 
 type Contexts struct {
-	ServerContext context.Context
-	ClientContext context.Context
+	ServerContext meta.Context
+	ClientContext meta.Context
+	SpanContext   context.Context
 }
 
 type RunnerManager interface {
@@ -31,7 +32,7 @@ type ToolchainRunner interface {
 	RunLocal(ArgParser) RunnerManager
 	SendRemote(ArgParser, types.SchedulerClient) RunnerManager
 	RecvRemote() RunnerManager
-	NewArgParser(ctx context.Context, args []string) ArgParser
+	NewArgParser(ctx meta.Context, args []string) ArgParser
 }
 
 type OutputType int
@@ -128,6 +129,11 @@ func InPlace(inPlace bool) RunOption {
 func WithContext(ctx context.Context) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Context = ctx
-		ro.Log = logkc.LogFromContext(ctx)
+	}
+}
+
+func WithLog(lg *zap.SugaredLogger) RunOption {
+	return func(ro *RunnerOptions) {
+		ro.Log = lg
 	}
 }

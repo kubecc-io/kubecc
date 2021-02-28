@@ -1,7 +1,6 @@
 package toolchains_test
 
 import (
-	"context"
 	_ "embed"
 	"errors"
 	"io/fs"
@@ -13,6 +12,8 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/go-cmp/cmp"
@@ -207,7 +208,11 @@ func (q mockQuerier) ModTime(compiler string) (time.Time, error) {
 }
 
 func TestFindToolchains(t *testing.T) {
-	ctx := logkc.NewWithContext(context.Background(), types.TestComponent)
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider),
+	)
 
 	fs := fstest.MapFS{
 		// "usr/bin/gcc":                     sym("gcc-10"),
