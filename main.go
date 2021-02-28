@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	"os"
 
@@ -36,6 +35,8 @@ import (
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
@@ -53,7 +54,12 @@ func init() {
 }
 
 func main() {
-	logkc.NewWithContext(context.Background(), types.Controller)
+	mctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider),
+	)
+	lg = mctx.Log()
 	logkc.PrintHeader()
 
 	var (

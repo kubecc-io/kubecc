@@ -63,7 +63,7 @@ manifests:
 .PHONY: proto
 proto:
 	protoc proto/types.proto --go_out=. --go-grpc_out=.
-
+	protoc proto/testpb.proto --go_out=. --go-grpc_out=.
 
 # Code generating, formatting, vetting
 .PHONY: fmt vet generate

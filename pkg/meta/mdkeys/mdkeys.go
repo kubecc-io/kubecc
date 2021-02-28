@@ -23,7 +23,7 @@ func (tracingKeyType) String() string {
 
 var (
 	ComponentKey componentKeyType
-	UuidKey      uuidKeyType
+	UUIDKey      uuidKeyType
 	LogKey       logKeyType
 	TracingKey   tracingKeyType
 )

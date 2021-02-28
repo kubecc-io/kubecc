@@ -5,7 +5,8 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
-	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -17,14 +18,15 @@ var lg *zap.SugaredLogger
 
 func main() {
 
-	ctx := logkc.NewWithContext(cluster.NewAgentContext(), types.Agent)
-	lg = logkc.LogFromContext(ctx)
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider),
+		meta.WithProvider(tracing.MetadataProvider),
+	)
+	lg := ctx.Log()
 
 	logkc.PrintHeader()
-	tracer, closer := tracing.Start(ctx, types.Agent)
-	defer closer.Close()
-	ctx = tracing.ContextWithTracer(ctx, tracer)
-
 	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {

@@ -1,9 +1,7 @@
 package rec
 
 import (
-	"context"
-
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,7 +13,7 @@ type Resolver interface {
 }
 
 type ResolveContext struct {
-	Context    context.Context
+	Context    meta.Context
 	Log        *zap.SugaredLogger
 	Client     client.Client
 	RootObject client.Object
@@ -41,14 +39,13 @@ func (t *ResolverTree) injectClient(client client.Client) {
 	}
 }
 
-func (t *ResolverTree) Walk(ctx context.Context, root client.Object) (ctrl.Result, error) {
+func (t *ResolverTree) Walk(ctx meta.Context, root client.Object) (ctrl.Result, error) {
 	for _, node := range t.Nodes {
 		if res, err := node.Resolver.Resolve(ResolveContext{
 			Context:    ctx,
 			Client:     t.client,
 			RootObject: root,
 			Object:     node.Resolver.Find(root),
-			Log:        logkc.LogFromContext(ctx),
 		}); ShouldRequeue(res, err) {
 			return RequeueWith(res, err)
 		}

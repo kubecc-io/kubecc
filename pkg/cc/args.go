@@ -1,13 +1,12 @@
 package cc
 
 import (
-	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
@@ -121,15 +120,15 @@ func (ap ArgParser) CanRunRemote() bool {
 }
 
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args.
-func NewArgParserFromOS(ctx context.Context) *ArgParser {
+func NewArgParserFromOS(ctx meta.Context) *ArgParser {
 	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy
 }
 
 // NewArgParser creates a new ArgsInfo struct from the provided args
 // Args should NOT include the command (argv[0]).
-func NewArgParser(ctx context.Context, args []string) *ArgParser {
+func NewArgParser(ctx meta.Context, args []string) *ArgParser {
 	return &ArgParser{
-		lg:   logkc.LogFromContext(ctx),
+		lg:   ctx.Log(),
 		Args: args,
 	}
 }

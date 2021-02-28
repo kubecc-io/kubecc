@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -21,7 +21,7 @@ type MonitorServer struct {
 	types.InternalMonitorServer
 	types.ExternalMonitorServer
 
-	srvContext context.Context
+	srvContext meta.Context
 	lg         *zap.SugaredLogger
 
 	buckets       map[string]KeyValueStore
@@ -30,24 +30,24 @@ type MonitorServer struct {
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
-	providers    *meta.Providers
+	providers    *mmeta.Providers
 }
 
 func NewMonitorServer(
-	ctx context.Context,
+	ctx meta.Context,
 	storeCreator StoreCreator,
 ) *MonitorServer {
 	srv := &MonitorServer{
 		srvContext:    ctx,
-		lg:            logkc.LogFromContext(ctx),
+		lg:            ctx.Log(),
 		buckets:       make(map[string]KeyValueStore),
 		bucketMutex:   &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &meta.Providers{},
+		providers:     &mmeta.Providers{},
 	}
-	srv.buckets[meta.Bucket] = storeCreator.NewStore(ctx)
+	srv.buckets[mmeta.Bucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 	return srv
 }
@@ -62,8 +62,8 @@ func (m *MonitorServer) encodeProviders() []byte {
 func (m *MonitorServer) providersUpdated() {
 	err := m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: meta.Bucket,
-			Name:   meta.Providers{}.Key(),
+			Bucket: mmeta.Bucket,
+			Name:   mmeta.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),
@@ -77,27 +77,29 @@ func (m *MonitorServer) providersUpdated() {
 func (m *MonitorServer) Stream(
 	srv types.InternalMonitor_StreamServer,
 ) (streamError error) {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
+	ctx := srv.Context().(meta.Context)
+	uuid := ctx.UUID()
+	component := ctx.Component()
 
 	m.bucketMutex.Lock()
-	if _, ok := m.buckets[id.UUID]; ok {
+	if _, ok := m.buckets[uuid]; ok {
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
 	}
 	store := m.storeCreator.NewStore(srv.Context())
-	m.buckets[id.UUID] = store
+	m.buckets[uuid] = store
 	if m.providers.Items == nil {
 		m.providers.Items = make(map[string]int32)
 	}
-	m.providers.Items[id.UUID] = int32(id.Component)
+	m.providers.Items[uuid] = int32(component)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
 
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("identity", uuid),
 	).Info(types.Monitor.Color().Add("Provider connected"))
 	for {
 		metric, err := srv.Recv()
@@ -113,12 +115,12 @@ func (m *MonitorServer) Stream(
 		}
 	}
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("identity", uuid),
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.bucketMutex.Lock()
-	delete(m.buckets, id.UUID)
-	delete(m.providers.Items, id.UUID)
+	delete(m.buckets, uuid)
+	delete(m.providers.Items, uuid)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
 	return
@@ -156,10 +158,11 @@ func (m *MonitorServer) Listen(
 	key *types.Key,
 	srv types.ExternalMonitor_ListenServer,
 ) error {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
+	ctx := srv.Context().(meta.Context)
+	uuid := ctx.UUID()
 
 	m.bucketMutex.RLock()
 
@@ -177,7 +180,7 @@ func (m *MonitorServer) Listen(
 	if m.listeners[canonical] == nil {
 		m.listeners[canonical] = make(map[string]Receiver)
 	}
-	m.listeners[canonical][id.UUID] = srv
+	m.listeners[canonical][uuid] = srv
 	m.listenerMutex.Unlock()
 
 	// late join
@@ -194,7 +197,7 @@ func (m *MonitorServer) Listen(
 
 	defer func() {
 		m.listenerMutex.Lock()
-		delete(m.listeners[canonical], id.UUID)
+		delete(m.listeners[canonical], uuid)
 		m.listenerMutex.Unlock()
 	}()
 

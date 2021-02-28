@@ -22,6 +22,8 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
@@ -45,8 +47,12 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	ctx := logkc.NewWithContext(context.Background(), types.Controller)
-	lg := logkc.LogFromContext(ctx)
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider),
+	)
+	lg := ctx.Log()
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

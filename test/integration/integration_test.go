@@ -11,6 +11,8 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -20,16 +22,20 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	ctx := logkc.NewWithContext(context.Background(), types.TestComponent,
-		logkc.WithName("-"))
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
+			logkc.New(types.TestComponent, logkc.WithName("-")),
+		)),
+		meta.WithProvider(tracing.MetadataProvider),
+	)
+	lg := ctx.Log()
 
-	tracer, closer := tracing.Start(ctx, types.TestComponent)
-	defer closer.Close()
-	span, ctx := opentracing.StartSpanFromContextWithTracer(
+	tracer := ctx.Tracer()
+	span, _ := opentracing.StartSpanFromContextWithTracer(
 		ctx, tracer, "integration-test")
 	defer span.Finish()
-
-	lg := logkc.LogFromContext(ctx)
 
 	numTasks := 4000
 	localJobs := 100
@@ -79,10 +85,8 @@ func TestIntegration(t *testing.T) {
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(len(testOptions.Agents))
-	testId := types.NewIdentity(types.TestComponent)
 	extClient := types.NewExternalMonitorClient(cc)
-	listener := metrics.NewListener(
-		types.OutgoingContextWithIdentity(ctx, testId), extClient)
+	listener := metrics.NewListener(ctx, extClient)
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 		wg.Done()
 		<-pctx.Done()

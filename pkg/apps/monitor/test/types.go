@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"go.uber.org/atomic"
 )
 
@@ -15,16 +15,8 @@ type TestStoreCreator struct {
 }
 
 func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
-	id, ok := types.IdentityFromContext(ctx)
-	if !ok {
-		idIncoming, err := types.IdentityFromIncomingContext(ctx)
-		if err != nil {
-			panic(err)
-		}
-		id = idIncoming
-	}
 	store := monitor.InMemoryStoreCreator.NewStore(ctx)
-	c.Stores.Store(id.UUID, store)
+	c.Stores.Store(ctx.Value(mdkeys.UUIDKey), store)
 	c.Count.Inc()
 	return store
 }

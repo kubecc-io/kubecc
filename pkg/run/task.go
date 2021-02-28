@@ -3,7 +3,7 @@ package run
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/tracing"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
@@ -40,10 +40,10 @@ func (t *Task) Error() error {
 	return t.err
 }
 
-func Begin(ctx context.Context, r Runner, tc *types.Toolchain) *Task {
-	tracer := tracing.TracerFromContext(ctx)
+func Begin(ctx meta.Context, sctx context.Context, r Runner, tc *types.Toolchain) *Task {
+	tracer := ctx.Tracer()
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx, tracer, "task-wait")
+		sctx, tracer, "task-wait")
 	return &Task{
 		doneCh: make(chan struct{}),
 		tracer: tracer,
