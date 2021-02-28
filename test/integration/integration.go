@@ -15,7 +15,6 @@ import (
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -52,11 +51,11 @@ func NewTestController(ctx meta.Context) *TestController {
 	}
 }
 
-func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
+func (tc *TestController) Dial(ctx meta.Context) (types.AgentClient, error) {
 	tc.agentListenersLock.Lock()
 	defer tc.agentListenersLock.Unlock()
 
-	listener := tc.agentListeners[ctx.Value(mdkeys.UUIDKey).(string)]
+	listener := tc.agentListeners[ctx.UUID()]
 	cc := dial(ctx, listener)
 	return types.NewAgentClient(cc), nil
 }
@@ -88,7 +87,7 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 		)),
 		meta.WithProvider(tracing.MetadataProvider),
 	)
-	lg := logkc.LogFromContext(ctx)
+	lg := ctx.Log()
 	srv := servers.NewServer(ctx)
 
 	listener := bufconn.Listen(bufSize)
@@ -128,7 +127,7 @@ func (tc *TestController) startScheduler() {
 		)),
 		meta.WithProvider(tracing.MetadataProvider),
 	)
-	lg := logkc.LogFromContext(ctx)
+	lg := ctx.Log()
 
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
@@ -153,7 +152,7 @@ func (tc *TestController) startMonitor() {
 		)),
 		meta.WithProvider(tracing.MetadataProvider),
 	)
-	lg := logkc.LogFromContext(ctx)
+	lg := ctx.Log()
 
 	tc.monListener = bufconn.Listen(bufSize)
 	internalSrv := servers.NewServer(ctx)
@@ -191,7 +190,7 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 		)),
 		meta.WithProvider(tracing.MetadataProvider),
 	)
-	lg := logkc.LogFromContext(ctx)
+	lg := ctx.Log()
 
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)

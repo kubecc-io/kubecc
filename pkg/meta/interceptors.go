@@ -17,6 +17,8 @@ func ClientContextInterceptor() grpc.UnaryClientInterceptor {
 	) error {
 		if c, ok := ctx.(Context); ok {
 			ctx = c.ExportToOutgoing()
+		} else if mctx, ok := FromContext(ctx); ok {
+			ctx = mctx.ExportToOutgoing()
 		}
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
@@ -24,7 +26,7 @@ func ClientContextInterceptor() grpc.UnaryClientInterceptor {
 
 func ServerContextInterceptor(
 	srvCtx Context,
-	expected ...Provider,
+	expected []Provider,
 ) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -60,6 +62,8 @@ func StreamClientContextInterceptor() grpc.StreamClientInterceptor {
 	) (grpc.ClientStream, error) {
 		if c, ok := ctx.(Context); ok {
 			ctx = c.ExportToOutgoing()
+		} else if mctx, ok := FromContext(ctx); ok {
+			ctx = mctx.ExportToOutgoing()
 		}
 		return streamer(ctx, desc, cc, method, opts...)
 	}
@@ -76,7 +80,7 @@ func (ss *serverStream) Context() context.Context {
 
 func StreamServerContextInterceptor(
 	ctx Context,
-	expected ...Provider,
+	expected []Provider,
 ) grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},

@@ -13,7 +13,7 @@ type Executor interface {
 	status.QueueParamsCompleter
 	status.TaskStatusCompleter
 	status.QueueStatusCompleter
-	Exec(task *Task, opts ...ExecutorOption) error
+	Exec(task *Task) error
 	Status() types.QueueStatus
 }
 
@@ -72,13 +72,7 @@ func (x *QueuedExecutor) SetUsageLimits(cfg *types.UsageLimits) {
 
 func (x *QueuedExecutor) Exec(
 	task *Task,
-	opts ...ExecutorOption,
 ) error {
-	options := ExecutorOptions{}
-	for _, op := range opts {
-		op(&options)
-	}
-
 	x.numQueued.Inc()
 	x.taskQueue <- task
 	x.numQueued.Dec()
@@ -129,7 +123,7 @@ func (x *QueuedExecutor) CompleteQueueStatus(stat *status.QueueStatus) {
 // runs all tasks as soon as possible, and is always available.
 type UnqueuedExecutor struct{}
 
-func (x *UnqueuedExecutor) Exec(task *Task, opts ...ExecutorOption) error {
+func (x *UnqueuedExecutor) Exec(task *Task) error {
 	go task.Run()
 	select {
 	case <-task.Done():

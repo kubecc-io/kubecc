@@ -60,16 +60,15 @@ type sendRemoteRunnerManager struct {
 }
 
 func runPreprocessor(
-	ctx meta.Context,
-	sctx context.Context,
+	ctx context.Context,
 	ap *cc.ArgParser,
 	req *types.RunRequest,
 ) ([]byte, *types.RunResponse) {
-	tracer := ctx.Tracer()
+	tracer := meta.Tracer(ctx)
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx, tracer, "preprocess")
 	defer span.Finish()
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	outBuf := new(bytes.Buffer)
 	stdoutBuf := new(bytes.Buffer)
@@ -120,10 +119,7 @@ func (r sendRemoteRunnerManager) Run(
 
 	lg.Debug("Preprocessing")
 	ap.SetActionOpt(cc.Preprocess)
-	preprocessedSource, errResp := runPreprocessor(ctx.ClientContext, sctx,
-		ap,
-		req,
-	)
+	preprocessedSource, errResp := runPreprocessor(sctx, ap, req)
 	if errResp != nil {
 		return errResp, nil
 	}
@@ -150,7 +146,7 @@ func (r sendRemoteRunnerManager) Run(
 		run.WithStdin(bytes.NewReader(preprocessedSource)),
 		run.WithOutputVar(resp),
 	)
-	task := run.Begin(ctx.ClientContext, sctx, runner, req.GetToolchain())
+	task := run.Begin(sctx, runner, req.GetToolchain())
 	err := executor.Exec(task)
 
 	if err != nil {

@@ -40,8 +40,8 @@ func (t *Task) Error() error {
 	return t.err
 }
 
-func Begin(ctx meta.Context, sctx context.Context, r Runner, tc *types.Toolchain) *Task {
-	tracer := ctx.Tracer()
+func Begin(sctx context.Context, r Runner, tc *types.Toolchain) *Task {
+	tracer := meta.Tracer(sctx)
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		sctx, tracer, "task-wait")
 	return &Task{

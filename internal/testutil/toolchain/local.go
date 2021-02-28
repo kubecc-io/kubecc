@@ -1,11 +1,9 @@
 package toolchain
 
 import (
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
@@ -17,8 +15,8 @@ func (m localRunnerManager) Run(
 	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := logkc.LogFromContext(ctx.ServerContext)
-	tracer := tracing.TracerFromContext(ctx.ServerContext)
+	lg := ctx.ServerContext.Log()
+	tracer := ctx.ServerContext.Tracer()
 	lg.Info("=> Running local")
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx.ClientContext, tracer, "run-local")
@@ -29,8 +27,7 @@ func (m localRunnerManager) Run(
 		Args: req.Args,
 	}
 	ap.Parse()
-	task := run.Begin(
-		tracing.ContextWithTracer(sctx, tracer),
+	task := run.Begin(sctx,
 		&testtoolchain.SleepRunner{
 			Duration: ap.Duration,
 		}, req.GetToolchain())
