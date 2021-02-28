@@ -43,12 +43,6 @@ func (r *RunResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (r *Identity) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("component", r.GetComponent().Name())
-	enc.AddString("uuid", r.GetUUID())
-	return nil
-}
-
 func (r *CompileResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	switch data := r.GetData().(type) {
 	case *CompileResponse_Error:

@@ -2,12 +2,11 @@ package consumer
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"golang.org/x/term"
@@ -15,8 +14,8 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 )
 
-func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
-	lg := logkc.LogFromContext(ctx)
+func DispatchAndWait(ctx meta.Context, cc *grpc.ClientConn) {
+	lg := ctx.Log()
 
 	lg.Info("Dispatching to consumerd")
 
@@ -37,7 +36,7 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	} else {
 		compilerPath = findCompilerOrDie(ctx)
 	}
-	resp, err := consumerd.Run(context.Background(), &types.RunRequest{
+	resp, err := consumerd.Run(ctx, &types.RunRequest{
 		Compiler: &types.RunRequest_Path{
 			Path: compilerPath,
 		},

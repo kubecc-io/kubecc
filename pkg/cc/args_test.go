@@ -1,17 +1,26 @@
 package cc
 
 import (
-	"context"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/stretchr/testify/assert"
 )
 
-var ctx = logkc.NewWithContext(context.Background(), types.TestComponent)
+var ctx meta.Context
+
+func init() {
+	ctx = meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.MetadataProvider),
+	)
+}
 
 func BenchmarkParse(b *testing.B) {
 	os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")

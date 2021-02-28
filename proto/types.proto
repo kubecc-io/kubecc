@@ -40,11 +40,6 @@ message Value {
   bytes Data = 1;
 }
 
-message Identity {
-  Component Component = 1;
-  string UUID = 2;
-}
-
 message UsageLimits {
   int32 ConcurrentProcessLimit = 1;
   double QueuePressureMultiplier = 2;

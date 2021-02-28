@@ -2,13 +2,14 @@
 package logkc
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -90,11 +91,7 @@ func WithName(name string) logOption {
 	}
 }
 
-func NewWithContext(
-	ctx context.Context,
-	component types.Component,
-	ops ...logOption,
-) context.Context {
+func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	options := LogOptions{
 		outputPaths:      []string{"stdout"},
 		errorOutputPaths: []string{"stderr"},
@@ -137,26 +134,26 @@ func NewWithContext(
 		s = s.Named(options.name)
 	}
 	s.Infof(color.Add("Starting %s"), component.Name())
-	return ContextWithLog(ctx, s)
+	return s
 }
 
-type logContextKeyType struct{}
+// type logContextKeyType struct{}
 
-var logContextKey logContextKeyType
+// var logContextKey logContextKeyType
 
-func ContextWithLog(
-	ctx context.Context,
-	log *zap.SugaredLogger,
-) context.Context {
-	return context.WithValue(ctx, logContextKey, log)
-}
+// func ContextWithLog(
+// 	ctx context.Context,
+// 	log *zap.SugaredLogger,
+// ) context.Context {
+// 	return context.WithValue(ctx, logContextKey, log)
+// }
 
-func LogFromContext(ctx context.Context) *zap.SugaredLogger {
-	if log, ok := ctx.Value(logContextKey).(*zap.SugaredLogger); ok {
-		return log
-	}
-	panic("No logger stored in the given context")
-}
+// func LogFromContext(ctx context.Context) *zap.SugaredLogger {
+// 	if log, ok := ctx.Value(logContextKey).(*zap.SugaredLogger); ok {
+// 		return log
+// 	}
+// 	panic("No logger stored in the given context")
+// }
 
 func PrintHeader() {
 	if zapkc.UseColor {
@@ -164,4 +161,24 @@ func PrintHeader() {
 	} else {
 		fmt.Println(BigAsciiText)
 	}
+}
+
+type logProvider struct{}
+
+var MetadataProvider logProvider
+
+func (logProvider) Key() meta.MetadataKey {
+	return mdkeys.LogKey
+}
+
+func (logProvider) InitialValue(ctx meta.Context) interface{} {
+	return New(ctx.Component())
+}
+
+func (logProvider) Marshal(i interface{}) string {
+	return ""
+}
+
+func (logProvider) Unmarshal(s string) interface{} {
+	return nil
 }

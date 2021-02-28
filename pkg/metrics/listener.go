@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/tinylib/msgp/msgp"
@@ -18,7 +18,7 @@ import (
 )
 
 type Listener struct {
-	ctx       context.Context
+	ctx       meta.Context
 	monClient types.ExternalMonitorClient
 	lg        *zap.SugaredLogger
 
@@ -26,12 +26,10 @@ type Listener struct {
 	providersMutex *sync.Mutex
 }
 
-func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
-	lg := logkc.LogFromContext(ctx)
+func NewListener(ctx meta.Context, client types.ExternalMonitorClient) *Listener {
 	listener := &Listener{
 		ctx:            ctx,
 		monClient:      client,
-		lg:             lg,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},
 	}
@@ -39,7 +37,7 @@ func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Liste
 }
 
 func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid string)) {
-	doUpdate := func(providers *meta.Providers) {
+	doUpdate := func(providers *mmeta.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
 				pctx, cancel := context.WithCancel(context.Background())
@@ -56,14 +54,14 @@ func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid strin
 		}
 	}
 
-	l.OnValueChanged(meta.Bucket, func(providers *meta.Providers) {
+	l.OnValueChanged(mmeta.Bucket, func(providers *mmeta.Providers) {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(providers)
 	}).OrExpired(func() RetryOptions {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
-		doUpdate(&meta.Providers{
+		doUpdate(&mmeta.Providers{
 			Items: map[string]int32{},
 		})
 		return Retry

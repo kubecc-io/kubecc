@@ -6,6 +6,7 @@ import (
 
 	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
@@ -76,7 +77,7 @@ func ServerAgentContextInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
-func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
+func NewServer(ctx meta.Context, opts ...grpcOption) *grpc.Server {
 	options := GRPCOptions{
 		AgentInfo: nil,
 		tls:       false,
@@ -89,7 +90,8 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 
 	options.Apply(opts...)
 	interceptors := []grpc.UnaryServerInterceptor{
-		otgrpc.OpenTracingServerInterceptor(tracing.TracerFromContext(ctx)),
+		otgrpc.OpenTracingServerInterceptor(ctx.Tracer()),
+		meta.ServerContextInterceptor(ctx),
 	}
 	if options.AgentInfo != nil {
 		interceptors = append(interceptors, ServerAgentContextInterceptor())
@@ -98,11 +100,14 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	return grpc.NewServer(
 		grpc.MaxRecvMsgSize(1e8), // 100MB
 		grpc.ChainUnaryInterceptor(interceptors...),
+		grpc.ChainStreamInterceptor(
+			meta.StreamServerContextInterceptor(ctx),
+		),
 	)
 }
 
 func Dial(
-	ctx context.Context,
+	ctx meta.Context,
 	target string,
 	opts ...grpcOption,
 ) (*grpc.ClientConn, error) {
@@ -110,9 +115,10 @@ func Dial(
 	options.Apply(opts...)
 	interceptors := []grpc.UnaryClientInterceptor{
 		otgrpc.OpenTracingClientInterceptor(
-			tracing.TracerFromContext(ctx),
+			ctx.Tracer(),
 			otgrpc.CreateSpan(!tracing.IsEnabled),
 		),
+		meta.ClientContextInterceptor(),
 	}
 	if options.AgentInfo != nil {
 		interceptors = append(interceptors,
@@ -120,6 +126,9 @@ func Dial(
 	}
 	dialOpts := append([]grpc.DialOption{
 		grpc.WithChainUnaryInterceptor(interceptors...),
+		grpc.WithChainStreamInterceptor(
+			meta.StreamClientContextInterceptor(),
+		),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(1e8),
 			grpc.UseCompressor(gzip.Name),
@@ -139,10 +148,11 @@ func Dial(
 }
 
 func StartSpanFromServer(
-	clientCtx, serverCtx context.Context,
+	clientCtx context.Context,
+	serverCtx meta.Context,
 	operationName string,
 ) (opentracing.Span, context.Context, error) {
-	tracer := tracing.TracerFromContext(serverCtx)
+	tracer := serverCtx.Tracer()
 	if tracer == nil {
 		panic("No tracer in server context")
 	}

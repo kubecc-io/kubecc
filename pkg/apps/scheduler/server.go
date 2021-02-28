@@ -5,9 +5,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
@@ -16,18 +15,18 @@ import (
 type schedulerServer struct {
 	types.SchedulerServer
 
-	srvContext context.Context
+	srvContext meta.Context
 	lg         *zap.SugaredLogger
 	scheduler  *Scheduler
 }
 
 func NewSchedulerServer(
-	ctx context.Context,
+	ctx meta.Context,
 	opts ...schedulerOption,
 ) *schedulerServer {
 	srv := &schedulerServer{
 		srvContext: ctx,
-		lg:         logkc.LogFromContext(ctx),
+		lg:         ctx.Log(),
 		scheduler:  NewScheduler(ctx, opts...),
 	}
 	return srv
@@ -50,18 +49,18 @@ func (s *schedulerServer) Compile(
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.scheduler.Schedule(
-		logkc.ContextWithLog(ctx, s.lg), req)
+	return s.scheduler.Schedule(ctx, req)
 }
 
 func (s *schedulerServer) ConnectAgent(
 	srv types.Scheduler_ConnectAgentServer,
 ) error {
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
+	}
 	lg := s.lg
-	ctx := srv.Context()
-	tracer := tracing.TracerFromContext(s.srvContext)
-	if err := s.scheduler.AgentConnected(
-		tracing.ContextWithTracer(ctx, tracer)); err != nil {
+	ctx := srv.Context().(meta.Context)
+	if err := s.scheduler.AgentConnected(ctx); err != nil {
 		return err
 	}
 

@@ -1,14 +1,13 @@
 package consumer
 
 import (
-	"context"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"go.uber.org/zap"
 )
 
@@ -25,8 +24,8 @@ func samePath(a, b string) bool {
 	return a == b
 }
 
-func findCompilerOrDie(ctx context.Context) string {
-	lg := logkc.LogFromContext(ctx)
+func findCompilerOrDie(ctx meta.Context) string {
+	lg := ctx.Log()
 	basename := filepath.Base(os.Args[0])
 	self, err := os.Executable()
 	if err != nil {
