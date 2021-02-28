@@ -1,12 +1,12 @@
 syntax = "proto3";
 option go_package = "internal/testutil";
 
-message Empty {}
+message Baz {}
 
 service Foo {
-  rpc Foo(Empty) returns (Empty);
+  rpc Foo(Baz) returns (Baz);
 }
 
 service Bar {
-  rpc Bar(stream Empty) returns (stream Empty);
+  rpc Bar(stream Baz) returns (stream Baz);
 }

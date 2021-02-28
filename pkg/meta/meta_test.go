@@ -24,15 +24,15 @@ type fooServer struct {
 
 func (s *fooServer) Foo(
 	ctx context.Context,
-	in *testutil.Empty,
-) (*testutil.Empty, error) {
+	in *testutil.Baz,
+) (*testutil.Baz, error) {
 	defer GinkgoRecover()
 	mctx := ctx.(meta.Context)
 	Expect(mctx.Component()).To(Equal(types.TestComponent))
 	Expect(func() { uuid.MustParse(mctx.UUID()) }).NotTo(Panic())
-	Expect(func() { mctx.Log() }).To(Panic())
-	Expect(func() { mctx.Tracer() }).To(Panic())
-	return &testutil.Empty{}, nil
+	Expect(mctx.Log()).NotTo(BeNil())
+	Expect(mctx.Tracer()).NotTo(BeNil())
+	return &testutil.Baz{}, nil
 }
 
 type barServer struct {
@@ -46,8 +46,8 @@ func (s *barServer) Bar(
 	mctx := srv.Context().(meta.Context)
 	Expect(mctx.Component()).To(Equal(types.TestComponent))
 	Expect(func() { uuid.MustParse(mctx.UUID()) }).NotTo(Panic())
-	Expect(func() { mctx.Log() }).To(Panic())
-	Expect(func() { mctx.Tracer() }).To(Panic())
+	Expect(mctx.Log()).NotTo(BeNil())
+	Expect(mctx.Tracer()).NotTo(BeNil())
 	return nil
 }
 
@@ -142,7 +142,8 @@ var _ = Describe("Meta", func() {
 			listener := bufconn.Listen(1024 * 1024)
 			srv := grpc.NewServer(
 				grpc.UnaryInterceptor(
-					meta.ServerContextInterceptor(ctx, identity.Component, identity.UUID)),
+					meta.ServerContextInterceptor(ctx,
+						[]meta.Provider{identity.Component, identity.UUID})),
 			)
 			testutil.RegisterFooServer(srv, fooSrv)
 			go srv.Serve(listener)
@@ -159,7 +160,7 @@ var _ = Describe("Meta", func() {
 			Expect(err).NotTo(HaveOccurred())
 			By("Calling a gRPC method from the client")
 			client := testutil.NewFooClient(cc)
-			reply, err := client.Foo(ctx, &testutil.Empty{})
+			reply, err := client.Foo(ctx, &testutil.Baz{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reply).NotTo(BeNil())
 		})
@@ -178,7 +179,7 @@ var _ = Describe("Meta", func() {
 			srv := grpc.NewServer(
 				grpc.StreamInterceptor(
 					meta.StreamServerContextInterceptor(ctx,
-						identity.Component, identity.UUID)),
+						[]meta.Provider{identity.Component, identity.UUID})),
 			)
 			testutil.RegisterBarServer(srv, barSrv)
 			go srv.Serve(listener)
@@ -196,7 +197,7 @@ var _ = Describe("Meta", func() {
 			client := testutil.NewBarClient(cc)
 			stream, err := client.Bar(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			err = stream.Send(&testutil.Empty{})
+			err = stream.Send(&testutil.Baz{})
 			Expect(err).NotTo(HaveOccurred())
 			err = stream.CloseSend()
 			Expect(err).NotTo(HaveOccurred())

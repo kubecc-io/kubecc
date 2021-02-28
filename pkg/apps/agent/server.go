@@ -128,7 +128,7 @@ func (s *AgentServer) Compile(
 	s.updateQueueStatus(s.executor.Status())
 
 	span, sctx, err := servers.StartSpanFromServer(
-		ctx, s.srvContext, "compile")
+		ctx.(meta.Context), "compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {
@@ -143,8 +143,7 @@ func (s *AgentServer) Compile(
 
 	resp, err := runner.RecvRemote().Run(run.Contexts{
 		ServerContext: s.srvContext,
-		ClientContext: ctx.(meta.Context),
-		SpanContext:   sctx,
+		ClientContext: sctx,
 	}, s.executor, req)
 	return resp.(*types.CompileResponse), err
 }

@@ -187,7 +187,8 @@ func (c *consumerdServer) Run(
 	// 	}
 	// }
 
-	span, sctx, err := servers.StartSpanFromServer(ctx, c.srvContext, "run")
+	span, sctx, err := servers.StartSpanFromServer(
+		ctx.(meta.Context), "run")
 	if err != nil {
 		c.lg.Error(err)
 	} else {
