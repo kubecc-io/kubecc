@@ -15,8 +15,7 @@ type Runner interface {
 
 type Contexts struct {
 	ServerContext meta.Context
-	ClientContext meta.Context
-	SpanContext   context.Context
+	ClientContext context.Context
 }
 
 type RunnerManager interface {

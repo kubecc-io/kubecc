@@ -19,7 +19,6 @@ func (m sendRemoteRunnerManager) Run(
 	tracer := ctx.ServerContext.Tracer()
 
 	lg.Info("Sending remote")
-	// todo: integrate spans with meta.Context
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx.ClientContext, tracer, "run-send")
 	defer span.Finish()

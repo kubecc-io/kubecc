@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -16,7 +17,7 @@ import (
 
 type CCFinder struct{}
 
-func (f CCFinder) FindToolchains(ctx meta.Context, opts ...toolchains.FindOption) *toolchains.Store {
+func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOption) *toolchains.Store {
 	options := toolchains.FindOptions{
 		FS:      tools.OSFS{},
 		Querier: toolchains.ExecQuerier{},
@@ -28,7 +29,7 @@ func (f CCFinder) FindToolchains(ctx meta.Context, opts ...toolchains.FindOption
 	}
 	options.Apply(opts...)
 
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
 		f, err := options.FS.Stat(path)

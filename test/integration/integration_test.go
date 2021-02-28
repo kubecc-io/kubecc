@@ -33,7 +33,7 @@ func TestIntegration(t *testing.T) {
 	lg := ctx.Log()
 
 	tracer := ctx.Tracer()
-	span, _ := opentracing.StartSpanFromContextWithTracer(
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx, tracer, "integration-test")
 	defer span.Finish()
 
@@ -78,8 +78,7 @@ func TestIntegration(t *testing.T) {
 	tc := integration.NewTestController(ctx)
 	tc.Start(testOptions)
 
-	cc, err := servers.Dial(
-		tracing.ContextWithTracer(ctx, tracer), "127.0.0.1:9960")
+	cc, err := servers.Dial(ctx, "127.0.0.1:9960")
 	if err != nil {
 		panic(err)
 	}

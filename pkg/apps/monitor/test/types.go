@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"go.uber.org/atomic"
 )
 
@@ -16,7 +15,12 @@ type TestStoreCreator struct {
 
 func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
 	store := monitor.InMemoryStoreCreator.NewStore(ctx)
-	c.Stores.Store(ctx.Value(mdkeys.UUIDKey), store)
-	c.Count.Inc()
+	c.Stores.Store(ctx, store)
+	i := int32(0)
+	c.Stores.Range(func(key, value interface{}) bool {
+		i++
+		return true
+	})
+	c.Count.Store(i)
 	return store
 }

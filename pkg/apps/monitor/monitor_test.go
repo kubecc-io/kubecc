@@ -1,7 +1,6 @@
 package monitor_test
 
 import (
-	"bytes"
 	"context"
 	"net"
 	"sync"
@@ -12,9 +11,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
@@ -112,11 +109,12 @@ var _ = Describe("Monitor", func() {
 			meta.WithProvider(logkc.MetadataProvider),
 			meta.WithProvider(tracing.MetadataProvider),
 		)
-
-		_, cancel := context.WithCancel(ctx)
+		aaaa := ctx.UUID()
+		ctx.Log().Info(aaaa)
+		cctx, cancel := context.WithCancel(ctx)
 		providerCancel = cancel
 		It("should succeed", func() {
-			cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
+			cc, err := servers.Dial(cctx, uuid.NewString(), servers.With(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
 						return listener.Dial()
@@ -124,7 +122,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			client := types.NewInternalMonitorClient(cc)
-			provider = metrics.NewProvider(ctx, client)
+			provider = metrics.NewProvider(cctx, client)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -132,30 +130,6 @@ var _ = Describe("Monitor", func() {
 				return storeCreator.Count.Load()
 			}).Should(BeEquivalentTo(2))
 		})
-		It("should store the provider", func() {
-			Eventually(func() bool {
-				istore, ok := storeCreator.Stores.Load(srvUuid)
-				if !ok {
-					return false
-				}
-				store, ok := istore.(monitor.KeyValueStore)
-				if !ok {
-					return false
-				}
-				providers := &mmeta.Providers{
-					Items: map[string]int32{
-						ctx.UUID(): int32(ctx.Component()),
-					},
-				}
-				expected := tools.EncodeMsgp(providers)
-				actual, ok := store.Get(mmeta.Providers{}.Key())
-				if !ok {
-					return false
-				}
-				return bytes.Equal(actual, expected)
-			}).Should(BeTrue())
-		})
-
 		It("should notify the listener", func() {
 			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(ctx.UUID())))
 			Expect(listenerEvents["providerRemoved"]).ShouldNot(Receive())

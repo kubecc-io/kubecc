@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FooClient interface {
-	Foo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
+	Foo(ctx context.Context, in *Baz, opts ...grpc.CallOption) (*Baz, error)
 }
 
 type fooClient struct {
@@ -29,8 +29,8 @@ func NewFooClient(cc grpc.ClientConnInterface) FooClient {
 	return &fooClient{cc}
 }
 
-func (c *fooClient) Foo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
+func (c *fooClient) Foo(ctx context.Context, in *Baz, opts ...grpc.CallOption) (*Baz, error) {
+	out := new(Baz)
 	err := c.cc.Invoke(ctx, "/Foo/Foo", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (c *fooClient) Foo(ctx context.Context, in *Empty, opts ...grpc.CallOption)
 // All implementations must embed UnimplementedFooServer
 // for forward compatibility
 type FooServer interface {
-	Foo(context.Context, *Empty) (*Empty, error)
+	Foo(context.Context, *Baz) (*Baz, error)
 	mustEmbedUnimplementedFooServer()
 }
 
@@ -50,7 +50,7 @@ type FooServer interface {
 type UnimplementedFooServer struct {
 }
 
-func (UnimplementedFooServer) Foo(context.Context, *Empty) (*Empty, error) {
+func (UnimplementedFooServer) Foo(context.Context, *Baz) (*Baz, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Foo not implemented")
 }
 func (UnimplementedFooServer) mustEmbedUnimplementedFooServer() {}
@@ -67,7 +67,7 @@ func RegisterFooServer(s grpc.ServiceRegistrar, srv FooServer) {
 }
 
 func _Foo_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+	in := new(Baz)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func _Foo_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 		FullMethod: "/Foo/Foo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(FooServer).Foo(ctx, req.(*Empty))
+		return srv.(FooServer).Foo(ctx, req.(*Baz))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -125,8 +125,8 @@ func (c *barClient) Bar(ctx context.Context, opts ...grpc.CallOption) (Bar_BarCl
 }
 
 type Bar_BarClient interface {
-	Send(*Empty) error
-	Recv() (*Empty, error)
+	Send(*Baz) error
+	Recv() (*Baz, error)
 	grpc.ClientStream
 }
 
@@ -134,12 +134,12 @@ type barBarClient struct {
 	grpc.ClientStream
 }
 
-func (x *barBarClient) Send(m *Empty) error {
+func (x *barBarClient) Send(m *Baz) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *barBarClient) Recv() (*Empty, error) {
-	m := new(Empty)
+func (x *barBarClient) Recv() (*Baz, error) {
+	m := new(Baz)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -179,8 +179,8 @@ func _Bar_Bar_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Bar_BarServer interface {
-	Send(*Empty) error
-	Recv() (*Empty, error)
+	Send(*Baz) error
+	Recv() (*Baz, error)
 	grpc.ServerStream
 }
 
@@ -188,12 +188,12 @@ type barBarServer struct {
 	grpc.ServerStream
 }
 
-func (x *barBarServer) Send(m *Empty) error {
+func (x *barBarServer) Send(m *Baz) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *barBarServer) Recv() (*Empty, error) {
-	m := new(Empty)
+func (x *barBarServer) Recv() (*Baz, error) {
+	m := new(Baz)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}

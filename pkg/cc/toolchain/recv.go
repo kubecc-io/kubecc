@@ -35,7 +35,7 @@ func (r *recvRemoteRunnerManager) Run(
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.Begin(ctx.ClientContext, ctx.ClientContext, runner, req.Toolchain)
+	task := run.Begin(ctx.ClientContext, runner, req.Toolchain)
 	err := executor.Exec(task)
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {

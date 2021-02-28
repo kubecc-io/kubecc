@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ func (p *Provider) start() {
 			select {
 			case metric := <-p.postQueue:
 				key := &types.Key{
-					Bucket: p.ctx.Value(mdkeys.UUIDKey).(string),
+					Bucket: meta.UUID(p.ctx),
 					Name:   metric.Key(),
 				}
 				err := stream.Send(&types.Metric{
@@ -54,6 +54,7 @@ func (p *Provider) start() {
 				time.Sleep(5 * time.Second)
 				goto reconnect
 			case <-p.ctx.Done():
+				stream.CloseSend()
 				return
 			}
 		}
@@ -68,7 +69,7 @@ func NewProvider(
 	provider := &Provider{
 		ctx:       ctx,
 		monClient: client,
-		lg:        ctx.Value(mdkeys.LogKey).(*zap.SugaredLogger),
+		lg:        meta.Log(ctx),
 		postQueue: make(chan KeyedMetric, 100),
 	}
 

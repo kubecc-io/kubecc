@@ -36,8 +36,11 @@ func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
 	span, sctx, err := servers.StartSpanFromServer(
-		ctx, s.srvContext, "schedule-compile")
+		ctx.(meta.Context), "schedule-compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {

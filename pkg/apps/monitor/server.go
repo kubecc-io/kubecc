@@ -89,7 +89,8 @@ func (m *MonitorServer) Stream(
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
 	}
-	store := m.storeCreator.NewStore(srv.Context())
+	bucketCtx, bucketCancel := context.WithCancel(context.Background())
+	store := m.storeCreator.NewStore(bucketCtx)
 	m.buckets[uuid] = store
 	if m.providers.Items == nil {
 		m.providers.Items = make(map[string]int32)
@@ -119,6 +120,7 @@ func (m *MonitorServer) Stream(
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.bucketMutex.Lock()
+	bucketCancel()
 	delete(m.buckets, uuid)
 	delete(m.providers.Items, uuid)
 	m.bucketMutex.Unlock()
@@ -148,6 +150,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			defer m.notify(metric)
 		}
 	} else {
+		m.bucketMutex.RUnlock()
 		return status.Error(codes.InvalidArgument, "No such bucket")
 	}
 	m.bucketMutex.RUnlock()
@@ -202,7 +205,7 @@ func (m *MonitorServer) Listen(
 	}()
 
 	select {
-	case <-srv.Context().Done():
+	case <-ctx.Done():
 		return status.Error(codes.Canceled, "Context canceled")
 	case <-bucketCtx.Done():
 		return status.Error(codes.Aborted, "Bucket closed")

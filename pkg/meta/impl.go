@@ -13,6 +13,10 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+type metaContextKeyType struct{}
+
+var metaContextKey metaContextKeyType
+
 type contextImpl struct {
 	providers map[interface{}]Provider
 	values    map[interface{}]interface{}
@@ -31,6 +35,9 @@ func (*contextImpl) Err() error {
 }
 
 func (ci *contextImpl) Value(key interface{}) interface{} {
+	if key == metaContextKey {
+		return ci
+	}
 	if value, ok := ci.values[key]; ok {
 		return value
 	}
@@ -103,4 +110,11 @@ func (c *contextImpl) MetadataProviders() []Provider {
 		providers = append(providers, v)
 	}
 	return providers
+}
+
+func FromContext(ctx context.Context) (Context, bool) {
+	if mctx := ctx.Value(metaContextKey); mctx != nil {
+		return mctx.(Context), true
+	}
+	return nil, false
 }

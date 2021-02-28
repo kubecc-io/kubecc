@@ -42,7 +42,7 @@ func (r localRunnerManager) Run(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.Begin(ctx.ClientContext, sctx, runner, req.GetToolchain())
+	t := run.Begin(ctx.ClientContext, runner, req.GetToolchain())
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {
