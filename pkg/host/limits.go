@@ -1,22 +1,21 @@
-package cpuconfig
+package host
 
 import (
 	"math"
 	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/config"
-	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 )
 
-func Default() *types.UsageLimits {
+func DefaultUsageLimits() *types.UsageLimits {
 	var maxRunning int32
 	if value := viper.GetInt(config.ConcurrentProcessLimit); value >= 0 {
 		maxRunning = int32(value)
 	} else {
-		period := host.CfsPeriod()
-		if quota := host.CfsQuota(); quota < 0 {
+		period := CfsPeriod()
+		if quota := CfsQuota(); quota < 0 {
 			// No limit, default to the number of cpu threads
 			maxRunning = int32(runtime.NumCPU())
 		} else {
