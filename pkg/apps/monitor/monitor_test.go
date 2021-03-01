@@ -1,7 +1,6 @@
 package monitor_test
 
 import (
-	"bytes"
 	"context"
 	"net"
 	"sync"
@@ -9,16 +8,15 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor/test"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/opentracing/opentracing-go"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -30,11 +28,14 @@ var _ = Describe("Monitor", func() {
 		Stores: sync.Map{},
 		Count:  atomic.NewInt32(0),
 	}
-	srvIdentity := types.NewIdentity(types.TestComponent)
+	srvUuid := uuid.NewString()
 	When("Creating a monitor server", func() {
-		ctx := logkc.NewWithContext(context.Background(), types.TestComponent)
-		ctx = tracing.ContextWithTracer(ctx, opentracing.NoopTracer{})
-		ctx = types.ContextWithIdentity(ctx, srvIdentity)
+		ctx := meta.NewContext(
+			meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
+			meta.WithProvider(identity.UUID, meta.WithValue(srvUuid)),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
+		)
 
 		It("should succeed", func() {
 			mon := monitor.NewMonitorServer(ctx, storeCreator)
@@ -62,13 +63,15 @@ var _ = Describe("Monitor", func() {
 	}
 
 	When("A listener connects", func() {
-		ctx := logkc.NewWithContext(context.Background(), types.CLI)
-		ctx = tracing.ContextWithTracer(ctx, opentracing.NoopTracer{})
-		id := types.NewIdentity(types.CLI)
-		listenerCtx := types.OutgoingContextWithIdentity(ctx, id)
+		ctx := meta.NewContext(
+			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
+			meta.WithProvider(identity.UUID),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
+		)
 
 		It("should succeed", func() {
-			cc, err := servers.Dial(listenerCtx, uuid.NewString(), servers.With(
+			cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
 						return listener.Dial()
@@ -76,7 +79,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			client := types.NewExternalMonitorClient(cc)
-			listener := metrics.NewListener(listenerCtx, client)
+			listener := metrics.NewListener(ctx, client)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				listenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *test.TestKey1) {
@@ -99,16 +102,19 @@ var _ = Describe("Monitor", func() {
 
 	var provider *metrics.Provider
 	var providerCancel context.CancelFunc
-	providerId := types.NewIdentity(types.Agent)
 	When("A provider connects", func() {
-		ctx := logkc.NewWithContext(context.Background(), types.Agent)
-		ctx = tracing.ContextWithTracer(ctx, opentracing.NoopTracer{})
-
-		providerCtx, cancel := context.WithCancel(
-			types.OutgoingContextWithIdentity(ctx, providerId))
+		ctx := meta.NewContext(
+			meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
+			meta.WithProvider(identity.UUID),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
+		)
+		aaaa := meta.UUID(ctx)
+		meta.Log(ctx).Info(aaaa)
+		cctx, cancel := context.WithCancel(ctx)
 		providerCancel = cancel
 		It("should succeed", func() {
-			cc, err := servers.Dial(providerCtx, uuid.NewString(), servers.With(
+			cc, err := servers.Dial(cctx, uuid.NewString(), servers.With(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
 						return listener.Dial()
@@ -116,7 +122,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			client := types.NewInternalMonitorClient(cc)
-			provider = metrics.NewProvider(providerCtx, providerId, client)
+			provider = metrics.NewProvider(cctx, client)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -124,32 +130,8 @@ var _ = Describe("Monitor", func() {
 				return storeCreator.Count.Load()
 			}).Should(BeEquivalentTo(2))
 		})
-		It("should store the provider", func() {
-			Eventually(func() bool {
-				istore, ok := storeCreator.Stores.Load(srvIdentity.UUID)
-				if !ok {
-					return false
-				}
-				store, ok := istore.(monitor.KeyValueStore)
-				if !ok {
-					return false
-				}
-				providers := &meta.Providers{
-					Items: map[string]int32{
-						providerId.UUID: int32(providerId.Component),
-					},
-				}
-				expected := tools.EncodeMsgp(providers)
-				actual, ok := store.Get(meta.Providers{}.Key())
-				if !ok {
-					return false
-				}
-				return bytes.Equal(actual, expected)
-			}).Should(BeTrue())
-		})
-
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(providerId.UUID)))
+			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(meta.UUID(ctx))))
 			Expect(listenerEvents["providerRemoved"]).ShouldNot(Receive())
 			// ensure the context is not cancelled and no duplicates occur
 			Consistently(listenerEvents["providerAdded"]).ShouldNot(Receive())

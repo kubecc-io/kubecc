@@ -1,11 +1,12 @@
 package main
 
 import (
-	"context"
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -16,14 +17,15 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewWithContext(context.Background(), types.Scheduler)
-	lg = logkc.LogFromContext(ctx)
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
+	)
+	lg := meta.Log(ctx)
+
 	logkc.PrintHeader()
-
-	tracer, closer := tracing.Start(ctx, types.Scheduler)
-	defer closer.Close()
-	ctx = tracing.ContextWithTracer(ctx, tracer)
-
 	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		panic(err.Error())

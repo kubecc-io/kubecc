@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
@@ -12,7 +13,9 @@ import (
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
-	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/host"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -28,36 +31,40 @@ import (
 const bufSize = 1024 * 1024
 
 type TestController struct {
-	Consumers      []types.ConsumerdClient
-	ctx            context.Context
-	cancel         context.CancelFunc
-	agentListeners map[types.AgentID]*bufconn.Listener
-	schedListener  *bufconn.Listener
-	monListener    *bufconn.Listener
+	Consumers          []types.ConsumerdClient
+	ctx                context.Context
+	cancel             context.CancelFunc
+	agentListeners     map[string]*bufconn.Listener
+	agentListenersLock *sync.Mutex
+
+	schedListener *bufconn.Listener
+	monListener   *bufconn.Listener
 }
 
 func NewTestController(ctx context.Context) *TestController {
 	ctx, cancel := context.WithCancel(ctx)
 	return &TestController{
-		ctx:            ctx,
-		cancel:         cancel,
-		agentListeners: make(map[types.AgentID]*bufconn.Listener),
-		Consumers:      []types.ConsumerdClient{},
+		ctx:                ctx,
+		cancel:             cancel,
+		agentListeners:     make(map[string]*bufconn.Listener),
+		agentListenersLock: &sync.Mutex{},
+		Consumers:          []types.ConsumerdClient{},
 	}
 }
 
 func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
-	info, _ := cluster.AgentInfoFromContext(ctx)
-	id, _ := info.AgentID()
-	listener := tc.agentListeners[id]
-	_, cc := dial(ctx, listener)
+	tc.agentListenersLock.Lock()
+	defer tc.agentListenersLock.Unlock()
+
+	listener := tc.agentListeners[meta.UUID(ctx)]
+	cc := dial(ctx, listener)
 	return types.NewAgentClient(cc), nil
 }
 
 func dial(
 	ctx context.Context,
 	dialer *bufconn.Listener,
-) (context.Context, *grpc.ClientConn) {
+) *grpc.ClientConn {
 	cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
 		grpc.WithContextDialer(
 			func(context.Context, string) (net.Conn, error) {
@@ -67,28 +74,29 @@ func dial(
 	if err != nil {
 		panic(err)
 	}
-	return ctx, cc
+	return cc
 }
 
-func (tc *TestController) runAgent(cfg *types.UsageLimits) {
-	ctx := logkc.NewWithContext(
-		cluster.ContextWithAgentInfo(
-			tc.ctx, cluster.MakeAgentInfo()), types.Agent,
-		logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
+func (tc *TestController) startAgent(cfg *types.UsageLimits) {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Agent,
+				logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := logkc.LogFromContext(ctx)
-	info := cluster.MakeAgentInfo()
-	ctx = cluster.ContextWithAgentInfo(ctx, info)
-	tracer, closer := tracing.Start(ctx, types.Agent)
-	ctx = tracing.ContextWithTracer(ctx, tracer)
+	lg := meta.Log(ctx)
 	srv := servers.NewServer(ctx)
 
 	listener := bufconn.Listen(bufSize)
-	id, _ := info.AgentID()
-	tc.agentListeners[id] = listener
-	ctx, cc := dial(ctx, tc.schedListener)
+	tc.agentListeners[meta.UUID(ctx)] = listener
+	cc := dial(ctx, tc.schedListener)
 	schedClient := types.NewSchedulerClient(cc)
-	ctx, cc = dial(ctx, tc.monListener)
+	cc = dial(ctx, tc.monListener)
 	internalMonClient := types.NewInternalMonitorClient(cc)
 	agentSrv := agent.NewAgentServer(ctx,
 		agent.WithSchedulerClient(schedClient),
@@ -104,40 +112,50 @@ func (tc *TestController) runAgent(cfg *types.UsageLimits) {
 	go agentSrv.RunSchedulerClient()
 	go agentSrv.StartMetricsProvider()
 	go func() {
-		defer closer.Close()
 		if err := srv.Serve(listener); err != nil {
 			lg.Info(err)
 		}
 	}()
 }
 
-func (tc *TestController) runScheduler() {
-	ctx := logkc.NewWithContext(tc.ctx, types.Scheduler,
-		logkc.WithName("a"),
+func (tc *TestController) startScheduler() {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Scheduler,
+				logkc.WithName("a"),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := logkc.LogFromContext(ctx)
-	tracer, closer := tracing.Start(ctx, types.Scheduler)
-	ctx = tracing.ContextWithTracer(ctx, tracer)
+	lg := meta.Log(ctx)
+
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 
 	sc := scheduler.NewSchedulerServer(ctx, scheduler.WithAgentDialer(tc))
 	types.RegisterSchedulerServer(srv, sc)
 	go func() {
-		defer closer.Close()
 		if err := srv.Serve(tc.schedListener); err != nil {
 			lg.Info(err)
 		}
 	}()
 }
 
-func (tc *TestController) runMonitor() {
-	ctx := logkc.NewWithContext(tc.ctx, types.Monitor,
-		logkc.WithName("a"),
+func (tc *TestController) startMonitor() {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Monitor,
+				logkc.WithName("a"),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := logkc.LogFromContext(ctx)
-	tracer, closer := tracing.Start(ctx, types.Monitor)
-	ctx = tracing.ContextWithTracer(ctx, tracer)
+	lg := meta.Log(ctx)
+
 	tc.monListener = bufconn.Listen(bufSize)
 	internalSrv := servers.NewServer(ctx)
 	externalSrv := servers.NewServer(ctx)
@@ -151,7 +169,6 @@ func (tc *TestController) runMonitor() {
 	types.RegisterExternalMonitorServer(externalSrv, mon)
 
 	go func() {
-		defer closer.Close()
 		if err := internalSrv.Serve(tc.monListener); err != nil {
 			lg.Info(err)
 		}
@@ -164,16 +181,23 @@ func (tc *TestController) runMonitor() {
 	}()
 }
 
-func (tc *TestController) runConsumerd(cfg *types.UsageLimits) {
-	ctx := logkc.NewWithContext(tc.ctx, types.Consumerd,
-		logkc.WithName(string(rune('a'+len(tc.Consumers)))),
+func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Consumerd)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Consumerd,
+				logkc.WithName(string(rune('a'+len(tc.Consumers)))),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := logkc.LogFromContext(ctx)
-	tracer, closer := tracing.Start(ctx, types.Consumerd)
-	ctx = tracing.ContextWithTracer(ctx, tracer)
+	lg := meta.Log(ctx)
+
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
-	ctx, cc := dial(ctx, tc.schedListener)
+	cc := dial(ctx, tc.schedListener)
 	client := types.NewSchedulerClient(cc)
 
 	d := consumerd.NewConsumerdServer(ctx,
@@ -186,28 +210,12 @@ func (tc *TestController) runConsumerd(cfg *types.UsageLimits) {
 	)
 	types.RegisterConsumerdServer(srv, d)
 
-	ready := make(chan struct{})
+	go d.RunSchedulerClient()
 
-	go func() {
-		c, err := client.ConnectConsumerd(ctx, grpc.WaitForReady(true))
-		if err != nil {
-			panic(err)
-		}
-		close(ready)
-		select {
-		case <-ctx.Done():
-		case <-c.Context().Done():
-		}
-	}()
-
-	<-ready
-	lg.Info(types.Consumerd.Color().Add("Connected to the scheduler"))
-
-	_, cdListener := dial(ctx, listener)
+	cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)
 	tc.Consumers = append(tc.Consumers, cdClient)
 	go func() {
-		defer closer.Close()
 		if err := srv.Serve(listener); err != nil {
 			lg.Info(err)
 		}
@@ -220,6 +228,9 @@ type TestOptions struct {
 }
 
 func (tc *TestController) Start(ops TestOptions) {
+	tc.agentListenersLock.Lock()
+	defer tc.agentListenersLock.Unlock()
+
 	viper.Set("remoteOnly", "false")
 	viper.Set("arch", "amd64")
 	viper.Set("namespace", "test-namespace")
@@ -227,23 +238,25 @@ func (tc *TestController) Start(ops TestOptions) {
 	tracer, _ := tracing.Start(tc.ctx, types.TestComponent)
 	opentracing.SetGlobalTracer(tracer)
 
-	tc.runScheduler()
-	tc.runMonitor()
+	tc.startScheduler()
+	tc.startMonitor()
 	for i, cfg := range ops.Agents {
 		viper.Set("node", fmt.Sprintf("test-node-%d", i))
 		viper.Set("pod", fmt.Sprintf("test-pod-%d", i))
-		tc.runAgent(cfg)
+		tc.startAgent(cfg)
 	}
 	for _, cfg := range ops.Clients {
-		tc.runConsumerd(cfg)
+		tc.startConsumerd(cfg)
 	}
 }
 
 func (tc *TestController) Teardown() {
 	tc.schedListener.Close()
+	tc.agentListenersLock.Lock()
 	for _, v := range tc.agentListeners {
 		v.Close()
 	}
+	tc.agentListenersLock.Unlock()
 	tc.cancel()
 }
 

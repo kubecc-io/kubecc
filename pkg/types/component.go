@@ -1,6 +1,8 @@
 package types
 
-import "github.com/cobalt77/kubecc/internal/zapkc"
+import (
+	"github.com/cobalt77/kubecc/internal/zapkc"
+)
 
 func (c Component) Name() string {
 	switch c {

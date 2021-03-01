@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 
@@ -9,31 +8,37 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
+	"github.com/cobalt77/kubecc/pkg/host"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewWithContext(context.Background(), types.Consumerd,
-		logkc.WithLogLevel(zapcore.DebugLevel),
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	logkc.PrintHeader()
+	lg := meta.Log(ctx)
 
+	logkc.PrintHeader()
 	consumer.InitConfig()
-	tracer, closer := tracing.Start(ctx, types.Consumerd)
-	defer closer.Close()
-	ctx = tracing.ContextWithTracer(ctx, tracer)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainRunners(cctoolchain.AddToStore))
 
-	go d.ConnectToRemote()
+	d.ConnectToRemote()
+	go d.RunSchedulerClient()
+
 	port := viper.GetInt("port")
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {

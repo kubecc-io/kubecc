@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	mapset "github.com/deckarep/golang-set"
@@ -29,7 +29,7 @@ func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOpt
 	}
 	options.Apply(opts...)
 
-	lg := logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 	searchPaths := mapset.NewSet()
 	addPath := func(set mapset.Set, path string) {
 		f, err := options.FS.Stat(path)

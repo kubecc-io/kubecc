@@ -26,7 +26,6 @@ func (a *AgentInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("node", a.GetNode())
 	enc.AddString("pod", a.GetPod())
 	enc.AddString("ns", a.GetNamespace())
-	enc.AddString("arch", a.GetArch())
 	return nil
 }
 
@@ -40,12 +39,6 @@ func (r *RunRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 func (r *RunResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddInt("code", int(r.GetReturnCode()))
-	return nil
-}
-
-func (r *Identity) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("component", r.GetComponent().Name())
-	enc.AddString("uuid", r.GetUUID())
 	return nil
 }
 

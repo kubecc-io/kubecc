@@ -2,10 +2,11 @@ package scheduler
 
 import (
 	"context"
+	"errors"
+	"io"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
@@ -25,7 +26,7 @@ func NewSchedulerServer(
 ) *schedulerServer {
 	srv := &schedulerServer{
 		srvContext: ctx,
-		lg:         logkc.LogFromContext(ctx),
+		lg:         meta.Log(ctx),
 		scheduler:  NewScheduler(ctx, opts...),
 	}
 	return srv
@@ -35,8 +36,10 @@ func (s *schedulerServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx, s.srvContext, "schedule-compile")
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
+	span, sctx, err := servers.StartSpanFromServer(ctx, "schedule-compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {
@@ -48,17 +51,18 @@ func (s *schedulerServer) Compile(
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.scheduler.Schedule(
-		logkc.ContextWithLog(ctx, s.lg), req)
+	return s.scheduler.Schedule(ctx, req)
 }
 
 func (s *schedulerServer) ConnectAgent(
 	srv types.Scheduler_ConnectAgentServer,
 ) error {
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
+	}
 	lg := s.lg
 	ctx := srv.Context()
-	tracer := tracing.TracerFromContext(s.srvContext)
-	if err := s.scheduler.AgentConnected(tracing.ContextWithTracer(ctx, tracer)); err != nil {
+	if err := s.scheduler.AgentConnected(ctx); err != nil {
 		return err
 	}
 
@@ -66,10 +70,15 @@ func (s *schedulerServer) ConnectAgent(
 		for {
 			metadata, err := srv.Recv()
 			if err != nil {
-				lg.Debug(err)
+				if errors.Is(err, io.EOF) {
+					lg.Debug(err)
+				} else {
+					lg.Error(err)
+				}
 				return
 			}
-			if err := s.scheduler.SetToolchains(ctx, metadata.Toolchains.GetItems()); err != nil {
+			if err := s.scheduler.SetToolchains(
+				ctx, metadata.Toolchains.GetItems()); err != nil {
 				lg.Error(err)
 			}
 		}
@@ -83,14 +92,31 @@ func (s *schedulerServer) ConnectConsumerd(
 	srv types.Scheduler_ConnectConsumerdServer,
 ) error {
 	lg := s.lg
+	ctx := srv.Context()
 
 	lg.Info(types.Scheduler.Color().Add("Consumerd connected"))
+	defer lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
 
-	// add logic here maybe
+	go func() {
+		for {
+			_, err := srv.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					lg.Debug(err)
+				} else {
+					lg.Error(err)
+				}
+				return
+			}
 
-	// s.monitor.AgentConnected(agent)
-	<-srv.Context().Done()
+			// if err := s.scheduler.SetToolchains(
+			// 	ctx, metadata.Toolchains.GetItems()); err != nil {
+			// 	lg.Error(err)
+			// }
+		}
+	}()
 
-	lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
+	<-ctx.Done()
+
 	return nil
 }

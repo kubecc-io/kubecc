@@ -33,13 +33,13 @@ func (z *QueueParams) DecodeMsg(dc *msgp.Reader) (err error) {
 		case "queuePressureThreshold":
 			z.QueuePressureMultiplier, err = dc.ReadFloat64()
 			if err != nil {
-				err = msgp.WrapError(err, "QueuePressureThreshold")
+				err = msgp.WrapError(err, "QueuePressureMultiplier")
 				return
 			}
 		case "queueRejectThreshold":
 			z.QueueRejectMultiplier, err = dc.ReadFloat64()
 			if err != nil {
-				err = msgp.WrapError(err, "QueueRejectThreshold")
+				err = msgp.WrapError(err, "QueueRejectMultiplier")
 				return
 			}
 		default:
@@ -57,7 +57,7 @@ func (z *QueueParams) DecodeMsg(dc *msgp.Reader) (err error) {
 func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	// map header, size 3
 	// write "ConcurrentProcessLimit"
-	err = en.Append(0x83, 0xb3, 0x6d, 0x61, 0x78, 0x52, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73)
+	err = en.Append(0x83, 0xb6, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74)
 	if err != nil {
 		return
 	}
@@ -73,7 +73,7 @@ func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	}
 	err = en.WriteFloat64(z.QueuePressureMultiplier)
 	if err != nil {
-		err = msgp.WrapError(err, "QueuePressureThreshold")
+		err = msgp.WrapError(err, "QueuePressureMultiplier")
 		return
 	}
 	// write "queueRejectThreshold"
@@ -83,7 +83,7 @@ func (z QueueParams) EncodeMsg(en *msgp.Writer) (err error) {
 	}
 	err = en.WriteFloat64(z.QueueRejectMultiplier)
 	if err != nil {
-		err = msgp.WrapError(err, "QueueRejectThreshold")
+		err = msgp.WrapError(err, "QueueRejectMultiplier")
 		return
 	}
 	return
@@ -94,7 +94,7 @@ func (z QueueParams) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
 	// map header, size 3
 	// string "ConcurrentProcessLimit"
-	o = append(o, 0x83, 0xb3, 0x6d, 0x61, 0x78, 0x52, 0x75, 0x6e, 0x6e, 0x69, 0x6e, 0x67, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x65, 0x73)
+	o = append(o, 0x83, 0xb6, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74)
 	o = msgp.AppendInt32(o, z.ConcurrentProcessLimit)
 	// string "queuePressureThreshold"
 	o = append(o, 0xb6, 0x71, 0x75, 0x65, 0x75, 0x65, 0x50, 0x72, 0x65, 0x73, 0x73, 0x75, 0x72, 0x65, 0x54, 0x68, 0x72, 0x65, 0x73, 0x68, 0x6f, 0x6c, 0x64)
@@ -132,13 +132,13 @@ func (z *QueueParams) UnmarshalMsg(bts []byte) (o []byte, err error) {
 		case "queuePressureThreshold":
 			z.QueuePressureMultiplier, bts, err = msgp.ReadFloat64Bytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "QueuePressureThreshold")
+				err = msgp.WrapError(err, "QueuePressureMultiplier")
 				return
 			}
 		case "queueRejectThreshold":
 			z.QueueRejectMultiplier, bts, err = msgp.ReadFloat64Bytes(bts)
 			if err != nil {
-				err = msgp.WrapError(err, "QueueRejectThreshold")
+				err = msgp.WrapError(err, "QueueRejectMultiplier")
 				return
 			}
 		default:
@@ -155,7 +155,7 @@ func (z *QueueParams) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z QueueParams) Msgsize() (s int) {
-	s = 1 + 20 + msgp.Int32Size + 23 + msgp.Float64Size + 21 + msgp.Float64Size
+	s = 1 + 23 + msgp.Int32Size + 23 + msgp.Float64Size + 21 + msgp.Float64Size
 	return
 }
 

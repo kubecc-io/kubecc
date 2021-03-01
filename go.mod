@@ -22,6 +22,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/googleapis/gnostic v0.5.4 // indirect
+	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect

@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
@@ -128,6 +127,11 @@ func InPlace(inPlace bool) RunOption {
 func WithContext(ctx context.Context) RunOption {
 	return func(ro *RunnerOptions) {
 		ro.Context = ctx
-		ro.Log = logkc.LogFromContext(ctx)
+	}
+}
+
+func WithLog(lg *zap.SugaredLogger) RunOption {
+	return func(ro *RunnerOptions) {
+		ro.Log = lg
 	}
 }

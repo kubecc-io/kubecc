@@ -5,7 +5,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -28,7 +28,7 @@ type ConfigProvider interface {
 type ConfigMapProvider struct{}
 
 func (cmp *ConfigMapProvider) Setup(ctx context.Context, c types.Component) {
-	lg := logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 	switch c {
 	case types.Agent, types.Scheduler, types.Dashboard, types.Monitor:
 		viper.AddConfigPath("/etc/kubecc")

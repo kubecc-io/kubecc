@@ -1,13 +1,15 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	internal "github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumer"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -16,12 +18,20 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-	ctx := logkc.NewWithContext(context.Background(), types.Consumer,
-		logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
-		logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Consumer,
+				logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
+				logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg = logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 
+	logkc.PrintHeader()
 	internal.InitConfig()
 
 	cc, err := servers.Dial(
