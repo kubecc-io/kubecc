@@ -82,6 +82,6 @@ func (tracingProvider) Marshal(i interface{}) string {
 	return ""
 }
 
-func (tracingProvider) Unmarshal(s string) interface{} {
-	return nil
+func (tracingProvider) Unmarshal(s string) (interface{}, error) {
+	return nil, nil
 }

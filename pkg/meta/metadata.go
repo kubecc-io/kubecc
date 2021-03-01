@@ -22,7 +22,7 @@ type InitProvider interface {
 type Provider interface {
 	Key() MetadataKey
 	Marshal(interface{}) string
-	Unmarshal(string) interface{}
+	Unmarshal(string) (interface{}, error)
 }
 
 func Component(ctx context.Context) types.Component {

@@ -6,7 +6,9 @@ import (
 	"reflect"
 	"time"
 
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 type metaContextKeyType struct{}
@@ -49,7 +51,7 @@ type ImportOptions struct {
 	Optional []Provider
 }
 
-func (c *contextImpl) ImportFromIncoming(ctx context.Context, opts ImportOptions) {
+func (c *contextImpl) ImportFromIncoming(ctx context.Context, opts ImportOptions) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		panic("Not an incoming context")
@@ -57,18 +59,32 @@ func (c *contextImpl) ImportFromIncoming(ctx context.Context, opts ImportOptions
 	for _, mp := range opts.Required {
 		if values := md.Get(mp.Key().String()); len(values) > 0 {
 			c.providers[mp.Key()] = mp
-			c.values[mp.Key()] = mp.Unmarshal(values[0])
+			var err error
+			c.values[mp.Key()], err = mp.Unmarshal(values[0])
+			if err != nil {
+				return status.Error(codes.InvalidArgument,
+					fmt.Sprintf("Failed to unmarshal required metadata for provider %s: %s",
+						reflect.TypeOf(mp), err.Error()))
+			}
 		} else {
-			panic(fmt.Sprintf("Expected metadata provider %s was not found",
-				reflect.TypeOf(mp)))
+			return status.Error(codes.InvalidArgument,
+				fmt.Sprintf("Expected metadata provider %s was not found",
+					reflect.TypeOf(mp)))
 		}
 	}
 	for _, mp := range opts.Optional {
 		if values := md.Get(mp.Key().String()); len(values) > 0 {
 			c.providers[mp.Key()] = mp
-			c.values[mp.Key()] = mp.Unmarshal(values[0])
+			var err error
+			c.values[mp.Key()], err = mp.Unmarshal(values[0])
+			if err != nil {
+				return status.Error(codes.InvalidArgument,
+					fmt.Sprintf("Failed to unmarshal optional metadata for provider %s: %s",
+						reflect.TypeOf(mp), err.Error()))
+			}
 		}
 	}
+	return nil
 }
 
 func (c *contextImpl) ExportToOutgoing() context.Context {

@@ -19,8 +19,8 @@ func (componentMDP) Marshal(i interface{}) string {
 	return types.Component_name[int32(i.(types.Component))]
 }
 
-func (componentMDP) Unmarshal(s string) interface{} {
-	return types.Component(types.Component_value[s])
+func (componentMDP) Unmarshal(s string) (interface{}, error) {
+	return types.Component(types.Component_value[s]), nil
 }
 
 type uuidMDP struct{}
@@ -39,6 +39,6 @@ func (uuidMDP) Marshal(i interface{}) string {
 	return i.(string)
 }
 
-func (uuidMDP) Unmarshal(s string) interface{} {
-	return s
+func (uuidMDP) Unmarshal(s string) (interface{}, error) {
+	return s, nil
 }
