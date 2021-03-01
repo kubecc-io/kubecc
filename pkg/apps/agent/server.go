@@ -7,7 +7,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
-	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
@@ -101,7 +101,7 @@ func NewAgentServer(
 	}
 
 	if options.usageLimits == nil {
-		options.usageLimits = cpuconfig.Default()
+		options.usageLimits = host.DefaultUsageLimits()
 	}
 
 	srv := &AgentServer{

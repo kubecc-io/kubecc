@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -97,7 +97,7 @@ func NewConsumerdServer(
 	options.Apply(opts...)
 
 	if options.usageLimits == nil {
-		options.usageLimits = cpuconfig.Default()
+		options.usageLimits = host.DefaultUsageLimits()
 	}
 
 	runStore := run.NewToolchainRunnerStore()
