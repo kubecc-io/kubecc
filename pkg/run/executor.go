@@ -1,7 +1,7 @@
 package run
 
 import (
-	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
@@ -46,7 +46,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options := ExecutorOptions{}
 	options.Apply(opts...)
 	if options.usageLimits == nil {
-		options.usageLimits = cpuconfig.Default()
+		options.usageLimits = host.DefaultUsageLimits()
 	}
 
 	queue := make(chan *Task)
