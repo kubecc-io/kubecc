@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func Default() *types.UsageLimits {
+func DefaultUsageLimits() *types.UsageLimits {
 	var maxRunning int32
 	if value := viper.GetInt(config.ConcurrentProcessLimit); value >= 0 {
 		maxRunning = int32(value)

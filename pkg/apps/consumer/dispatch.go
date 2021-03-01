@@ -28,7 +28,9 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	stdin := new(bytes.Buffer)
 
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		io.Copy(stdin, os.Stdin)
+		if _, err := io.Copy(stdin, os.Stdin); err != nil {
+			lg.With(zap.Error(err)).Error("Error forwarding stdin")
+		}
 	}
 
 	var compilerPath string
