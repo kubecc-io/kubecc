@@ -179,6 +179,6 @@ func (logProvider) Marshal(i interface{}) string {
 	return ""
 }
 
-func (logProvider) Unmarshal(s string) interface{} {
-	return nil
+func (logProvider) Unmarshal(s string) (interface{}, error) {
+	return nil, nil
 }

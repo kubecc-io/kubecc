@@ -1,13 +1,13 @@
 package host
 
 import (
-	"encoding/json"
 	"fmt"
 	"runtime"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 func GetSystemInfo() *types.SystemInfo {
@@ -34,18 +34,18 @@ func (systemInfoProvider) InitialValue(ctx meta.Context) interface{} {
 }
 
 func (systemInfoProvider) Marshal(i interface{}) string {
-	data, err := json.Marshal(i)
+	data, err := protojson.Marshal(i.(*types.SystemInfo))
 	if err != nil {
 		panic(fmt.Sprintf("Could not marshal SystemInfo: %s", err.Error()))
 	}
 	return string(data)
 }
 
-func (systemInfoProvider) Unmarshal(s string) interface{} {
-	var info *types.SystemInfo
-	err := json.Unmarshal([]byte(s), info)
+func (systemInfoProvider) Unmarshal(s string) (interface{}, error) {
+	info := &types.SystemInfo{}
+	err := protojson.Unmarshal([]byte(s), info)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return info
+	return info, nil
 }

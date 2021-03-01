@@ -32,6 +32,7 @@ func (s *fooServer) Foo(
 	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
 	Expect(meta.Log(ctx)).NotTo(BeNil())
 	Expect(meta.Tracer(ctx)).NotTo(BeNil())
+	Expect(meta.SystemInfo(ctx)).NotTo(BeNil())
 	return &testutil.Baz{}, nil
 }
 
@@ -48,6 +49,7 @@ func (s *barServer) Bar(
 	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
 	Expect(meta.Log(ctx)).NotTo(BeNil())
 	Expect(meta.Tracer(ctx)).NotTo(BeNil())
+	Expect(meta.SystemInfo(ctx)).NotTo(BeNil())
 	return nil
 }
 
@@ -62,6 +64,7 @@ var _ = Describe("Meta", func() {
 					meta.WithProvider(identity.UUID),
 					meta.WithProvider(logkc.Logger),
 					meta.WithProvider(tracing.Tracer),
+					meta.WithProvider(host.SystemInfo),
 				)
 			}).ShouldNot(Panic())
 			Expect(ctx).NotTo(BeNil())
@@ -91,6 +94,7 @@ var _ = Describe("Meta", func() {
 			By("Causing a panic when querying nonexistent values")
 			Expect(func() { meta.UUID(ctx) }).To(Panic())
 			Expect(func() { meta.Tracer(ctx) }).To(Panic())
+			Expect(func() { meta.SystemInfo(ctx) }).To(Panic())
 		})
 	})
 	When("Creating contexts using meta.Context as a parent", func() {
@@ -103,6 +107,7 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.UUID),
 				meta.WithProvider(logkc.Logger),
 				meta.WithProvider(tracing.Tracer),
+				meta.WithProvider(host.SystemInfo),
 			)
 			ctx2 := context.WithValue(ctx, testKey, "testValue")
 			Expect(ctx2.Value(testKey)).To(Equal("testValue"))
@@ -110,6 +115,7 @@ var _ = Describe("Meta", func() {
 			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(meta.UUID(ctx)))
 			Expect(ctx2.Value(mdkeys.LogKey)).To(Equal(meta.Log(ctx)))
 			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(meta.Tracer(ctx)))
+			Expect(ctx2.Value(mdkeys.SystemInfoKey)).To(Equal(meta.SystemInfo(ctx)))
 		})
 		It("Should allow overriding values", func() {
 			ctx := meta.NewContext(
@@ -118,6 +124,7 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.UUID),
 				meta.WithProvider(logkc.Logger),
 				meta.WithProvider(tracing.Tracer),
+				meta.WithProvider(host.SystemInfo),
 			)
 			newLog := meta.Log(ctx).Named("test")
 			ctx2 := context.WithValue(ctx, mdkeys.LogKey, newLog)
@@ -125,6 +132,7 @@ var _ = Describe("Meta", func() {
 			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(meta.UUID(ctx)))
 			Expect(ctx2.Value(mdkeys.LogKey)).To(Equal(newLog))
 			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(meta.Tracer(ctx)))
+			Expect(ctx2.Value(mdkeys.SystemInfoKey)).To(Equal(meta.SystemInfo(ctx)))
 		})
 	})
 	When("Using meta.Context with gRPC", func() {
@@ -136,6 +144,7 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.UUID),
 				meta.WithProvider(logkc.Logger),
 				meta.WithProvider(tracing.Tracer),
+				meta.WithProvider(host.SystemInfo),
 			)
 			By("Creating a gRPC server with the meta interceptor")
 			fooSrv := &fooServer{}
@@ -180,6 +189,7 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.UUID),
 				meta.WithProvider(logkc.Logger),
 				meta.WithProvider(tracing.Tracer),
+				meta.WithProvider(host.SystemInfo),
 			)
 			By("Creating a gRPC server with the stream meta interceptor")
 			barSrv := &barServer{}
