@@ -13,7 +13,6 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1
-	github.com/gdamore/tcell/v2 v2.2.0 // indirect
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -22,10 +21,10 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/googleapis/gnostic v0.5.4 // indirect
-	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
+	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/mitchellh/copystructure v1.1.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
@@ -36,7 +35,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
-	github.com/rivo/tview v0.0.0-20210217110421-8a8f78a6dd01 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/smallnest/weighted v0.0.0-20201102054551-85ac5c79528c
 	github.com/spf13/afero v1.5.1 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
