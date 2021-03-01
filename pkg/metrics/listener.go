@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/tinylib/msgp/msgp"

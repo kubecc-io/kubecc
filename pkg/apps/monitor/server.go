@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
-	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -144,6 +144,43 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
+var storeContentsKey = (&types.Key{
+	Bucket: mmeta.Bucket,
+	Name:   mmeta.StoreContents{}.Key(),
+}).Canonical()
+
+func (m *MonitorServer) notifyStoreMeta() {
+	m.listenerMutex.RLock()
+	defer m.listenerMutex.RUnlock()
+
+	if listeners, ok := m.listeners[storeContentsKey]; ok {
+		contents := &mmeta.StoreContents{
+			Buckets: []mmeta.BucketSpec{},
+		}
+		for k, v := range m.buckets {
+			copied := map[string][]byte{}
+			for _, key := range v.Keys() {
+				if value, ok := v.Get(key); ok {
+					copied[key] = value
+				}
+			}
+			contents.Buckets = append(contents.Buckets, mmeta.BucketSpec{
+				Name: k,
+				Data: copied,
+			})
+		}
+		encoded := tools.EncodeMsgp(contents)
+		for _, v := range listeners {
+			err := v.Send(&types.Value{
+				Data: encoded,
+			})
+			if err != nil {
+				m.lg.With(zap.Error(err)).Error("Error sending data to listener")
+			}
+		}
+	}
+}
+
 func (m *MonitorServer) post(metric *types.Metric) error {
 	m.bucketMutex.RLock()
 	bucket := metric.Key.Bucket
@@ -152,7 +189,10 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")
-			defer m.notify(metric)
+			defer func() {
+				m.notify(metric)
+				go m.notifyStoreMeta()
+			}()
 		}
 	} else {
 		m.bucketMutex.RUnlock()
