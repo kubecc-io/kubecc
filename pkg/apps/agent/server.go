@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -27,11 +28,9 @@ type AgentServer struct {
 
 	AgentServerOptions
 
+	srvContext      context.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
-	queueStatus     types.QueueStatus
-	queueStatusCh   chan types.QueueStatus
-	srvContext      context.Context
 	tcStore         *toolchains.Store
 	tcRunStore      *run.ToolchainRunnerStore
 	metricsProvider *metrics.Provider
@@ -108,11 +107,10 @@ func NewAgentServer(
 	srv := &AgentServer{
 		AgentServerOptions: options,
 		srvContext:         ctx,
-		lg:                 logkc.LogFromContext(ctx),
+		lg:                 meta.Log(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		queueStatus:        types.Available,
 	}
 	return srv
 }
@@ -121,10 +119,11 @@ func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	s.updateQueueStatus(s.executor.Status())
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
 
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx, s.srvContext, "compile")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {
@@ -144,19 +143,8 @@ func (s *AgentServer) Compile(
 	return resp.(*types.CompileResponse), err
 }
 
-func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
-	if s.queueStatus != stat {
-		s.queueStatus = stat
-		// todo: remove old queue status system
-		select {
-		case s.queueStatusCh <- stat:
-		default:
-		}
-	}
-}
-
 func (s *AgentServer) postAlive() {
-	s.metricsProvider.Post(&meta.Alive{})
+	s.metricsProvider.Post(&mmeta.Alive{})
 }
 
 func (s *AgentServer) postQueueParams() {
@@ -178,17 +166,16 @@ func (s *AgentServer) postQueueStatus() {
 }
 
 func (s *AgentServer) StartMetricsProvider() {
-	id := types.NewIdentity(types.Agent)
-	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
+	s.lg.Info("Starting metrics provider")
+	s.metricsProvider = metrics.NewProvider(s.srvContext, s.monitorClient)
 	s.postAlive()
 	s.postQueueParams()
 	s.postQueueStatus()
 
-	tick := time.NewTicker(time.Second / 10)
+	timer := tools.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
-			<-tick.C
+			<-timer
 			s.postTaskStatus()
 			s.postQueueStatus()
 		}
@@ -222,6 +209,8 @@ func (s *AgentServer) RunSchedulerClient() {
 		})
 		if err != nil {
 			s.lg.Error(err)
+			time.Sleep(5 * time.Second)
+			continue
 		}
 		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
 

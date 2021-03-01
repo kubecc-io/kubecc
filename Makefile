@@ -31,14 +31,14 @@ test-operator: generate fmt vet manifests
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test -v ./... -coverprofile cover.out -tags operator
 
 test-integration:
-	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
+	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -race -tags integration -v -count=1
 
 test-e2e:
 	$(GO) build -tags integration -coverprofile cover.out -o bin/test-e2e ./test/e2e
 	bin/test-e2e
 
 test-unit:
-	$(GO) test ./... -coverprofile cover.out
+	$(GO) test ./... -race -coverprofile cover.out
 
 
 # Installation and deployment
@@ -63,7 +63,7 @@ manifests:
 .PHONY: proto
 proto:
 	protoc proto/types.proto --go_out=. --go-grpc_out=.
-
+	protoc proto/testpb.proto --go_out=. --go-grpc_out=.
 
 # Code generating, formatting, vetting
 .PHONY: fmt vet generate

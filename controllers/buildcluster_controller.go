@@ -11,7 +11,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/rec"
 	"github.com/cobalt77/kubecc/pkg/resolvers"
 )
@@ -49,8 +48,7 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return rec.RequeueWith(res, err)
 	}
 
-	return r.resolveTree.Walk(
-		logkc.ContextWithLog(ctx, r.Log), cluster)
+	return r.resolveTree.Walk(ctx, cluster)
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -40,5 +40,5 @@ func PIDSpanContext(tracer opentracing.Tracer, pid int) context.Context {
 		contexts.Delete(pid)
 		span.Finish()
 	}()
-	return ContextWithTracer(ctx, tracer)
+	return ctx
 }

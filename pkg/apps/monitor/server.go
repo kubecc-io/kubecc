@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -30,7 +30,7 @@ type MonitorServer struct {
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
-	providers    *meta.Providers
+	providers    *mmeta.Providers
 }
 
 func NewMonitorServer(
@@ -39,15 +39,15 @@ func NewMonitorServer(
 ) *MonitorServer {
 	srv := &MonitorServer{
 		srvContext:    ctx,
-		lg:            logkc.LogFromContext(ctx),
+		lg:            meta.Log(ctx),
 		buckets:       make(map[string]KeyValueStore),
 		bucketMutex:   &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &meta.Providers{},
+		providers:     &mmeta.Providers{},
 	}
-	srv.buckets[meta.Bucket] = storeCreator.NewStore(ctx)
+	srv.buckets[mmeta.Bucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 	return srv
 }
@@ -62,8 +62,8 @@ func (m *MonitorServer) encodeProviders() []byte {
 func (m *MonitorServer) providersUpdated() {
 	err := m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: meta.Bucket,
-			Name:   meta.Providers{}.Key(),
+			Bucket: mmeta.Bucket,
+			Name:   mmeta.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),
@@ -77,27 +77,31 @@ func (m *MonitorServer) providersUpdated() {
 func (m *MonitorServer) Stream(
 	srv types.InternalMonitor_StreamServer,
 ) (streamError error) {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
+	ctx := srv.Context()
+	uuid := meta.UUID(ctx)
+	component := meta.Component(ctx)
 
 	m.bucketMutex.Lock()
-	if _, ok := m.buckets[id.UUID]; ok {
+	if _, ok := m.buckets[uuid]; ok {
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
 	}
-	store := m.storeCreator.NewStore(srv.Context())
-	m.buckets[id.UUID] = store
+	bucketCtx, bucketCancel := context.WithCancel(context.Background())
+	store := m.storeCreator.NewStore(bucketCtx)
+	m.buckets[uuid] = store
 	if m.providers.Items == nil {
 		m.providers.Items = make(map[string]int32)
 	}
-	m.providers.Items[id.UUID] = int32(id.Component)
+	m.providers.Items[uuid] = int32(component)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
 
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider connected"))
 	for {
 		metric, err := srv.Recv()
@@ -107,17 +111,20 @@ func (m *MonitorServer) Stream(
 		}
 		err = m.post(metric)
 		if err != nil {
+			m.lg.Error(err)
 			streamError = err
 			break
 		}
 	}
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.bucketMutex.Lock()
-	delete(m.buckets, id.UUID)
-	delete(m.providers.Items, id.UUID)
+	bucketCancel()
+	delete(m.buckets, uuid)
+	delete(m.providers.Items, uuid)
 	m.bucketMutex.Unlock()
 	m.providersUpdated()
 	return
@@ -137,14 +144,58 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
+var storeContentsKey = (&types.Key{
+	Bucket: mmeta.Bucket,
+	Name:   mmeta.StoreContents{}.Key(),
+}).Canonical()
+
+func (m *MonitorServer) notifyStoreMeta() {
+	m.listenerMutex.RLock()
+	defer m.listenerMutex.RUnlock()
+
+	if listeners, ok := m.listeners[storeContentsKey]; ok {
+		contents := &mmeta.StoreContents{
+			Buckets: []mmeta.BucketSpec{},
+		}
+		for k, v := range m.buckets {
+			copied := map[string][]byte{}
+			for _, key := range v.Keys() {
+				if value, ok := v.Get(key); ok {
+					copied[key] = value
+				}
+			}
+			contents.Buckets = append(contents.Buckets, mmeta.BucketSpec{
+				Name: k,
+				Data: copied,
+			})
+		}
+		encoded := tools.EncodeMsgp(contents)
+		for _, v := range listeners {
+			err := v.Send(&types.Value{
+				Data: encoded,
+			})
+			if err != nil {
+				m.lg.With(zap.Error(err)).Error("Error sending data to listener")
+			}
+		}
+	}
+}
+
 func (m *MonitorServer) post(metric *types.Metric) error {
 	m.bucketMutex.RLock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
 		if store.CAS(metric.Key.Name, metric.Value.Data) {
-			defer m.notify(metric)
+			m.lg.With(
+				zap.String("key", metric.Key.ShortID()),
+			).Debug("Metric updated")
+			defer func() {
+				m.notify(metric)
+				go m.notifyStoreMeta()
+			}()
 		}
 	} else {
+		m.bucketMutex.RUnlock()
 		return status.Error(codes.InvalidArgument, "No such bucket")
 	}
 	m.bucketMutex.RUnlock()
@@ -155,11 +206,15 @@ func (m *MonitorServer) Listen(
 	key *types.Key,
 	srv types.ExternalMonitor_ListenServer,
 ) error {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
-
+	ctx := srv.Context()
+	uuid := meta.UUID(ctx)
+	m.lg.With(
+		zap.String("component", meta.Component(ctx).Name()),
+		types.ShortID(uuid),
+	).Debug("Listener added")
 	m.bucketMutex.RLock()
 
 	var bucketCtx context.Context
@@ -176,7 +231,7 @@ func (m *MonitorServer) Listen(
 	if m.listeners[canonical] == nil {
 		m.listeners[canonical] = make(map[string]Receiver)
 	}
-	m.listeners[canonical][id.UUID] = srv
+	m.listeners[canonical][uuid] = srv
 	m.listenerMutex.Unlock()
 
 	// late join
@@ -193,12 +248,16 @@ func (m *MonitorServer) Listen(
 
 	defer func() {
 		m.listenerMutex.Lock()
-		delete(m.listeners[canonical], id.UUID)
+		delete(m.listeners[canonical], uuid)
 		m.listenerMutex.Unlock()
+		m.lg.With(
+			zap.String("component", meta.Component(ctx).Name()),
+			types.ShortID(uuid),
+		).Debug("Listener removed")
 	}()
 
 	select {
-	case <-srv.Context().Done():
+	case <-ctx.Done():
 		return status.Error(codes.Canceled, "Context canceled")
 	case <-bucketCtx.Done():
 		return status.Error(codes.Aborted, "Bucket closed")

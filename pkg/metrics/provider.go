@@ -2,11 +2,9 @@ package metrics
 
 import (
 	"context"
-	"errors"
-	"io"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -16,7 +14,6 @@ import (
 type Provider struct {
 	ctx       context.Context
 	monClient types.InternalMonitorClient
-	id        *types.Identity
 	lg        *zap.SugaredLogger
 	postQueue chan KeyedMetric
 }
@@ -33,9 +30,12 @@ func (p *Provider) start() {
 			select {
 			case metric := <-p.postQueue:
 				key := &types.Key{
-					Bucket: p.id.UUID,
+					Bucket: meta.UUID(p.ctx),
 					Name:   metric.Key(),
 				}
+				p.lg.With(
+					types.ShortID(key.ShortID()),
+				).Debug("Posting metric")
 				err := stream.Send(&types.Metric{
 					Key: key,
 					Value: &types.Value{
@@ -48,15 +48,19 @@ func (p *Provider) start() {
 						zap.String("key", key.Canonical()),
 					).Error("Error posting metric")
 				}
-			case err := <-tools.StreamClosed(stream):
-				if errors.Is(err, io.EOF) {
-					p.lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
-				} else {
-					p.lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
-				}
+			case <-stream.Context().Done():
+				// if errors.Is(err, io.EOF) {
+				// 	p.lg.With(zap.Error(err)).Warn("Connection lost, retrying in 5 seconds...")
+				// } else {
+				p.lg.With(zap.Error(err)).Error("Connection failed, retrying in 5 seconds...")
+				// }
 				time.Sleep(5 * time.Second)
 				goto reconnect
 			case <-p.ctx.Done():
+				err := stream.CloseSend()
+				if err != nil {
+					p.lg.With(zap.Error(err)).Error("Error closing metrics stream")
+				}
 				return
 			}
 		}
@@ -66,17 +70,13 @@ func (p *Provider) start() {
 
 func NewProvider(
 	ctx context.Context,
-	id *types.Identity,
 	client types.InternalMonitorClient,
 ) *Provider {
-	ctx = types.OutgoingContextWithIdentity(ctx, id)
-	lg := logkc.LogFromContext(ctx)
 	provider := &Provider{
 		ctx:       ctx,
 		monClient: client,
-		id:        id,
-		lg:        lg,
-		postQueue: make(chan KeyedMetric, 100),
+		lg:        meta.Log(ctx),
+		postQueue: make(chan KeyedMetric, 10),
 	}
 
 	go provider.start()
@@ -84,8 +84,5 @@ func NewProvider(
 }
 
 func (p *Provider) Post(metric KeyedMetric) {
-	if p == nil {
-		return
-	}
 	p.postQueue <- metric
 }

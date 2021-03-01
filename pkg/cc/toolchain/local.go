@@ -3,10 +3,9 @@ package toolchain
 import (
 	"bytes"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -21,20 +20,21 @@ func (r localRunnerManager) Run(
 	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
-	tracer := tracing.TracerFromContext(ctx.ServerContext)
+	tracer := meta.Tracer(ctx.ServerContext)
 
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx.ClientContext, tracer, "run-local")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	lg := logkc.LogFromContext(ctx.ServerContext)
+	lg := meta.Log(ctx.ServerContext)
 	ap := r.ArgParser
 
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
 	runner := cc.NewCompileRunner(ap,
-		run.WithContext(logkc.ContextWithLog(sctx, lg)),
+		run.WithContext(sctx),
+		run.WithLog(meta.Log(ctx.ServerContext)),
 		run.InPlace(true),
 		run.WithEnv(req.Env),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),
@@ -43,9 +43,7 @@ func (r localRunnerManager) Run(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	t := run.Begin(
-		tracing.ContextWithTracer(sctx, tracer),
-		runner, req.GetToolchain())
+	t := run.Begin(ctx.ClientContext, runner, req.GetToolchain())
 	err := executor.Exec(t)
 
 	if err != nil && run.IsCompilerError(err) {

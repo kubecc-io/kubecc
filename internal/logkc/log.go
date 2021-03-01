@@ -2,13 +2,14 @@
 package logkc
 
 import (
-	"context"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -29,7 +30,7 @@ var (
 		"\x1b[33m/_/|_|\\__,_/_.___/\\___/\x1b[0m\x1b[34m\\___/\\___/  \x1b[0m\n",
 	}, "\n")
 
-	startTime *atomic.Int64
+	startTime = atomic.NewInt64(time.Now().Unix())
 )
 
 func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
@@ -39,13 +40,11 @@ func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	number := strconv.AppendInt([]byte{}, elapsed, 10)
 	switch len(number) {
 	case 1:
-		timeBuf = []byte{'[', '0', '0', '0', number[0]}
+		timeBuf = []byte{'[', '0', '0', number[0], ']'}
 	case 2:
-		timeBuf = []byte{'[', '0', '0', number[0], number[1]}
+		timeBuf = []byte{'[', '0', number[0], number[1], ']'}
 	case 3:
-		timeBuf = []byte{'[', '0', number[0], number[1], number[2]}
-	case 4:
-		timeBuf = []byte{'[', number[0], number[1], number[2], number[3]}
+		timeBuf = []byte{'[', number[0], number[1], number[2], ']'}
 	default:
 		timeBuf = append([]byte{'['}, number...)
 	}
@@ -90,19 +89,14 @@ func WithName(name string) logOption {
 	}
 }
 
-func NewWithContext(
-	ctx context.Context,
-	component types.Component,
-	ops ...logOption,
-) context.Context {
+func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	options := LogOptions{
 		outputPaths:      []string{"stdout"},
 		errorOutputPaths: []string{"stderr"},
-		logLevel:         zapcore.InfoLevel,
+		logLevel:         zapcore.DebugLevel,
 	}
 	options.Apply(ops...)
 	color := component.Color()
-	startTime = atomic.NewInt64(time.Now().Unix())
 	conf := zap.Config{
 		Level:             zap.NewAtomicLevelAt(options.logLevel),
 		Development:       false,
@@ -138,25 +132,7 @@ func NewWithContext(
 		s = s.Named(options.name)
 	}
 	s.Infof(color.Add("Starting %s"), component.Name())
-	return ContextWithLog(ctx, s)
-}
-
-type logContextKeyType struct{}
-
-var logContextKey logContextKeyType
-
-func ContextWithLog(
-	ctx context.Context,
-	log *zap.SugaredLogger,
-) context.Context {
-	return context.WithValue(ctx, logContextKey, log)
-}
-
-func LogFromContext(ctx context.Context) *zap.SugaredLogger {
-	if log, ok := ctx.Value(logContextKey).(*zap.SugaredLogger); ok {
-		return log
-	}
-	panic("No logger stored in the given context")
+	return s
 }
 
 func PrintHeader() {
@@ -165,4 +141,24 @@ func PrintHeader() {
 	} else {
 		fmt.Println(BigAsciiText)
 	}
+}
+
+type logProvider struct{}
+
+var Logger logProvider
+
+func (logProvider) Key() meta.MetadataKey {
+	return mdkeys.LogKey
+}
+
+func (logProvider) InitialValue(ctx meta.Context) interface{} {
+	return New(meta.Component(ctx))
+}
+
+func (logProvider) Marshal(i interface{}) string {
+	return ""
+}
+
+func (logProvider) Unmarshal(s string) (interface{}, error) {
+	return nil, nil
 }

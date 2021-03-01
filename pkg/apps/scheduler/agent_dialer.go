@@ -25,7 +25,7 @@ func (d *tcpDialer) Dial(ctx context.Context) (types.AgentClient, error) {
 			"Error identifying agent peer")
 	}
 
-	cc, err := servers.Dial(context.Background(),
+	cc, err := servers.Dial(ctx,
 		fmt.Sprintf("%s:9090", peer.Addr.(*net.TCPAddr).IP.String()))
 	if err != nil {
 		if !ok {

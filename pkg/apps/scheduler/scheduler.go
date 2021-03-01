@@ -2,10 +2,10 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/smallnest/weighted"
 	"go.uber.org/zap"
@@ -40,7 +40,7 @@ type Scheduler struct {
 	w     weighted.W
 	wLock *sync.Mutex
 
-	agents sync.Map // map[types.AgentID]*Agent
+	agents sync.Map // map[string]*Agent
 	ctx    context.Context
 	lg     *zap.SugaredLogger
 }
@@ -74,7 +74,7 @@ func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
 		w:                &weighted.RRW{},
 		wLock:            &sync.Mutex{},
 		ctx:              ctx,
-		lg:               logkc.LogFromContext(ctx),
+		lg:               meta.Log(ctx),
 	}
 }
 
@@ -87,7 +87,9 @@ func (s *Scheduler) Schedule(
 		s.wLock.Lock()
 		next := s.w.Next()
 		if next == nil {
-			// No agents available
+			// No agents available.
+			// This could be because no agents are connected, or all agents have
+			// a weight of 0, which would result in none being chosen.
 			return nil, status.Error(codes.Unavailable, "No agents available")
 		}
 		agentClient := next.(*Agent).Client
@@ -105,34 +107,27 @@ func (s *Scheduler) Schedule(
 	}
 }
 
-func (s *Scheduler) AgentIsConnected(id types.AgentID) bool {
-	_, ok := s.agents.Load(id)
+func (s *Scheduler) AgentIsConnected(a *Agent) bool {
+	_, ok := s.agents.Load(a.UUID)
 	return ok
 }
 
 func (s *Scheduler) AgentConnected(ctx context.Context) error {
-	agent, err := AgentFromContext(ctx)
-	if err != nil {
-		return status.Error(codes.InvalidArgument,
-			"Error identifying agent using context")
-	}
-	id, err := agent.Info.AgentID()
-	if err != nil {
-		return err
-	}
-	if s.AgentIsConnected(id) {
+	agent := AgentFromContext(ctx)
+	if s.AgentIsConnected(agent) {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
-
+	var err error
 	agent.Client, err = s.agentDialer.Dial(ctx)
 	if err != nil {
-		return err
+		return status.Error(codes.Internal,
+			fmt.Sprintf("Error dialing agent: %s", err.Error()))
 	}
 
 	s.lg.With(
-		zap.Object("agent", agent.Info),
+		zap.String("agent", agent.UUID),
 	).Info(types.Scheduler.Color().Add("Agent connected"))
-	s.agents.Store(id, agent)
+	s.agents.Store(agent.UUID, agent)
 
 	s.wLock.Lock()
 	s.w.Add(agent, int(agent.Weight()))
@@ -140,9 +135,9 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 
 	go func() {
 		<-agent.Context.Done()
-		s.agents.Delete(id)
+		s.agents.Delete(agent.UUID)
 		s.lg.With(
-			zap.Object("agent", agent.Info),
+			zap.String("agent", agent.UUID),
 		).Info(types.Scheduler.Color().Add("Agent disconnected"))
 	}()
 	return nil
@@ -158,32 +153,9 @@ func (s *Scheduler) reweightAll() {
 	})
 }
 
-func (s *Scheduler) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	id, err := info.AgentID()
-	if err != nil {
-		return nil, err
-	}
-	if !s.AgentIsConnected(id) {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Not connected, ensure a connection stream is active with Connect()")
-	}
-	return info, nil
-}
-
 func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) error {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	id, err := info.AgentID()
-	if err != nil {
-		return err
-	}
-	if agent, ok := s.agents.Load(id); ok {
+	uuid := meta.UUID(ctx)
+	if agent, ok := s.agents.Load(uuid); ok {
 		agent.(*Agent).QueueStatus = stat
 		s.reweightAll()
 	}
@@ -191,15 +163,8 @@ func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) 
 }
 
 func (s *Scheduler) SetToolchains(ctx context.Context, tcs []*types.Toolchain) error {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return err
-	}
-	id, err := info.AgentID()
-	if err != nil {
-		return err
-	}
-	if agent, ok := s.agents.Load(id); ok {
+	uuid := meta.UUID(ctx)
+	if agent, ok := s.agents.Load(uuid); ok {
 		agent.(*Agent).Toolchains = tcs
 	}
 	return nil

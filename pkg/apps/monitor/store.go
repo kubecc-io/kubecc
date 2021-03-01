@@ -11,6 +11,7 @@ type KeyValueStore interface {
 	Set(key string, value []byte)
 	Get(key string) ([]byte, bool)
 	CAS(key string, value []byte) bool
+	Keys() []string
 }
 
 type StoreCreator interface {
@@ -21,7 +22,6 @@ type InMemoryStore struct {
 	data  map[string][]byte
 	mutex *sync.RWMutex
 	ctx   context.Context
-	sync.Map
 }
 
 type inMemoryStoreCreator struct{}
@@ -50,7 +50,12 @@ func (m *InMemoryStore) Get(key string) ([]byte, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	data, ok := m.data[key]
-	return data, ok
+	if ok {
+		buf := make([]byte, len(data))
+		copy(buf, data)
+		return buf, true
+	}
+	return nil, false
 }
 
 func (m *InMemoryStore) CAS(key string, value []byte) bool {
@@ -62,4 +67,14 @@ func (m *InMemoryStore) CAS(key string, value []byte) bool {
 		return true
 	}
 	return false
+}
+
+func (m *InMemoryStore) Keys() []string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	keys := []string{}
+	for k := range m.data {
+		keys = append(keys, k)
+	}
+	return keys
 }
