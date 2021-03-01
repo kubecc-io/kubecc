@@ -11,7 +11,7 @@ import (
 
 type Context interface {
 	context.Context
-	ImportFromIncoming(context.Context, ImportOptions)
+	ImportFromIncoming(context.Context, ImportOptions) error
 	ExportToOutgoing() context.Context
 	MetadataProviders() []Provider
 }

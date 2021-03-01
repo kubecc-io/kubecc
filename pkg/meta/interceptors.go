@@ -39,7 +39,10 @@ func ServerContextInterceptor(
 			values:    make(map[interface{}]interface{}),
 		}
 		// Import client providers
-		c.ImportFromIncoming(ctx, options)
+		err = c.ImportFromIncoming(ctx, options)
+		if err != nil {
+			return nil, err
+		}
 		// Any remaining providers are taken from the server context
 		for _, p := range srvCtx.MetadataProviders() {
 			if _, ok := c.providers[p.Key()]; !ok {
@@ -93,7 +96,10 @@ func StreamServerContextInterceptor(
 			values:    make(map[interface{}]interface{}),
 		}
 		// Import client providers
-		c.ImportFromIncoming(ss.Context(), options)
+		err := c.ImportFromIncoming(ss.Context(), options)
+		if err != nil {
+			return err
+		}
 		// Any remaining providers are taken from the server context
 		for _, p := range ctx.MetadataProviders() {
 			if _, ok := c.providers[p.Key()]; !ok {
