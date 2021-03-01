@@ -1,8 +1,9 @@
 package toolchain
 
 import (
+	"context"
+
 	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -23,7 +24,7 @@ func (r *TestToolchainRunner) RecvRemote() run.RunnerManager {
 	return &recvRemoteRunnerManager{}
 }
 
-func (r *TestToolchainRunner) NewArgParser(_ meta.Context, args []string) run.ArgParser {
+func (r *TestToolchainRunner) NewArgParser(_ context.Context, args []string) run.ArgParser {
 	return &testutil.TestArgParser{
 		Args: args,
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -17,14 +18,14 @@ import (
 var lg *zap.SugaredLogger
 
 func main() {
-
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	logkc.PrintHeader()
 	srv := servers.NewServer(ctx)

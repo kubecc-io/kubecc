@@ -50,9 +50,9 @@ var _ = BeforeSuite(func(done Done) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 

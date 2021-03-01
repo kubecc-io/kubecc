@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"path"
 	"strings"
 
@@ -26,8 +27,8 @@ type ConfigProvider interface {
 
 type ConfigMapProvider struct{}
 
-func (cmp *ConfigMapProvider) Setup(ctx meta.Context, c types.Component) {
-	lg := ctx.Log()
+func (cmp *ConfigMapProvider) Setup(ctx context.Context, c types.Component) {
+	lg := meta.Log(ctx)
 	switch c {
 	case types.Agent, types.Scheduler, types.Dashboard, types.Monitor:
 		viper.AddConfigPath("/etc/kubecc")

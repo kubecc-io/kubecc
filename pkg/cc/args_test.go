@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
@@ -12,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var ctx meta.Context
+var ctx context.Context
 
 func init() {
 	ctx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
 	)
 }
 

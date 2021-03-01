@@ -26,7 +26,7 @@ import (
 type consumerdServer struct {
 	types.ConsumerdServer
 
-	srvContext meta.Context
+	srvContext context.Context
 	lg         *zap.SugaredLogger
 
 	tcRunStore      *run.ToolchainRunnerStore
@@ -84,7 +84,7 @@ func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
 }
 
 func NewConsumerdServer(
-	ctx meta.Context,
+	ctx context.Context,
 	opts ...consumerdServerOption,
 ) *consumerdServer {
 	options := ConsumerdServerOptions{
@@ -106,7 +106,7 @@ func NewConsumerdServer(
 	}
 	srv := &consumerdServer{
 		srvContext:     ctx,
-		lg:             ctx.Log(),
+		lg:             meta.Log(ctx),
 		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
@@ -187,8 +187,7 @@ func (c *consumerdServer) Run(
 	// 	}
 	// }
 
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx.(meta.Context), "run")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "run")
 	if err != nil {
 		c.lg.Error(err)
 	} else {
@@ -223,7 +222,7 @@ func (c *consumerdServer) Run(
 	if !canRunRemote {
 		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: ctx.(meta.Context),
+			ClientContext: ctx,
 		}, c.localExecutor, req)
 		if err != nil {
 			return nil, err
@@ -232,7 +231,7 @@ func (c *consumerdServer) Run(
 	} else {
 		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
 			ServerContext: c.srvContext,
-			ClientContext: ctx.(meta.Context),
+			ClientContext: ctx,
 		}, c.remoteExecutor, req)
 		if err != nil {
 			return nil, err

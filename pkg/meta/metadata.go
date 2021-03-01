@@ -25,29 +25,6 @@ type Provider interface {
 	Unmarshal(string) interface{}
 }
 
-type ValueAccessors interface {
-	ComponentAccessor
-	UUIDAccessor
-	LogAccessor
-	TracingAccessor
-}
-
-type ComponentAccessor interface {
-	Component() types.Component
-}
-
-type UUIDAccessor interface {
-	UUID() string
-}
-
-type LogAccessor interface {
-	Log() *zap.SugaredLogger
-}
-
-type TracingAccessor interface {
-	Tracer() opentracing.Tracer
-}
-
 func Component(ctx context.Context) types.Component {
 	value := ctx.Value(mdkeys.ComponentKey)
 	if value == nil {
@@ -78,4 +55,12 @@ func Tracer(ctx context.Context) opentracing.Tracer {
 		panic("No tracer in context")
 	}
 	return value.(opentracing.Tracer)
+}
+
+func SystemInfo(ctx context.Context) *types.SystemInfo {
+	value := ctx.Value(mdkeys.SystemInfoKey)
+	if value == nil {
+		panic("No system info in context")
+	}
+	return value.(*types.SystemInfo)
 }

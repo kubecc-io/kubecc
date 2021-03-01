@@ -1,6 +1,7 @@
 package cc
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -120,15 +121,15 @@ func (ap ArgParser) CanRunRemote() bool {
 }
 
 // NewArgsInfoFromOS creates a new ArgsInfo struct from os.Args.
-func NewArgParserFromOS(ctx meta.Context) *ArgParser {
+func NewArgParserFromOS(ctx context.Context) *ArgParser {
 	return NewArgParser(ctx, append([]string(nil), os.Args[1:]...)) // deep copy
 }
 
 // NewArgParser creates a new ArgsInfo struct from the provided args
 // Args should NOT include the command (argv[0]).
-func NewArgParser(ctx meta.Context, args []string) *ArgParser {
+func NewArgParser(ctx context.Context, args []string) *ArgParser {
 	return &ArgParser{
-		lg:   ctx.Log(),
+		lg:   meta.Log(ctx),
 		Args: args,
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
@@ -27,11 +28,10 @@ func (s *fooServer) Foo(
 	in *testutil.Baz,
 ) (*testutil.Baz, error) {
 	defer GinkgoRecover()
-	mctx := ctx.(meta.Context)
-	Expect(mctx.Component()).To(Equal(types.TestComponent))
-	Expect(func() { uuid.MustParse(mctx.UUID()) }).NotTo(Panic())
-	Expect(mctx.Log()).NotTo(BeNil())
-	Expect(mctx.Tracer()).NotTo(BeNil())
+	Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
+	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
+	Expect(meta.Log(ctx)).NotTo(BeNil())
+	Expect(meta.Tracer(ctx)).NotTo(BeNil())
 	return &testutil.Baz{}, nil
 }
 
@@ -43,54 +43,54 @@ func (s *barServer) Bar(
 	srv testutil.Bar_BarServer,
 ) error {
 	defer GinkgoRecover()
-	mctx := srv.Context().(meta.Context)
-	Expect(mctx.Component()).To(Equal(types.TestComponent))
-	Expect(func() { uuid.MustParse(mctx.UUID()) }).NotTo(Panic())
-	Expect(mctx.Log()).NotTo(BeNil())
-	Expect(mctx.Tracer()).NotTo(BeNil())
+	ctx := srv.Context()
+	Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
+	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
+	Expect(meta.Log(ctx)).NotTo(BeNil())
+	Expect(meta.Tracer(ctx)).NotTo(BeNil())
 	return nil
 }
 
 var _ = Describe("Meta", func() {
 	When("Creating a context with all providers", func() {
-		var ctx meta.Context
+		var ctx context.Context
 		It("Should succeed", func() {
 			Expect(func() {
 				ctx = meta.NewContext(
 					meta.WithProvider(identity.Component,
 						meta.WithValue(types.TestComponent)),
 					meta.WithProvider(identity.UUID),
-					meta.WithProvider(logkc.MetadataProvider),
-					meta.WithProvider(tracing.MetadataProvider),
+					meta.WithProvider(logkc.Logger),
+					meta.WithProvider(tracing.Tracer),
 				)
 			}).ShouldNot(Panic())
 			Expect(ctx).NotTo(BeNil())
 		})
 		It("Should contain values for each provider", func() {
-			Expect(ctx.Component()).To(Equal(types.TestComponent))
-			Expect(func() { uuid.MustParse(ctx.UUID()) }).NotTo(Panic())
-			Expect(ctx.Log()).NotTo(BeNil())
-			Expect(ctx.Tracer()).NotTo(BeNil())
+			Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
+			Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
+			Expect(meta.Log(ctx)).NotTo(BeNil())
+			Expect(meta.Tracer(ctx)).NotTo(BeNil())
 		})
 	})
 	When("Creating a context with some providers", func() {
-		var ctx meta.Context
+		var ctx context.Context
 		It("Should succeed", func() {
 			Expect(func() {
 				ctx = meta.NewContext(
 					meta.WithProvider(identity.Component,
 						meta.WithValue(types.TestComponent)),
-					meta.WithProvider(logkc.MetadataProvider),
+					meta.WithProvider(logkc.Logger),
 				)
 			}).ShouldNot(Panic())
 			Expect(ctx).NotTo(BeNil())
 		})
 		It("Should contain values for the given providers", func() {
-			Expect(ctx.Component()).To(Equal(types.TestComponent))
-			Expect(ctx.Log()).NotTo(BeNil())
+			Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
+			Expect(meta.Log(ctx)).NotTo(BeNil())
 			By("Causing a panic when querying nonexistent values")
-			Expect(func() { ctx.UUID() }).To(Panic())
-			Expect(func() { ctx.Tracer() }).To(Panic())
+			Expect(func() { meta.UUID(ctx) }).To(Panic())
+			Expect(func() { meta.Tracer(ctx) }).To(Panic())
 		})
 	})
 	When("Creating contexts using meta.Context as a parent", func() {
@@ -101,30 +101,30 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.MetadataProvider),
-				meta.WithProvider(tracing.MetadataProvider),
+				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(tracing.Tracer),
 			)
 			ctx2 := context.WithValue(ctx, testKey, "testValue")
 			Expect(ctx2.Value(testKey)).To(Equal("testValue"))
-			Expect(ctx2.Value(mdkeys.ComponentKey)).To(Equal(ctx.Component()))
-			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(ctx.UUID()))
-			Expect(ctx2.Value(mdkeys.LogKey)).To(Equal(ctx.Log()))
-			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(ctx.Tracer()))
+			Expect(ctx2.Value(mdkeys.ComponentKey)).To(Equal(meta.Component(ctx)))
+			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(meta.UUID(ctx)))
+			Expect(ctx2.Value(mdkeys.LogKey)).To(Equal(meta.Log(ctx)))
+			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(meta.Tracer(ctx)))
 		})
 		It("Should allow overriding values", func() {
 			ctx := meta.NewContext(
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.MetadataProvider),
-				meta.WithProvider(tracing.MetadataProvider),
+				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(tracing.Tracer),
 			)
-			newLog := ctx.Log().Named("test")
+			newLog := meta.Log(ctx).Named("test")
 			ctx2 := context.WithValue(ctx, mdkeys.LogKey, newLog)
-			Expect(ctx2.Value(mdkeys.ComponentKey)).To(Equal(ctx.Component()))
-			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(ctx.UUID()))
+			Expect(ctx2.Value(mdkeys.ComponentKey)).To(Equal(meta.Component(ctx)))
+			Expect(ctx2.Value(mdkeys.UUIDKey)).To(Equal(meta.UUID(ctx)))
 			Expect(ctx2.Value(mdkeys.LogKey)).To(Equal(newLog))
-			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(ctx.Tracer()))
+			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(meta.Tracer(ctx)))
 		})
 	})
 	When("Using meta.Context with gRPC", func() {
@@ -134,8 +134,8 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.MetadataProvider),
-				meta.WithProvider(tracing.MetadataProvider),
+				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(tracing.Tracer),
 			)
 			By("Creating a gRPC server with the meta interceptor")
 			fooSrv := &fooServer{}
@@ -143,7 +143,15 @@ var _ = Describe("Meta", func() {
 			srv := grpc.NewServer(
 				grpc.UnaryInterceptor(
 					meta.ServerContextInterceptor(ctx,
-						[]meta.Provider{identity.Component, identity.UUID})),
+						meta.ImportOptions{
+							Required: []meta.Provider{
+								identity.Component,
+								identity.UUID,
+							},
+							Optional: []meta.Provider{
+								host.SystemInfo,
+							},
+						})),
 			)
 			testutil.RegisterFooServer(srv, fooSrv)
 			go srv.Serve(listener)
@@ -170,8 +178,8 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.MetadataProvider),
-				meta.WithProvider(tracing.MetadataProvider),
+				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(tracing.Tracer),
 			)
 			By("Creating a gRPC server with the stream meta interceptor")
 			barSrv := &barServer{}
@@ -179,7 +187,15 @@ var _ = Describe("Meta", func() {
 			srv := grpc.NewServer(
 				grpc.StreamInterceptor(
 					meta.StreamServerContextInterceptor(ctx,
-						[]meta.Provider{identity.Component, identity.UUID})),
+						meta.ImportOptions{
+							Required: []meta.Provider{
+								identity.Component,
+								identity.UUID,
+							},
+							Optional: []meta.Provider{
+								host.SystemInfo,
+							},
+						})),
 			)
 			testutil.RegisterBarServer(srv, barSrv)
 			go srv.Serve(listener)

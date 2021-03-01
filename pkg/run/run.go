@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
@@ -14,7 +13,7 @@ type Runner interface {
 }
 
 type Contexts struct {
-	ServerContext meta.Context
+	ServerContext context.Context
 	ClientContext context.Context
 }
 
@@ -31,7 +30,7 @@ type ToolchainRunner interface {
 	RunLocal(ArgParser) RunnerManager
 	SendRemote(ArgParser, types.SchedulerClient) RunnerManager
 	RecvRemote() RunnerManager
-	NewArgParser(ctx meta.Context, args []string) ArgParser
+	NewArgParser(ctx context.Context, args []string) ArgParser
 }
 
 type OutputType int
