@@ -40,13 +40,11 @@ func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	number := strconv.AppendInt([]byte{}, elapsed, 10)
 	switch len(number) {
 	case 1:
-		timeBuf = []byte{'[', '0', '0', '0', number[0]}
+		timeBuf = []byte{'[', '0', '0', number[0], ']'}
 	case 2:
-		timeBuf = []byte{'[', '0', '0', number[0], number[1]}
+		timeBuf = []byte{'[', '0', number[0], number[1], ']'}
 	case 3:
-		timeBuf = []byte{'[', '0', number[0], number[1], number[2]}
-	case 4:
-		timeBuf = []byte{'[', number[0], number[1], number[2], number[3]}
+		timeBuf = []byte{'[', number[0], number[1], number[2], ']'}
 	default:
 		timeBuf = append([]byte{'['}, number...)
 	}
@@ -136,24 +134,6 @@ func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	s.Infof(color.Add("Starting %s"), component.Name())
 	return s
 }
-
-// type logContextKeyType struct{}
-
-// var logContextKey logContextKeyType
-
-// func ContextWithLog(
-// 	ctx context.Context,
-// 	log *zap.SugaredLogger,
-// ) context.Context {
-// 	return context.WithValue(ctx, logContextKey, log)
-// }
-
-// func LogFromContext(ctx context.Context) *zap.SugaredLogger {
-// 	if log, ok := ctx.Value(logContextKey).(*zap.SugaredLogger); ok {
-// 		return log
-// 	}
-// 	panic("No logger stored in the given context")
-// }
 
 func PrintHeader() {
 	if zapkc.UseColor {

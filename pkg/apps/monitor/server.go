@@ -100,7 +100,8 @@ func (m *MonitorServer) Stream(
 	m.providersUpdated()
 
 	m.lg.With(
-		zap.String("identity", uuid),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider connected"))
 	for {
 		metric, err := srv.Recv()
@@ -116,7 +117,8 @@ func (m *MonitorServer) Stream(
 		}
 	}
 	m.lg.With(
-		zap.String("identity", uuid),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.bucketMutex.Lock()
@@ -147,6 +149,9 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
 		if store.CAS(metric.Key.Name, metric.Value.Data) {
+			m.lg.With(
+				zap.String("key", metric.Key.ShortID()),
+			).Debug("Metric updated")
 			defer m.notify(metric)
 		}
 	} else {
@@ -166,7 +171,10 @@ func (m *MonitorServer) Listen(
 	}
 	ctx := srv.Context()
 	uuid := meta.UUID(ctx)
-
+	m.lg.With(
+		zap.String("component", meta.Component(ctx).Name()),
+		types.ShortID(uuid),
+	).Debug("Listener added")
 	m.bucketMutex.RLock()
 
 	var bucketCtx context.Context
@@ -202,6 +210,10 @@ func (m *MonitorServer) Listen(
 		m.listenerMutex.Lock()
 		delete(m.listeners[canonical], uuid)
 		m.listenerMutex.Unlock()
+		m.lg.With(
+			zap.String("component", meta.Component(ctx).Name()),
+			types.ShortID(uuid),
+		).Debug("Listener removed")
 	}()
 
 	select {

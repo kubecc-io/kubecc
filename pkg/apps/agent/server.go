@@ -30,8 +30,6 @@ type AgentServer struct {
 	srvContext      context.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
-	queueStatus     types.QueueStatus
-	queueStatusCh   chan types.QueueStatus
 	tcStore         *toolchains.Store
 	tcRunStore      *run.ToolchainRunnerStore
 	metricsProvider *metrics.Provider
@@ -112,7 +110,6 @@ func NewAgentServer(
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		queueStatus:        types.Available,
 	}
 	return srv
 }
@@ -124,8 +121,6 @@ func (s *AgentServer) Compile(
 	if err := meta.CheckContext(ctx); err != nil {
 		return nil, err
 	}
-
-	s.updateQueueStatus(s.executor.Status())
 
 	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
 	if err != nil {
@@ -145,17 +140,6 @@ func (s *AgentServer) Compile(
 		ClientContext: sctx,
 	}, s.executor, req)
 	return resp.(*types.CompileResponse), err
-}
-
-func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
-	if s.queueStatus != stat {
-		s.queueStatus = stat
-		// todo: remove old queue status system
-		select {
-		case s.queueStatusCh <- stat:
-		default:
-		}
-	}
 }
 
 func (s *AgentServer) postAlive() {
@@ -181,7 +165,6 @@ func (s *AgentServer) postQueueStatus() {
 }
 
 func (s *AgentServer) StartMetricsProvider() {
-
 	s.lg.Info("Starting metrics provider")
 	s.metricsProvider = metrics.NewProvider(s.srvContext, s.monitorClient)
 	s.postAlive()
