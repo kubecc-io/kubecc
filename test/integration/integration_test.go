@@ -37,8 +37,8 @@ func TestIntegration(t *testing.T) {
 		ctx, tracer, "integration-test")
 	defer span.Finish()
 
-	numTasks := 4000
-	localJobs := 100
+	numTasks := 100
+	localJobs := 50
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{

@@ -13,3 +13,7 @@ func (tc *Toolchain) EquivalentTo(other *Toolchain) bool {
 func (k *Key) Canonical() string {
 	return k.Bucket + "." + k.Name
 }
+
+func (k *Key) ShortID() string {
+	return FormatShortID(k.Bucket, 6, ElideCenter) + "." + k.Name
+}
