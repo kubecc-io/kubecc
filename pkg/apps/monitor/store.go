@@ -50,7 +50,12 @@ func (m *InMemoryStore) Get(key string) ([]byte, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	data, ok := m.data[key]
-	return data, ok
+	if ok {
+		buf := make([]byte, len(data))
+		copy(buf, data)
+		return buf, true
+	}
+	return nil, false
 }
 
 func (m *InMemoryStore) CAS(key string, value []byte) bool {
@@ -65,6 +70,8 @@ func (m *InMemoryStore) CAS(key string, value []byte) bool {
 }
 
 func (m *InMemoryStore) Keys() []string {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 	keys := []string{}
 	for k := range m.data {
 		keys = append(keys, k)

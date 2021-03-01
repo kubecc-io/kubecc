@@ -10,11 +10,12 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cpuconfig"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -171,10 +172,10 @@ func (s *AgentServer) StartMetricsProvider() {
 	s.postQueueParams()
 	s.postQueueStatus()
 
-	tick := time.NewTicker(time.Second / 10)
+	timer := tools.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
-			<-tick.C
+			<-timer
 			s.postTaskStatus()
 			s.postQueueStatus()
 		}

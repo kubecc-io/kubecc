@@ -33,6 +33,9 @@ func (p *Provider) start() {
 					Bucket: meta.UUID(p.ctx),
 					Name:   metric.Key(),
 				}
+				p.lg.With(
+					types.ShortID(key.ShortID()),
+				).Debug("Posting metric")
 				err := stream.Send(&types.Metric{
 					Key: key,
 					Value: &types.Value{
@@ -54,7 +57,10 @@ func (p *Provider) start() {
 				time.Sleep(5 * time.Second)
 				goto reconnect
 			case <-p.ctx.Done():
-				stream.CloseSend()
+				err := stream.CloseSend()
+				if err != nil {
+					p.lg.With(zap.Error(err)).Error("Error closing metrics stream")
+				}
 				return
 			}
 		}
@@ -70,7 +76,7 @@ func NewProvider(
 		ctx:       ctx,
 		monClient: client,
 		lg:        meta.Log(ctx),
-		postQueue: make(chan KeyedMetric, 100),
+		postQueue: make(chan KeyedMetric, 10),
 	}
 
 	go provider.start()
