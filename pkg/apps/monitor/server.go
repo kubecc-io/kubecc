@@ -21,7 +21,7 @@ type MonitorServer struct {
 	types.InternalMonitorServer
 	types.ExternalMonitorServer
 
-	srvContext meta.Context
+	srvContext context.Context
 	lg         *zap.SugaredLogger
 
 	buckets       map[string]KeyValueStore
@@ -34,12 +34,12 @@ type MonitorServer struct {
 }
 
 func NewMonitorServer(
-	ctx meta.Context,
+	ctx context.Context,
 	storeCreator StoreCreator,
 ) *MonitorServer {
 	srv := &MonitorServer{
 		srvContext:    ctx,
-		lg:            ctx.Log(),
+		lg:            meta.Log(ctx),
 		buckets:       make(map[string]KeyValueStore),
 		bucketMutex:   &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
@@ -80,9 +80,9 @@ func (m *MonitorServer) Stream(
 	if err := meta.CheckContext(srv.Context()); err != nil {
 		return err
 	}
-	ctx := srv.Context().(meta.Context)
-	uuid := ctx.UUID()
-	component := ctx.Component()
+	ctx := srv.Context()
+	uuid := meta.UUID(ctx)
+	component := meta.Component(ctx)
 
 	m.bucketMutex.Lock()
 	if _, ok := m.buckets[uuid]; ok {
@@ -164,8 +164,8 @@ func (m *MonitorServer) Listen(
 	if err := meta.CheckContext(srv.Context()); err != nil {
 		return err
 	}
-	ctx := srv.Context().(meta.Context)
-	uuid := ctx.UUID()
+	ctx := srv.Context()
+	uuid := meta.UUID(ctx)
 
 	m.bucketMutex.RLock()
 

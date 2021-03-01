@@ -32,7 +32,7 @@ to quickly create a Cobra application.`,
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
 			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.MetadataProvider),
+			meta.WithProvider(logkc.Logger),
 		)
 		client := types.NewExternalMonitorClient(cc)
 		listener := metrics.NewListener(ctx, client)

@@ -1,10 +1,10 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"net"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"google.golang.org/grpc/codes"
@@ -13,12 +13,12 @@ import (
 )
 
 type AgentDialer interface {
-	Dial(ctx meta.Context) (types.AgentClient, error)
+	Dial(ctx context.Context) (types.AgentClient, error)
 }
 
 type tcpDialer struct{}
 
-func (d *tcpDialer) Dial(ctx meta.Context) (types.AgentClient, error) {
+func (d *tcpDialer) Dial(ctx context.Context) (types.AgentClient, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, status.Error(codes.Internal,

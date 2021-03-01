@@ -42,10 +42,10 @@ func Execute() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	cliContext = ctx
 	cliLog = lg

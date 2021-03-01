@@ -26,7 +26,7 @@ func ClientContextInterceptor() grpc.UnaryClientInterceptor {
 
 func ServerContextInterceptor(
 	srvCtx Context,
-	expected []Provider,
+	options ImportOptions,
 ) grpc.UnaryServerInterceptor {
 	return func(
 		ctx context.Context,
@@ -39,7 +39,7 @@ func ServerContextInterceptor(
 			values:    make(map[interface{}]interface{}),
 		}
 		// Import client providers
-		c.ImportFromIncoming(ctx, expected...)
+		c.ImportFromIncoming(ctx, options)
 		// Any remaining providers are taken from the server context
 		for _, p := range srvCtx.MetadataProviders() {
 			if _, ok := c.providers[p.Key()]; !ok {
@@ -80,7 +80,7 @@ func (ss *serverStream) Context() context.Context {
 
 func StreamServerContextInterceptor(
 	ctx Context,
-	expected []Provider,
+	options ImportOptions,
 ) grpc.StreamServerInterceptor {
 	return func(
 		srv interface{},
@@ -93,7 +93,7 @@ func StreamServerContextInterceptor(
 			values:    make(map[interface{}]interface{}),
 		}
 		// Import client providers
-		c.ImportFromIncoming(ss.Context(), expected...)
+		c.ImportFromIncoming(ss.Context(), options)
 		// Any remaining providers are taken from the server context
 		for _, p := range ctx.MetadataProviders() {
 			if _, ok := c.providers[p.Key()]; !ok {

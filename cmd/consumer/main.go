@@ -21,15 +21,15 @@ func main() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
+		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Consumer,
 				logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
 				logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 			),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	logkc.PrintHeader()
 	internal.InitConfig()

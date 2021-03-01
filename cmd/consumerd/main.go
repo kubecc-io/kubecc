@@ -8,6 +8,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -23,10 +24,11 @@ func main() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	logkc.PrintHeader()
 	consumer.InitConfig()

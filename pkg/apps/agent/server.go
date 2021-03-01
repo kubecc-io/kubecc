@@ -27,7 +27,7 @@ type AgentServer struct {
 
 	AgentServerOptions
 
-	srvContext      meta.Context
+	srvContext      context.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
 	queueStatus     types.QueueStatus
@@ -84,7 +84,7 @@ func WithUsageLimits(usageLimits *types.UsageLimits) agentServerOption {
 }
 
 func NewAgentServer(
-	ctx meta.Context,
+	ctx context.Context,
 	opts ...agentServerOption,
 ) *AgentServer {
 	options := AgentServerOptions{
@@ -108,7 +108,7 @@ func NewAgentServer(
 	srv := &AgentServer{
 		AgentServerOptions: options,
 		srvContext:         ctx,
-		lg:                 ctx.Log(),
+		lg:                 meta.Log(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
@@ -127,8 +127,7 @@ func (s *AgentServer) Compile(
 
 	s.updateQueueStatus(s.executor.Status())
 
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx.(meta.Context), "compile")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {

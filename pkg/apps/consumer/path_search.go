@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -24,8 +25,8 @@ func samePath(a, b string) bool {
 	return a == b
 }
 
-func findCompilerOrDie(ctx meta.Context) string {
-	lg := ctx.Log()
+func findCompilerOrDie(ctx context.Context) string {
+	lg := meta.Log(ctx)
 	basename := filepath.Base(os.Args[0])
 	self, err := os.Executable()
 	if err != nil {

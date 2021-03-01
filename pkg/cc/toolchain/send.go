@@ -105,12 +105,12 @@ func (r sendRemoteRunnerManager) Run(
 	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
-	tracer := ctx.ServerContext.Tracer()
+	tracer := meta.Tracer(ctx.ServerContext)
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx.ClientContext, tracer, "run-remote")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	lg := ctx.ServerContext.Log()
+	lg := meta.Log(ctx.ServerContext)
 	ap := r.ArgParser
 
 	ap.ConfigurePreprocessorOptions()

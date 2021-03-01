@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
 	mmeta "github.com/cobalt77/kubecc/pkg/metrics/meta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -18,7 +17,7 @@ import (
 )
 
 type Listener struct {
-	ctx       meta.Context
+	ctx       context.Context
 	monClient types.ExternalMonitorClient
 	lg        *zap.SugaredLogger
 
@@ -26,7 +25,7 @@ type Listener struct {
 	providersMutex *sync.Mutex
 }
 
-func NewListener(ctx meta.Context, client types.ExternalMonitorClient) *Listener {
+func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
 	listener := &Listener{
 		ctx:            ctx,
 		monClient:      client,

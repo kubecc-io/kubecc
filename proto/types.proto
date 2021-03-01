@@ -136,15 +136,15 @@ message ScheduleResponse {}
 
 
 message AgentInfo {
-  // System Info
-  string Arch = 1;
-  int32 CpuThreads = 2;
-  uint64 SystemMemory = 3;
-
-  // Downward API
   string Node = 4;
   string Pod = 5;
   string Namespace = 6;
+}
+
+message SystemInfo {
+  string Arch = 1;
+  int32 CpuThreads = 2;
+  uint64 SystemMemory = 3;
 }
 
 // consumerd -> scheduler -> agent

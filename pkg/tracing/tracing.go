@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"context"
 	"io"
 	"os"
 
@@ -15,8 +16,8 @@ import (
 
 var IsEnabled bool
 
-func Start(ctx meta.Context, component types.Component) (opentracing.Tracer, io.Closer) {
-	lg := ctx.Log()
+func Start(ctx context.Context, component types.Component) (opentracing.Tracer, io.Closer) {
+	lg := meta.Log(ctx)
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
 		lg.Warn("JAEGER_ENDPOINT not defined, tracing disabled")
@@ -62,14 +63,14 @@ func Start(ctx meta.Context, component types.Component) (opentracing.Tracer, io.
 
 type tracingProvider struct{}
 
-var MetadataProvider tracingProvider
+var Tracer tracingProvider
 
 func (tracingProvider) Key() meta.MetadataKey {
 	return mdkeys.TracingKey
 }
 
 func (tracingProvider) InitialValue(ctx meta.Context) interface{} {
-	tracer, closer := Start(ctx, ctx.Component())
+	tracer, closer := Start(ctx, meta.Component(ctx))
 	go func() {
 		<-ctx.Done()
 		closer.Close()

@@ -25,14 +25,14 @@ func TestIntegration(t *testing.T) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
+		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.TestComponent, logkc.WithName("-")),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
-	tracer := ctx.Tracer()
+	tracer := meta.Tracer(ctx)
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx, tracer, "integration-test")
 	defer span.Finish()
@@ -75,17 +75,17 @@ func TestIntegration(t *testing.T) {
 			},
 		},
 	}
-	tc := integration.NewTestController(ctx)
+	tc := integration.NewTestController(sctx)
 	tc.Start(testOptions)
 
-	cc, err := servers.Dial(ctx, "127.0.0.1:9960")
+	cc, err := servers.Dial(sctx, "127.0.0.1:9960")
 	if err != nil {
 		panic(err)
 	}
 	wg := sync.WaitGroup{}
 	wg.Add(len(testOptions.Agents))
 	extClient := types.NewExternalMonitorClient(cc)
-	listener := metrics.NewListener(ctx, extClient)
+	listener := metrics.NewListener(sctx, extClient)
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 		wg.Done()
 		<-pctx.Done()
@@ -105,7 +105,7 @@ func TestIntegration(t *testing.T) {
 				for {
 					select {
 					case task := <-taskPool:
-						_, err := cd.Run(ctx, task)
+						_, err := cd.Run(sctx, task)
 						if err != nil {
 							panic(err)
 						}

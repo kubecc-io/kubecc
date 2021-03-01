@@ -6,10 +6,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -48,40 +44,17 @@ func (*contextImpl) String() string {
 	return "empty meta.Context"
 }
 
-func (ci *contextImpl) Component() types.Component {
-	if p, ok := ci.providers[mdkeys.ComponentKey]; ok {
-		return ci.Value(p.Key()).(types.Component)
-	}
-	panic("No component in context")
+type ImportOptions struct {
+	Required []Provider
+	Optional []Provider
 }
 
-func (ci *contextImpl) UUID() string {
-	if p, ok := ci.providers[mdkeys.UUIDKey]; ok {
-		return ci.Value(p.Key()).(string)
-	}
-	panic("No uuid in context")
-}
-
-func (ci *contextImpl) Log() *zap.SugaredLogger {
-	if p, ok := ci.providers[mdkeys.LogKey]; ok {
-		return ci.Value(p.Key()).(*zap.SugaredLogger)
-	}
-	panic("No logger in context")
-}
-
-func (ci *contextImpl) Tracer() opentracing.Tracer {
-	if p, ok := ci.providers[mdkeys.TracingKey]; ok {
-		return ci.Value(p.Key()).(opentracing.Tracer)
-	}
-	panic("No logger in context")
-}
-
-func (c *contextImpl) ImportFromIncoming(ctx context.Context, expected ...Provider) {
+func (c *contextImpl) ImportFromIncoming(ctx context.Context, opts ImportOptions) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		panic("Not an incoming context")
 	}
-	for _, mp := range expected {
+	for _, mp := range opts.Required {
 		if values := md.Get(mp.Key().String()); len(values) > 0 {
 			c.providers[mp.Key()] = mp
 			c.values[mp.Key()] = mp.Unmarshal(values[0])
@@ -90,7 +63,12 @@ func (c *contextImpl) ImportFromIncoming(ctx context.Context, expected ...Provid
 				reflect.TypeOf(mp)))
 		}
 	}
-	return
+	for _, mp := range opts.Optional {
+		if values := md.Get(mp.Key().String()); len(values) > 0 {
+			c.providers[mp.Key()] = mp
+			c.values[mp.Key()] = mp.Unmarshal(values[0])
+		}
+	}
 }
 
 func (c *contextImpl) ExportToOutgoing() context.Context {

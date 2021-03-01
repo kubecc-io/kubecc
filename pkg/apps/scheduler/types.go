@@ -3,36 +3,27 @@ package scheduler
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"go.uber.org/zap/zapcore"
 )
 
 type Agent struct {
-	zapcore.ObjectMarshaler
-
+	UUID    string
 	Context context.Context
 	Client  types.AgentClient
 
 	UsageLimits *types.UsageLimits
-	Info        *types.AgentInfo
+	SystemInfo  *types.SystemInfo
 	QueueStatus types.QueueStatus
 	Toolchains  []*types.Toolchain
 }
 
-func AgentFromContext(ctx context.Context) (*Agent, error) {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
+func AgentFromContext(ctx context.Context) *Agent {
 	return &Agent{
-		Info:    info,
-		Context: ctx,
-	}, nil
-}
-
-func (a Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	return enc.AddObject("info", a.Info)
+		UUID:       meta.UUID(ctx),
+		Context:    ctx,
+		SystemInfo: meta.SystemInfo(ctx),
+	}
 }
 
 func (a Agent) Weight() int32 {

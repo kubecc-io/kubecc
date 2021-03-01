@@ -19,10 +19,10 @@ func main() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	logkc.PrintHeader()
 

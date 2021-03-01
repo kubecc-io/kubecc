@@ -4,6 +4,7 @@ import (
 	"bytes"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
@@ -19,13 +20,13 @@ func (r localRunnerManager) Run(
 	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
-	tracer := ctx.ServerContext.Tracer()
+	tracer := meta.Tracer(ctx.ServerContext)
 
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx.ClientContext, tracer, "run-local")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	lg := ctx.ServerContext.Log()
+	lg := meta.Log(ctx.ServerContext)
 	ap := r.ArgParser
 
 	stdoutBuf := new(bytes.Buffer)
@@ -33,7 +34,7 @@ func (r localRunnerManager) Run(
 
 	runner := cc.NewCompileRunner(ap,
 		run.WithContext(sctx),
-		run.WithLog(ctx.ServerContext.Log()),
+		run.WithLog(meta.Log(ctx.ServerContext)),
 		run.InPlace(true),
 		run.WithEnv(req.Env),
 		run.WithOutputStreams(stdoutBuf, stderrBuf),
