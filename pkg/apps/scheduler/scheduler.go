@@ -87,7 +87,9 @@ func (s *Scheduler) Schedule(
 		s.wLock.Lock()
 		next := s.w.Next()
 		if next == nil {
-			// No agents available
+			// No agents available.
+			// This could be because no agents are connected, or all agents have
+			// a weight of 0, which would result in none being chosen.
 			return nil, status.Error(codes.Unavailable, "No agents available")
 		}
 		agentClient := next.(*Agent).Client

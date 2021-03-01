@@ -27,6 +27,11 @@ func AgentFromContext(ctx context.Context) *Agent {
 }
 
 func (a Agent) Weight() int32 {
+	if a.UsageLimits == nil {
+		// Use a default value of the number of cpu threads
+		// until the agent posts its own usage limits
+		return a.SystemInfo.CpuThreads
+	}
 	switch a.QueueStatus {
 	case types.Available, types.Queueing:
 		return a.UsageLimits.GetConcurrentProcessLimit()
