@@ -11,8 +11,7 @@ import (
 
 type Context interface {
 	context.Context
-	ValueAccessors
-	ImportFromIncoming(ctx context.Context, expected ...Provider)
+	ImportFromIncoming(context.Context, ImportOptions)
 	ExportToOutgoing() context.Context
 	MetadataProviders() []Provider
 }

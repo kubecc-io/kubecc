@@ -2,9 +2,9 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/smallnest/weighted"
@@ -41,7 +41,7 @@ type Scheduler struct {
 	wLock *sync.Mutex
 
 	agents sync.Map // map[string]*Agent
-	ctx    meta.Context
+	ctx    context.Context
 	lg     *zap.SugaredLogger
 }
 
@@ -63,7 +63,7 @@ func WithAgentDialer(d AgentDialer) schedulerOption {
 	}
 }
 
-func NewScheduler(ctx meta.Context, opts ...schedulerOption) *Scheduler {
+func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
 	options := SchedulerOptions{
 		agentDialer: &tcpDialer{},
 	}
@@ -74,7 +74,7 @@ func NewScheduler(ctx meta.Context, opts ...schedulerOption) *Scheduler {
 		w:                &weighted.RRW{},
 		wLock:            &sync.Mutex{},
 		ctx:              ctx,
-		lg:               ctx.Log(),
+		lg:               meta.Log(ctx),
 	}
 }
 
@@ -105,31 +105,27 @@ func (s *Scheduler) Schedule(
 	}
 }
 
-func (s *Scheduler) AgentIsConnected(id string) bool {
-	_, ok := s.agents.Load(id)
+func (s *Scheduler) AgentIsConnected(a *Agent) bool {
+	_, ok := s.agents.Load(a.UUID)
 	return ok
 }
 
-func (s *Scheduler) AgentConnected(ctx meta.Context) error {
-	agent, err := AgentFromContext(ctx)
-	if err != nil {
-		return status.Error(codes.InvalidArgument,
-			"Error identifying agent using context")
-	}
-	uuid := ctx.(meta.Context).UUID()
-	if s.AgentIsConnected(uuid) {
+func (s *Scheduler) AgentConnected(ctx context.Context) error {
+	agent := AgentFromContext(ctx)
+	if s.AgentIsConnected(agent) {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
-
+	var err error
 	agent.Client, err = s.agentDialer.Dial(ctx)
 	if err != nil {
-		return err
+		return status.Error(codes.Internal,
+			fmt.Sprintf("Error dialing agent: %s", err.Error()))
 	}
 
 	s.lg.With(
-		zap.Object("agent", agent.Info),
+		zap.String("agent", agent.UUID),
 	).Info(types.Scheduler.Color().Add("Agent connected"))
-	s.agents.Store(uuid, agent)
+	s.agents.Store(agent.UUID, agent)
 
 	s.wLock.Lock()
 	s.w.Add(agent, int(agent.Weight()))
@@ -137,9 +133,9 @@ func (s *Scheduler) AgentConnected(ctx meta.Context) error {
 
 	go func() {
 		<-agent.Context.Done()
-		s.agents.Delete(uuid)
+		s.agents.Delete(agent.UUID)
 		s.lg.With(
-			zap.Object("agent", agent.Info),
+			zap.String("agent", agent.UUID),
 		).Info(types.Scheduler.Color().Add("Agent disconnected"))
 	}()
 	return nil
@@ -155,21 +151,8 @@ func (s *Scheduler) reweightAll() {
 	})
 }
 
-func (s *Scheduler) GetAgentInfo(ctx context.Context) (*types.AgentInfo, error) {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	uuid := ctx.(meta.Context).UUID()
-	if !s.AgentIsConnected(uuid) {
-		return nil, status.Error(codes.FailedPrecondition,
-			"Not connected, ensure a connection stream is active with Connect()")
-	}
-	return info, nil
-}
-
 func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) error {
-	uuid := ctx.(meta.Context).UUID()
+	uuid := meta.UUID(ctx)
 	if agent, ok := s.agents.Load(uuid); ok {
 		agent.(*Agent).QueueStatus = stat
 		s.reweightAll()
@@ -178,7 +161,7 @@ func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) 
 }
 
 func (s *Scheduler) SetToolchains(ctx context.Context, tcs []*types.Toolchain) error {
-	uuid := ctx.(meta.Context).UUID()
+	uuid := meta.UUID(ctx)
 	if agent, ok := s.agents.Load(uuid); ok {
 		agent.(*Agent).Toolchains = tcs
 	}

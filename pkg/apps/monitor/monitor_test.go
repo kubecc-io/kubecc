@@ -33,8 +33,8 @@ var _ = Describe("Monitor", func() {
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
 			meta.WithProvider(identity.UUID, meta.WithValue(srvUuid)),
-			meta.WithProvider(logkc.MetadataProvider),
-			meta.WithProvider(tracing.MetadataProvider),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
 		)
 
 		It("should succeed", func() {
@@ -66,8 +66,8 @@ var _ = Describe("Monitor", func() {
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
 			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.MetadataProvider),
-			meta.WithProvider(tracing.MetadataProvider),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
 		)
 
 		It("should succeed", func() {
@@ -106,11 +106,11 @@ var _ = Describe("Monitor", func() {
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
 			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.MetadataProvider),
-			meta.WithProvider(tracing.MetadataProvider),
+			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(tracing.Tracer),
 		)
-		aaaa := ctx.UUID()
-		ctx.Log().Info(aaaa)
+		aaaa := meta.UUID(ctx)
+		meta.Log(ctx).Info(aaaa)
 		cctx, cancel := context.WithCancel(ctx)
 		providerCancel = cancel
 		It("should succeed", func() {
@@ -131,7 +131,7 @@ var _ = Describe("Monitor", func() {
 			}).Should(BeEquivalentTo(2))
 		})
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(ctx.UUID())))
+			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(meta.UUID(ctx))))
 			Expect(listenerEvents["providerRemoved"]).ShouldNot(Receive())
 			// ensure the context is not cancelled and no duplicates occur
 			Consistently(listenerEvents["providerAdded"]).ShouldNot(Receive())

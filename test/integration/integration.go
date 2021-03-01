@@ -13,6 +13,7 @@ import (
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -31,7 +32,7 @@ const bufSize = 1024 * 1024
 
 type TestController struct {
 	Consumers          []types.ConsumerdClient
-	ctx                meta.Context
+	ctx                context.Context
 	cancel             context.CancelFunc
 	agentListeners     map[string]*bufconn.Listener
 	agentListenersLock *sync.Mutex
@@ -40,8 +41,8 @@ type TestController struct {
 	monListener   *bufconn.Listener
 }
 
-func NewTestController(ctx meta.Context) *TestController {
-	_, cancel := context.WithCancel(ctx)
+func NewTestController(ctx context.Context) *TestController {
+	ctx, cancel := context.WithCancel(ctx)
 	return &TestController{
 		ctx:                ctx,
 		cancel:             cancel,
@@ -51,11 +52,11 @@ func NewTestController(ctx meta.Context) *TestController {
 	}
 }
 
-func (tc *TestController) Dial(ctx meta.Context) (types.AgentClient, error) {
+func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
 	tc.agentListenersLock.Lock()
 	defer tc.agentListenersLock.Unlock()
 
-	listener := tc.agentListeners[ctx.UUID()]
+	listener := tc.agentListeners[meta.UUID(ctx)]
 	cc := dial(ctx, listener)
 	return types.NewAgentClient(cc), nil
 }
@@ -80,18 +81,19 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
+		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Agent,
 				logkc.WithName(string(rune('a'+len(tc.agentListeners)))),
 			),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 	srv := servers.NewServer(ctx)
 
 	listener := bufconn.Listen(bufSize)
-	tc.agentListeners[ctx.UUID()] = listener
+	tc.agentListeners[meta.UUID(ctx)] = listener
 	cc := dial(ctx, tc.schedListener)
 	schedClient := types.NewSchedulerClient(cc)
 	cc = dial(ctx, tc.monListener)
@@ -120,14 +122,14 @@ func (tc *TestController) startScheduler() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
-			logkc.New(types.Agent,
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Scheduler,
 				logkc.WithName("a"),
 			),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
@@ -145,14 +147,14 @@ func (tc *TestController) startMonitor() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
-			logkc.New(types.Agent,
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Monitor,
 				logkc.WithName("a"),
 			),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	tc.monListener = bufconn.Listen(bufSize)
 	internalSrv := servers.NewServer(ctx)
@@ -183,14 +185,15 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumerd)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider, meta.WithValue(
-			logkc.New(types.Agent,
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Consumerd,
 				logkc.WithName(string(rune('a'+len(tc.Consumers)))),
 			),
 		)),
-		meta.WithProvider(tracing.MetadataProvider),
+		meta.WithProvider(tracing.Tracer),
+		meta.WithProvider(host.SystemInfo),
 	)
-	lg := ctx.Log()
+	lg := meta.Log(ctx)
 
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)

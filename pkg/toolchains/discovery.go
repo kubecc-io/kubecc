@@ -1,6 +1,6 @@
 package toolchains
 
-import "github.com/cobalt77/kubecc/pkg/meta"
+import "context"
 
 type FinderWithOptions struct {
 	Finder
@@ -8,7 +8,7 @@ type FinderWithOptions struct {
 }
 
 func Aggregate(
-	ctx meta.Context,
+	ctx context.Context,
 	finders ...FinderWithOptions,
 ) *Store {
 	store := NewStore()

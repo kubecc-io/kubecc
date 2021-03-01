@@ -95,7 +95,7 @@ func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	options := LogOptions{
 		outputPaths:      []string{"stdout"},
 		errorOutputPaths: []string{"stderr"},
-		logLevel:         zapcore.InfoLevel,
+		logLevel:         zapcore.DebugLevel,
 	}
 	options.Apply(ops...)
 	color := component.Color()
@@ -165,14 +165,14 @@ func PrintHeader() {
 
 type logProvider struct{}
 
-var MetadataProvider logProvider
+var Logger logProvider
 
 func (logProvider) Key() meta.MetadataKey {
 	return mdkeys.LogKey
 }
 
 func (logProvider) InitialValue(ctx meta.Context) interface{} {
-	return New(ctx.Component())
+	return New(meta.Component(ctx))
 }
 
 func (logProvider) Marshal(i interface{}) string {

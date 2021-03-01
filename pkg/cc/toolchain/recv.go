@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
@@ -21,7 +22,7 @@ func (r *recvRemoteRunnerManager) Run(
 	request interface{},
 ) (interface{}, error) {
 	req := request.(*types.CompileRequest)
-	lg := ctx.ServerContext.Log()
+	lg := meta.Log(ctx.ServerContext)
 	ap := cc.NewArgParser(ctx.ServerContext, req.Args)
 	ap.Parse()
 	lg.With(zap.Object("args", ap)).Info("Compile starting")
@@ -30,7 +31,7 @@ func (r *recvRemoteRunnerManager) Run(
 	tmpFilename := new(bytes.Buffer)
 	runner := cc.NewCompileRunner(ap,
 		run.WithContext(ctx.ClientContext),
-		run.WithLog(ctx.ServerContext.Log()),
+		run.WithLog(meta.Log(ctx.ServerContext)),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),

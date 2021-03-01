@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,8 +15,8 @@ import (
 	"google.golang.org/grpc/encoding/gzip"
 )
 
-func DispatchAndWait(ctx meta.Context, cc *grpc.ClientConn) {
-	lg := ctx.Log()
+func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
+	lg := meta.Log(ctx)
 
 	lg.Info("Dispatching to consumerd")
 

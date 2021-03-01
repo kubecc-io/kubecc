@@ -211,7 +211,7 @@ func TestFindToolchains(t *testing.T) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
 	)
 
 	fs := fstest.MapFS{

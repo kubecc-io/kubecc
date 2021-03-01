@@ -57,9 +57,9 @@ func main() {
 	mctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.MetadataProvider),
+		meta.WithProvider(logkc.Logger),
 	)
-	lg = mctx.Log()
+	lg = meta.Log(mctx)
 	logkc.PrintHeader()
 
 	var (

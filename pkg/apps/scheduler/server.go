@@ -15,18 +15,18 @@ import (
 type schedulerServer struct {
 	types.SchedulerServer
 
-	srvContext meta.Context
+	srvContext context.Context
 	lg         *zap.SugaredLogger
 	scheduler  *Scheduler
 }
 
 func NewSchedulerServer(
-	ctx meta.Context,
+	ctx context.Context,
 	opts ...schedulerOption,
 ) *schedulerServer {
 	srv := &schedulerServer{
 		srvContext: ctx,
-		lg:         ctx.Log(),
+		lg:         meta.Log(ctx),
 		scheduler:  NewScheduler(ctx, opts...),
 	}
 	return srv
@@ -39,8 +39,7 @@ func (s *schedulerServer) Compile(
 	if err := meta.CheckContext(ctx); err != nil {
 		return nil, err
 	}
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx.(meta.Context), "schedule-compile")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "schedule-compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {
@@ -62,7 +61,7 @@ func (s *schedulerServer) ConnectAgent(
 		return err
 	}
 	lg := s.lg
-	ctx := srv.Context().(meta.Context)
+	ctx := srv.Context()
 	if err := s.scheduler.AgentConnected(ctx); err != nil {
 		return err
 	}
