@@ -24,8 +24,6 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	logkc.PrintHeader()
-
 	extListener, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		panic(err.Error())

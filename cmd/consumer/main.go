@@ -31,7 +31,6 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	logkc.PrintHeader()
 	internal.InitConfig()
 
 	cc, err := servers.Dial(

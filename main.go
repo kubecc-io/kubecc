@@ -60,7 +60,6 @@ func main() {
 		meta.WithProvider(logkc.Logger),
 	)
 	lg = meta.Log(mctx)
-	logkc.PrintHeader()
 
 	var (
 		configFile string
