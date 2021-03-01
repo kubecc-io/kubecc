@@ -30,7 +30,6 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	logkc.PrintHeader()
 	consumer.InitConfig()
 
 	d := consumerd.NewConsumerdServer(ctx,

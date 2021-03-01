@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/rec"
 	"github.com/cobalt77/kubecc/pkg/resolvers"
 )
@@ -18,6 +19,7 @@ import (
 // BuildClusterReconciler reconciles a BuildCluster object.
 type BuildClusterReconciler struct {
 	client.Client
+	Context     meta.Context
 	Log         *zap.SugaredLogger
 	Scheme      *runtime.Scheme
 	resolveTree *rec.ResolverTree
@@ -38,7 +40,7 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	cluster := &v1alpha1.BuildCluster{}
 	res, err := rec.Find(rec.ResolveContext{
 		Context:    ctx,
-		Log:        r.Log,
+		Log:        meta.Log(r.Context),
 		Client:     r.Client,
 		RootObject: cluster,
 		Object:     cluster,
@@ -53,7 +55,7 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.resolveTree = rec.BuildRootResolver(r.Client, &rec.ResolverTree{
+	r.resolveTree = rec.BuildRootResolver(r.Context, r.Client, &rec.ResolverTree{
 		Nodes: []*rec.ResolverTree{
 			{
 				Resolver: &resolvers.ComponentsResolver{},

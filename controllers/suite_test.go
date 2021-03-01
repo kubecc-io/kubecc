@@ -36,7 +36,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
-var useExistingCluster = true
+var useExistingCluster = false
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -60,8 +60,9 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: &useExistingCluster,
-		CRDDirectoryPaths:  []string{"../config/crd/bases"},
+		UseExistingCluster:    &useExistingCluster,
+		CRDDirectoryPaths:     []string{"../config/crd/bases"},
+		BinaryAssetsDirectory: "../testbin/bin",
 	}
 
 	cfg, err := testEnv.Start()
@@ -80,18 +81,19 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BuildClusterReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    lg.Named("BuildCluster"),
-		Scheme: k8sManager.GetScheme(),
+		Context: ctx,
+		Client:  k8sManager.GetClient(),
+		Log:     lg.Named("BuildCluster"),
+		Scheme:  k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&ToolchainReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    lg.Named("Toolchain"),
-		Scheme: k8sManager.GetScheme(),
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	// err = (&ToolchainReconciler{
+	// 	Client: k8sManager.GetClient(),
+	// 	Log:    lg.Named("Toolchain"),
+	// 	Scheme: k8sManager.GetScheme(),
+	// }).SetupWithManager(k8sManager)
+	// Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()

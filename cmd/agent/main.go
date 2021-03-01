@@ -27,7 +27,6 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	logkc.PrintHeader()
 	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", ":9090")
 	if err != nil {
