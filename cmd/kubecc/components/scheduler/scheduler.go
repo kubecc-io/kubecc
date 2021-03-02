@@ -1,22 +1,21 @@
-package main
+package commands
 
 import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"go.uber.org/zap"
+	"github.com/spf13/cobra"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
-var lg *zap.SugaredLogger
-
-func main() {
+func run(cmd *cobra.Command, args []string) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
 		meta.WithProvider(identity.UUID),
@@ -25,7 +24,9 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	listener, err := net.Listen("tcp", ":9090")
+	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Scheduler
+
+	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -40,4 +41,10 @@ func main() {
 	if err != nil {
 		lg.Error(err)
 	}
+}
+
+var Command = &cobra.Command{
+	Use:   "scheduler",
+	Short: "Run the scheduler service",
+	Run:   run,
 }
