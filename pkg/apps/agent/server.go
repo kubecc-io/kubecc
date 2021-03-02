@@ -217,29 +217,6 @@ func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 	case <-s.srvContext.Done():
 		return nil
 	}
-	// errCh := make(chan error, 1)
-	// go func() {
-	// 	for {
-	// 		empty := &types.Empty{}
-	// 		err := stream.RecvMsg(empty)
-	// 		if err != nil {
-	// 			if errors.Is(err, io.EOF) {
-	// 				s.lg.Debug(err)
-	// 			} else {
-	// 				s.lg.Error(err)
-	// 			}
-	// 			errCh <- err
-	// 			return
-	// 		}
-	// 	}
-	// }()
-	// select {
-	// case <-stream.Context().Done():
-	// case <-s.srvContext.Done():
-	// case err := <-errCh:
-	// 	return err
-	// }
-	// return <-errCh
 }
 
 func (s *AgentServer) TryConnect() (grpc.ClientStream, error) {
