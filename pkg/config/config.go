@@ -2,23 +2,16 @@ package config
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"path"
 	"strings"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"k8s.io/client-go/util/homedir"
-)
-
-const (
-	QueuePressureMultiplier = "queuePressureMultiplier"
-	QueueRejectMultiplier   = "queueRejectMultiplier"
-	ConcurrentProcessLimit  = "concurrentProcessLimit"
-	LogLevel                = "loglevel"
-	SchedulerAddress        = "schedulerAddress"
-	MonitorAddress          = "monitorAddress"
+	"sigs.k8s.io/yaml"
 )
 
 type ConfigProvider interface {
@@ -27,27 +20,49 @@ type ConfigProvider interface {
 
 type ConfigMapProvider struct{}
 
-func (cmp *ConfigMapProvider) Setup(ctx context.Context, c types.Component) {
+func loadConfigOrDie(lg *zap.SugaredLogger, path string) *KubeccSpec {
+	contents, err := os.ReadFile(path)
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+			zap.String("path", path),
+		).Fatal("Error reading config file")
+	}
+	cfg := &KubeccSpec{}
+	if strings.HasSuffix(path, ".json") {
+		err = json.Unmarshal(contents, cfg)
+	} else {
+		err = yaml.Unmarshal(contents, cfg, yaml.DisallowUnknownFields)
+	}
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+			zap.String("path", path),
+		).Fatal("Error parsing config file")
+	}
+	return cfg
+}
+
+func (cmp *ConfigMapProvider) Load(ctx context.Context, c types.Component) *KubeccSpec {
 	lg := meta.Log(ctx)
-	switch c {
-	case types.Agent, types.Scheduler, types.Dashboard, types.Monitor:
-		viper.AddConfigPath("/etc/kubecc")
-		viper.SetConfigName(strings.ToLower(c.Name()))
-	case types.Controller:
-	case types.Consumer, types.Consumerd, types.Make, types.CLI:
-		viper.AddConfigPath("/etc/kubecc")
-		viper.AddConfigPath(path.Join(homedir.HomeDir(), ".kubecc"))
-		viper.SetConfigName("config")
-	case types.TestComponent:
+	paths := []string{
+		"/etc/kubecc",
+		path.Join(homedir.HomeDir(), ".kubecc"),
 	}
-
-	if c == types.Agent || c == types.Consumerd {
-		viper.SetDefault(QueuePressureMultiplier, 1.5)
-		viper.SetDefault(QueueRejectMultiplier, 2.0)
-		viper.SetDefault(ConcurrentProcessLimit, -1) // -1 = automatic
+	filenames := []string{
+		"config.yaml",
+		"config.yml",
+		"config.json",
 	}
-
-	if err := viper.ReadInConfig(); err == nil {
-		lg.With(zap.Error(err)).Debug("Could not read config file")
+	for _, p := range paths {
+		for _, f := range filenames {
+			abs := path.Join(p, f)
+			if _, err := os.Stat(abs); err != nil {
+				continue
+			}
+			return loadConfigOrDie(lg, abs)
+		}
 	}
+	lg.Fatal("Could not find config file")
+	return nil
 }

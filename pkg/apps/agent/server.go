@@ -101,7 +101,14 @@ func NewAgentServer(
 	}
 
 	if options.usageLimits == nil {
-		options.usageLimits = host.DefaultUsageLimits()
+		options.usageLimits = &types.UsageLimits{
+			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
+			QueuePressureMultiplier: 1,
+			QueueRejectMultiplier:   1,
+		}
+	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit =
+			host.AutoConcurrentProcessLimit()
 	}
 
 	srv := &AgentServer{
@@ -214,19 +221,13 @@ func (s *AgentServer) RunSchedulerClient() {
 		}
 		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
 
-		streamClosed := make(chan error)
-		go func() {
-			for {
-				_, err := stream.Recv()
-				streamClosed <- err
-				close(streamClosed)
-				return
-			}
-		}()
-
-		<-streamClosed
-		s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-		time.Sleep(5 * time.Second)
+		select {
+		case <-stream.Context().Done():
+			s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
+			time.Sleep(5 * time.Second)
+		case <-s.srvContext.Done():
+			return
+		}
 	}
 }
 
