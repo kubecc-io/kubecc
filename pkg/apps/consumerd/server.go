@@ -3,7 +3,6 @@ package consumerd
 import (
 	"context"
 	"io/fs"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/host"
@@ -244,9 +243,7 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) streamMetadata(
-	srv types.Scheduler_ConnectConsumerdClient,
-) {
+func (c *consumerdServer) streamMetadata(srv grpc.ClientStream) {
 	go func() {
 		for {
 			select {
@@ -257,7 +254,7 @@ func (c *consumerdServer) streamMetadata(
 				for tc := range c.tcStore.Items() {
 					copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
 				}
-				err := srv.Send(&types.Metadata{
+				err := srv.SendMsg(&types.Metadata{
 					Toolchains: &types.Toolchains{
 						Items: copiedItems,
 					},
@@ -274,30 +271,27 @@ func (c *consumerdServer) streamMetadata(
 	c.storeUpdateCh <- struct{}{}
 }
 
-func (c *consumerdServer) RunSchedulerClient() {
-	if c.schedulerClient == nil {
-		// Errors should already have shown up elsewhere
-		c.lg.Debug("Not running scheduler client since it is unconfigured")
-		return
+func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+	err := stream.SendMsg(&types.Metadata{
+		Toolchains: &types.Toolchains{
+			Items: c.tcStore.ItemsList(),
+		},
+	})
+	if err != nil {
+		return err
 	}
-	for {
-		c.lg.Info("Attempting to connect to scheduler")
-		stream, err := c.schedulerClient.ConnectConsumerd(
-			c.srvContext, grpc.WaitForReady(true))
-		if err != nil {
-			c.lg.With(
-				zap.Error(err),
-			).Error("Error connecting to the scheduler, retrying in 5 seconds...")
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		c.lg.Info("Connected to scheduler")
-		c.streamMetadata(stream)
-		select {
-		case <-c.srvContext.Done():
-		case <-stream.Context().Done():
-		}
-		c.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-		time.Sleep(5 * time.Second)
+	c.streamMetadata(stream)
+	select {
+	case <-stream.Context().Done():
+	case <-c.srvContext.Done():
 	}
+	return nil
+}
+
+func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
+	return c.schedulerClient.ConnectConsumerd(c.srvContext)
+}
+
+func (c *consumerdServer) Target() string {
+	return "scheduler"
 }

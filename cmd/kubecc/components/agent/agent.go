@@ -60,7 +60,9 @@ func run(cmd *cobra.Command, args []string) {
 		agent.WithMonitorClient(monitorClient),
 	)
 	types.RegisterAgentServer(srv, a)
-	go a.RunSchedulerClient()
+
+	mgr := servers.NewStreamManager(ctx, a)
+	go mgr.Run()
 	go a.StartMetricsProvider()
 	err = srv.Serve(listener)
 	if err != nil {

@@ -106,8 +106,8 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 		agent.WithToolchainRunners(testtoolchain.AddToStore),
 	)
 	types.RegisterAgentServer(srv, agentSrv)
-
-	go agentSrv.RunSchedulerClient()
+	mgr := servers.NewStreamManager(ctx, agentSrv)
+	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
 	go func() {
 		if err := srv.Serve(listener); err != nil {
@@ -208,7 +208,8 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 	)
 	types.RegisterConsumerdServer(srv, d)
 
-	go d.RunSchedulerClient()
+	mgr := servers.NewStreamManager(ctx, d)
+	go mgr.Run()
 
 	cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)

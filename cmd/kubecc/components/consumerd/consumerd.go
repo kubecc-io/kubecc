@@ -49,7 +49,8 @@ func run(cmd *cobra.Command, args []string) {
 		consumerd.WithSchedulerClient(schedulerClient, schedulerCC),
 	)
 
-	go d.RunSchedulerClient()
+	mgr := servers.NewStreamManager(ctx, d)
+	go mgr.Run()
 
 	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
