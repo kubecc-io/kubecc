@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
 )
 
 func ClientContextInterceptor() grpc.UnaryClientInterceptor {
@@ -50,7 +51,12 @@ func ServerContextInterceptor(
 				c.values[p.Key()] = srvCtx.Value(p.Key())
 			}
 		}
-		return handler(c, req)
+		// Add back the grpc peer
+		srvContext := context.Context(c)
+		if p, ok := peer.FromContext(ctx); ok {
+			srvContext = peer.NewContext(srvContext, p)
+		}
+		return handler(srvContext, req)
 	}
 }
 
@@ -107,9 +113,14 @@ func StreamServerContextInterceptor(
 				c.values[p.Key()] = ctx.Value(p.Key())
 			}
 		}
+		// Add back the grpc peer
+		srvContext := context.Context(c)
+		if p, ok := peer.FromContext(ss.Context()); ok {
+			srvContext = peer.NewContext(srvContext, p)
+		}
 		return handler(srv, &serverStream{
 			ServerStream: ss,
-			ctx:          c,
+			ctx:          srvContext,
 		})
 	}
 }

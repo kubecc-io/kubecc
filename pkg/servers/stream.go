@@ -2,11 +2,14 @@ package servers
 
 import (
 	"context"
+	"errors"
+	"io"
 	"math"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -58,6 +61,7 @@ func NewStreamManager(
 
 func (cm *StreamManager) Run() {
 	lg := meta.Log(cm.ctx)
+	color := meta.Component(cm.ctx).Color()
 	for {
 		if stream, err := cm.handler.TryConnect(); err != nil {
 			if e, ok := cm.handler.(OnConnectFailedEventHandler); ok {
@@ -72,19 +76,45 @@ func (cm *StreamManager) Run() {
 			if e, ok := cm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
+			lg.Infof(color.Add("Connected to %s"), cm.handler.Target())
 			err := cm.handler.HandleStream(stream)
 			if err := stream.CloseSend(); err != nil {
 				lg.With(zap.Error(err)).Error("Failed to close stream")
+			}
+			if e, ok := cm.handler.(OnLostConnectionEventHandler); ok {
+				e.OnLostConnection()
 			}
 			if err != nil {
 				lg.With(
 					zap.Error(err),
 					zap.String("target", cm.handler.Target()),
 				).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
-			}
-			if e, ok := cm.handler.(OnLostConnectionEventHandler); ok {
-				e.OnLostConnection()
+				<-cm.backoffMgr.Backoff().C()
 			}
 		}
 	}
+}
+
+func EmptyServerStreamDone(
+	ctx context.Context,
+	stream grpc.ClientStream,
+) chan error {
+	lg := meta.Log(ctx)
+	errCh := make(chan error, 1)
+	go func() {
+		for {
+			empty := &types.Empty{}
+			err := stream.RecvMsg(empty)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					lg.Debug(err)
+				} else {
+					lg.Error(err)
+				}
+				errCh <- err
+				return
+			}
+		}
+	}()
+	return errCh
 }
