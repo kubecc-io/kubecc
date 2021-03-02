@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -28,6 +29,7 @@ type Listener struct {
 func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
 	listener := &Listener{
 		ctx:            ctx,
+		lg:             meta.Log(ctx),
 		monClient:      client,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},

@@ -13,6 +13,7 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1
+	github.com/fullstorydev/grpcurl v1.8.0 // indirect
 	github.com/gdamore/tcell/v2 v2.2.0 // indirect
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-logr/zapr v0.4.0 // indirect
@@ -66,6 +67,7 @@ require (
 	k8s.io/client-go v0.20.4
 	k8s.io/klog/v2 v2.5.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210216185858-15cd8face8d6 // indirect
+	k8s.io/utils v0.0.0-20210111153108-fddb29f9d009 // indirect
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/yaml v1.2.0
 )

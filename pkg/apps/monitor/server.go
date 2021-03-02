@@ -221,7 +221,7 @@ func (m *MonitorServer) Listen(
 	bucket, ok := m.buckets[key.Bucket]
 	if !ok {
 		m.bucketMutex.RUnlock()
-		return status.Error(codes.InvalidArgument, "No such bucket")
+		return status.Error(codes.FailedPrecondition, "No such bucket")
 	} else {
 		bucketCtx = bucket.Context()
 	}
@@ -243,6 +243,7 @@ func (m *MonitorServer) Listen(
 			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 		}
 	}
+	m.notifyStoreMeta()
 
 	m.bucketMutex.RUnlock()
 
