@@ -15,7 +15,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -94,10 +93,16 @@ func NewConsumerdServer(
 			},
 		},
 	}
-	options.Apply(opts...)
 
 	if options.usageLimits == nil {
-		options.usageLimits = host.DefaultUsageLimits()
+		options.usageLimits = &types.UsageLimits{
+			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
+			QueuePressureMultiplier: 1,
+			QueueRejectMultiplier:   1,
+		}
+	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit =
+			host.AutoConcurrentProcessLimit()
 	}
 
 	runStore := run.NewToolchainRunnerStore()
@@ -111,7 +116,6 @@ func NewConsumerdServer(
 		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
-		remoteOnly:     viper.GetBool("remoteOnly"),
 		storeUpdateCh:  make(chan struct{}),
 	}
 	if options.schedulerClient != nil {
@@ -240,22 +244,6 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) ConnectToRemote() {
-	addr := viper.GetString("schedulerAddress")
-	if addr == "" {
-		c.lg.Debug("Remote compilation unavailable: scheduler address not configured")
-		return
-	}
-	cc, err := servers.Dial(c.srvContext, addr,
-		servers.WithTLS(viper.GetBool("tls")))
-	if err != nil {
-		c.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
-	} else {
-		c.connection = cc
-		c.schedulerClient = types.NewSchedulerClient(cc)
-	}
-}
-
 func (c *consumerdServer) streamMetadata(
 	srv types.Scheduler_ConnectConsumerdClient,
 ) {
@@ -293,6 +281,7 @@ func (c *consumerdServer) RunSchedulerClient() {
 		return
 	}
 	for {
+		c.lg.Info("Attempting to connect to scheduler")
 		stream, err := c.schedulerClient.ConnectConsumerd(
 			c.srvContext, grpc.WaitForReady(true))
 		if err != nil {
@@ -302,6 +291,7 @@ func (c *consumerdServer) RunSchedulerClient() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		c.lg.Info("Connected to scheduler")
 		c.streamMetadata(stream)
 		select {
 		case <-c.srvContext.Done():
