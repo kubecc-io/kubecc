@@ -2,12 +2,14 @@ package metrics
 
 import (
 	"context"
+	"errors"
+	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/tinylib/msgp/msgp"
@@ -77,8 +79,65 @@ const (
 )
 
 type changeListener struct {
+	ctx            context.Context
 	expiredHandler func() RetryOptions
+	handler        reflect.Value
 	ehMutex        *sync.Mutex
+	monClient      types.ExternalMonitorClient
+	key            *types.Key
+	argType        reflect.Type
+}
+
+func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
+	lg := meta.Log(cl.ctx)
+	for {
+		realType := reflect.New(cl.argType)
+		rawData := &types.Value{}
+		err := stream.RecvMsg(rawData)
+		if errors.Is(err, io.EOF) {
+			lg.Debug(err)
+			return nil
+		}
+		switch status.Code(err) {
+		case codes.OK:
+			if decodable, ok := realType.Interface().(msgp.Decodable); ok {
+				err = tools.DecodeMsgp(rawData.Data, decodable)
+				if err != nil {
+					lg.With(zap.Error(err)).Error("Error decoding value")
+					return err
+				}
+				cl.handler.Call([]reflect.Value{realType})
+			} else {
+				return status.Error(codes.InvalidArgument, "Type is not msgp.Decodable")
+			}
+		case codes.Aborted, codes.Unavailable:
+			cl.ehMutex.Lock()
+			if cl.expiredHandler != nil {
+				retryOp := cl.expiredHandler()
+				if retryOp == Retry {
+					cl.ehMutex.Unlock()
+					return err
+				}
+			}
+			cl.ehMutex.Unlock()
+			return nil
+		default:
+			lg.With(
+				zap.Error(err),
+				zap.String("bucket", cl.key.Bucket),
+				zap.String("key", cl.key.Name),
+			).Warn("Error watching key, retrying")
+			return err
+		}
+	}
+}
+
+func (s *changeListener) TryConnect() (grpc.ClientStream, error) {
+	return s.monClient.Listen(s.ctx, s.key)
+}
+
+func (s *changeListener) Target() string {
+	return "monitor"
 }
 
 func (c *changeListener) OrExpired(handler func() RetryOptions) {
@@ -105,77 +164,19 @@ func (l *Listener) OnValueChanged(
 	bucket string,
 	handler interface{}, // func(type)
 ) *changeListener {
-	valueType, funcValue := handlerArgType(handler)
-	keyName := valueType.Name()
+	argType, funcValue := handlerArgType(handler)
 	cl := &changeListener{
-		ehMutex: &sync.Mutex{},
+		ctx:       l.ctx,
+		handler:   funcValue,
+		argType:   argType,
+		ehMutex:   &sync.Mutex{},
+		monClient: l.monClient,
+		key: &types.Key{
+			Bucket: bucket,
+			Name:   argType.Name(),
+		},
 	}
-	go func() {
-		for {
-			stream, err := l.monClient.Listen(l.ctx, &types.Key{
-				Bucket: bucket,
-				Name:   keyName,
-			}, grpc.WaitForReady(true))
-			if err != nil {
-				l.lg.With(
-					zap.Error(err),
-					zap.String("bucket", bucket),
-					zap.String("key", keyName),
-				).Warn("Error watching key, retrying in 1 second...")
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			for {
-				untyped, err := stream.Recv()
-				switch status.Code(err) {
-				case codes.OK:
-					val := reflect.New(valueType)
-					typed := val.Interface().(msgp.Decodable)
-					err = tools.DecodeMsgp(untyped.Data, typed)
-					if err != nil {
-						l.lg.With(zap.Error(err)).Error("Error decoding value")
-						continue
-					}
-					funcValue.Call([]reflect.Value{val})
-				case codes.Aborted, codes.Unavailable:
-					cl.ehMutex.Lock()
-					if cl.expiredHandler != nil {
-						retryOp := cl.expiredHandler()
-						if retryOp == Retry {
-							cl.ehMutex.Unlock()
-							goto retry
-						}
-					}
-					cl.ehMutex.Unlock()
-					if err := stream.CloseSend(); err != nil {
-						l.lg.Error(err)
-					}
-					return
-				case codes.InvalidArgument:
-					l.lg.With(
-						zap.Error(err),
-						zap.String("bucket", bucket),
-						zap.String("key", keyName),
-					).Error("Error watching key")
-					if err := stream.CloseSend(); err != nil {
-						l.lg.Error(err)
-					}
-					return
-				default:
-					l.lg.With(
-						zap.Error(err),
-						zap.String("bucket", bucket),
-						zap.String("key", keyName),
-					).Warn("Error watching key, retrying in 1 second...")
-					time.Sleep(1 * time.Second)
-					goto retry
-				}
-			}
-		retry:
-			if err := stream.CloseSend(); err != nil {
-				l.lg.Error(err)
-			}
-		}
-	}()
+	mgr := servers.NewStreamManager(l.ctx, cl)
+	go mgr.Run()
 	return cl
 }
