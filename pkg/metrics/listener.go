@@ -147,6 +147,9 @@ func (l *Listener) OnValueChanged(
 						}
 					}
 					cl.ehMutex.Unlock()
+					if err := stream.CloseSend(); err != nil {
+						l.lg.Error(err)
+					}
 					return
 				case codes.InvalidArgument:
 					l.lg.With(
@@ -154,6 +157,9 @@ func (l *Listener) OnValueChanged(
 						zap.String("bucket", bucket),
 						zap.String("key", keyName),
 					).Error("Error watching key")
+					if err := stream.CloseSend(); err != nil {
+						l.lg.Error(err)
+					}
 					return
 				default:
 					l.lg.With(
@@ -166,6 +172,9 @@ func (l *Listener) OnValueChanged(
 				}
 			}
 		retry:
+			if err := stream.CloseSend(); err != nil {
+				l.lg.Error(err)
+			}
 		}
 	}()
 	return cl

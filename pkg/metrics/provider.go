@@ -2,6 +2,8 @@ package metrics
 
 import (
 	"context"
+	"errors"
+	"io"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -69,6 +71,9 @@ func (p *Provider) HandleStream(stream grpc.ClientStream) error {
 				},
 			})
 			if err != nil {
+				if errors.Is(err, io.EOF) {
+					err = stream.RecvMsg(nil)
+				}
 				p.lg.With(
 					zap.Error(err),
 					zap.String("key", key.Canonical()),
@@ -76,7 +81,7 @@ func (p *Provider) HandleStream(stream grpc.ClientStream) error {
 				return err
 			}
 		case <-stream.Context().Done():
-			return nil
+			return stream.RecvMsg(nil)
 		case <-p.ctx.Done():
 			return nil
 		}

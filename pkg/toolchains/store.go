@@ -143,32 +143,36 @@ func (s *Store) Remove(tc *types.Toolchain) {
 	delete(s.toolchains, tc.Executable)
 }
 
-func (s *Store) UpdateIfNeeded(tc *types.Toolchain) error {
-	s.tcMutex.RLock()
+func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
+	s.tcMutex.Lock()
+	defer s.tcMutex.Unlock()
 
 	data := s.toolchains[tc.Executable]
 	timestamp, err := data.querier.ModTime(tc.Executable)
 	var pathError *fs.PathError
 	if errors.Is(err, pathError) {
 		// Executable no longer exists; remove toolchain
-		s.tcMutex.RUnlock()
-		s.Remove(tc)
-		return err
+		delete(s.toolchains, tc.Executable)
+		return err, true
 	}
-
-	defer s.tcMutex.RUnlock()
 
 	if timestamp != data.modTime {
 		err := fillInfo(tc, data.querier)
 		if err != nil {
 			// Toolchain became invalid
-			return err
+			return err, true
 		}
+		// Updated successfully
+		return nil, true
 	}
-	return nil
+
+	return nil, false
 }
 
 func (s *Store) Merge(other *Store) {
+	other.tcMutex.RLock()
+	defer other.tcMutex.RUnlock()
+
 	for tc := range other.Items() {
 		if s.Contains(tc.Executable) {
 			continue

@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
@@ -204,9 +206,17 @@ func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 		},
 	})
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return stream.RecvMsg(nil)
+		}
 		return err
 	}
-	return <-servers.EmptyServerStreamDone(s.srvContext, stream)
+	select {
+	case err := <-servers.EmptyServerStreamDone(s.srvContext, stream):
+		return err
+	case <-s.srvContext.Done():
+		return nil
+	}
 	// errCh := make(chan error, 1)
 	// go func() {
 	// 	for {
