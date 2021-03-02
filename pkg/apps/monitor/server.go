@@ -2,6 +2,8 @@ package monitor
 
 import (
 	"context"
+	"errors"
+	"io"
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -106,7 +108,11 @@ func (m *MonitorServer) Stream(
 	for {
 		metric, err := srv.Recv()
 		if err != nil {
-			m.lg.Error(err)
+			if errors.Is(err, io.EOF) {
+				m.lg.Debug(err)
+			} else {
+				m.lg.Error(err)
+			}
 			break
 		}
 		err = m.post(metric)
@@ -221,7 +227,7 @@ func (m *MonitorServer) Listen(
 	bucket, ok := m.buckets[key.Bucket]
 	if !ok {
 		m.bucketMutex.RUnlock()
-		return status.Error(codes.InvalidArgument, "No such bucket")
+		return status.Error(codes.FailedPrecondition, "No such bucket")
 	} else {
 		bucketCtx = bucket.Context()
 	}
@@ -243,6 +249,7 @@ func (m *MonitorServer) Listen(
 			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 		}
 	}
+	m.notifyStoreMeta()
 
 	m.bucketMutex.RUnlock()
 

@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,7 +40,11 @@ func UpdateIfNeeded(
 			}
 			err := rc.Client.Update(rc.Context, source)
 			if err != nil {
-				rc.Log.Error(err)
+				if errors.IsConflict(err) {
+					rc.Log.Debug(err)
+				} else {
+					rc.Log.Error(err)
+				}
 				return RequeueWithErr(err)
 			}
 			return Requeue()

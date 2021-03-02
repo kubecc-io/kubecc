@@ -3,7 +3,6 @@ package consumerd
 import (
 	"context"
 	"io/fs"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/host"
@@ -15,7 +14,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -97,7 +95,14 @@ func NewConsumerdServer(
 	options.Apply(opts...)
 
 	if options.usageLimits == nil {
-		options.usageLimits = host.DefaultUsageLimits()
+		options.usageLimits = &types.UsageLimits{
+			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
+			QueuePressureMultiplier: 1,
+			QueueRejectMultiplier:   1,
+		}
+	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit =
+			host.AutoConcurrentProcessLimit()
 	}
 
 	runStore := run.NewToolchainRunnerStore()
@@ -111,8 +116,7 @@ func NewConsumerdServer(
 		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
-		remoteOnly:     viper.GetBool("remoteOnly"),
-		storeUpdateCh:  make(chan struct{}),
+		storeUpdateCh:  make(chan struct{}, 1),
 	}
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
@@ -132,6 +136,18 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
 	}
 	tc, err := c.tcStore.Find(path)
+	defer func(r *types.RunRequest) {
+		r.Compiler = &types.RunRequest_Toolchain{
+			Toolchain: tc,
+		}
+	}(req)
+	sendUpdate := func() {
+		select {
+		case c.storeUpdateCh <- struct{}{}:
+		default:
+		}
+	}
+
 	if err != nil {
 		// Add a new toolchain
 		c.lg.Info("Consumer sent unknown toolchain; attempting to add it")
@@ -141,8 +157,17 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 			return status.Error(codes.InvalidArgument,
 				errors.WithMessage(err, "Could not add toolchain").Error())
 		}
+		defer sendUpdate()
 		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
-	} else if err := c.tcStore.UpdateIfNeeded(tc); err != nil {
+		return nil
+	}
+
+	// err and updated are independent
+	err, updated := c.tcStore.UpdateIfNeeded(tc)
+	if updated {
+		defer sendUpdate()
+	}
+	if err != nil {
 		// The toolchain was updated and is no longer valid
 		c.lg.With(
 			"compiler", tc.Executable,
@@ -154,9 +179,6 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		}
 		return status.Error(codes.InvalidArgument,
 			errors.WithMessage(err, "Toolchain is no longer valid").Error())
-	}
-	req.Compiler = &types.RunRequest_Toolchain{
-		Toolchain: tc,
 	}
 	return nil
 }
@@ -174,6 +196,7 @@ func (c *consumerdServer) Run(
 	if err != nil {
 		return nil, err
 	}
+	// todo
 	// rootContext := tracing.ContextWithTracer(ctx, tracer)
 	// for _, env := range req.Env {
 	// 	spl := strings.Split(env, "=")
@@ -240,74 +263,41 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) ConnectToRemote() {
-	addr := viper.GetString("schedulerAddress")
-	if addr == "" {
-		c.lg.Debug("Remote compilation unavailable: scheduler address not configured")
-		return
-	}
-	cc, err := servers.Dial(c.srvContext, addr,
-		servers.WithTLS(viper.GetBool("tls")))
-	if err != nil {
-		c.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
-	} else {
-		c.connection = cc
-		c.schedulerClient = types.NewSchedulerClient(cc)
-	}
-}
-
-func (c *consumerdServer) streamMetadata(
-	srv types.Scheduler_ConnectConsumerdClient,
-) {
-	go func() {
-		for {
-			select {
-			case <-srv.Context().Done():
-				return
-			case <-c.storeUpdateCh:
-				copiedItems := []*types.Toolchain{}
-				for tc := range c.tcStore.Items() {
-					copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
-				}
-				err := srv.Send(&types.Metadata{
-					Toolchains: &types.Toolchains{
-						Items: copiedItems,
-					},
-				})
-				if err != nil {
-					c.lg.With(
-						zap.Error(err),
-					).Error("Error sending updated toolchains to scheduler")
-					return
-				}
-			}
-		}
-	}()
-	c.storeUpdateCh <- struct{}{}
-}
-
-func (c *consumerdServer) RunSchedulerClient() {
-	if c.schedulerClient == nil {
-		// Errors should already have shown up elsewhere
-		c.lg.Debug("Not running scheduler client since it is unconfigured")
-		return
+func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+	select {
+	case c.storeUpdateCh <- struct{}{}:
+	default:
 	}
 	for {
-		stream, err := c.schedulerClient.ConnectConsumerd(
-			c.srvContext, grpc.WaitForReady(true))
-		if err != nil {
-			c.lg.With(
-				zap.Error(err),
-			).Error("Error connecting to the scheduler, retrying in 5 seconds...")
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		c.streamMetadata(stream)
 		select {
+		case <-c.storeUpdateCh:
+			copiedItems := []*types.Toolchain{}
+			for tc := range c.tcStore.Items() {
+				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
+			}
+			err := stream.SendMsg(&types.Metadata{
+				Toolchains: &types.Toolchains{
+					Items: copiedItems,
+				},
+			})
+			if err != nil {
+				c.lg.With(
+					zap.Error(err),
+				).Error("Error sending updated toolchains to scheduler")
+				return err
+			}
+		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
+			return err
 		case <-c.srvContext.Done():
-		case <-stream.Context().Done():
+			return nil
 		}
-		c.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-		time.Sleep(5 * time.Second)
 	}
+}
+
+func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
+	return c.schedulerClient.ConnectConsumerd(c.srvContext)
+}
+
+func (c *consumerdServer) Target() string {
+	return "scheduler"
 }

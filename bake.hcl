@@ -1,14 +1,5 @@
 group "default" {
-  targets = ["agent", "manager", "scheduler"]
-}
-
-target "agent" {
-  dockerfile = "images/agent/Dockerfile"
-  tags = ["gcr.io/kubecc/agent"]
-  platforms = ["linux/amd64"]
-  context = "."
-  cache-from = ["type=local,src=build/cache/agent"]
-  cache-to = ["type=local,dest=build/cache/agent"]
+  targets = ["manager", "kubecc", "environment"]
 }
 
 target "manager" {
@@ -20,20 +11,20 @@ target "manager" {
   cache-to = ["type=local,dest=build/cache/manager"]
 }
 
-target "scheduler" {
-  dockerfile = "images/scheduler/Dockerfile"
-  tags = ["gcr.io/kubecc/scheduler"]
+target "kubecc" {
+  dockerfile = "images/kubecc/Dockerfile"
+  tags = ["gcr.io/kubecc/kubecc"]
   platforms = ["linux/amd64"]
   context = "."
-  cache-from = ["type=local,src=build/cache/scheduler"]
-  cache-to = ["type=local,dest=build/cache/scheduler"]
+  cache-from = ["type=local,src=build/cache/kubecc"]
+  cache-to = ["type=local,dest=build/cache/kubecc"]
 }
 
-target "monitor" {
-  dockerfile = "images/monitor/Dockerfile"
-  tags = ["gcr.io/kubecc/monitor"]
+target "kubecc" {
+  dockerfile = "images/environment/Dockerfile"
+  tags = ["gcr.io/kubecc/environment"]
   platforms = ["linux/amd64"]
   context = "."
-  cache-from = ["type=local,src=build/cache/monitor"]
-  cache-to = ["type=local,dest=build/cache/monitor"]
+  cache-from = ["type=local,src=build/cache/environment"]
+  cache-to = ["type=local,dest=build/cache/environment"]
 }

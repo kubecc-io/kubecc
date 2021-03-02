@@ -11,7 +11,8 @@ configMapGenerator:
 - files:
   - templates/agent_daemonset.yaml
   - templates/agent_service.yaml
-  - templates/scheduler_configmap.yaml
+  - templates/monitor_deployment.yaml
+  - templates/monitor_service.yaml
   - templates/scheduler_deployment.yaml
   - templates/scheduler_service.yaml
   name: templates

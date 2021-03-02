@@ -58,11 +58,13 @@ func (s *schedulerServer) ConnectAgent(
 	srv types.Scheduler_ConnectAgentServer,
 ) error {
 	if err := meta.CheckContext(srv.Context()); err != nil {
+		s.lg.Error(err)
 		return err
 	}
 	lg := s.lg
 	ctx := srv.Context()
 	if err := s.scheduler.AgentConnected(ctx); err != nil {
+		s.lg.Error(err)
 		return err
 	}
 

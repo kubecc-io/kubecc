@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -28,6 +29,7 @@ type Listener struct {
 func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
 	listener := &Listener{
 		ctx:            ctx,
+		lg:             meta.Log(ctx),
 		monClient:      client,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},
@@ -145,6 +147,9 @@ func (l *Listener) OnValueChanged(
 						}
 					}
 					cl.ehMutex.Unlock()
+					if err := stream.CloseSend(); err != nil {
+						l.lg.Error(err)
+					}
 					return
 				case codes.InvalidArgument:
 					l.lg.With(
@@ -152,6 +157,9 @@ func (l *Listener) OnValueChanged(
 						zap.String("bucket", bucket),
 						zap.String("key", keyName),
 					).Error("Error watching key")
+					if err := stream.CloseSend(); err != nil {
+						l.lg.Error(err)
+					}
 					return
 				default:
 					l.lg.With(
@@ -164,6 +172,9 @@ func (l *Listener) OnValueChanged(
 				}
 			}
 		retry:
+			if err := stream.CloseSend(); err != nil {
+				l.lg.Error(err)
+			}
 		}
 	}()
 	return cl

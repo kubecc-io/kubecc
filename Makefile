@@ -81,47 +81,35 @@ generate:
 
 
 # Build binaries
-.PHONY: bin agent scheduler manager make kcctl consumer consumerd monitor
-bin: agent scheduler manager make kcctl consumer consumerd monitor
+.PHONY: bin kubecc kcctl manager consumer make
+bin: kubecc kcctl manager consumer make
 
-agent:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/agent ./cmd/agent
-
-scheduler:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/scheduler ./cmd/scheduler
-
-manager:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/manager
-
-make:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/make ./cmd/make
+kubecc:
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/kubecc ./cmd/kubecc
 
 kcctl:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/kcctl ./cmd/kcctl
 
+manager:
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/manager
+
 consumer:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumer ./cmd/consumer
 
-consumerd:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumerd ./cmd/consumerd
-
-monitor:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/monitor ./cmd/monitor
+make:
+	CGO_ENABLED=0 $(GO) build -o ./build/bin/make ./cmd/make
 
 
 # Build container images
-.PHONY: agent-docker scheduler-docker manager-docker monitor-docker docker
-agent-docker:
-	docker buildx bake -f bake.hcl agent --push
-
-scheduler-docker:
-	docker buildx bake -f bake.hcl scheduler --push
-
-manager-docker:
+.PHONY: docker-manager docker-kubecc docker-environment docker
+docker-manager:
 	docker buildx bake -f bake.hcl manager --push
 
-monitor-docker:
-	docker buildx bake -f bake.hcl monitor --push
+docker-kubecc:
+	docker buildx bake -f bake.hcl kubecc --push
+
+docker-environment:
+	docker buildx bake -f bake.hcl environment --push
 
 docker: 
 	docker buildx bake -f bake.hcl --push

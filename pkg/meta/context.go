@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -75,7 +76,7 @@ func NewContext(providers ...providerInitInfo) Context {
 }
 
 func CheckContext(ctx context.Context) error {
-	if _, ok := ctx.(Context); !ok {
+	if ctx.Value(mdkeys.ComponentKey) == nil || ctx.Value(mdkeys.UUIDKey) == nil {
 		return status.Error(codes.InvalidArgument,
 			"Context is not a meta.Context (are you using the correct interceptors?)")
 	}
