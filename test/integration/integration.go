@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"sync"
 
@@ -22,7 +21,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -108,8 +106,8 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 		agent.WithToolchainRunners(testtoolchain.AddToStore),
 	)
 	types.RegisterAgentServer(srv, agentSrv)
-
-	go agentSrv.RunSchedulerClient()
+	mgr := servers.NewStreamManager(ctx, agentSrv)
+	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
 	go func() {
 		if err := srv.Serve(listener); err != nil {
@@ -210,7 +208,8 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 	)
 	types.RegisterConsumerdServer(srv, d)
 
-	go d.RunSchedulerClient()
+	mgr := servers.NewStreamManager(ctx, d)
+	go mgr.Run()
 
 	cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)
@@ -231,18 +230,12 @@ func (tc *TestController) Start(ops TestOptions) {
 	tc.agentListenersLock.Lock()
 	defer tc.agentListenersLock.Unlock()
 
-	viper.Set("remoteOnly", "false")
-	viper.Set("arch", "amd64")
-	viper.Set("namespace", "test-namespace")
-
 	tracer, _ := tracing.Start(tc.ctx, types.TestComponent)
 	opentracing.SetGlobalTracer(tracer)
 
 	tc.startScheduler()
 	tc.startMonitor()
-	for i, cfg := range ops.Agents {
-		viper.Set("node", fmt.Sprintf("test-node-%d", i))
-		viper.Set("pod", fmt.Sprintf("test-pod-%d", i))
+	for _, cfg := range ops.Agents {
 		tc.startAgent(cfg)
 	}
 	for _, cfg := range ops.Clients {

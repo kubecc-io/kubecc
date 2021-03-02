@@ -2,11 +2,11 @@ package agent
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -101,7 +101,14 @@ func NewAgentServer(
 	}
 
 	if options.usageLimits == nil {
-		options.usageLimits = host.DefaultUsageLimits()
+		options.usageLimits = &types.UsageLimits{
+			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
+			QueuePressureMultiplier: 1,
+			QueueRejectMultiplier:   1,
+		}
+	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit =
+			host.AutoConcurrentProcessLimit()
 	}
 
 	srv := &AgentServer{
@@ -182,54 +189,6 @@ func (s *AgentServer) StartMetricsProvider() {
 	}()
 }
 
-func (s *AgentServer) RunSchedulerClient() {
-	if s.schedulerClient == nil {
-		cc, err := grpc.Dial(
-			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
-				cluster.GetNamespace()),
-			grpc.WithInsecure())
-		if err != nil {
-			s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
-		}
-		s.schedulerClient = types.NewSchedulerClient(cc)
-	}
-
-	for {
-		s.lg.Info("Starting connection to the scheduler")
-		stream, err := s.schedulerClient.ConnectAgent(
-			s.srvContext, grpc.WaitForReady(true))
-		if err != nil {
-			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
-			time.Sleep(5 * time.Second)
-		}
-		err = stream.Send(&types.Metadata{
-			Toolchains: &types.Toolchains{
-				Items: s.tcStore.ItemsList(),
-			},
-		})
-		if err != nil {
-			s.lg.Error(err)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
-
-		streamClosed := make(chan error)
-		go func() {
-			for {
-				_, err := stream.Recv()
-				streamClosed <- err
-				close(streamClosed)
-				return
-			}
-		}()
-
-		<-streamClosed
-		s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-		time.Sleep(5 * time.Second)
-	}
-}
-
 func (s *AgentServer) SetUsageLimits(
 	ctx context.Context,
 	usageLimits *types.UsageLimits,
@@ -238,4 +197,55 @@ func (s *AgentServer) SetUsageLimits(
 	s.usageLimits = usageLimits
 	s.postQueueParams()
 	return &types.Empty{}, nil
+}
+
+func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
+	err := stream.SendMsg(&types.Metadata{
+		Toolchains: &types.Toolchains{
+			Items: s.tcStore.ItemsList(),
+		},
+	})
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return stream.RecvMsg(nil)
+		}
+		return err
+	}
+	select {
+	case err := <-servers.EmptyServerStreamDone(s.srvContext, stream):
+		return err
+	case <-s.srvContext.Done():
+		return nil
+	}
+	// errCh := make(chan error, 1)
+	// go func() {
+	// 	for {
+	// 		empty := &types.Empty{}
+	// 		err := stream.RecvMsg(empty)
+	// 		if err != nil {
+	// 			if errors.Is(err, io.EOF) {
+	// 				s.lg.Debug(err)
+	// 			} else {
+	// 				s.lg.Error(err)
+	// 			}
+	// 			errCh <- err
+	// 			return
+	// 		}
+	// 	}
+	// }()
+	// select {
+	// case <-stream.Context().Done():
+	// case <-s.srvContext.Done():
+	// case err := <-errCh:
+	// 	return err
+	// }
+	// return <-errCh
+}
+
+func (s *AgentServer) TryConnect() (grpc.ClientStream, error) {
+	return s.schedulerClient.ConnectAgent(s.srvContext)
+}
+
+func (s *AgentServer) Target() string {
+	return "scheduler"
 }

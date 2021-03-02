@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -30,17 +27,12 @@ var listenCmd = &cobra.Command{
 	Short: "Display the real-time value of a key in the monitor's key-value store",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cc, err := servers.Dial(cliContext, address)
+		cc, err := servers.Dial(cliContext, address, servers.WithTLS(true))
 		if err != nil {
 			cliLog.Fatal(err)
 		}
-		ctx := meta.NewContext(
-			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
-			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.Logger),
-		)
 		client := types.NewExternalMonitorClient(cc)
-		listener := metrics.NewListener(ctx, client)
+		listener := metrics.NewListener(cliContext, client)
 		tb := &ui.TextBox{}
 
 		listener.OnValueChanged(mmeta.Bucket, func(contents *mmeta.StoreContents) {
@@ -77,6 +69,6 @@ func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.AddCommand(listenCmd)
 
-	monitorCmd.Flags().StringVarP(&address, "address", "a", "127.0.0.1:9960",
+	monitorCmd.PersistentFlags().StringVarP(&address, "address", "a", "",
 		"Address to use to connect to the monitor (ip:port)")
 }

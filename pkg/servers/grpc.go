@@ -2,15 +2,20 @@ package servers
 
 import (
 	"context"
-	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"strings"
 
 	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
+	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tracing"
+	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding/gzip"
 
@@ -69,6 +74,20 @@ func NewServer(ctx meta.Context, opts ...grpcOption) *grpc.Server {
 	)
 }
 
+func DialService(
+	ctx context.Context,
+	component types.Component,
+	port int,
+	opts ...grpcOption,
+) (*grpc.ClientConn, error) {
+	addr := fmt.Sprintf("kubecc-%s.%s.svc.cluster.local:%d",
+		strings.ToLower(component.Name()),
+		cluster.GetNamespace(),
+		port,
+	)
+	return Dial(ctx, addr, opts...)
+}
+
 func Dial(
 	ctx context.Context,
 	target string,
@@ -93,12 +112,13 @@ func Dial(
 		),
 	}, options.dialOptions...)
 	if options.tls {
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			meta.Log(ctx).With(zap.Error(err)).Fatal("Error reading system cert pool")
+		}
 		dialOpts = append(dialOpts,
-			grpc.WithTransportCredentials(credentials.NewTLS(
-				&tls.Config{
-					InsecureSkipVerify: false,
-				},
-			)))
+			grpc.WithTransportCredentials(
+				credentials.NewClientTLSFromCert(pool, "")))
 	} else {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	}

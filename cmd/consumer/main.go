@@ -1,17 +1,14 @@
 package main
 
 import (
-	"fmt"
-
-	internal "github.com/cobalt77/kubecc/internal/consumer"
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumer"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +16,7 @@ var lg *zap.SugaredLogger
 
 func main() {
 	ctx := meta.NewContext(
-		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
+		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Consumer,
@@ -31,11 +28,9 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	logkc.PrintHeader()
-	internal.InitConfig()
+	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Consumer
 
-	cc, err := servers.Dial(
-		ctx, fmt.Sprintf("127.0.0.1:%d", viper.GetInt("port")))
+	cc, err := servers.Dial(ctx, conf.ConsumerdAddress)
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error connecting to leader")
 	}
