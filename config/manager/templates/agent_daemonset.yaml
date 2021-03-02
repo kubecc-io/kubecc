@@ -16,6 +16,16 @@ spec:
         nodeAffinity:
 {{ .Spec.NodeAffinity | toYaml | indent 10 }}
 {{ end }}
+      initContainers:
+        - name: copy-binaries
+          image: gcr.io/kubecc/kubecc
+          command:
+            - sh
+            - -c
+            - "cp /kubecc /tmp/kubecc-bin"
+          volumeMounts:
+            - name: kubecc-binary
+              mountPath: /tmp/kubecc-bin
       containers:
         - name: kubecc-agent
           image: {{ .Spec.Image }}
@@ -41,3 +51,10 @@ spec:
             - name: grpc
               containerPort: 9090
               protocol: TCP
+          volumeMounts:
+            - name: kubecc-binary
+              mountPath: /usr/bin/kubecc
+              subPath: kubecc
+      volumes:
+        - name: kubecc-binary
+          emptyDir: {}
