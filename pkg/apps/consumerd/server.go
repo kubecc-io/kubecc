@@ -92,6 +92,7 @@ func NewConsumerdServer(
 			},
 		},
 	}
+	options.Apply(opts...)
 
 	if options.usageLimits == nil {
 		options.usageLimits = &types.UsageLimits{
@@ -281,11 +282,8 @@ func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
 		return err
 	}
 	c.streamMetadata(stream)
-	select {
-	case <-stream.Context().Done():
-	case <-c.srvContext.Done():
-	}
-	return nil
+
+	return <-servers.EmptyServerStreamDone(c.srvContext, stream)
 }
 
 func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
