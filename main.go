@@ -96,18 +96,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.ToolchainReconciler{
-		Client: mgr.GetClient(),
-		Log:    lg.Named("Toolchain"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		lg.With(zap.Error(err)).Error("unable to create controller", "controller", "Toolchain")
-		os.Exit(1)
-	}
 	if err = (&controllers.BuildClusterReconciler{
-		Client: mgr.GetClient(),
-		Log:    lg.Named("BuildCluster"),
-		Scheme: mgr.GetScheme(),
+		Context: mctx,
+		Client:  mgr.GetClient(),
+		Log:     lg.Named("BuildCluster"),
+		Scheme:  mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		lg.With(zap.Error(err)).Error("unable to create controller", "controller", "BuildCluster")
 		os.Exit(1)
