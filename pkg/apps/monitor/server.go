@@ -2,6 +2,8 @@ package monitor
 
 import (
 	"context"
+	"errors"
+	"io"
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -106,7 +108,11 @@ func (m *MonitorServer) Stream(
 	for {
 		metric, err := srv.Recv()
 		if err != nil {
-			m.lg.Error(err)
+			if errors.Is(err, io.EOF) {
+				m.lg.Debug(err)
+			} else {
+				m.lg.Error(err)
+			}
 			break
 		}
 		err = m.post(metric)

@@ -90,6 +90,9 @@ func (cm *StreamManager) Run() {
 					zap.String("target", cm.handler.Target()),
 				).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
 				<-cm.backoffMgr.Backoff().C()
+			} else {
+				lg.Debug("Stream finished")
+				return
 			}
 		}
 	}

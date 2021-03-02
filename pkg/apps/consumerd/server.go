@@ -116,7 +116,7 @@ func NewConsumerdServer(
 		tcRunStore:     runStore,
 		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 		remoteExecutor: run.NewUnqueuedExecutor(),
-		storeUpdateCh:  make(chan struct{}),
+		storeUpdateCh:  make(chan struct{}, 1),
 	}
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
@@ -136,6 +136,18 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
 	}
 	tc, err := c.tcStore.Find(path)
+	defer func(r *types.RunRequest) {
+		r.Compiler = &types.RunRequest_Toolchain{
+			Toolchain: tc,
+		}
+	}(req)
+	sendUpdate := func() {
+		select {
+		case c.storeUpdateCh <- struct{}{}:
+		default:
+		}
+	}
+
 	if err != nil {
 		// Add a new toolchain
 		c.lg.Info("Consumer sent unknown toolchain; attempting to add it")
@@ -145,8 +157,17 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 			return status.Error(codes.InvalidArgument,
 				errors.WithMessage(err, "Could not add toolchain").Error())
 		}
+		defer sendUpdate()
 		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
-	} else if err := c.tcStore.UpdateIfNeeded(tc); err != nil {
+		return nil
+	}
+
+	// err and updated are independent
+	err, updated := c.tcStore.UpdateIfNeeded(tc)
+	if updated {
+		defer sendUpdate()
+	}
+	if err != nil {
 		// The toolchain was updated and is no longer valid
 		c.lg.With(
 			"compiler", tc.Executable,
@@ -158,9 +179,6 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		}
 		return status.Error(codes.InvalidArgument,
 			errors.WithMessage(err, "Toolchain is no longer valid").Error())
-	}
-	req.Compiler = &types.RunRequest_Toolchain{
-		Toolchain: tc,
 	}
 	return nil
 }
@@ -178,6 +196,7 @@ func (c *consumerdServer) Run(
 	if err != nil {
 		return nil, err
 	}
+	// todo
 	// rootContext := tracing.ContextWithTracer(ctx, tracer)
 	// for _, env := range req.Env {
 	// 	spl := strings.Split(env, "=")
@@ -244,46 +263,35 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) streamMetadata(srv grpc.ClientStream) {
-	go func() {
-		for {
-			select {
-			case <-srv.Context().Done():
-				return
-			case <-c.storeUpdateCh:
-				copiedItems := []*types.Toolchain{}
-				for tc := range c.tcStore.Items() {
-					copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
-				}
-				err := srv.SendMsg(&types.Metadata{
-					Toolchains: &types.Toolchains{
-						Items: copiedItems,
-					},
-				})
-				if err != nil {
-					c.lg.With(
-						zap.Error(err),
-					).Error("Error sending updated toolchains to scheduler")
-					return
-				}
-			}
-		}
-	}()
-	c.storeUpdateCh <- struct{}{}
-}
-
 func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
-	err := stream.SendMsg(&types.Metadata{
-		Toolchains: &types.Toolchains{
-			Items: c.tcStore.ItemsList(),
-		},
-	})
-	if err != nil {
-		return err
+	select {
+	case c.storeUpdateCh <- struct{}{}:
+	default:
 	}
-	c.streamMetadata(stream)
-
-	return <-servers.EmptyServerStreamDone(c.srvContext, stream)
+	for {
+		select {
+		case <-c.storeUpdateCh:
+			copiedItems := []*types.Toolchain{}
+			for tc := range c.tcStore.Items() {
+				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
+			}
+			err := stream.SendMsg(&types.Metadata{
+				Toolchains: &types.Toolchains{
+					Items: copiedItems,
+				},
+			})
+			if err != nil {
+				c.lg.With(
+					zap.Error(err),
+				).Error("Error sending updated toolchains to scheduler")
+				return err
+			}
+		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
+			return err
+		case <-c.srvContext.Done():
+			return nil
+		}
+	}
 }
 
 func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
