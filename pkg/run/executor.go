@@ -1,7 +1,8 @@
 package run
 
 import (
-	"github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/host"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 )
@@ -9,9 +10,9 @@ import (
 type ExecutorStatus int
 
 type Executor interface {
-	status.QueueParamsCompleter
-	status.TaskStatusCompleter
-	status.QueueStatusCompleter
+	common.QueueParamsCompleter
+	common.TaskStatusCompleter
+	common.QueueStatusCompleter
 	Exec(task *Task) error
 	Status() types.QueueStatus
 }
@@ -44,8 +45,16 @@ func WithUsageLimits(cfg *types.UsageLimits) ExecutorOption {
 func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options := ExecutorOptions{}
 	options.Apply(opts...)
+
 	if options.usageLimits == nil {
-		// options.usageLimits = host.AutoConcurrentProcessLimit()
+		options.usageLimits = &types.UsageLimits{
+			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
+			QueuePressureMultiplier: 1,
+			QueueRejectMultiplier:   1,
+		}
+	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit =
+			host.AutoConcurrentProcessLimit()
 	}
 
 	queue := make(chan *Task)
@@ -60,8 +69,10 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	return s
 }
 
-func NewUnqueuedExecutor() *UnqueuedExecutor {
-	return &UnqueuedExecutor{}
+func NewDelegatingExecutor() *DelegatingExecutor {
+	return &DelegatingExecutor{
+		numTasks: atomic.NewInt32(0),
+	}
 }
 
 func (x *QueuedExecutor) SetUsageLimits(cfg *types.UsageLimits) {
@@ -103,26 +114,33 @@ func (x *QueuedExecutor) Status() types.QueueStatus {
 	return types.QueueFull
 }
 
-func (x *QueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
+func (x *QueuedExecutor) CompleteQueueParams(stat *common.QueueParams) {
 	stat.ConcurrentProcessLimit = x.usageLimits.ConcurrentProcessLimit
 	stat.QueuePressureMultiplier = x.usageLimits.QueuePressureMultiplier
 	stat.QueueRejectMultiplier = x.usageLimits.QueueRejectMultiplier
 }
 
-func (x *QueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
-	stat.NumQueuedProcesses = x.numQueued.Load()
-	stat.NumRunningProcesses = x.numRunning.Load()
+func (x *QueuedExecutor) CompleteTaskStatus(stat *common.TaskStatus) {
+	stat.NumQueued = x.numQueued.Load()
+	stat.NumRunning = x.numRunning.Load()
 }
 
-func (x *QueuedExecutor) CompleteQueueStatus(stat *status.QueueStatus) {
+func (x *QueuedExecutor) CompleteQueueStatus(stat *common.QueueStatus) {
 	stat.QueueStatus = int32(x.Status())
 }
 
-// UnqueuedExecutor is an executor that does not run a worker pool,
+// DelegatingExecutor is an executor that does not run a worker pool,
 // runs all tasks as soon as possible, and is always available.
-type UnqueuedExecutor struct{}
+// It will report that all of its tasks are Delegated, and will not report
+// counts for queued or running tasks.
+type DelegatingExecutor struct {
+	numTasks *atomic.Int32
+}
 
-func (x *UnqueuedExecutor) Exec(task *Task) error {
+func (x *DelegatingExecutor) Exec(task *Task) error {
+	x.numTasks.Inc()
+	defer x.numTasks.Dec()
+
 	go task.Run()
 	select {
 	case <-task.Done():
@@ -131,21 +149,14 @@ func (x *UnqueuedExecutor) Exec(task *Task) error {
 	return task.Error()
 }
 
-func (x *UnqueuedExecutor) Status() types.QueueStatus {
+func (x *DelegatingExecutor) Status() types.QueueStatus {
 	return types.Available
 }
 
-func (x *UnqueuedExecutor) CompleteQueueParams(stat *status.QueueParams) {
-	stat.ConcurrentProcessLimit = 0
-	stat.QueuePressureMultiplier = 0
-	stat.QueueRejectMultiplier = 0
+func (x *DelegatingExecutor) CompleteQueueParams(stat *common.QueueParams) {}
+
+func (x *DelegatingExecutor) CompleteTaskStatus(stat *common.TaskStatus) {
+	stat.NumDelegated = x.numTasks.Load()
 }
 
-func (x *UnqueuedExecutor) CompleteTaskStatus(stat *status.TaskStatus) {
-	stat.NumQueuedProcesses = 0
-	stat.NumRunningProcesses = 0
-}
-
-func (x *UnqueuedExecutor) CompleteQueueStatus(stat *status.QueueStatus) {
-	stat.QueueStatus = int32(x.Status())
-}
+func (x *DelegatingExecutor) CompleteQueueStatus(stat *common.QueueStatus) {}

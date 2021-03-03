@@ -3,11 +3,14 @@ package scheduler
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
+	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/smallnest/weighted"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -40,9 +43,13 @@ type Scheduler struct {
 	w     weighted.W
 	wLock *sync.Mutex
 
-	agents sync.Map // map[string]*Agent
-	ctx    context.Context
-	lg     *zap.SugaredLogger
+	agents         sync.Map // map[string]*Agent
+	consumerds     sync.Map // map[string]*Consumerd
+	ctx            context.Context
+	lg             *zap.SugaredLogger
+	completedTasks *atomic.Int64
+	failedTasks    *atomic.Int64
+	requestCount   *atomic.Int64
 }
 
 type SchedulerOptions struct {
@@ -75,6 +82,9 @@ func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
 		wLock:            &sync.Mutex{},
 		ctx:              ctx,
 		lg:               meta.Log(ctx),
+		completedTasks:   atomic.NewInt64(0),
+		failedTasks:      atomic.NewInt64(0),
+		requestCount:     atomic.NewInt64(0),
 	}
 }
 
@@ -83,6 +93,7 @@ func (s *Scheduler) Schedule(
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
 	s.lg.Info("Scheduling")
+	s.requestCount.Inc()
 	for {
 		s.wLock.Lock()
 		next := s.w.Next()
@@ -92,7 +103,8 @@ func (s *Scheduler) Schedule(
 			// a weight of 0, which would result in none being chosen.
 			return nil, status.Error(codes.Unavailable, "No agents available")
 		}
-		agentClient := next.(*Agent).Client
+		agent := next.(*Agent)
+		agentClient := agent.Client
 		s.wLock.Unlock()
 		response, err := agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
 		if status.Code(err) == codes.Unavailable {
@@ -101,8 +113,11 @@ func (s *Scheduler) Schedule(
 		}
 		if err != nil {
 			s.lg.With(zap.Error(err)).Error("Error from agent")
+			s.failedTasks.Inc()
 			return nil, err
 		}
+		agent.CompletedTasks.Inc()
+		s.completedTasks.Inc()
 		return response, nil
 	}
 }
@@ -112,8 +127,16 @@ func (s *Scheduler) AgentIsConnected(a *Agent) bool {
 	return ok
 }
 
+func (s *Scheduler) ConsumerdIsConnected(c *Consumerd) bool {
+	_, ok := s.consumerds.Load(c.UUID)
+	return ok
+}
+
 func (s *Scheduler) AgentConnected(ctx context.Context) error {
-	agent := AgentFromContext(ctx)
+	agent := &Agent{
+		remoteInfo: remoteInfoFromContext(ctx),
+		RWMutex:    &sync.RWMutex{},
+	}
 	if s.AgentIsConnected(agent) {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
@@ -125,7 +148,7 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 	}
 
 	s.lg.With(
-		zap.String("agent", agent.UUID),
+		zap.String("uuid", agent.UUID),
 	).Info(types.Scheduler.Color().Add("Agent connected"))
 	s.agents.Store(agent.UUID, agent)
 
@@ -137,8 +160,31 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 		<-agent.Context.Done()
 		s.agents.Delete(agent.UUID)
 		s.lg.With(
-			zap.String("agent", agent.UUID),
+			zap.String("uuid", agent.UUID),
 		).Info(types.Scheduler.Color().Add("Agent disconnected"))
+	}()
+	return nil
+}
+
+func (s *Scheduler) ConsumerdConnected(ctx context.Context) error {
+	cd := &Consumerd{
+		remoteInfo: remoteInfoFromContext(ctx),
+		RWMutex:    &sync.RWMutex{},
+	}
+	if s.ConsumerdIsConnected(cd) {
+		return status.Error(codes.AlreadyExists, "Consumerd already connected")
+	}
+	s.lg.With(
+		zap.String("uuid", cd.UUID),
+	).Info(types.Scheduler.Color().Add("Consumerd connected"))
+	s.consumerds.Store(cd.UUID, cd)
+
+	go func() {
+		<-cd.Context.Done()
+		s.consumerds.Delete(cd.UUID)
+		s.lg.With(
+			zap.String("uuid", cd.UUID),
+		).Info(types.Scheduler.Color().Add("Consumerd disconnected"))
 	}()
 	return nil
 }
@@ -148,7 +194,10 @@ func (s *Scheduler) reweightAll() {
 	defer s.wLock.Unlock()
 	s.w.RemoveAll()
 	s.agents.Range(func(_, value interface{}) bool {
-		s.w.Add(value, int(value.(*Agent).Weight()))
+		a := value.(*Agent)
+		a.RLock()
+		defer a.RUnlock()
+		s.w.Add(value, int(a.Weight()))
 		return true
 	})
 }
@@ -156,7 +205,10 @@ func (s *Scheduler) reweightAll() {
 func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) error {
 	uuid := meta.UUID(ctx)
 	if agent, ok := s.agents.Load(uuid); ok {
-		agent.(*Agent).QueueStatus = stat
+		a := agent.(*Agent)
+		a.Lock()
+		a.QueueStatus = stat
+		a.Unlock()
 		s.reweightAll()
 	}
 	return nil
@@ -165,7 +217,107 @@ func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) 
 func (s *Scheduler) SetToolchains(ctx context.Context, tcs []*types.Toolchain) error {
 	uuid := meta.UUID(ctx)
 	if agent, ok := s.agents.Load(uuid); ok {
-		agent.(*Agent).Toolchains = tcs
+		a := agent.(*Agent)
+		a.Lock()
+		a.Toolchains = tcs
+		a.Unlock()
+	} else if consumerd, ok := s.consumerds.Load(uuid); ok {
+		cd := consumerd.(*Consumerd)
+		cd.Lock()
+		cd.Toolchains = tcs
+		cd.Unlock()
 	}
 	return nil
+}
+
+var float64Epsilon = 1e-6
+
+func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
+	stats := make(chan []agentStats)
+	go func() {
+		var min, max float64
+		statsList := []agentStats{}
+		s.agents.Range(func(key, value interface{}) bool {
+			agent := value.(*Agent)
+			agent.RLock()
+			defer agent.RUnlock()
+
+			stats := agentStats{
+				agentTasksTotal: &scmetrics.AgentTasksTotal{},
+				agentWeight:     &scmetrics.AgentWeight{},
+			}
+
+			stats.agentWeight.Hostname = agent.SystemInfo.Hostname
+			stats.agentWeight.UUID = agent.UUID
+			stats.agentTasksTotal.Total = agent.CompletedTasks.Load()
+			stats.agentTasksTotal.Identifier = stats.agentWeight.Identifier
+
+			w := float64(agent.Weight())
+			switch {
+			case len(statsList) == 0:
+				min = w
+				max = w
+			case w > max:
+				w = max
+			case w < min:
+				w = min
+			}
+
+			// Set the non-normalized weight here, adjust below
+			stats.agentWeight.Value = w
+			statsList = append(statsList, stats)
+			return true
+		})
+
+		// Normalize weights
+		for i, stat := range statsList {
+			if math.Abs(max-min) <= float64Epsilon {
+				// If max == min, set each weight to 1, they are all equal
+				statsList[i].agentWeight.Value = 1.0
+			} else {
+				statsList[i].agentWeight.Value =
+					(stat.agentWeight.Value - min) / (max - min)
+			}
+		}
+		stats <- statsList
+	}()
+	return stats
+}
+
+func (s *Scheduler) CalcConsumerdStats() <-chan []consumerdStats {
+	stats := make(chan []consumerdStats)
+	go func() {
+		statsList := []consumerdStats{}
+		s.consumerds.Range(func(key, value interface{}) bool {
+			cd := value.(*Consumerd)
+			cd.RLock()
+			defer cd.RUnlock()
+
+			total := &scmetrics.CdTasksTotal{
+				Total: cd.CompletedTasks.Load(),
+			}
+			total.Identifier.Hostname = cd.SystemInfo.Hostname
+			total.Identifier.UUID = cd.UUID
+			statsList = append(statsList, consumerdStats{
+				cdRemoteTasksTotal: total,
+			})
+			return true
+		})
+		stats <- statsList
+	}()
+	return stats
+}
+
+func (s *Scheduler) TaskStats() taskStats {
+	return taskStats{
+		completedTotal: &scmetrics.TasksCompletedTotal{
+			Total: s.completedTasks.Load(),
+		},
+		failedTotal: &scmetrics.TasksFailedTotal{
+			Total: s.failedTasks.Load(),
+		},
+		requestsTotal: &scmetrics.SchedulingRequestsTotal{
+			Total: s.requestCount.Load(),
+		},
+	}
 }

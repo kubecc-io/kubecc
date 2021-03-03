@@ -3,15 +3,20 @@ package consumerd
 import (
 	"context"
 	"io/fs"
+	"time"
 
+	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
+	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
 	"google.golang.org/grpc"
@@ -22,25 +27,29 @@ import (
 )
 
 type consumerdServer struct {
-	types.ConsumerdServer
+	types.UnimplementedConsumerdServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
-	tcRunStore      *run.ToolchainRunnerStore
-	tcStore         *toolchains.Store
-	storeUpdateCh   chan struct{}
-	schedulerClient types.SchedulerClient
-	connection      *grpc.ClientConn
-	localExecutor   run.Executor
-	remoteExecutor  run.Executor
-	remoteOnly      bool
+	tcRunStore          *run.ToolchainRunnerStore
+	tcStore             *toolchains.Store
+	storeUpdateCh       chan struct{}
+	schedulerClient     types.SchedulerClient
+	metricsProvider     metrics.Provider
+	connection          *grpc.ClientConn
+	localExecutor       run.Executor
+	remoteExecutor      run.Executor
+	remoteOnly          bool
+	numConsumers        *atomic.Int32
+	localTasksCompleted *atomic.Int64
 }
 
 type ConsumerdServerOptions struct {
 	toolchainFinders    []toolchains.FinderWithOptions
 	toolchainRunners    []run.StoreAddFunc
 	schedulerClient     types.SchedulerClient
+	monitorClient       types.InternalMonitorClient
 	schedulerConnection *grpc.ClientConn
 	usageLimits         *types.UsageLimits
 }
@@ -75,6 +84,16 @@ func WithSchedulerClient(
 	}
 }
 
+// Note this accepts an InternalMonitorClient even though consumerd runs
+// outside the cluster.
+func WithMonitorClient(
+	client types.InternalMonitorClient,
+) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.monitorClient = client
+	}
+}
+
 func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.usageLimits = cpuConfig
@@ -94,33 +113,29 @@ func NewConsumerdServer(
 	}
 	options.Apply(opts...)
 
-	if options.usageLimits == nil {
-		options.usageLimits = &types.UsageLimits{
-			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
-			QueuePressureMultiplier: 1,
-			QueueRejectMultiplier:   1,
-		}
-	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
-		options.usageLimits.ConcurrentProcessLimit =
-			host.AutoConcurrentProcessLimit()
-	}
-
 	runStore := run.NewToolchainRunnerStore()
 	for _, add := range options.toolchainRunners {
 		add(runStore)
 	}
 	srv := &consumerdServer{
-		srvContext:     ctx,
-		lg:             meta.Log(ctx),
-		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
-		tcRunStore:     runStore,
-		localExecutor:  run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		remoteExecutor: run.NewUnqueuedExecutor(),
-		storeUpdateCh:  make(chan struct{}, 1),
+		srvContext:          ctx,
+		lg:                  meta.Log(ctx),
+		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:          runStore,
+		localExecutor:       run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
+		remoteExecutor:      run.NewDelegatingExecutor(),
+		storeUpdateCh:       make(chan struct{}, 1),
+		numConsumers:        atomic.NewInt32(0),
+		localTasksCompleted: atomic.NewInt64(0),
 	}
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
 		srv.connection = options.schedulerConnection
+	}
+	if options.monitorClient != nil {
+		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient)
+	} else {
+		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
 }
@@ -183,6 +198,58 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 	return nil
 }
 
+func (s *consumerdServer) postAlive() {
+	s.metricsProvider.Post(&common.Alive{})
+}
+
+func (s *consumerdServer) postQueueParams() {
+	qp := &common.QueueParams{}
+	s.localExecutor.CompleteQueueParams(qp)
+	s.metricsProvider.Post(qp)
+}
+
+func (s *consumerdServer) postTaskStatus() {
+	ts := &common.TaskStatus{}
+	s.localExecutor.CompleteTaskStatus(ts)  // Complete Running and Queued
+	s.remoteExecutor.CompleteTaskStatus(ts) // Complete Delegated
+	s.metricsProvider.Post(ts)
+}
+
+func (s *consumerdServer) postQueueStatus() {
+	qs := &common.QueueStatus{}
+	s.localExecutor.CompleteQueueStatus(qs)
+	s.metricsProvider.Post(qs)
+}
+
+func (s *consumerdServer) postTotals() {
+	s.metricsProvider.Post(&cdmetrics.LocalTasksCompleted{
+		Total: s.localTasksCompleted.Load(),
+	})
+}
+
+func (s *consumerdServer) StartMetricsProvider() {
+	s.lg.Info("Starting metrics provider")
+	s.postAlive()
+	s.postQueueParams()
+
+	slowTimer := tools.NewJitteredTimer(1*time.Second, 1.0)
+	go func() {
+		for {
+			<-slowTimer
+			s.postTotals()
+		}
+	}()
+
+	fastTimer := tools.NewJitteredTimer(time.Second/6, 2.0)
+	go func() {
+		for {
+			<-fastTimer
+			s.postTaskStatus()
+			s.postQueueStatus()
+		}
+	}()
+}
+
 func (c *consumerdServer) Run(
 	ctx context.Context,
 	req *types.RunRequest,
@@ -243,6 +310,7 @@ func (c *consumerdServer) Run(
 	}
 
 	if !canRunRemote {
+		defer c.localTasksCompleted.Inc()
 		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: ctx,

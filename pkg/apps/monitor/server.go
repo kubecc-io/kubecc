@@ -4,15 +4,18 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"sync"
 
+	"github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type Receiver interface {
@@ -20,8 +23,8 @@ type Receiver interface {
 }
 
 type MonitorServer struct {
-	types.InternalMonitorServer
-	types.ExternalMonitorServer
+	types.UnimplementedInternalMonitorServer
+	types.UnimplementedExternalMonitorServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
@@ -32,7 +35,7 @@ type MonitorServer struct {
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
-	providers    *mmeta.Providers
+	providers    *metrics.Providers
 }
 
 func NewMonitorServer(
@@ -47,11 +50,32 @@ func NewMonitorServer(
 		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &mmeta.Providers{},
+		providers:     &metrics.Providers{},
 	}
-	srv.buckets[mmeta.Bucket] = storeCreator.NewStore(ctx)
+	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
+
+	go srv.runPrometheusListener()
 	return srv
+}
+
+func (m *MonitorServer) runPrometheusListener() {
+	inMemoryListener := bufconn.Listen(1024 * 1024)
+	inMemoryGrpcSrv := grpc.NewServer()
+	types.RegisterExternalMonitorServer(inMemoryGrpcSrv, m)
+
+	cc, err := grpc.DialContext(m.srvContext, "bufconn", grpc.WithContextDialer(
+		func(c context.Context, s string) (net.Conn, error) {
+			return inMemoryListener.Dial()
+		},
+	))
+	if err != nil {
+		panic(err)
+	}
+
+	client := types.NewExternalMonitorClient(cc)
+
+	servePrometheusMetrics(m.srvContext, client)
 }
 
 func (m *MonitorServer) encodeProviders() []byte {
@@ -64,8 +88,8 @@ func (m *MonitorServer) encodeProviders() []byte {
 func (m *MonitorServer) providersUpdated() {
 	err := m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: mmeta.Bucket,
-			Name:   mmeta.Providers{}.Key(),
+			Bucket: metrics.MetaBucket,
+			Name:   metrics.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),
@@ -151,8 +175,8 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 }
 
 var storeContentsKey = (&types.Key{
-	Bucket: mmeta.Bucket,
-	Name:   mmeta.StoreContents{}.Key(),
+	Bucket: metrics.MetaBucket,
+	Name:   metrics.StoreContents{}.Key(),
 }).Canonical()
 
 func (m *MonitorServer) notifyStoreMeta() {
@@ -160,8 +184,8 @@ func (m *MonitorServer) notifyStoreMeta() {
 	defer m.listenerMutex.RUnlock()
 
 	if listeners, ok := m.listeners[storeContentsKey]; ok {
-		contents := &mmeta.StoreContents{
-			Buckets: []mmeta.BucketSpec{},
+		contents := &metrics.StoreContents{
+			Buckets: []metrics.BucketSpec{},
 		}
 		for k, v := range m.buckets {
 			copied := map[string][]byte{}
@@ -170,7 +194,7 @@ func (m *MonitorServer) notifyStoreMeta() {
 					copied[key] = value
 				}
 			}
-			contents.Buckets = append(contents.Buckets, mmeta.BucketSpec{
+			contents.Buckets = append(contents.Buckets, metrics.BucketSpec{
 				Name: k,
 				Data: copied,
 			})

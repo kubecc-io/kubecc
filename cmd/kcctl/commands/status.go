@@ -7,7 +7,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/ui"
@@ -40,13 +40,13 @@ to quickly create a Cobra application.`,
 
 		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 			display.AddAgent(pctx, uuid)
-			listener.OnValueChanged(uuid, func(qp *status.QueueParams) {
+			listener.OnValueChanged(uuid, func(qp *common.QueueParams) {
 				display.Update(uuid, qp)
 			})
-			listener.OnValueChanged(uuid, func(qs *status.QueueStatus) {
+			listener.OnValueChanged(uuid, func(qs *common.QueueStatus) {
 				display.Update(uuid, qs)
 			})
-			listener.OnValueChanged(uuid, func(ts *status.TaskStatus) {
+			listener.OnValueChanged(uuid, func(ts *common.TaskStatus) {
 				display.Update(uuid, ts)
 			})
 			<-pctx.Done()

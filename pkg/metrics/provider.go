@@ -45,15 +45,15 @@ func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
 	}
 }
 
-type Provider struct {
+type monitorProvider struct {
 	ctx          context.Context
-	monClient    types.InternalMonitorClient
 	lg           *zap.SugaredLogger
+	monClient    types.InternalMonitorClient
 	postQueue    chan KeyedMetric
 	enableWaitRx chan bool
 }
 
-func (p *Provider) HandleStream(stream grpc.ClientStream) error {
+func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 	for {
 		select {
 		case metric := <-p.postQueue:
@@ -88,40 +88,41 @@ func (p *Provider) HandleStream(stream grpc.ClientStream) error {
 	}
 }
 
-func (p *Provider) TryConnect() (grpc.ClientStream, error) {
+func (p *monitorProvider) TryConnect() (grpc.ClientStream, error) {
 	return p.monClient.Stream(p.ctx)
 }
 
-func (p *Provider) OnConnected() {
+func (p *monitorProvider) OnConnected() {
 	p.enableWaitRx <- false
 }
 
-func (p *Provider) OnLostConnection() {
+func (p *monitorProvider) OnLostConnection() {
 	p.enableWaitRx <- true
 }
 
-func (p *Provider) Target() string {
+func (p *monitorProvider) Target() string {
 	return "monitor"
 }
 
-func NewProvider(
+func NewMonitorProvider(
 	ctx context.Context,
 	client types.InternalMonitorClient,
-) *Provider {
-	provider := &Provider{
+) Provider {
+	provider := &monitorProvider{
 		ctx:          ctx,
 		monClient:    client,
-		lg:           meta.Log(ctx),
 		postQueue:    make(chan KeyedMetric, 10),
 		enableWaitRx: make(chan bool),
+		lg:           meta.Log(ctx),
 	}
 
-	go runWaitReceiver(provider.postQueue, provider.enableWaitRx)
+	go runWaitReceiver(provider.postQueue,
+		provider.enableWaitRx)
 	mgr := servers.NewStreamManager(ctx, provider)
 	go mgr.Run()
 	return provider
 }
 
-func (p *Provider) Post(metric KeyedMetric) {
+func (p *monitorProvider) Post(metric KeyedMetric) {
 	p.postQueue <- metric
 }

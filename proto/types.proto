@@ -145,6 +145,7 @@ message SystemInfo {
   string Arch = 1;
   int32 CpuThreads = 2;
   uint64 SystemMemory = 3;
+  string Hostname = 4;
 }
 
 // consumerd -> scheduler -> agent

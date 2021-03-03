@@ -1,9 +1,9 @@
-package mmeta
+package metrics
 
 //go:generate msgp
 
 const (
-	Bucket = "meta"
+	MetaBucket = "meta"
 )
 
 type Providers struct {
@@ -12,12 +12,6 @@ type Providers struct {
 
 func (Providers) Key() string {
 	return "Providers"
-}
-
-type Alive struct{}
-
-func (Alive) Key() string {
-	return "Alive"
 }
 
 type StoreContents struct {

@@ -132,8 +132,17 @@ func (tc *TestController) startScheduler() {
 	tc.schedListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 
-	sc := scheduler.NewSchedulerServer(ctx, scheduler.WithAgentDialer(tc))
+	cc := dial(ctx, tc.monListener)
+	internalMonClient := types.NewInternalMonitorClient(cc)
+
+	sc := scheduler.NewSchedulerServer(ctx,
+		scheduler.WithSchedulerOptions(
+			scheduler.WithAgentDialer(tc),
+		),
+		scheduler.WithMonitorClient(internalMonClient),
+	)
 	types.RegisterSchedulerServer(srv, sc)
+	go sc.StartMetricsProvider()
 	go func() {
 		if err := srv.Serve(tc.schedListener); err != nil {
 			lg.Info(err)
@@ -196,7 +205,9 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 	listener := bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
 	cc := dial(ctx, tc.schedListener)
-	client := types.NewSchedulerClient(cc)
+	schedulerClient := types.NewSchedulerClient(cc)
+	cc = dial(ctx, tc.monListener)
+	monitorClient := types.NewInternalMonitorClient(cc)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
@@ -204,13 +215,14 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 		}),
 		consumerd.WithUsageLimits(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
-		consumerd.WithSchedulerClient(client, cc),
+		consumerd.WithSchedulerClient(schedulerClient, cc),
+		consumerd.WithMonitorClient(monitorClient),
 	)
 	types.RegisterConsumerdServer(srv, d)
 
 	mgr := servers.NewStreamManager(ctx, d)
 	go mgr.Run()
-
+	go d.StartMetricsProvider()
 	cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)
 	tc.Consumers = append(tc.Consumers, cdClient)
@@ -233,8 +245,8 @@ func (tc *TestController) Start(ops TestOptions) {
 	tracer, _ := tracing.Start(tc.ctx, types.TestComponent)
 	opentracing.SetGlobalTracer(tracer)
 
-	tc.startScheduler()
 	tc.startMonitor()
+	tc.startScheduler()
 	for _, cfg := range ops.Agents {
 		tc.startAgent(cfg)
 	}
