@@ -568,6 +568,7 @@ var InternalMonitor_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExternalMonitorClient interface {
 	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error)
+	Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error)
 }
 
 type externalMonitorClient struct {
@@ -610,11 +611,21 @@ func (x *externalMonitorListenClient) Recv() (*Value, error) {
 	return m, nil
 }
 
+func (c *externalMonitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error) {
+	out := new(WhoisResponse)
+	err := c.cc.Invoke(ctx, "/ExternalMonitor/Whois", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExternalMonitorServer is the server API for ExternalMonitor service.
 // All implementations must embed UnimplementedExternalMonitorServer
 // for forward compatibility
 type ExternalMonitorServer interface {
 	Listen(*Key, ExternalMonitor_ListenServer) error
+	Whois(context.Context, *WhoisRequest) (*WhoisResponse, error)
 	mustEmbedUnimplementedExternalMonitorServer()
 }
 
@@ -624,6 +635,9 @@ type UnimplementedExternalMonitorServer struct {
 
 func (UnimplementedExternalMonitorServer) Listen(*Key, ExternalMonitor_ListenServer) error {
 	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
+}
+func (UnimplementedExternalMonitorServer) Whois(context.Context, *WhoisRequest) (*WhoisResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Whois not implemented")
 }
 func (UnimplementedExternalMonitorServer) mustEmbedUnimplementedExternalMonitorServer() {}
 
@@ -659,13 +673,36 @@ func (x *externalMonitorListenServer) Send(m *Value) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _ExternalMonitor_Whois_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WhoisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExternalMonitorServer).Whois(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ExternalMonitor/Whois",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExternalMonitorServer).Whois(ctx, req.(*WhoisRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ExternalMonitor_ServiceDesc is the grpc.ServiceDesc for ExternalMonitor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "ExternalMonitor",
 	HandlerType: (*ExternalMonitorServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Whois",
+			Handler:    _ExternalMonitor_Whois_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Listen",

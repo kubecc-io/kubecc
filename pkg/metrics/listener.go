@@ -69,7 +69,7 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(&mmetrics.Providers{
-			Items: map[string]int32{},
+			Items: make(map[string]mmetrics.ProviderInfo),
 		})
 		return Retry
 	})
