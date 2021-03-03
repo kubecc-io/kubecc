@@ -1,10 +1,6 @@
-package status
+package common
 
 //go:generate msgp
-
-const (
-	Bucket = "status"
-)
 
 type QueueParamsCompleter interface {
 	CompleteQueueParams(*QueueParams)
@@ -19,9 +15,9 @@ type QueueStatusCompleter interface {
 }
 
 type QueueParams struct {
-	ConcurrentProcessLimit  int32   `msg:"ConcurrentProcessLimit"`
-	QueuePressureMultiplier float64 `msg:"queuePressureThreshold"`
-	QueueRejectMultiplier   float64 `msg:"queueRejectThreshold"`
+	ConcurrentProcessLimit  int32   `msg:"concurrentProcessLimit"`
+	QueuePressureMultiplier float64 `msg:"queuePressureMultiplier"`
+	QueueRejectMultiplier   float64 `msg:"queueRejectMultiplier"`
 }
 
 func (QueueParams) Key() string {
@@ -29,8 +25,9 @@ func (QueueParams) Key() string {
 }
 
 type TaskStatus struct {
-	NumRunningProcesses int32 `msg:"numRunningProcesses"`
-	NumQueuedProcesses  int32 `msg:"numQueuedProcesses"`
+	NumRunning   int32 `msg:"numRunning"`
+	NumQueued    int32 `msg:"numQueued"`
+	NumDelegated int32 `msg:"numDelegated"`
 }
 
 func (TaskStatus) Key() string {
@@ -43,4 +40,12 @@ type QueueStatus struct {
 
 func (QueueStatus) Key() string {
 	return "QueueStatus"
+}
+
+type Alive struct {
+	Component int32 `msg:"component"`
+}
+
+func (Alive) Key() string {
+	return "Alive"
 }

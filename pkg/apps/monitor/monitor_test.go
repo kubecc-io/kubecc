@@ -100,7 +100,7 @@ var _ = Describe("Monitor", func() {
 		})
 	})
 
-	var provider *metrics.Provider
+	var provider metrics.Provider
 	var providerCancel context.CancelFunc
 	When("A provider connects", func() {
 		ctx := meta.NewContext(
@@ -122,7 +122,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			client := types.NewInternalMonitorClient(cc)
-			provider = metrics.NewProvider(cctx, client)
+			provider = metrics.NewMonitorProvider(cctx, client)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {

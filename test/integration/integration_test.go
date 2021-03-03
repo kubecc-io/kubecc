@@ -83,7 +83,7 @@ func TestIntegration(t *testing.T) {
 		panic(err)
 	}
 	wg := sync.WaitGroup{}
-	wg.Add(len(testOptions.Agents))
+	wg.Add(len(testOptions.Agents) + len(testOptions.Clients) + 1 /*scheduler*/)
 	extClient := types.NewExternalMonitorClient(cc)
 	listener := metrics.NewListener(sctx, extClient)
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {

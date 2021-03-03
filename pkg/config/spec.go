@@ -29,6 +29,7 @@ type ConsumerdSpec struct {
 	MonitorAddress   string          `json:"monitorAddress"`
 	ListenAddress    string          `json:"listenAddress"`
 	LogLevel         string          `json:"logLevel"`
+	DisableTLS       bool            `json:"disableTLS"`
 }
 
 type SchedulerSpec struct {
