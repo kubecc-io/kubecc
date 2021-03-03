@@ -69,7 +69,7 @@ func (m *MonitorServer) runPrometheusListener() {
 		func(c context.Context, s string) (net.Conn, error) {
 			return inMemoryListener.Dial()
 		},
-	))
+	), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -103,7 +103,12 @@ func (m *MonitorServer) providersUpdated() {
 
 func providerIP(ctx context.Context) (string, error) {
 	if p, ok := peer.FromContext(ctx); ok {
-		return p.Addr.(*net.TCPAddr).IP.String(), nil
+		switch addr := p.Addr.(type) {
+		case *net.TCPAddr:
+			return addr.IP.String(), nil
+		default:
+			return addr.String(), nil
+		}
 	}
 	return "", status.Error(codes.InvalidArgument,
 		"No peer information available")
