@@ -24,6 +24,17 @@ service InternalMonitor {
 
 service ExternalMonitor {
   rpc Listen(Key) returns (stream Value);
+  rpc Whois(WhoisRequest) returns (WhoisResponse);
+}
+
+message WhoisRequest {
+  string UUID = 1;
+}
+
+message WhoisResponse {
+  string UUID = 1;
+  string Address = 2;
+  Component Component = 3;
 }
 
 message Metric {

@@ -43,8 +43,7 @@ func (CdCount) Key() string {
 }
 
 type Identifier struct {
-	UUID     string `msg:"uuid"`
-	Hostname string `msg:"hostname"`
+	UUID string `msg:"uuid"`
 }
 
 type AgentWeight struct {

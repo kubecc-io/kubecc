@@ -30,7 +30,7 @@ func run(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Consumerd
 
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress,
-		servers.WithTLS(!conf.disableTLS),
+		servers.WithTLS(!conf.DisableTLS),
 	)
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing scheduler")

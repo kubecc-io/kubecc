@@ -247,7 +247,6 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 				agentWeight:     &scmetrics.AgentWeight{},
 			}
 
-			stats.agentWeight.Hostname = agent.SystemInfo.Hostname
 			stats.agentWeight.UUID = agent.UUID
 			stats.agentTasksTotal.Total = agent.CompletedTasks.Load()
 			stats.agentTasksTotal.Identifier = stats.agentWeight.Identifier
@@ -296,7 +295,6 @@ func (s *Scheduler) CalcConsumerdStats() <-chan []consumerdStats {
 			total := &scmetrics.CdTasksTotal{
 				Total: cd.CompletedTasks.Load(),
 			}
-			total.Identifier.Hostname = cd.SystemInfo.Hostname
 			total.Identifier.UUID = cd.UUID
 			statsList = append(statsList, consumerdStats{
 				cdRemoteTasksTotal: total,
