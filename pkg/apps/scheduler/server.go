@@ -11,8 +11,8 @@ import (
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/peer"
@@ -219,7 +219,7 @@ func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 	s.postAlive()
 
-	slowTimer := tools.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
 	go func() {
 		for {
 			<-slowTimer

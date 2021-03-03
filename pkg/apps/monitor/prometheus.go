@@ -50,7 +50,7 @@ import (
 
 // Monitor
 var (
-	metricsPostedTotal = promauto.NewGauge(prometheus.GaugeOpts{
+	metricsPostedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "kubecc",
 		Name:      "metrics_posted_total",
 	})
@@ -262,7 +262,7 @@ func watchSchedulerKeys(
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
 			agentWeight.WithLabelValues("agent", info.Address).
-				Set(float64(value.Value))
+				Set(value.Value)
 		}
 	})
 	listener.OnValueChanged(info.UUID, func(value *scmetrics.CdCount) {

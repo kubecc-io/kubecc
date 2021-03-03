@@ -1,7 +1,8 @@
 package rec
 
 import (
-	"github.com/cobalt77/kubecc/pkg/tools"
+	"github.com/cobalt77/kubecc/pkg/util"
+
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -56,7 +57,7 @@ func Find(
 			if err != nil {
 				lg.With(zap.Error(err)).Error("Error constructing object from creator")
 			} else {
-				if err := tools.SetLastAppliedAnnotation(out); err != nil {
+				if err := util.SetLastAppliedAnnotation(out); err != nil {
 					lg.With(zap.Error(err)).Error("Error applying annotation")
 				}
 				err = ctrl.SetControllerReference(rc.RootObject, out, rc.Client.Scheme())
@@ -84,7 +85,7 @@ func Find(
 			lg.With(zap.Error(err)).Error("Error constructing object from creator")
 			return RequeueWithErr(err)
 		}
-		result, err := tools.CalculatePatch(out, templateObj)
+		result, err := util.CalculatePatch(out, templateObj)
 		if err != nil {
 			lg.With(zap.Error(err)).Error("Error calculating patch, not updating object.")
 			return RequeueWithErr(err)
@@ -92,7 +93,7 @@ func Find(
 		if result.IsEmpty() {
 			return DoNotRequeue()
 		}
-		if err := tools.SetLastAppliedAnnotation(templateObj); err != nil {
+		if err := util.SetLastAppliedAnnotation(templateObj); err != nil {
 			lg.With(zap.Error(err)).Error("Error applying annotation")
 		} else {
 			err := rc.Client.Update(rc.Context, templateObj)
