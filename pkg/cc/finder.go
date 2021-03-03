@@ -10,7 +10,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/tools"
+	"github.com/cobalt77/kubecc/pkg/util"
 	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 )
@@ -19,7 +19,7 @@ type CCFinder struct{}
 
 func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOption) *toolchains.Store {
 	options := toolchains.FindOptions{
-		FS:      tools.OSFS{},
+		FS:      util.OSFS{},
 		Querier: toolchains.ExecQuerier{},
 		SearchPaths: []string{
 			"/usr/bin",

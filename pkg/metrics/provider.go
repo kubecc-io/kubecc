@@ -7,8 +7,8 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -67,7 +67,7 @@ func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 			err := stream.SendMsg(&types.Metric{
 				Key: key,
 				Value: &types.Value{
-					Data: tools.EncodeMsgp(metric),
+					Data: util.EncodeMsgp(metric),
 				},
 			})
 			if err != nil {

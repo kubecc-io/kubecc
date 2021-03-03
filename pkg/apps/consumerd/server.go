@@ -13,8 +13,8 @@ import (
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/pkg/errors"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
@@ -232,7 +232,7 @@ func (s *consumerdServer) StartMetricsProvider() {
 	s.postAlive()
 	s.postQueueParams()
 
-	slowTimer := tools.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
 	go func() {
 		for {
 			<-slowTimer
@@ -240,7 +240,7 @@ func (s *consumerdServer) StartMetricsProvider() {
 		}
 	}()
 
-	fastTimer := tools.NewJitteredTimer(time.Second/6, 2.0)
+	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
 			<-fastTimer

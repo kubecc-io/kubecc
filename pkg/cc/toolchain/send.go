@@ -11,8 +11,8 @@ import (
 	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -173,7 +173,7 @@ func (r sendRemoteRunnerManager) Run(
 			Stderr:     []byte(resp.GetError()),
 		}, nil
 	case types.CompileResponse_Fail:
-		err := tools.AnalyzeErrors(resp.GetError())
+		err := util.AnalyzeErrors(resp.GetError())
 		if err != nil {
 			return nil, status.Error(codes.Internal, "Internal error")
 		}

@@ -3,7 +3,7 @@ package toolchains
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/tools"
+	"github.com/cobalt77/kubecc/pkg/util"
 )
 
 type Finder interface {
@@ -11,7 +11,7 @@ type Finder interface {
 }
 
 type FindOptions struct {
-	FS          tools.ReadDirStatFS
+	FS          util.ReadDirStatFS
 	Querier     Querier
 	Path        bool
 	SearchPaths []string
@@ -24,7 +24,7 @@ func (o *FindOptions) Apply(opts ...FindOption) {
 	}
 }
 
-func WithFS(fs tools.ReadDirStatFS) FindOption {
+func WithFS(fs util.ReadDirStatFS) FindOption {
 	return func(opts *FindOptions) {
 		opts.FS = fs
 	}
