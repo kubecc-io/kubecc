@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -30,7 +31,7 @@ type MonitorServer struct {
 	lg         *zap.SugaredLogger
 
 	buckets       map[string]KeyValueStore
-	bucketMutex   *sync.RWMutex
+	providerMutex *sync.RWMutex
 	listeners     map[string]map[string]Receiver
 	listenerMutex *sync.RWMutex
 
@@ -46,7 +47,7 @@ func NewMonitorServer(
 		srvContext:    ctx,
 		lg:            meta.Log(ctx),
 		buckets:       make(map[string]KeyValueStore),
-		bucketMutex:   &sync.RWMutex{},
+		providerMutex: &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
@@ -79,8 +80,8 @@ func (m *MonitorServer) runPrometheusListener() {
 }
 
 func (m *MonitorServer) encodeProviders() []byte {
-	m.bucketMutex.RLock()
-	defer m.bucketMutex.RUnlock()
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
 	return tools.EncodeMsgp(m.providers)
 }
 
@@ -100,6 +101,14 @@ func (m *MonitorServer) providersUpdated() {
 	}
 }
 
+func providerIP(ctx context.Context) (string, error) {
+	if p, ok := peer.FromContext(ctx); ok {
+		return p.Addr.(*net.TCPAddr).IP.String(), nil
+	}
+	return "", status.Error(codes.InvalidArgument,
+		"No peer information available")
+}
+
 func (m *MonitorServer) Stream(
 	srv types.InternalMonitor_StreamServer,
 ) (streamError error) {
@@ -107,10 +116,14 @@ func (m *MonitorServer) Stream(
 		return err
 	}
 	ctx := srv.Context()
+	addr, err := providerIP(srv.Context())
+	if err != nil {
+		return err
+	}
 	uuid := meta.UUID(ctx)
 	component := meta.Component(ctx)
 
-	m.bucketMutex.Lock()
+	m.providerMutex.Lock()
 	if _, ok := m.buckets[uuid]; ok {
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
@@ -119,10 +132,14 @@ func (m *MonitorServer) Stream(
 	store := m.storeCreator.NewStore(bucketCtx)
 	m.buckets[uuid] = store
 	if m.providers.Items == nil {
-		m.providers.Items = make(map[string]int32)
+		m.providers.Items = make(map[string]metrics.ProviderInfo)
 	}
-	m.providers.Items[uuid] = int32(component)
-	m.bucketMutex.Unlock()
+	m.providers.Items[uuid] = metrics.ProviderInfo{
+		UUID:      uuid,
+		Component: int32(component),
+		Address:   addr,
+	}
+	m.providerMutex.Unlock()
 	m.providersUpdated()
 
 	m.lg.With(
@@ -151,11 +168,11 @@ func (m *MonitorServer) Stream(
 		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
-	m.bucketMutex.Lock()
+	m.providerMutex.Lock()
 	bucketCancel()
 	delete(m.buckets, uuid)
 	delete(m.providers.Items, uuid)
-	m.bucketMutex.Unlock()
+	m.providerMutex.Unlock()
 	m.providersUpdated()
 	return
 }
@@ -212,7 +229,7 @@ func (m *MonitorServer) notifyStoreMeta() {
 }
 
 func (m *MonitorServer) post(metric *types.Metric) error {
-	m.bucketMutex.RLock()
+	m.providerMutex.RLock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
 		if store.CAS(metric.Key.Name, metric.Value.Data) {
@@ -225,10 +242,10 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			}()
 		}
 	} else {
-		m.bucketMutex.RUnlock()
+		m.providerMutex.RUnlock()
 		return status.Error(codes.InvalidArgument, "No such bucket")
 	}
-	m.bucketMutex.RUnlock()
+	m.providerMutex.RUnlock()
 	return nil
 }
 
@@ -245,12 +262,12 @@ func (m *MonitorServer) Listen(
 		zap.String("component", meta.Component(ctx).Name()),
 		types.ShortID(uuid),
 	).Debug("Listener added")
-	m.bucketMutex.RLock()
+	m.providerMutex.RLock()
 
 	var bucketCtx context.Context
 	bucket, ok := m.buckets[key.Bucket]
 	if !ok {
-		m.bucketMutex.RUnlock()
+		m.providerMutex.RUnlock()
 		return status.Error(codes.FailedPrecondition, "No such bucket")
 	} else {
 		bucketCtx = bucket.Context()
@@ -275,7 +292,7 @@ func (m *MonitorServer) Listen(
 	}
 	m.notifyStoreMeta()
 
-	m.bucketMutex.RUnlock()
+	m.providerMutex.RUnlock()
 
 	defer func() {
 		m.listenerMutex.Lock()
@@ -293,4 +310,21 @@ func (m *MonitorServer) Listen(
 	case <-bucketCtx.Done():
 		return status.Error(codes.Aborted, "Bucket closed")
 	}
+}
+
+func (m *MonitorServer) Whois(
+	ctx context.Context,
+	req *types.WhoisRequest,
+) (*types.WhoisResponse, error) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+
+	if info, ok := m.providers.Items[req.GetUUID()]; ok {
+		return &types.WhoisResponse{
+			Address:   info.Address,
+			Component: types.Component(info.Component),
+		}, nil
+	}
+	return nil, status.Error(codes.NotFound,
+		"The requested provider was not found.")
 }

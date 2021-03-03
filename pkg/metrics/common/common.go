@@ -43,7 +43,8 @@ func (QueueStatus) Key() string {
 }
 
 type Alive struct {
-	Component int32 `msg:"component"`
+	Component int32  `msg:"component"`
+	Hostname  string `msg:"hostname"`
 }
 
 func (Alive) Key() string {

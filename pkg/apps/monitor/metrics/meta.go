@@ -6,8 +6,14 @@ const (
 	MetaBucket = "meta"
 )
 
+type ProviderInfo struct {
+	UUID      string `msg:"uuid"`
+	Component int32  `msg:"component"`
+	Address   string `msg:"address"`
+}
+
 type Providers struct {
-	Items map[string]int32 `msg:"items"`
+	Items map[string]ProviderInfo `msg:"items"`
 }
 
 func (Providers) Key() string {

@@ -34,6 +34,7 @@ Consumerd:
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
 	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
@@ -49,106 +50,133 @@ import (
 
 // Monitor
 var (
-	metricsPostedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	metricsPostedTotal = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_metrics_posted_total",
+		Name:      "metrics_posted_total",
 	})
 	listenerCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_listener_count",
+		Name:      "listener_count",
 	})
 )
 
 // Scheduler
 var (
-	tasksCompletedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	tasksCompletedTotal = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_tasks_completed_total",
+		Name:      "tasks_completed_total",
 		Help:      "Total number of remote tasks completed by agents",
 	})
-	tasksFailedTotal = promauto.NewCounter(prometheus.CounterOpts{
+	tasksFailedTotal = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_tasks_failed_total",
+		Name:      "tasks_failed_total",
 		Help:      "Total number of failed remote tasks",
 	})
-	schedulingRequestsTotal = promauto.NewCounter(prometheus.CounterOpts{
+	schedulingRequestsTotal = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_scheduling_requests_total",
+		Name:      "scheduling_requests_total",
 		Help:      "Total number of requests handled by the scheduler",
 	})
 	agentCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_count",
+		Name:      "agent_count",
 		Help:      "Number of active agents",
 	})
 	cdCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_count",
+		Name:      "cd_count",
 		Help:      "Number of active consumer daemons",
 	})
-	agentWeight = promauto.NewGauge(prometheus.GaugeOpts{
+	agentWeight = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_weight",
+		Name:      "agent_weight",
 		Help:      "Agent scheduling weight",
+	}, []string{
+		"agent",
 	})
-	cdRemoteReqTotal = promauto.NewCounter(prometheus.CounterOpts{
+	cdRemoteReqTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_remote_req_total",
+		Name:      "cd_remote_req_total",
 		Help:      "Total number of remote tasks requested",
+	}, []string{
+		"consumerd",
 	})
-	agentTasksTotal = promauto.NewCounter(prometheus.CounterOpts{
+	agentTasksTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_tasks_total",
+		Name:      "agent_tasks_total",
 		Help:      "Total number of tasks completed by the agent",
+	}, []string{
+		"agent",
 	})
 )
 
 // Agent
 var (
-	agentTasksMax = promauto.NewGauge(prometheus.GaugeOpts{
+	agentTasksMax = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_tasks_max",
+		Name:      "agent_tasks_max",
 		Help:      "Maximum number of tasks the agent can run concurrently",
+	}, []string{
+		"agent",
 	})
-	agentTasksActive = promauto.NewGauge(prometheus.GaugeOpts{
+	agentTasksActive = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_tasks_active",
+		Name:      "agent_tasks_active",
 		Help:      "Current number of tasks the agent is running",
+	}, []string{
+		"agent",
 	})
-	agentTasksQueued = promauto.NewGauge(prometheus.GaugeOpts{
+	agentTasksQueued = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_agent_tasks_queued",
+		Name:      "agent_tasks_queued",
 		Help:      "Current number of tasks in the agent's queue",
+	}, []string{
+		"agent",
 	})
 )
 
 // Consumerd
 var (
-	cdLocalTasksTotal = promauto.NewCounter(prometheus.CounterOpts{
+	cdLocalTasksTotal = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_local_tasks_total",
+		Name:      "cd_local_tasks_total",
 		Help:      "Total number of local tasks completed",
+	}, []string{
+		"consumerd",
 	})
-	cdTasksMax = promauto.NewGauge(prometheus.GaugeOpts{
+	cdTasksMax = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_tasks_max",
+		Name:      "cd_tasks_max",
 		Help:      "Maximum number of concurrent local tasks",
+	}, []string{
+		"consumerd",
 	})
-	cdLocalTasksActive = promauto.NewGauge(prometheus.GaugeOpts{
+	cdLocalTasksActive = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_local_tasks_active",
+		Name:      "cd_local_tasks_active",
 		Help:      "Current number of local tasks the consumerd is running",
+	}, []string{
+		"consumerd",
 	})
-	cdLocalTasksQueued = promauto.NewGauge(prometheus.GaugeOpts{
+	cdLocalTasksQueued = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_local_tasks_queued",
+		Name:      "cd_local_tasks_queued",
 		Help:      "Current number of local tasks in queue",
+	}, []string{
+		"consumerd",
 	})
-	cdRemoteTasksActive = promauto.NewGauge(prometheus.GaugeOpts{
+	cdRemoteTasksActive = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "kubecc",
-		Name:      "kubecc_cd_remote_tasks_active",
+		Name:      "cd_remote_tasks_active",
 		Help:      "Current number of remote tasks the consumerd is waiting on",
+	}, []string{
+		"consumerd",
 	})
+)
+
+var (
+	providerInfo = make(map[string]*types.WhoisResponse)
+	infoMutex    = &sync.RWMutex{}
 )
 
 func serveMetricsEndpoint(ctx context.Context, address string) {
@@ -163,82 +191,119 @@ func serveMetricsEndpoint(ctx context.Context, address string) {
 
 func servePrometheusMetrics(ctx context.Context, client types.ExternalMonitorClient) {
 	go serveMetricsEndpoint(ctx, ":2112")
+	lg := meta.Log(ctx)
 	listener := metrics.NewListener(ctx, client)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
-		// Wait until the provider posts the Alive message containing its
-		// component type, then subscribe accordingly
-		componentCh := make(chan types.Component)
-		listener.OnValueChanged(uuid, func(a *common.Alive) {
-			componentCh <- types.Component(a.Component)
-		})
-		var component types.Component
-		select {
-		case component = <-componentCh:
-		case <-ctx.Done():
-			return
+		info, err := client.Whois(ctx, &types.WhoisRequest{UUID: uuid})
+		if err != nil {
+			lg.With(
+				zap.String("uuid", uuid),
+			).Error(err)
 		}
 
-		switch component {
+		switch info.Component {
 		case types.Agent:
-			watchAgentKeys(listener, ctx, uuid)
+			infoMutex.Lock()
+			providerInfo[uuid] = info
+			infoMutex.Unlock()
+			watchAgentKeys(ctx, listener, info)
 		case types.Scheduler:
-			watchSchedulerKeys(listener, ctx, uuid)
+			watchSchedulerKeys(ctx, listener, info)
 		case types.Consumerd:
-			watchConsumerdKeys(listener, ctx, uuid)
+			infoMutex.Lock()
+			providerInfo[uuid] = info
+			infoMutex.Unlock()
+			watchConsumerdKeys(ctx, listener, info)
+		}
+		<-ctx.Done()
+
+		infoMutex.Lock()
+		defer infoMutex.Unlock()
+		delete(providerInfo, uuid)
+	})
+}
+
+func watchAgentKeys(
+	ctx context.Context,
+	listener metrics.Listener,
+	info *types.WhoisResponse,
+) {
+	labels := prometheus.Labels{
+		"agent": info.Address,
+	}
+	listener.OnValueChanged(info.UUID, func(value *common.TaskStatus) {
+		agentTasksActive.With(labels).Set(float64(value.NumRunning))
+		agentTasksActive.With(labels).Set(float64(value.NumRunning))
+		agentTasksQueued.With(labels).Set(float64(value.NumQueued))
+	})
+	listener.OnValueChanged(info.UUID, func(value *common.QueueParams) {
+		agentTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
+	})
+}
+
+func watchSchedulerKeys(
+	ctx context.Context,
+	listener metrics.Listener,
+	info *types.WhoisResponse,
+) {
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentCount) {
+		agentCount.Set(float64(value.Count))
+	})
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentTasksTotal) {
+		infoMutex.RLock()
+		defer infoMutex.RUnlock()
+		if info, ok := providerInfo[value.UUID]; ok {
+			agentTasksTotal.WithLabelValues("agent", info.Address).
+				Set(float64(value.Total))
 		}
 	})
-}
-
-func watchAgentKeys(l metrics.Listener, ctx context.Context, uuid string) {
-	l.OnValueChanged(uuid, func(ts *common.TaskStatus) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentWeight) {
+		infoMutex.RLock()
+		defer infoMutex.RUnlock()
+		if info, ok := providerInfo[value.UUID]; ok {
+			agentWeight.WithLabelValues("agent", info.Address).
+				Set(float64(value.Value))
+		}
 	})
-	l.OnValueChanged(uuid, func(ts *common.QueueStatus) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.CdCount) {
+		cdCount.Set(float64(value.Count))
 	})
-	l.OnValueChanged(uuid, func(ts *common.QueueParams) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.CdTasksTotal) {
+		infoMutex.RLock()
+		defer infoMutex.RUnlock()
+		if info, ok := providerInfo[value.UUID]; ok {
+			cdRemoteReqTotal.WithLabelValues("consumerd", info.Address).
+				Set(float64(value.Total))
+		}
 	})
-}
-
-func watchSchedulerKeys(l metrics.Listener, ctx context.Context, uuid string) {
-	l.OnValueChanged(uuid, func(ts *scmetrics.AgentCount) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.SchedulingRequestsTotal) {
+		schedulingRequestsTotal.Set(float64(value.Total))
 	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.AgentTasksTotal) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.TasksCompletedTotal) {
+		tasksCompletedTotal.Set(float64(value.Total))
 	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.AgentWeight) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.CdCount) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.CdTasksTotal) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.SchedulingRequestsTotal) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.TasksCompletedTotal) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *scmetrics.TasksFailedTotal) {
-
+	listener.OnValueChanged(info.UUID, func(value *scmetrics.TasksFailedTotal) {
+		tasksFailedTotal.Set(float64(value.Total))
 	})
 }
 
-func watchConsumerdKeys(l metrics.Listener, ctx context.Context, uuid string) {
-	l.OnValueChanged(uuid, func(ts *common.TaskStatus) {
-
+func watchConsumerdKeys(
+	ctx context.Context,
+	listener metrics.Listener,
+	info *types.WhoisResponse,
+) {
+	labels := prometheus.Labels{
+		"consumerd": info.Address,
+	}
+	listener.OnValueChanged(info.UUID, func(value *common.TaskStatus) {
+		cdLocalTasksActive.With(labels).Set(float64(value.NumRunning))
+		cdRemoteTasksActive.With(labels).Set(float64(value.NumDelegated))
+		cdLocalTasksQueued.With(labels).Set(float64(value.NumQueued))
 	})
-	l.OnValueChanged(uuid, func(ts *common.QueueStatus) {
-
+	listener.OnValueChanged(info.UUID, func(value *common.QueueParams) {
+		cdTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
 	})
-	l.OnValueChanged(uuid, func(ts *common.QueueParams) {
-
-	})
-	l.OnValueChanged(uuid, func(ts *cdmetrics.LocalTasksCompleted) {
-
+	listener.OnValueChanged(info.UUID, func(value *cdmetrics.LocalTasksCompleted) {
+		cdLocalTasksTotal.With(labels).Set(float64(value.Total))
 	})
 }
