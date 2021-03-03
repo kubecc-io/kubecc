@@ -10,8 +10,8 @@ import (
 	mmetrics "github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -105,7 +105,7 @@ func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
 		switch status.Code(err) {
 		case codes.OK:
 			if decodable, ok := realType.Interface().(msgp.Decodable); ok {
-				err = tools.DecodeMsgp(rawData.Data, decodable)
+				err = util.DecodeMsgp(rawData.Data, decodable)
 				if err != nil {
 					lg.With(zap.Error(err)).Error("Error decoding value")
 					return err

@@ -29,7 +29,7 @@ require (
 	github.com/onsi/gomega v1.10.5
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.9.0 // indirect
+	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/smallnest/weighted v0.0.0-20201102054551-85ac5c79528c

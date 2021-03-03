@@ -9,8 +9,8 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -82,7 +82,7 @@ func (m *MonitorServer) runPrometheusListener() {
 func (m *MonitorServer) encodeProviders() []byte {
 	m.providerMutex.RLock()
 	defer m.providerMutex.RUnlock()
-	return tools.EncodeMsgp(m.providers)
+	return util.EncodeMsgp(m.providers)
 }
 
 // bucketMutex must not be held by the same thread when calling this function.
@@ -221,7 +221,7 @@ func (m *MonitorServer) notifyStoreMeta() {
 				Data: copied,
 			})
 		}
-		encoded := tools.EncodeMsgp(contents)
+		encoded := util.EncodeMsgp(contents)
 		for _, v := range listeners {
 			err := v.Send(&types.Value{
 				Data: encoded,
@@ -241,6 +241,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")
+			metricsPostedTotal.Inc()
 			defer func() {
 				m.notify(metric)
 				go m.notifyStoreMeta()
@@ -283,6 +284,7 @@ func (m *MonitorServer) Listen(
 	if m.listeners[canonical] == nil {
 		m.listeners[canonical] = make(map[string]Receiver)
 	}
+	listenerCount.Inc()
 	m.listeners[canonical][uuid] = srv
 	m.listenerMutex.Unlock()
 
@@ -302,6 +304,7 @@ func (m *MonitorServer) Listen(
 	defer func() {
 		m.listenerMutex.Lock()
 		delete(m.listeners[canonical], uuid)
+		listenerCount.Dec()
 		m.listenerMutex.Unlock()
 		m.lg.With(
 			zap.String("component", meta.Component(ctx).Name()),

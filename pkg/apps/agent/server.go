@@ -13,8 +13,8 @@ import (
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -165,7 +165,7 @@ func (s *AgentServer) StartMetricsProvider() {
 	s.postAlive()
 	s.postQueueParams()
 
-	timer := tools.NewJitteredTimer(time.Second/6, 2.0)
+	timer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
 			<-timer

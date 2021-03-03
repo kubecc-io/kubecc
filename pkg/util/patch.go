@@ -1,4 +1,4 @@
-package tools
+package util
 
 import "github.com/banzaicloud/k8s-objectmatcher/patch"
 

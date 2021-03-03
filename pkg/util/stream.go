@@ -1,4 +1,4 @@
-package tools
+package util
 
 import (
 	"github.com/cobalt77/kubecc/pkg/types"
