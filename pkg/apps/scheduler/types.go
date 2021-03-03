@@ -2,27 +2,42 @@ package scheduler
 
 import (
 	"context"
+	"sync"
 
+	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"go.uber.org/atomic"
 )
 
-type Agent struct {
-	UUID    string
-	Context context.Context
-	Client  types.AgentClient
-
-	UsageLimits *types.UsageLimits
-	SystemInfo  *types.SystemInfo
-	QueueStatus types.QueueStatus
-	Toolchains  []*types.Toolchain
+type remoteInfo struct {
+	UUID           string
+	Context        context.Context
+	UsageLimits    *types.UsageLimits
+	SystemInfo     *types.SystemInfo
+	Toolchains     []*types.Toolchain
+	CompletedTasks *atomic.Int64
 }
 
-func AgentFromContext(ctx context.Context) *Agent {
-	return &Agent{
-		UUID:       meta.UUID(ctx),
-		Context:    ctx,
-		SystemInfo: meta.SystemInfo(ctx),
+type Consumerd struct {
+	remoteInfo
+	*sync.RWMutex
+}
+
+type Agent struct {
+	remoteInfo
+	*sync.RWMutex
+
+	Client      types.AgentClient
+	QueueStatus types.QueueStatus
+}
+
+func remoteInfoFromContext(ctx context.Context) remoteInfo {
+	return remoteInfo{
+		UUID:           meta.UUID(ctx),
+		Context:        ctx,
+		SystemInfo:     meta.SystemInfo(ctx),
+		CompletedTasks: atomic.NewInt64(0),
 	}
 }
 
@@ -41,4 +56,19 @@ func (a Agent) Weight() int32 {
 		return 0
 	}
 	return 0
+}
+
+type agentStats struct {
+	agentTasksTotal *scmetrics.AgentTasksTotal
+	agentWeight     *scmetrics.AgentWeight
+}
+
+type consumerdStats struct {
+	cdRemoteTasksTotal *scmetrics.CdTasksTotal
+}
+
+type taskStats struct {
+	completedTotal *scmetrics.TasksCompletedTotal
+	failedTotal    *scmetrics.TasksFailedTotal
+	requestsTotal  *scmetrics.SchedulingRequestsTotal
 }

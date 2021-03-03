@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"sync"
 
+	mmetrics "github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tools"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -19,17 +19,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type Listener struct {
+type monitorListener struct {
 	ctx       context.Context
 	monClient types.ExternalMonitorClient
 	lg        *zap.SugaredLogger
 
 	knownProviders map[string]context.CancelFunc
+
 	providersMutex *sync.Mutex
 }
 
-func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
-	listener := &Listener{
+func NewListener(
+	ctx context.Context,
+	client types.ExternalMonitorClient,
+) Listener {
+	listener := &monitorListener{
 		ctx:            ctx,
 		lg:             meta.Log(ctx),
 		monClient:      client,
@@ -39,8 +43,8 @@ func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Liste
 	return listener
 }
 
-func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid string)) {
-	doUpdate := func(providers *mmeta.Providers) {
+func (l *monitorListener) OnProviderAdded(handler func(context.Context, string)) {
+	doUpdate := func(providers *mmetrics.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
 				pctx, cancel := context.WithCancel(context.Background())
@@ -57,14 +61,14 @@ func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid strin
 		}
 	}
 
-	l.OnValueChanged(mmeta.Bucket, func(providers *mmeta.Providers) {
+	l.OnValueChanged(mmetrics.MetaBucket, func(providers *mmetrics.Providers) {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(providers)
 	}).OrExpired(func() RetryOptions {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
-		doUpdate(&mmeta.Providers{
+		doUpdate(&mmetrics.Providers{
 			Items: map[string]int32{},
 		})
 		return Retry
@@ -160,10 +164,10 @@ func handlerArgType(handler interface{}) (reflect.Type, reflect.Value) {
 	return valueType, funcValue
 }
 
-func (l *Listener) OnValueChanged(
+func (l *monitorListener) OnValueChanged(
 	bucket string,
 	handler interface{}, // func(type)
-) *changeListener {
+) ChangeListener {
 	argType, funcValue := handlerArgType(handler)
 	cl := &changeListener{
 		ctx:       l.ctx,

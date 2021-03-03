@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/mmeta"
-	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -24,7 +22,7 @@ import (
 )
 
 type AgentServer struct {
-	types.AgentServer
+	types.UnimplementedAgentServer
 
 	AgentServerOptions
 
@@ -33,7 +31,7 @@ type AgentServer struct {
 	lg              *zap.SugaredLogger
 	tcStore         *toolchains.Store
 	tcRunStore      *run.ToolchainRunnerStore
-	metricsProvider *metrics.Provider
+	metricsProvider metrics.Provider
 }
 
 type AgentServerOptions struct {
@@ -100,17 +98,6 @@ func NewAgentServer(
 		add(runStore)
 	}
 
-	if options.usageLimits == nil {
-		options.usageLimits = &types.UsageLimits{
-			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
-			QueuePressureMultiplier: 1,
-			QueueRejectMultiplier:   1,
-		}
-	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
-		options.usageLimits.ConcurrentProcessLimit =
-			host.AutoConcurrentProcessLimit()
-	}
-
 	srv := &AgentServer{
 		AgentServerOptions: options,
 		srvContext:         ctx,
@@ -151,33 +138,32 @@ func (s *AgentServer) Compile(
 }
 
 func (s *AgentServer) postAlive() {
-	s.metricsProvider.Post(&mmeta.Alive{})
+	s.metricsProvider.Post(&common.Alive{})
 }
 
 func (s *AgentServer) postQueueParams() {
-	qp := &mstat.QueueParams{}
+	qp := &common.QueueParams{}
 	s.executor.CompleteQueueParams(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *AgentServer) postTaskStatus() {
-	ts := &mstat.TaskStatus{}
+	ts := &common.TaskStatus{}
 	s.executor.CompleteTaskStatus(ts)
 	s.metricsProvider.Post(ts)
 }
 
 func (s *AgentServer) postQueueStatus() {
-	qs := &mstat.QueueStatus{}
+	qs := &common.QueueStatus{}
 	s.executor.CompleteQueueStatus(qs)
 	s.metricsProvider.Post(qs)
 }
 
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewProvider(s.srvContext, s.monitorClient)
+	s.metricsProvider = metrics.NewMonitorProvider(s.srvContext, s.monitorClient)
 	s.postAlive()
 	s.postQueueParams()
-	s.postQueueStatus()
 
 	timer := tools.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {

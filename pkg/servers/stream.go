@@ -17,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-type ConnectionHandler interface {
+type StreamHandler interface {
 	TryConnect() (grpc.ClientStream, error)
 	HandleStream(grpc.ClientStream) error
 	Target() string
@@ -37,13 +37,13 @@ type OnConnectFailedEventHandler interface {
 
 type StreamManager struct {
 	ctx        context.Context
-	handler    ConnectionHandler
+	handler    StreamHandler
 	backoffMgr wait.BackoffManager
 }
 
 func NewStreamManager(
 	ctx context.Context,
-	handler ConnectionHandler,
+	handler StreamHandler,
 ) *StreamManager {
 	return &StreamManager{
 		ctx:     ctx,
