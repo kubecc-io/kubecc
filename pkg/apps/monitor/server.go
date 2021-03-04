@@ -66,7 +66,14 @@ func (m *MonitorServer) runPrometheusListener() {
 	inMemoryListener := bufconn.Listen(1024 * 1024)
 	inMemoryGrpcSrv := servers.NewServer(m.srvContext)
 	types.RegisterExternalMonitorServer(inMemoryGrpcSrv, m)
-	go inMemoryGrpcSrv.Serve(inMemoryListener)
+
+	go func() {
+		if err := inMemoryGrpcSrv.Serve(inMemoryListener); err != nil {
+			m.lg.With(
+				zap.Error(err),
+			).Error("Error serving internal metrics listener")
+		}
+	}()
 
 	cc, err := servers.Dial(m.srvContext, "bufconn",
 		servers.With(

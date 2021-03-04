@@ -72,7 +72,9 @@ func (ap *TestArgParser) Parse() {
 	var duration string
 	set := flag.NewFlagSet("test", flag.PanicOnError)
 	set.StringVar(&duration, "duration", "1s", "")
-	set.Parse(ap.Args)
+	if err := set.Parse(ap.Args); err != nil {
+		panic(err)
+	}
 
 	d, err := time.ParseDuration(duration)
 	if err != nil {

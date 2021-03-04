@@ -1,4 +1,4 @@
-package components
+package main
 
 import (
 	"fmt"
@@ -7,9 +7,12 @@ import (
 	"github.com/spf13/cobra"
 
 	agentcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/agent"
+	cachecmd "github.com/cobalt77/kubecc/cmd/kubecc/components/cachesrv"
 	cdcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/consumerd"
+	ctrlcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/controller"
 	moncmd "github.com/cobalt77/kubecc/cmd/kubecc/components/monitor"
 	schedcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/scheduler"
+	"github.com/cobalt77/kubecc/pkg/cluster"
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -29,8 +32,14 @@ func Execute() {
 
 func init() {
 	// cobra.OnInitialize(initConfig)
+	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(agentcmd.Command)
 	rootCmd.AddCommand(cdcmd.Command)
 	rootCmd.AddCommand(moncmd.Command)
 	rootCmd.AddCommand(schedcmd.Command)
+	rootCmd.AddCommand(ctrlcmd.Command)
+	rootCmd.AddCommand(cachecmd.Command)
+	if !cluster.InCluster() {
+		ctrlcmd.Command.Hidden = true
+	}
 }

@@ -1,20 +1,4 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package main
+package commands
 
 import (
 	"flag"
@@ -30,7 +14,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	zapf "sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/controllers"
@@ -39,45 +22,28 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/spf13/cobra"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	scheme = runtime.NewScheme()
-	lg     *zap.SugaredLogger
+	scheme     = runtime.NewScheme()
+	lg         *zap.SugaredLogger
+	configFile string
+	tmplPrefix string
 )
 
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	// +kubebuilder:scaffold:scheme
-}
-
-func main() {
+func run(cmd *cobra.Command, args []string) {
 	mctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger),
 	)
-	lg = meta.Log(mctx)
-
-	var (
-		configFile string
-		tmplPrefix string
-	)
-	flag.StringVar(&configFile, "config", "",
-		"The controller will load its initial configuration from this file. "+
-			"Omit this flag to use the default configuration values. "+
-			"Command-line flags override configuration from this file.")
-	flag.StringVar(&tmplPrefix, "templates-path", "/templates",
-		"Path prefix for resource templates")
-	opts := zapf.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+	lg = meta.Log(mctx).Desugar().WithOptions(zap.WithCaller(false)).Sugar()
 	flag.Parse()
 
-	ctrl.SetLogger(zapf.New(zapf.UseFlagOptions(&opts)))
+	ctrl.SetLogger(util.ZapfLogShim{ZapLogger: lg})
 	templates.SetPathPrefix(tmplPrefix)
 
 	var err error
@@ -121,4 +87,23 @@ func main() {
 		lg.With(zap.Error(err)).Error("problem running manager")
 		os.Exit(1)
 	}
+}
+
+var Command = &cobra.Command{
+	Use:   "controller",
+	Short: "Run the Kubernetes operator (controller)",
+	Run:   run,
+}
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	// +kubebuilder:scaffold:scheme
+
+	Command.Flags().StringVar(&configFile, "config", "",
+		"The controller will load its initial configuration from this file. "+
+			"Omit this flag to use the default configuration values. "+
+			"Command-line flags override configuration from this file.")
+	Command.Flags().StringVar(&tmplPrefix, "templates-path", "/templates",
+		"Path prefix for resource templates")
 }

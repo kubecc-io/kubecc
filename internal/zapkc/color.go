@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var UseColor = true
@@ -73,7 +73,7 @@ func init() {
 			UseColor = b
 		}
 	} else {
-		UseColor = terminal.IsTerminal(int(os.Stdout.Fd()))
+		UseColor = term.IsTerminal(int(os.Stdout.Fd()))
 	}
 	for level, color := range _levelToColor {
 		_levelToLowercaseColorString[level] = color.Add(level.String())

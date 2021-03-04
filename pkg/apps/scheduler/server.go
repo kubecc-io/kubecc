@@ -16,17 +16,22 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 type schedulerServer struct {
 	types.UnimplementedSchedulerServer
 
-	monClient       types.InternalMonitorClient
+	monClient   types.InternalMonitorClient
+	cacheClient types.CacheClient
+
 	srvContext      context.Context
 	lg              *zap.SugaredLogger
 	scheduler       *Scheduler
 	metricsProvider metrics.Provider
+	hashSrv         *util.HashServer
 
 	agentCount     *atomic.Int32
 	consumerdCount *atomic.Int32
@@ -35,6 +40,7 @@ type schedulerServer struct {
 type SchedulerServerOptions struct {
 	schedulerOptions []schedulerOption
 	monClient        types.InternalMonitorClient
+	cacheClient      types.CacheClient
 }
 
 type schedulerServerOption func(*SchedulerServerOptions)
@@ -57,6 +63,12 @@ func WithMonitorClient(monClient types.InternalMonitorClient) schedulerServerOpt
 	}
 }
 
+func WithCacheClient(cacheClient types.CacheClient) schedulerServerOption {
+	return func(o *SchedulerServerOptions) {
+		o.cacheClient = cacheClient
+	}
+}
+
 func NewSchedulerServer(
 	ctx context.Context,
 	opts ...schedulerServerOption,
@@ -68,9 +80,11 @@ func NewSchedulerServer(
 		srvContext:     ctx,
 		lg:             meta.Log(ctx),
 		monClient:      options.monClient,
+		cacheClient:    options.cacheClient,
 		scheduler:      NewScheduler(ctx, options.schedulerOptions...),
 		agentCount:     atomic.NewInt32(0),
 		consumerdCount: atomic.NewInt32(0),
+		hashSrv:        util.NewHashServer(),
 	}
 
 	if options.monClient != nil {
@@ -79,6 +93,29 @@ func NewSchedulerServer(
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
+}
+
+func (s *schedulerServer) cacheTransaction(
+	requestHash string,
+	resp *types.CompileResponse,
+) {
+	_, err := s.cacheClient.Push(s.srvContext, &types.PushRequest{
+		Key: &types.CacheKey{
+			Hash: requestHash,
+		},
+		Object: &types.CacheObject{
+			Data: resp.GetCompiledSource(),
+			Metadata: &types.CacheObjectMeta{
+				ExpirationTime: time.Now().Add(1 * time.Hour).Unix(),
+				CpuSecondsUsed: resp.GetCpuSecondsUsed(),
+			},
+		},
+	})
+	if err != nil && status.Code(err) != codes.AlreadyExists {
+		s.lg.With(
+			zap.Error(err),
+		).Error("Error sending data to the cache server")
+	}
 }
 
 func (s *schedulerServer) Compile(
@@ -95,12 +132,42 @@ func (s *schedulerServer) Compile(
 		ctx = sctx
 		defer span.Finish()
 	}
-
 	peer, ok := peer.FromContext(ctx)
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.scheduler.Schedule(ctx, req)
+	cacheMiss := false
+	var reqHash string
+	if s.cacheClient != nil {
+		reqHash = s.hashSrv.Hash(req)
+		obj, err := s.cacheClient.Pull(ctx, &types.PullRequest{
+			Key: &types.CacheKey{
+				Hash: reqHash,
+			},
+		})
+		switch status.Code(err) {
+		case codes.OK:
+			return &types.CompileResponse{
+				CompileResult: types.CompileResponse_Success,
+				Data: &types.CompileResponse_CompiledSource{
+					CompiledSource: obj.GetData(),
+				},
+			}, nil
+		case codes.NotFound:
+			cacheMiss = true
+		default:
+			s.lg.With(
+				zap.Error(err),
+			).Error("Error querying cache server")
+		}
+	}
+	resp, err := s.scheduler.Schedule(ctx, req)
+	if err != nil &&
+		resp.CompileResult == types.CompileResponse_Success &&
+		cacheMiss {
+		go s.cacheTransaction(reqHash, resp)
+	}
+	return resp, err
 }
 
 func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {

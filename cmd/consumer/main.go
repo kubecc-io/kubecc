@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var lg *zap.SugaredLogger
-
 func main() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
