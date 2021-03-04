@@ -1,6 +1,7 @@
 package host
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 
@@ -29,7 +30,7 @@ func (systemInfoProvider) Key() meta.MetadataKey {
 	return mdkeys.SystemInfoKey
 }
 
-func (systemInfoProvider) InitialValue(ctx meta.Context) interface{} {
+func (systemInfoProvider) InitialValue(context.Context) interface{} {
 	return GetSystemInfo()
 }
 

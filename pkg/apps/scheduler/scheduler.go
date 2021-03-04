@@ -243,6 +243,7 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 			defer agent.RUnlock()
 
 			stats := agentStats{
+				agentCtx:        agent.Context,
 				agentTasksTotal: &scmetrics.AgentTasksTotal{},
 				agentWeight:     &scmetrics.AgentWeight{},
 			}
@@ -297,6 +298,7 @@ func (s *Scheduler) CalcConsumerdStats() <-chan []consumerdStats {
 			}
 			total.Identifier.UUID = cd.UUID
 			statsList = append(statsList, consumerdStats{
+				consumerdCtx:       cd.Context,
 				cdRemoteTasksTotal: total,
 			})
 			return true

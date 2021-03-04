@@ -9,6 +9,7 @@ import (
 type KeyValueStore interface {
 	Context() context.Context
 	Set(key string, value []byte)
+	Delete(key string)
 	Get(key string) ([]byte, bool)
 	CAS(key string, value []byte) bool
 	Keys() []string
@@ -44,6 +45,12 @@ func (m *InMemoryStore) Set(key string, value []byte) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.data[key] = value
+}
+
+func (m *InMemoryStore) Delete(key string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	delete(m.data, key)
 }
 
 func (m *InMemoryStore) Get(key string) ([]byte, bool) {

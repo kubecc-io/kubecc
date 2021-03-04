@@ -3,12 +3,14 @@ package monitor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
@@ -62,14 +64,20 @@ func NewMonitorServer(
 
 func (m *MonitorServer) runPrometheusListener() {
 	inMemoryListener := bufconn.Listen(1024 * 1024)
-	inMemoryGrpcSrv := grpc.NewServer()
+	inMemoryGrpcSrv := servers.NewServer(m.srvContext)
 	types.RegisterExternalMonitorServer(inMemoryGrpcSrv, m)
+	go inMemoryGrpcSrv.Serve(inMemoryListener)
 
-	cc, err := grpc.DialContext(m.srvContext, "bufconn", grpc.WithContextDialer(
-		func(c context.Context, s string) (net.Conn, error) {
-			return inMemoryListener.Dial()
-		},
-	), grpc.WithInsecure())
+	cc, err := servers.Dial(m.srvContext, "bufconn",
+		servers.With(
+			grpc.WithContextDialer(
+				func(c context.Context, s string) (net.Conn, error) {
+					return inMemoryListener.Dial()
+				},
+			),
+			grpc.WithInsecure(),
+		),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -144,6 +152,7 @@ func (m *MonitorServer) Stream(
 		Component: int32(component),
 		Address:   addr,
 	}
+	providerCount.Inc()
 	m.providerMutex.Unlock()
 	m.providersUpdated()
 
@@ -177,6 +186,7 @@ func (m *MonitorServer) Stream(
 	bucketCancel()
 	delete(m.buckets, uuid)
 	delete(m.providers.Items, uuid)
+	providerCount.Dec()
 	m.providerMutex.Unlock()
 	m.providersUpdated()
 	return
@@ -235,8 +245,13 @@ func (m *MonitorServer) notifyStoreMeta() {
 
 func (m *MonitorServer) post(metric *types.Metric) error {
 	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
+		if metric.Value == nil {
+			store.Delete(metric.Key.Name)
+			return nil
+		}
 		if store.CAS(metric.Key.Name, metric.Value.Data) {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
@@ -248,10 +263,9 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			}()
 		}
 	} else {
-		m.providerMutex.RUnlock()
-		return status.Error(codes.InvalidArgument, "No such bucket")
+		return status.Error(codes.InvalidArgument,
+			fmt.Sprintf("No such bucket: '%s'", bucket))
 	}
-	m.providerMutex.RUnlock()
 	return nil
 }
 
@@ -274,7 +288,8 @@ func (m *MonitorServer) Listen(
 	bucket, ok := m.buckets[key.Bucket]
 	if !ok {
 		m.providerMutex.RUnlock()
-		return status.Error(codes.FailedPrecondition, "No such bucket")
+		return status.Error(codes.FailedPrecondition,
+			fmt.Sprintf("No such bucket: '%s'", key.Bucket))
 	} else {
 		bucketCtx = bucket.Context()
 	}
@@ -329,6 +344,7 @@ func (m *MonitorServer) Whois(
 
 	if info, ok := m.providers.Items[req.GetUUID()]; ok {
 		return &types.WhoisResponse{
+			UUID:      req.GetUUID(),
 			Address:   info.Address,
 			Component: types.Component(info.Component),
 		}, nil

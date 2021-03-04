@@ -2,6 +2,7 @@
 package logkc
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -151,7 +152,7 @@ func (logProvider) Key() meta.MetadataKey {
 	return mdkeys.LogKey
 }
 
-func (logProvider) InitialValue(ctx meta.Context) interface{} {
+func (logProvider) InitialValue(ctx context.Context) interface{} {
 	return New(meta.Component(ctx))
 }
 

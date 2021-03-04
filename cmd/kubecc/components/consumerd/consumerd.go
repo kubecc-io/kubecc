@@ -27,17 +27,24 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Consumerd
+	conf := (&config.ConfigMapProvider{}).Load(ctx).Consumerd
 
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress,
 		servers.WithTLS(!conf.DisableTLS),
 	)
+	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
 	}
 
-	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
+	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
+	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
+	if err != nil {
+		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
+	}
+
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
+	monitorClient := types.NewInternalMonitorClient(monitorCC)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithUsageLimits(&types.UsageLimits{
@@ -47,9 +54,11 @@ func run(cmd *cobra.Command, args []string) {
 		}),
 		consumerd.WithToolchainRunners(cctoolchain.AddToStore),
 		consumerd.WithSchedulerClient(schedulerClient, schedulerCC),
+		consumerd.WithMonitorClient(monitorClient),
 	)
 
 	mgr := servers.NewStreamManager(ctx, d)
+	go d.StartMetricsProvider()
 	go mgr.Run()
 
 	listener, err := net.Listen("tcp", conf.ListenAddress)

@@ -59,11 +59,13 @@ func (a Agent) Weight() int32 {
 }
 
 type agentStats struct {
+	agentCtx        context.Context
 	agentTasksTotal *scmetrics.AgentTasksTotal
 	agentWeight     *scmetrics.AgentWeight
 }
 
 type consumerdStats struct {
+	consumerdCtx       context.Context
 	cdRemoteTasksTotal *scmetrics.CdTasksTotal
 }
 

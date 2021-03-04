@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"reflect"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -53,6 +55,16 @@ type monitorProvider struct {
 	enableWaitRx chan bool
 }
 
+type deleter struct {
+	msgp.Decodable
+	msgp.Encodable
+	key string
+}
+
+func (d deleter) Key() string {
+	return d.key
+}
+
 func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 	for {
 		select {
@@ -64,11 +76,18 @@ func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 			p.lg.With(
 				types.ShortID(key.ShortID()),
 			).Debug("Posting metric")
-			err := stream.SendMsg(&types.Metric{
-				Key: key,
-				Value: &types.Value{
+			// Set the value to nil, which deletes the key, if metric is a deleter
+			var value *types.Value = nil
+			switch metric.(type) {
+			case deleter:
+			default:
+				value = &types.Value{
 					Data: util.EncodeMsgp(metric),
-				},
+				}
+			}
+			err := stream.SendMsg(&types.Metric{
+				Key:   key,
+				Value: value,
 			})
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -116,13 +135,25 @@ func NewMonitorProvider(
 		lg:           meta.Log(ctx),
 	}
 
-	go runWaitReceiver(provider.postQueue,
-		provider.enableWaitRx)
+	go runWaitReceiver(provider.postQueue, provider.enableWaitRx)
 	mgr := servers.NewStreamManager(ctx, provider)
 	go mgr.Run()
 	return provider
 }
 
-func (p *monitorProvider) Post(metric KeyedMetric) {
+func (p *monitorProvider) Post(metric KeyedMetric, contexts ...context.Context) {
 	p.postQueue <- metric
+	cases := []reflect.SelectCase{}
+	for _, ctx := range contexts {
+		cases = append(cases, reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ctx.Done()),
+		})
+	}
+	if len(cases) > 0 {
+		go func(k string) {
+			reflect.Select(cases)
+			p.postQueue <- deleter{key: k}
+		}(metric.Key())
+	}
 }

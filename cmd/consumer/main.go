@@ -28,7 +28,7 @@ func main() {
 	)
 	lg := meta.Log(ctx)
 
-	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Consumer
+	conf := (&config.ConfigMapProvider{}).Load(ctx).Consumer
 
 	cc, err := servers.Dial(ctx, conf.ConsumerdAddress)
 	if err != nil {
