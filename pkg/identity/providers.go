@@ -1,6 +1,8 @@
 package identity
 
 import (
+	"context"
+
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -31,7 +33,7 @@ func (uuidMDP) Key() meta.MetadataKey {
 	return mdkeys.UUIDKey
 }
 
-func (uuidMDP) InitialValue(meta.Context) interface{} {
+func (uuidMDP) InitialValue(context.Context) interface{} {
 	return uuid.NewString()
 }
 

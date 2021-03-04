@@ -23,7 +23,7 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Monitor
+	conf := (&config.ConfigMapProvider{}).Load(ctx).Monitor
 
 	extListener, err := net.Listen("tcp", conf.ListenAddress.External)
 	if err != nil {

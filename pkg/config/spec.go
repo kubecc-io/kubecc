@@ -14,13 +14,13 @@ type AgentSpec struct {
 	SchedulerAddress string          `json:"schedulerAddress"`
 	MonitorAddress   string          `json:"monitorAddress"`
 	ListenAddress    string          `json:"listenAddress"`
-	LogLevel         string          `json:"logLevel"`
+	LogLevel         string          `json:"logLevel,omitempty"`
 }
 
 type ConsumerSpec struct {
 	ConsumerdAddress string `json:"consumerdAddress"`
-	LogLevel         string `json:"logLevel"`
-	LogFile          string `json:"logFile"`
+	LogLevel         string `json:"logLevel,omitempty"`
+	LogFile          string `json:"logFile,omitempty"`
 }
 
 type ConsumerdSpec struct {
@@ -29,18 +29,18 @@ type ConsumerdSpec struct {
 	MonitorAddress   string          `json:"monitorAddress"`
 	ListenAddress    string          `json:"listenAddress"`
 	LogLevel         string          `json:"logLevel"`
-	DisableTLS       bool            `json:"disableTLS"`
+	DisableTLS       bool            `json:"disableTLS,omitempty"`
 }
 
 type SchedulerSpec struct {
 	MonitorAddress string `json:"monitorAddress"`
 	ListenAddress  string `json:"listenAddress"`
-	LogLevel       string `json:"logLevel"`
+	LogLevel       string `json:"logLevel,omitempty"`
 }
 
 type MonitorSpec struct {
 	ListenAddress MonitorListenAddressSpec `json:"listenAddress"`
-	LogLevel      string                   `json:"logLevel"`
+	LogLevel      string                   `json:"logLevel,omitempty"`
 }
 
 type MonitorListenAddressSpec struct {
@@ -50,7 +50,8 @@ type MonitorListenAddressSpec struct {
 
 type KcctlSpec struct {
 	MonitorAddress string `json:"monitorAddress"`
-	LogLevel       string `json:"logLevel"`
+	LogLevel       string `json:"logLevel,omitempty"`
+	DisableTLS     bool   `json:"disableTLS,omitempty"`
 }
 
 type UsageLimitsSpec struct {

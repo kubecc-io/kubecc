@@ -45,22 +45,6 @@ func Start(ctx context.Context, component types.Component) (opentracing.Tracer, 
 	return tracer, closer
 }
 
-// type tracerKeyType struct{}
-
-// var tracerKey tracerKeyType
-
-// func ContextWithTracer(ctx context.Context, tracer opentracing.Tracer) context.Context {
-// 	return context.WithValue(ctx, tracerKey, tracer)
-// }
-
-// func TracerFromContext(ctx context.Context) opentracing.Tracer {
-// 	tracer := ctx.Value(tracerKey)
-// 	if tracer == nil {
-// 		panic("No tracer associated with context")
-// 	}
-// 	return tracer.(opentracing.Tracer)
-// }
-
 type tracingProvider struct{}
 
 var Tracer tracingProvider
@@ -69,7 +53,7 @@ func (tracingProvider) Key() meta.MetadataKey {
 	return mdkeys.TracingKey
 }
 
-func (tracingProvider) InitialValue(ctx meta.Context) interface{} {
+func (tracingProvider) InitialValue(ctx context.Context) interface{} {
 	tracer, closer := Start(ctx, meta.Component(ctx))
 	go func() {
 		<-ctx.Done()

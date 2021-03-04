@@ -43,7 +43,7 @@ func loadConfigOrDie(lg *zap.SugaredLogger, path string) *KubeccSpec {
 	return cfg
 }
 
-func (cmp *ConfigMapProvider) Load(ctx context.Context, c types.Component) *KubeccSpec {
+func (cmp *ConfigMapProvider) Load(ctx context.Context) *KubeccSpec {
 	lg := meta.Log(ctx)
 	paths := []string{
 		"/etc/kubecc",

@@ -53,10 +53,17 @@ var (
 	metricsPostedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: "kubecc",
 		Name:      "metrics_posted_total",
+		Help:      "Total number of metrics posted to the monitor",
 	})
 	listenerCount = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: "kubecc",
 		Name:      "listener_count",
+		Help:      "Current number of metric listeners",
+	})
+	providerCount = promauto.NewGauge(prometheus.GaugeOpts{
+		Namespace: "kubecc",
+		Name:      "provider_count",
+		Help:      "Current number of metric providers",
 	})
 )
 
@@ -182,6 +189,9 @@ var (
 func serveMetricsEndpoint(ctx context.Context, address string) {
 	lg := meta.Log(ctx)
 	http.Handle("/metrics", promhttp.Handler())
+	lg.With(
+		zap.String("addr", address+"/metrics"),
+	).Info("Serving Prometheus metrics")
 	err := http.ListenAndServe(address, nil)
 	lg.With(
 		zap.Error(err),
@@ -189,12 +199,15 @@ func serveMetricsEndpoint(ctx context.Context, address string) {
 	).Fatal("Failed to serve metrics")
 }
 
-func servePrometheusMetrics(ctx context.Context, client types.ExternalMonitorClient) {
-	go serveMetricsEndpoint(ctx, ":2112")
-	lg := meta.Log(ctx)
-	listener := metrics.NewListener(ctx, client)
+func servePrometheusMetrics(
+	srvContext context.Context,
+	client types.ExternalMonitorClient,
+) {
+	go serveMetricsEndpoint(srvContext, ":2112")
+	lg := meta.Log(srvContext)
+	listener := metrics.NewListener(srvContext, client)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
-		info, err := client.Whois(ctx, &types.WhoisRequest{UUID: uuid})
+		info, err := client.Whois(srvContext, &types.WhoisRequest{UUID: uuid})
 		if err != nil {
 			lg.With(
 				zap.String("uuid", uuid),
@@ -206,14 +219,14 @@ func servePrometheusMetrics(ctx context.Context, client types.ExternalMonitorCli
 			infoMutex.Lock()
 			providerInfo[uuid] = info
 			infoMutex.Unlock()
-			watchAgentKeys(ctx, listener, info)
+			watchAgentKeys(listener, info)
 		case types.Scheduler:
-			watchSchedulerKeys(ctx, listener, info)
+			watchSchedulerKeys(listener, info)
 		case types.Consumerd:
 			infoMutex.Lock()
 			providerInfo[uuid] = info
 			infoMutex.Unlock()
-			watchConsumerdKeys(ctx, listener, info)
+			watchConsumerdKeys(listener, info)
 		}
 		<-ctx.Done()
 
@@ -224,7 +237,6 @@ func servePrometheusMetrics(ctx context.Context, client types.ExternalMonitorCli
 }
 
 func watchAgentKeys(
-	ctx context.Context,
 	listener metrics.Listener,
 	info *types.WhoisResponse,
 ) {
@@ -242,7 +254,6 @@ func watchAgentKeys(
 }
 
 func watchSchedulerKeys(
-	ctx context.Context,
 	listener metrics.Listener,
 	info *types.WhoisResponse,
 ) {
@@ -253,7 +264,7 @@ func watchSchedulerKeys(
 		infoMutex.RLock()
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
-			agentTasksTotal.WithLabelValues("agent", info.Address).
+			agentTasksTotal.WithLabelValues(info.Address).
 				Set(float64(value.Total))
 		}
 	})
@@ -261,7 +272,7 @@ func watchSchedulerKeys(
 		infoMutex.RLock()
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
-			agentWeight.WithLabelValues("agent", info.Address).
+			agentWeight.WithLabelValues(info.Address).
 				Set(value.Value)
 		}
 	})
@@ -272,7 +283,7 @@ func watchSchedulerKeys(
 		infoMutex.RLock()
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
-			cdRemoteReqTotal.WithLabelValues("consumerd", info.Address).
+			cdRemoteReqTotal.WithLabelValues(info.Address).
 				Set(float64(value.Total))
 		}
 	})
@@ -288,7 +299,6 @@ func watchSchedulerKeys(
 }
 
 func watchConsumerdKeys(
-	ctx context.Context,
 	listener metrics.Listener,
 	info *types.WhoisResponse,
 ) {
