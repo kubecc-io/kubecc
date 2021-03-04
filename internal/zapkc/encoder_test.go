@@ -15,12 +15,14 @@ func BenchmarkFormatEntryCaller(b *testing.B) {
 		"zxxxxxx/yxxxxxx.go:123",
 	}
 	for i, test := range testCases {
-		b.Run(fmt.Sprintf("FormatEntryCaller (%d)", i), func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				_ = zapkc.FormatEntryCaller(test, 16)
-			}
-		})
+		func(test string) {
+			b.Run(fmt.Sprintf("FormatEntryCaller (%d)", i), func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					_ = zapkc.FormatEntryCaller(test, 16)
+				}
+			})
+		}(test)
 	}
 	b.Run("fmt.Sprintf (0)", func(b *testing.B) {
 		b.ReportAllocs()
