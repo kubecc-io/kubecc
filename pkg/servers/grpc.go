@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
@@ -40,13 +41,13 @@ func WithTLS(tls bool) grpcOption {
 	}
 }
 
-func With(dialOption grpc.DialOption) grpcOption {
+func With(dialOption ...grpc.DialOption) grpcOption {
 	return func(op *GRPCOptions) {
-		op.dialOptions = append(op.dialOptions, dialOption)
+		op.dialOptions = append(op.dialOptions, dialOption...)
 	}
 }
 
-func NewServer(ctx meta.Context, opts ...grpcOption) *grpc.Server {
+func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	options := GRPCOptions{
 		tls: false,
 	}
@@ -60,16 +61,23 @@ func NewServer(ctx meta.Context, opts ...grpcOption) *grpc.Server {
 		Optional: []meta.Provider{
 			host.SystemInfo,
 		},
+		Inherit: &meta.InheritOptions{
+			InheritFrom: ctx,
+			Providers: []meta.Provider{
+				logkc.Logger,
+				tracing.Tracer,
+			},
+		},
 	}
 
 	return grpc.NewServer(
 		grpc.MaxRecvMsgSize(1e8), // 100MB
 		grpc.ChainUnaryInterceptor(
 			otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
-			meta.ServerContextInterceptor(ctx, importOptions),
+			meta.ServerContextInterceptor(importOptions),
 		),
 		grpc.ChainStreamInterceptor(
-			meta.StreamServerContextInterceptor(ctx, importOptions),
+			meta.StreamServerContextInterceptor(importOptions),
 		),
 	)
 }

@@ -56,5 +56,5 @@ func init() {
 
 // initConfig reads in the config file.
 func initConfig() {
-	cliConfig = (&config.ConfigMapProvider{}).Load(cliContext, types.CLI).Kcctl
+	cliConfig = (&config.ConfigMapProvider{}).Load(cliContext).Kcctl
 }

@@ -23,19 +23,19 @@ type ResolveContext struct {
 }
 
 type ResolverTree struct {
-	ctrlCtx  meta.Context
+	ctrlCtx  context.Context
 	client   client.Client
 	Resolver Resolver
 	Find     func() interface{}
 	Nodes    []*ResolverTree
 }
 
-func BuildRootResolver(ctrlCtx meta.Context, client client.Client, tree *ResolverTree) *ResolverTree {
+func BuildRootResolver(ctrlCtx context.Context, client client.Client, tree *ResolverTree) *ResolverTree {
 	tree.injectClient(ctrlCtx, client)
 	return tree
 }
 
-func (t *ResolverTree) injectClient(ctrlCtx meta.Context, client client.Client) {
+func (t *ResolverTree) injectClient(ctrlCtx context.Context, client client.Client) {
 	t.client = client
 	t.ctrlCtx = ctrlCtx
 	for _, node := range t.Nodes {

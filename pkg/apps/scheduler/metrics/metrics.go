@@ -51,8 +51,8 @@ type AgentWeight struct {
 	Value float64 `msg:"agentWeight"`
 }
 
-func (AgentWeight) Key() string {
-	return "AgentWeight"
+func (m AgentWeight) Key() string {
+	return m.Identifier.UUID + ".AgentWeight"
 }
 
 type AgentTasksTotal struct {
@@ -60,8 +60,8 @@ type AgentTasksTotal struct {
 	Total int64 `msg:"total"`
 }
 
-func (AgentTasksTotal) Key() string {
-	return "AgentTasksTotal"
+func (m AgentTasksTotal) Key() string {
+	return m.Identifier.UUID + ".AgentTasksTotal"
 }
 
 type CdTasksTotal struct {
@@ -69,6 +69,6 @@ type CdTasksTotal struct {
 	Total int64 `msg:"total"`
 }
 
-func (CdTasksTotal) Key() string {
-	return "CdTasksTotal"
+func (m CdTasksTotal) Key() string {
+	return m.Identifier.UUID + ".CdTasksTotal"
 }

@@ -14,8 +14,6 @@ import (
 	"github.com/tinylib/msgp/msgp"
 )
 
-var address string
-
 // monitorCmd represents the monitor command.
 var monitorCmd = &cobra.Command{
 	Use:   "monitor",
@@ -53,7 +51,8 @@ var listenCmd = &cobra.Command{
 	Short: "Display the real-time value of a key in the monitor's key-value store",
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		cc, err := servers.Dial(cliContext, address, servers.WithTLS(true))
+		cc, err := servers.Dial(cliContext, cliConfig.MonitorAddress,
+			servers.WithTLS(!cliConfig.DisableTLS))
 		if err != nil {
 			cliLog.Fatal(err)
 		}
@@ -73,7 +72,4 @@ var listenCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(monitorCmd)
 	monitorCmd.AddCommand(listenCmd)
-
-	monitorCmd.PersistentFlags().StringVarP(&address, "address", "a", "",
-		"Address to use to connect to the monitor (ip:port)")
 }

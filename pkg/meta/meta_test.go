@@ -28,6 +28,7 @@ func (s *fooServer) Foo(
 	in *testutil.Baz,
 ) (*testutil.Baz, error) {
 	defer GinkgoRecover()
+	Expect(ctx).NotTo(BeNil())
 	Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
 	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
 	Expect(meta.Log(ctx)).NotTo(BeNil())
@@ -45,6 +46,7 @@ func (s *barServer) Bar(
 ) error {
 	defer GinkgoRecover()
 	ctx := srv.Context()
+	Expect(ctx).NotTo(BeNil())
 	Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
 	Expect(func() { uuid.MustParse(meta.UUID(ctx)) }).NotTo(Panic())
 	Expect(meta.Log(ctx)).NotTo(BeNil())
@@ -151,7 +153,7 @@ var _ = Describe("Meta", func() {
 			listener := bufconn.Listen(1024 * 1024)
 			srv := grpc.NewServer(
 				grpc.UnaryInterceptor(
-					meta.ServerContextInterceptor(ctx,
+					meta.ServerContextInterceptor(
 						meta.ImportOptions{
 							Required: []meta.Provider{
 								identity.Component,
@@ -159,6 +161,13 @@ var _ = Describe("Meta", func() {
 							},
 							Optional: []meta.Provider{
 								host.SystemInfo,
+							},
+							Inherit: &meta.InheritOptions{
+								InheritFrom: ctx,
+								Providers: []meta.Provider{
+									logkc.Logger,
+									tracing.Tracer,
+								},
 							},
 						})),
 			)
@@ -196,7 +205,7 @@ var _ = Describe("Meta", func() {
 			listener := bufconn.Listen(1024 * 1024)
 			srv := grpc.NewServer(
 				grpc.StreamInterceptor(
-					meta.StreamServerContextInterceptor(ctx,
+					meta.StreamServerContextInterceptor(
 						meta.ImportOptions{
 							Required: []meta.Provider{
 								identity.Component,
@@ -204,6 +213,13 @@ var _ = Describe("Meta", func() {
 							},
 							Optional: []meta.Provider{
 								host.SystemInfo,
+							},
+							Inherit: &meta.InheritOptions{
+								InheritFrom: ctx,
+								Providers: []meta.Provider{
+									logkc.Logger,
+									tracing.Tracer,
+								},
 							},
 						})),
 			)

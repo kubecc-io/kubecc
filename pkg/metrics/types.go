@@ -14,7 +14,7 @@ type KeyedMetric interface {
 }
 
 type Provider interface {
-	Post(metric KeyedMetric)
+	Post(metric KeyedMetric, contexts ...context.Context)
 }
 
 type Listener interface {

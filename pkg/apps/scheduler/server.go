@@ -15,6 +15,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
 )
 
@@ -102,15 +103,41 @@ func (s *schedulerServer) Compile(
 	return s.scheduler.Schedule(ctx, req)
 }
 
+func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {
+	done := make(chan error)
+	ctx := srv.Context()
+	go func() {
+		defer close(done)
+		for {
+			metadata := &types.Metadata{}
+			err := srv.RecvMsg(metadata)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					s.lg.Debug(err)
+					done <- nil
+				} else {
+					s.lg.Error(err)
+					done <- err
+				}
+				return
+			}
+			if err := s.scheduler.SetToolchains(
+				ctx, metadata.Toolchains.GetItems()); err != nil {
+				s.lg.Error(err)
+			}
+		}
+	}()
+	return <-done
+}
+
 func (s *schedulerServer) ConnectAgent(
 	srv types.Scheduler_ConnectAgentServer,
 ) error {
-	if err := meta.CheckContext(srv.Context()); err != nil {
+	ctx := srv.Context()
+	if err := meta.CheckContext(ctx); err != nil {
 		s.lg.Error(err)
 		return err
 	}
-	lg := s.lg
-	ctx := srv.Context()
 	if err := s.scheduler.AgentConnected(ctx); err != nil {
 		s.lg.Error(err)
 		return err
@@ -125,41 +152,21 @@ func (s *schedulerServer) ConnectAgent(
 		})
 	}()
 
-	go func() {
-		for {
-			metadata, err := srv.Recv()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					lg.Debug(err)
-				} else {
-					lg.Error(err)
-				}
-				return
-			}
-			if err := s.scheduler.SetToolchains(
-				ctx, metadata.Toolchains.GetItems()); err != nil {
-				lg.Error(err)
-			}
-		}
-	}()
-
-	<-ctx.Done()
-	return nil
+	return s.handleClientConnection(srv)
 }
 
 func (s *schedulerServer) ConnectConsumerd(
 	srv types.Scheduler_ConnectConsumerdServer,
 ) error {
-	lg := s.lg
 	ctx := srv.Context()
-
+	if err := meta.CheckContext(ctx); err != nil {
+		s.lg.Error(err)
+		return err
+	}
 	if err := s.scheduler.ConsumerdConnected(ctx); err != nil {
 		s.lg.Error(err)
 		return err
 	}
-
-	lg.Info(types.Scheduler.Color().Add("Consumerd connected"))
-	defer lg.Info(types.Scheduler.Color().Add("Consumerd disconnected"))
 
 	s.metricsProvider.Post(&scmetrics.CdCount{
 		Count: s.consumerdCount.Inc(),
@@ -170,31 +177,22 @@ func (s *schedulerServer) ConnectConsumerd(
 		})
 	}()
 
-	go func() {
-		for {
-			metadata, err := srv.Recv()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					lg.Debug(err)
-				} else {
-					lg.Error(err)
-				}
-				return
-			}
-			if err := s.scheduler.SetToolchains(
-				ctx, metadata.Toolchains.GetItems()); err != nil {
-				lg.Error(err)
-			}
-		}
-	}()
-
-	<-ctx.Done()
-	return nil
+	return s.handleClientConnection(srv)
 }
 
 func (s *schedulerServer) postAlive() {
 	s.metricsProvider.Post(&common.Alive{})
 }
+
+func (s *schedulerServer) postCounts() {
+	s.metricsProvider.Post(&scmetrics.AgentCount{
+		Count: s.agentCount.Load(),
+	})
+	s.metricsProvider.Post(&scmetrics.CdCount{
+		Count: s.consumerdCount.Load(),
+	})
+}
+
 func (s *schedulerServer) postTotals() {
 	stats := s.scheduler.TaskStats()
 	s.metricsProvider.Post(stats.completedTotal)
@@ -204,20 +202,21 @@ func (s *schedulerServer) postTotals() {
 
 func (s *schedulerServer) postAgentStats() {
 	for _, stat := range <-s.scheduler.CalcAgentStats() {
-		s.metricsProvider.Post(stat.agentTasksTotal)
-		s.metricsProvider.Post(stat.agentWeight)
+		s.metricsProvider.Post(stat.agentTasksTotal, stat.agentCtx)
+		s.metricsProvider.Post(stat.agentWeight, stat.agentCtx)
 	}
 }
 
 func (s *schedulerServer) postConsumerdStats() {
 	for _, stat := range <-s.scheduler.CalcConsumerdStats() {
-		s.metricsProvider.Post(stat.cdRemoteTasksTotal)
+		s.metricsProvider.Post(stat.cdRemoteTasksTotal, stat.consumerdCtx)
 	}
 }
 
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 	s.postAlive()
+	s.postCounts()
 
 	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
 	go func() {

@@ -16,7 +16,7 @@ type MetadataKey interface {
 
 type InitProvider interface {
 	Provider
-	InitialValue(Context) interface{}
+	InitialValue(context.Context) interface{}
 }
 
 type Provider interface {

@@ -27,7 +27,7 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Agent).Agent
+	conf := (&config.ConfigMapProvider{}).Load(ctx).Agent
 
 	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", conf.ListenAddress)
@@ -36,16 +36,16 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress)
+	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
 	}
-	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 
 	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
+	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
 	}
-	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
 	monitorClient := types.NewInternalMonitorClient(monitorCC)

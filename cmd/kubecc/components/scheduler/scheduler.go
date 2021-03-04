@@ -12,6 +12,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
@@ -24,8 +25,9 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	conf := (&config.ConfigMapProvider{}).Load(ctx, types.Consumerd).Scheduler
+	conf := (&config.ConfigMapProvider{}).Load(ctx).Scheduler
 
+	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
 		panic(err.Error())
@@ -33,13 +35,23 @@ func run(cmd *cobra.Command, args []string) {
 	lg.With("addr", listener.Addr().String()).
 		Info("Server listening")
 
-	grpcServer := servers.NewServer(ctx)
-	srv := scheduler.NewSchedulerServer(ctx)
-	types.RegisterSchedulerServer(grpcServer, srv)
-
-	err = grpcServer.Serve(listener)
+	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
 	if err != nil {
-		lg.Error(err)
+		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
+	}
+	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
+
+	monitorClient := types.NewInternalMonitorClient(monitorCC)
+
+	sc := scheduler.NewSchedulerServer(ctx,
+		scheduler.WithMonitorClient(monitorClient),
+	)
+	types.RegisterSchedulerServer(srv, sc)
+	go sc.StartMetricsProvider()
+
+	err = srv.Serve(listener)
+	if err != nil {
+		lg.With(zap.Error(err)).Error("GRPC error")
 	}
 }
 

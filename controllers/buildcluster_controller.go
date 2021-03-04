@@ -19,7 +19,7 @@ import (
 // BuildClusterReconciler reconciles a BuildCluster object.
 type BuildClusterReconciler struct {
 	client.Client
-	Context     meta.Context
+	Context     context.Context
 	Log         *zap.SugaredLogger
 	Scheme      *runtime.Scheme
 	resolveTree *rec.ResolverTree
