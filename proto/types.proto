@@ -58,7 +58,6 @@ message SyncRequest {
 
 message CacheKey {
   string Hash = 1;
-  map<string, string> Tags = 2;
 }
 
 message CacheObject {
@@ -67,6 +66,7 @@ message CacheObject {
 }
 
 message CacheObjectMeta {
+  map<string, string> Tags = 1;
   int64 CpuSecondsUsed = 3;
   int64 ExpirationTime = 4;
   CacheObjectManaged ManagedFields = 5;

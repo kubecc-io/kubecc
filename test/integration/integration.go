@@ -22,6 +22,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -217,11 +218,11 @@ func (tc *TestController) startCache() {
 	srv := servers.NewServer(ctx)
 	cache := cachesrv.NewCacheServer(ctx, config.CacheSpec{},
 		cachesrv.WithStorageProvider(
-			storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
+			util.Must(storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Memory: "10Gi",
 				},
-			}),
+			})).(storage.StorageProvider),
 		),
 		cachesrv.WithMonitorClient(internalMonClient),
 	)
