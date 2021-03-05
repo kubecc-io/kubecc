@@ -10,17 +10,21 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var S3StorageError = errors.New("S3 Storage Error")
+var ConfigurationError = errors.New("Configuration Error")
 
 type s3StorageProvider struct {
 	ctx               context.Context
@@ -30,6 +34,10 @@ type s3StorageProvider struct {
 	bucket            string
 	knownObjects      map[string]*types.CacheObjectMeta
 	knownObjectsMutex *sync.RWMutex
+	totalSize         *atomic.Int64
+	storageLimitBytes int64
+	cacheHitsTotal    *atomic.Int64
+	cacheMissesTotal  *atomic.Int64
 }
 
 func NewS3StorageProvider(
@@ -39,14 +47,23 @@ func NewS3StorageProvider(
 	if cfg.Bucket == "" {
 		cfg.Bucket = "kubecc"
 	}
-	return &s3StorageProvider{
+	sp := &s3StorageProvider{
 		ctx:               ctx,
 		lg:                meta.Log(ctx).Named("s3"),
 		cfg:               cfg,
 		bucket:            cfg.Bucket,
 		knownObjects:      make(map[string]*types.CacheObjectMeta),
 		knownObjectsMutex: &sync.RWMutex{},
+		totalSize:         atomic.NewInt64(0),
+		cacheHitsTotal:    atomic.NewInt64(0),
+		cacheMissesTotal:  atomic.NewInt64(0),
 	}
+	q, err := resource.ParseQuantity(sp.cfg.Limits.Disk)
+	if err != nil {
+		sp.lg.Fatal("%w: %s", ConfigurationError, err)
+	}
+	sp.storageLimitBytes = q.Value()
+	return sp
 }
 
 func (*s3StorageProvider) Location() types.StorageLocation {
@@ -114,11 +131,13 @@ func (sp *s3StorageProvider) Configure() error {
 			CpuSecondsUsed: seconds,
 			ExpirationTime: object.Expiration.Unix(),
 			ManagedFields: &types.CacheObjectManaged{
+				Size:      object.Size,
 				Timestamp: timestamp,
 				Score:     score,
 				Location:  types.S3,
 			},
 		}
+		sp.totalSize.Add(object.Size)
 	}
 	sp.lg.Infof("Loaded metadata for %d objects from S3 storage",
 		len(sp.knownObjects))
@@ -139,7 +158,7 @@ func (sp *s3StorageProvider) Put(
 	meta.ManagedFields.Timestamp = time.Now().Unix()
 	meta.ManagedFields.Score = 1
 	meta.ManagedFields.Location = types.S3
-	_, err := sp.client.PutObject(
+	info, err := sp.client.PutObject(
 		sp.ctx,
 		sp.bucket,
 		key.GetHash(),
@@ -159,7 +178,9 @@ func (sp *s3StorageProvider) Put(
 	if err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
+	meta.ManagedFields.Size = info.Size
 	sp.knownObjects[key.Hash] = meta
+	sp.totalSize.Add(info.Size)
 	return nil
 }
 
@@ -167,20 +188,37 @@ func (sp *s3StorageProvider) Get(
 	ctx context.Context,
 	key *types.CacheKey,
 ) (*types.CacheObject, error) {
-	info, ok := sp.knownObjects[key.GetHash()]
+	sp.knownObjectsMutex.RLock()
+	hash := key.GetHash()
+	info, ok := sp.knownObjects[hash]
 	if !ok {
+		sp.knownObjectsMutex.RUnlock()
+		sp.cacheMissesTotal.Inc()
 		return nil, status.Error(codes.NotFound, "Object not found")
 	}
+	sp.knownObjectsMutex.RUnlock()
+
 	obj, err := sp.client.GetObject(
 		sp.ctx,
 		sp.bucket,
-		key.GetHash(),
+		hash,
 		minio.GetObjectOptions{},
 	)
 	if err != nil {
+		sp.cacheMissesTotal.Inc()
+
+		// todo
+		// Object expired, remove it from our cache
+		sp.knownObjectsMutex.Lock()
+		defer sp.knownObjectsMutex.Unlock()
+		meta := sp.knownObjects[hash]
+		delete(sp.knownObjects, hash)
+		sp.totalSize.Sub(meta.ManagedFields.Size)
+
 		return nil, status.Error(codes.NotFound,
-			fmt.Errorf("Object not found: %w", err).Error())
+			fmt.Errorf("Object expired: %w", err).Error())
 	}
+	sp.cacheHitsTotal.Inc()
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, obj)
 	if err != nil {
@@ -196,6 +234,9 @@ func (sp *s3StorageProvider) Query(
 	ctx context.Context,
 	keys []*types.CacheKey,
 ) ([]*types.CacheObjectMeta, error) {
+	sp.knownObjectsMutex.RLock()
+	defer sp.knownObjectsMutex.RUnlock()
+
 	results := make([]*types.CacheObjectMeta, len(keys))
 	for i, key := range keys {
 		if meta, ok := sp.knownObjects[key.GetHash()]; ok {
@@ -203,4 +244,38 @@ func (sp *s3StorageProvider) Query(
 		}
 	}
 	return results, nil
+}
+
+func (sp *s3StorageProvider) UsageInfo() *metrics.UsageInfo {
+	sp.knownObjectsMutex.RLock()
+	defer sp.knownObjectsMutex.RUnlock()
+
+	totalSize := sp.totalSize.Load()
+	var usagePercent float64
+	if sp.storageLimitBytes == 0 {
+		usagePercent = 0
+	} else {
+		usagePercent = float64(totalSize) / float64(sp.storageLimitBytes)
+	}
+	return &metrics.UsageInfo{
+		ObjectCount:  int64(len(sp.knownObjects)),
+		TotalSize:    totalSize,
+		UsagePercent: usagePercent,
+	}
+}
+
+func (sp *s3StorageProvider) CacheHits() *metrics.CacheHits {
+	hitTotal := sp.cacheHitsTotal.Load()
+	missTotal := sp.cacheMissesTotal.Load()
+	var percent float64
+	if hitTotal+missTotal == 0 {
+		percent = 0
+	} else {
+		percent = float64(hitTotal) / float64(hitTotal+missTotal)
+	}
+	return &metrics.CacheHits{
+		CacheHitsTotal:   hitTotal,
+		CacheMissesTotal: missTotal,
+		CacheHitPercent:  percent,
+	}
 }

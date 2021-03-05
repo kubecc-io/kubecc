@@ -73,10 +73,11 @@ message CacheObjectMeta {
 }
 
 message CacheObjectManaged {
-  int64 Timestamp = 1;
-  int64 Score = 2;
-  int64 Replications = 3;
-  StorageLocation Location = 4;
+  int64 Size = 1;
+  int64 Timestamp = 2;
+  int64 Score = 3;
+  int64 Replications = 4;
+  StorageLocation Location = 5;
 }
 
 enum StorageLocation {

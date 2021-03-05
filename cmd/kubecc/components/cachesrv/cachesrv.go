@@ -33,10 +33,18 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
 	}
 
+	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
+	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
+	if err != nil {
+		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
+	}
+
 	cacheSrv := cachesrv.NewCacheServer(ctx, conf)
 	types.RegisterCacheServer(srv, cacheSrv)
 
 	go cacheSrv.Run()
+	go cacheSrv.StartMetricsProvider()
+
 	err = srv.Serve(listener)
 	if err != nil {
 		lg.With(zap.Error(err)).Error("GRPC error")
