@@ -129,7 +129,7 @@ func (sp *s3StorageProvider) Configure() error {
 		}
 		sp.knownObjects[object.Key] = &types.CacheObjectMeta{
 			CpuSecondsUsed: seconds,
-			ExpirationTime: object.Expiration.Unix(),
+			ExpirationTime: object.Expiration.UnixNano(),
 			ManagedFields: &types.CacheObjectManaged{
 				Size:      object.Size,
 				Timestamp: timestamp,
@@ -154,10 +154,15 @@ func (sp *s3StorageProvider) Put(
 	if _, ok := sp.knownObjects[key.GetHash()]; ok {
 		return status.Error(codes.AlreadyExists, "Object already exists")
 	}
+	if object.Metadata == nil {
+		object.Metadata = &types.CacheObjectMeta{}
+	}
+	object.Metadata.ManagedFields = &types.CacheObjectManaged{
+		Timestamp: time.Now().Unix(),
+		Score:     1,
+		Location:  types.S3,
+	}
 	meta := object.Metadata
-	meta.ManagedFields.Timestamp = time.Now().Unix()
-	meta.ManagedFields.Score = 1
-	meta.ManagedFields.Location = types.S3
 	info, err := sp.client.PutObject(
 		sp.ctx,
 		sp.bucket,
@@ -170,9 +175,9 @@ func (sp *s3StorageProvider) Put(
 				"cpuSecondsUsed": strconv.FormatInt(meta.CpuSecondsUsed, 10),
 				"score":          strconv.FormatInt(meta.ManagedFields.Score, 10),
 			},
-			UserTags:        key.GetTags(),
+			UserTags:        object.Metadata.GetTags(),
 			ContentType:     "application/octet-stream",
-			RetainUntilDate: time.Unix(object.Metadata.ExpirationTime, 0),
+			RetainUntilDate: time.Unix(0, object.Metadata.ExpirationTime),
 		},
 	)
 	if err != nil {

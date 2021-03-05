@@ -106,7 +106,7 @@ func (s *schedulerServer) cacheTransaction(
 		Object: &types.CacheObject{
 			Data: resp.GetCompiledSource(),
 			Metadata: &types.CacheObjectMeta{
-				ExpirationTime: time.Now().Add(1 * time.Hour).Unix(),
+				ExpirationTime: time.Now().Add(1 * time.Hour).UnixNano(),
 				CpuSecondsUsed: resp.GetCpuSecondsUsed(),
 			},
 		},

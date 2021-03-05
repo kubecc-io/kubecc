@@ -23,9 +23,11 @@ require (
 	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
+	github.com/karlseguin/ccache/v2 v2.0.8 // indirect
 	github.com/mattn/go-runewidth v0.0.10 // indirect
-	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.10 // indirect
+	github.com/minio/md5-simd v1.1.2
+	github.com/minio/minio-go/v7 v7.0.10
 	github.com/mitchellh/copystructure v1.1.1 // indirect
 	github.com/onsi/ginkgo v1.15.0
 	github.com/onsi/gomega v1.10.5
