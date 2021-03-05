@@ -147,6 +147,7 @@ func (s *schedulerServer) Compile(
 		})
 		switch status.Code(err) {
 		case codes.OK:
+			s.lg.Info("Cache Hit")
 			return &types.CompileResponse{
 				CompileResult: types.CompileResponse_Success,
 				Data: &types.CompileResponse_CompiledSource{
@@ -162,7 +163,7 @@ func (s *schedulerServer) Compile(
 		}
 	}
 	resp, err := s.scheduler.Schedule(ctx, req)
-	if err != nil &&
+	if err == nil &&
 		resp.CompileResult == types.CompileResponse_Success &&
 		cacheMiss {
 		go s.cacheTransaction(reqHash, resp)
@@ -285,7 +286,7 @@ func (s *schedulerServer) StartMetricsProvider() {
 	s.postAlive()
 	s.postCounts()
 
-	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5) // 5-7.5 sec
 	go func() {
 		for {
 			<-slowTimer

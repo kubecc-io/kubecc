@@ -35,6 +35,7 @@ type ConsumerdSpec struct {
 
 type SchedulerSpec struct {
 	MonitorAddress string `json:"monitorAddress"`
+	CacheAddress   string `json:"cacheAddress"`
 	ListenAddress  string `json:"listenAddress"`
 	LogLevel       string `json:"logLevel,omitempty"`
 }
@@ -45,9 +46,10 @@ type MonitorSpec struct {
 }
 
 type CacheSpec struct {
-	LocalStorage  LocalStorageSpec  `json:"localStorage"`
-	RemoteStorage RemoteStorageSpec `json:"remoteStorage,omitempty"`
-	ListenAddress string            `json:"listenAddress"`
+	LocalStorage   LocalStorageSpec  `json:"localStorage"`
+	RemoteStorage  RemoteStorageSpec `json:"remoteStorage,omitempty"`
+	ListenAddress  string            `json:"listenAddress"`
+	MonitorAddress string            `json:"monitorAddress"`
 }
 
 type LocalStorageSpec struct {
@@ -56,12 +58,13 @@ type LocalStorageSpec struct {
 }
 
 type RemoteStorageSpec struct {
-	Endpoint  string `json:"endpoint"`
-	AccessKey string `json:"accessKey"`
-	SecretKey string `json:"secretKey"`
-	TLS       bool   `json:"tls,omitempty"`
-	CertPath  string `json:"certPath,omitempty"`
-	Bucket    string `json:"bucket"`
+	Limits    StorageLimitsSpec `json:"limits"`
+	Endpoint  string            `json:"endpoint"`
+	AccessKey string            `json:"accessKey"`
+	SecretKey string            `json:"secretKey"`
+	TLS       bool              `json:"tls,omitempty"`
+	CertPath  string            `json:"certPath,omitempty"`
+	Bucket    string            `json:"bucket"`
 }
 
 type StorageLimitsSpec struct {

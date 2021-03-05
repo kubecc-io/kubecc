@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 
+	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
 
@@ -15,4 +16,7 @@ type StorageProvider interface {
 	Put(context.Context, *types.CacheKey, *types.CacheObject) error
 	Get(context.Context, *types.CacheKey) (*types.CacheObject, error)
 	Query(context.Context, []*types.CacheKey) ([]*types.CacheObjectMeta, error)
+
+	UsageInfo() *metrics.UsageInfo
+	CacheHits() *metrics.CacheHits
 }

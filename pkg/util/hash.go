@@ -1,6 +1,10 @@
 package util
 
-import md5simd "github.com/minio/md5-simd"
+import (
+	"encoding/hex"
+
+	md5simd "github.com/minio/md5-simd"
+)
 
 type Hashable interface {
 	Hash(md5simd.Hasher)
@@ -20,5 +24,5 @@ func (hs *HashServer) Hash(obj Hashable) string {
 	hasher := hs.srv.NewHash()
 	defer hasher.Close()
 	obj.Hash(hasher)
-	return string(hasher.Sum(nil))
+	return hex.EncodeToString(hasher.Sum(nil))
 }

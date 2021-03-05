@@ -9,18 +9,22 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
+	"github.com/cobalt77/kubecc/pkg/apps/cachesrv"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/storage"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,6 +41,7 @@ type TestController struct {
 
 	schedListener *bufconn.Listener
 	monListener   *bufconn.Listener
+	cacheListener *bufconn.Listener
 }
 
 func NewTestController(ctx context.Context) *TestController {
@@ -135,11 +140,15 @@ func (tc *TestController) startScheduler() {
 	cc := dial(ctx, tc.monListener)
 	internalMonClient := types.NewInternalMonitorClient(cc)
 
+	cc = dial(ctx, tc.cacheListener)
+	cacheClient := types.NewCacheClient(cc)
+
 	sc := scheduler.NewSchedulerServer(ctx,
 		scheduler.WithSchedulerOptions(
 			scheduler.WithAgentDialer(tc),
 		),
 		scheduler.WithMonitorClient(internalMonClient),
+		scheduler.WithCacheClient(cacheClient),
 	)
 	types.RegisterSchedulerServer(srv, sc)
 	go sc.StartMetricsProvider()
@@ -166,7 +175,7 @@ func (tc *TestController) startMonitor() {
 	tc.monListener = bufconn.Listen(bufSize)
 	internalSrv := servers.NewServer(ctx)
 	externalSrv := servers.NewServer(ctx)
-	extListener, err := net.Listen("tcp", "127.0.0.1:9960")
+	extListener, err := net.Listen("tcp", "127.0.0.1:9097")
 	if err != nil {
 		panic(err)
 	}
@@ -184,6 +193,47 @@ func (tc *TestController) startMonitor() {
 	go func() {
 		if err := externalSrv.Serve(extListener); err != nil {
 			lg.Info(err)
+		}
+	}()
+}
+
+func (tc *TestController) startCache() {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Cache)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Cache,
+				logkc.WithName("a"),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
+	)
+	lg := meta.Log(ctx)
+
+	cc := dial(ctx, tc.monListener)
+	internalMonClient := types.NewInternalMonitorClient(cc)
+
+	tc.cacheListener = bufconn.Listen(bufSize)
+	srv := servers.NewServer(ctx)
+	cache := cachesrv.NewCacheServer(ctx, config.CacheSpec{},
+		cachesrv.WithStorageProvider(
+			storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
+				Limits: config.StorageLimitsSpec{
+					Memory: "10Gi",
+				},
+			}),
+		),
+		cachesrv.WithMonitorClient(internalMonClient),
+	)
+	types.RegisterCacheServer(srv, cache)
+
+	go cache.Run()
+	go cache.StartMetricsProvider()
+
+	go func() {
+		err := srv.Serve(tc.cacheListener)
+		if err != nil {
+			lg.With(zap.Error(err)).Error("GRPC error")
 		}
 	}()
 }
@@ -246,6 +296,7 @@ func (tc *TestController) Start(ops TestOptions) {
 	opentracing.SetGlobalTracer(tracer)
 
 	tc.startMonitor()
+	tc.startCache()
 	tc.startScheduler()
 	for _, cfg := range ops.Agents {
 		tc.startAgent(cfg)
