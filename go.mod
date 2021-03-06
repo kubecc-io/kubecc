@@ -23,8 +23,7 @@ require (
 	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
-	github.com/karlseguin/ccache v2.0.3+incompatible // indirect
-	github.com/karlseguin/ccache/v2 v2.0.8 // indirect
+	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/minio/md5-simd v1.1.2
 	github.com/minio/minio-go/v7 v7.0.10
@@ -42,9 +41,11 @@ require (
 	github.com/tinylib/msgp v1.1.5
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
+	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
+	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
@@ -56,7 +57,7 @@ require (
 	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v0.20.4
 	k8s.io/klog/v2 v2.6.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20210216185858-15cd8face8d6 // indirect
+	k8s.io/kube-openapi v0.0.0-20210305164622-f622666832c1 // indirect
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/yaml v1.2.0
 )

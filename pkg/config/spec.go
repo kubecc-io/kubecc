@@ -46,10 +46,10 @@ type MonitorSpec struct {
 }
 
 type CacheSpec struct {
-	LocalStorage   LocalStorageSpec  `json:"localStorage"`
-	RemoteStorage  RemoteStorageSpec `json:"remoteStorage,omitempty"`
-	ListenAddress  string            `json:"listenAddress"`
-	MonitorAddress string            `json:"monitorAddress"`
+	LocalStorage   *LocalStorageSpec  `json:"localStorage,omitempty"`
+	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage,omitempty"`
+	ListenAddress  string             `json:"listenAddress"`
+	MonitorAddress string             `json:"monitorAddress"`
 }
 
 type LocalStorageSpec struct {
@@ -58,13 +58,14 @@ type LocalStorageSpec struct {
 }
 
 type RemoteStorageSpec struct {
-	Limits    StorageLimitsSpec `json:"limits"`
-	Endpoint  string            `json:"endpoint"`
-	AccessKey string            `json:"accessKey"`
-	SecretKey string            `json:"secretKey"`
-	TLS       bool              `json:"tls,omitempty"`
-	CertPath  string            `json:"certPath,omitempty"`
-	Bucket    string            `json:"bucket"`
+	Endpoint       string `json:"endpoint"`
+	AccessKey      string `json:"accessKey"`
+	SecretKey      string `json:"secretKey"`
+	TLS            bool   `json:"tls,omitempty"`
+	CertPath       string `json:"certPath,omitempty"`
+	Bucket         string `json:"bucket"`
+	Region         string `json:"region,omitempty"`
+	ExpirationDays int    `json:"expirationDays"`
 }
 
 type StorageLimitsSpec struct {

@@ -10,6 +10,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/storage"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
@@ -39,10 +40,22 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
 	}
 
-	cacheSrv := cachesrv.NewCacheServer(ctx, conf)
+	providers := []storage.StorageProvider{}
+	if conf.LocalStorage != nil {
+		providers = append(providers,
+			storage.NewVolatileStorageProvider(ctx, *conf.LocalStorage))
+	}
+	if conf.RemoteStorage != nil {
+		providers = append(providers,
+			storage.NewS3StorageProvider(ctx, *conf.RemoteStorage))
+	}
+	cacheSrv := cachesrv.NewCacheServer(ctx, conf,
+		cachesrv.WithStorageProvider(
+			storage.NewChainStorageProvider(ctx, providers...),
+		),
+	)
 	types.RegisterCacheServer(srv, cacheSrv)
 
-	go cacheSrv.Run()
 	go cacheSrv.StartMetricsProvider()
 
 	err = srv.Serve(listener)

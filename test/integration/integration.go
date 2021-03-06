@@ -22,7 +22,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -218,17 +217,24 @@ func (tc *TestController) startCache() {
 	srv := servers.NewServer(ctx)
 	cache := cachesrv.NewCacheServer(ctx, config.CacheSpec{},
 		cachesrv.WithStorageProvider(
-			util.Must(storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
-				Limits: config.StorageLimitsSpec{
-					Memory: "10Gi",
+			storage.NewChainStorageProvider(ctx, storage.NewS3StorageProvider(ctx,
+				config.RemoteStorageSpec{
+					Endpoint:  "192.168.0.84:9000",
+					AccessKey: "minioadmin",
+					SecretKey: "minioadmin",
+					TLS:       false,
+					Bucket:    "kubecc",
 				},
-			})).(storage.StorageProvider),
+			)),
+			// storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
+			// 	Limits: config.StorageLimitsSpec{
+			// 		Memory: "10Gi",
+			// 	},
+			// }),
 		),
 		cachesrv.WithMonitorClient(internalMonClient),
 	)
 	types.RegisterCacheServer(srv, cache)
-
-	go cache.Run()
 	go cache.StartMetricsProvider()
 
 	go func() {
