@@ -24,7 +24,6 @@ type CacheServer struct {
 	cfg             config.CacheSpec
 	metricsProvider metrics.Provider
 	storageProvider storage.StorageProvider
-	monitorClient   types.InternalMonitorClient
 }
 
 type CacheServerOptions struct {
@@ -74,13 +73,10 @@ func NewCacheServer(
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
-	return srv
-}
-
-func (s *CacheServer) Run() {
-	if err := s.storageProvider.Configure(); err != nil {
-		s.lg.Error(err)
+	if err := srv.storageProvider.Configure(); err != nil {
+		srv.lg.Fatal(err)
 	}
+	return srv
 }
 
 func (s *CacheServer) Push(

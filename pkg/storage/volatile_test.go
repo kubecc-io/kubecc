@@ -29,22 +29,22 @@ var _ = Describe("Volatile Storage Provider", func() {
 	Context("Configuration checking", func() {
 		It("Should fail when given an invalid configuration", func() {
 			By("Testing empty config")
-			_, err := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{})
-			Expect(err).To(MatchError(storage.ConfigurationError))
+			vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{})
+			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 			By("Testing wrong storage limit kind")
-			_, err = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			vsp = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Disk: "1Mi",
 				},
 			})
-			Expect(err).To(MatchError(storage.ConfigurationError))
+			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 			By("Invalid memory limit string")
-			_, err = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			vsp = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Memory: "",
 				},
 			})
-			Expect(err).To(MatchError(storage.ConfigurationError))
+			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 		})
 		It("Should not fail when given a valid configuration", func() {
 			Expect(storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
@@ -55,14 +55,13 @@ var _ = Describe("Volatile Storage Provider", func() {
 		})
 	})
 	Context("Basic functionality", func() {
-		vsp, err := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
 			Limits: config.StorageLimitsSpec{
 				Memory: "1Ki",
 			},
 		})
 		startTime := time.Now().Unix()
-		It("Should create successfully", func() {
-			Expect(err).NotTo(HaveOccurred())
+		It("Should configure successfully", func() {
 			Expect(vsp.Configure()).To(Succeed())
 		})
 		It("Should have the proper location set", func() {
@@ -157,13 +156,12 @@ var _ = Describe("Volatile Storage Provider", func() {
 		})
 	})
 	Context("Expiration", func() {
-		vsp, err := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
 			Limits: config.StorageLimitsSpec{
 				Memory: "1Ki",
 			},
 		})
-		It("Should create successfully", func() {
-			Expect(err).NotTo(HaveOccurred())
+		It("Should configure successfully", func() {
 			Expect(vsp.Configure()).To(Succeed())
 		})
 		It("Should handle key expiration", func() {
@@ -174,7 +172,7 @@ var _ = Describe("Volatile Storage Provider", func() {
 			}, &types.CacheObject{
 				Data: []byte("1"),
 				Metadata: &types.CacheObjectMeta{
-					ExpirationTime: start.Add(1 * time.Second).UnixNano(),
+					ExpirationDate: start.Add(1 * time.Second).UnixNano(),
 				},
 			})).To(Succeed())
 			By("Ensuring the key exists")

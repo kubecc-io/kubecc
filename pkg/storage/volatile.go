@@ -7,15 +7,19 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/config"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/karlseguin/ccache/v2"
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type volatileStorageProvider struct {
+	ctx              context.Context
+	lg               *zap.SugaredLogger
 	cache            *ccache.Cache
 	cfg              config.LocalStorageSpec
 	storageLimit     int64
@@ -27,10 +31,25 @@ type volatileStorageProvider struct {
 func NewVolatileStorageProvider(
 	ctx context.Context,
 	cfg config.LocalStorageSpec,
-) (StorageProvider, error) {
-	q, err := resource.ParseQuantity(cfg.Limits.Memory)
+) StorageProvider {
+	sp := &volatileStorageProvider{
+		ctx:              ctx,
+		lg:               meta.Log(ctx),
+		cfg:              cfg,
+		cacheHitsTotal:   atomic.NewInt64(0),
+		cacheMissesTotal: atomic.NewInt64(0),
+	}
+	return sp
+}
+
+func (sp *volatileStorageProvider) Location() types.StorageLocation {
+	return types.Memory
+}
+
+func (sp *volatileStorageProvider) Configure() error {
+	q, err := resource.ParseQuantity(sp.cfg.Limits.Memory)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ConfigurationError, err.Error())
+		return fmt.Errorf("%w: %s", ConfigurationError, err.Error())
 	}
 	storageLimit := q.Value()
 	totalSize := atomic.NewInt64(0)
@@ -43,23 +62,10 @@ func NewVolatileStorageProvider(
 				GetManagedFields().
 				GetSize())
 		})
-
-	sp := &volatileStorageProvider{
-		cache:            ccache.New(conf),
-		cfg:              cfg,
-		storageLimit:     storageLimit,
-		totalSize:        totalSize,
-		cacheHitsTotal:   atomic.NewInt64(0),
-		cacheMissesTotal: atomic.NewInt64(0),
-	}
-	return sp, nil
-}
-
-func (sp *volatileStorageProvider) Location() types.StorageLocation {
-	return types.Memory
-}
-
-func (sp *volatileStorageProvider) Configure() error {
+	sp.cache = ccache.New(conf)
+	sp.storageLimit = storageLimit
+	sp.totalSize = totalSize
+	sp.lg.Info("In-memory storage provider configured")
 	return nil
 }
 
@@ -82,7 +88,7 @@ func (sp *volatileStorageProvider) Put(
 		Timestamp: time.Now().Unix(),
 	}
 	sp.cache.Set(key.GetHash(), object,
-		time.Until(time.Unix(0, object.Metadata.ExpirationTime)))
+		time.Until(time.Unix(0, object.Metadata.ExpirationDate)))
 	return nil
 }
 
@@ -96,11 +102,11 @@ func (sp *volatileStorageProvider) Get(
 		return nil, status.Error(codes.NotFound, "Object not found")
 	}
 	obj := item.Value().(*types.CacheObject)
-	if item.Expired() && obj.GetMetadata().GetExpirationTime() > 0 {
+	if item.Expired() && obj.GetMetadata().GetExpirationDate() > 0 {
 		sp.cache.Delete(key.GetHash())
 		return nil, status.Error(codes.NotFound, "Object expired")
 	}
-	item.Extend(time.Until(time.Unix(0, obj.Metadata.ExpirationTime)))
+	item.Extend(time.Until(time.Unix(0, obj.Metadata.ExpirationDate)))
 	sp.cacheHitsTotal.Inc()
 	return obj, nil
 }
@@ -113,7 +119,7 @@ func (sp *volatileStorageProvider) Query(
 	for i, key := range keys {
 		if item := sp.cache.Get(key.GetHash()); item != nil {
 			obj := item.Value().(*types.CacheObject)
-			if item.Expired() && obj.GetMetadata().GetExpirationTime() > 0 {
+			if item.Expired() && obj.GetMetadata().GetExpirationDate() > 0 {
 				sp.cache.Delete(key.GetHash())
 			} else {
 				results[i] = item.Value().(*types.CacheObject).GetMetadata()
