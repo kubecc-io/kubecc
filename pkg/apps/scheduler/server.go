@@ -9,7 +9,6 @@ import (
 	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
@@ -88,7 +87,8 @@ func NewSchedulerServer(
 	}
 
 	if options.monClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monClient)
+		srv.metricsProvider = metrics.NewMonitorProvider(
+			ctx, options.monClient, metrics.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -247,10 +247,6 @@ func (s *schedulerServer) ConnectConsumerd(
 	return s.handleClientConnection(srv)
 }
 
-func (s *schedulerServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
 func (s *schedulerServer) postCounts() {
 	s.metricsProvider.Post(&scmetrics.AgentCount{
 		Count: s.agentCount.Load(),
@@ -269,26 +265,25 @@ func (s *schedulerServer) postTotals() {
 
 func (s *schedulerServer) postAgentStats() {
 	for _, stat := range <-s.scheduler.CalcAgentStats() {
-		s.metricsProvider.Post(stat.agentTasksTotal, stat.agentCtx)
-		s.metricsProvider.Post(stat.agentWeight, stat.agentCtx)
+		s.metricsProvider.Post(metrics.WithContext(stat.agentTasksTotal, stat.agentCtx))
+		s.metricsProvider.Post(metrics.WithContext(stat.agentWeight, stat.agentCtx))
 	}
 }
 
 func (s *schedulerServer) postConsumerdStats() {
 	for _, stat := range <-s.scheduler.CalcConsumerdStats() {
-		s.metricsProvider.Post(stat.cdRemoteTasksTotal, stat.consumerdCtx)
+		s.metricsProvider.Post(metrics.WithContext(stat.cdRemoteTasksTotal, stat.consumerdCtx))
 	}
 }
 
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postAlive()
-	s.postCounts()
 
 	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5) // 5-7.5 sec
 	go func() {
 		for {
 			<-slowTimer
+			s.postCounts()
 			s.postTotals()
 			s.postAgentStats()
 			s.postConsumerdStats()

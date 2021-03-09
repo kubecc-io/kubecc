@@ -137,10 +137,6 @@ func (s *AgentServer) Compile(
 	return resp.(*types.CompileResponse), err
 }
 
-func (s *AgentServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
 func (s *AgentServer) postQueueParams() {
 	qp := &common.QueueParams{}
 	s.executor.CompleteQueueParams(qp)
@@ -161,16 +157,24 @@ func (s *AgentServer) postQueueStatus() {
 
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewMonitorProvider(s.srvContext, s.monitorClient)
-	s.postAlive()
+	s.metricsProvider = metrics.NewMonitorProvider(s.srvContext, s.monitorClient,
+		metrics.Buffered|metrics.Discard)
 	s.postQueueParams()
 
-	timer := util.NewJitteredTimer(time.Second/6, 2.0)
+	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
-			<-timer
+			<-fastTimer
 			s.postTaskStatus()
 			s.postQueueStatus()
+		}
+	}()
+
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5)
+	go func() {
+		for {
+			<-slowTimer
+			s.postQueueParams()
 		}
 	}()
 }

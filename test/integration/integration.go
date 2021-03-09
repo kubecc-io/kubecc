@@ -17,6 +17,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/storage"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -38,10 +39,9 @@ type TestController struct {
 	cancel             context.CancelFunc
 	agentListeners     map[string]*bufconn.Listener
 	agentListenersLock *sync.Mutex
-
-	schedListener *bufconn.Listener
-	monListener   *bufconn.Listener
-	cacheListener *bufconn.Listener
+	schedListener      *bufconn.Listener
+	monListener        *bufconn.Listener
+	cacheListener      *bufconn.Listener
 }
 
 func NewTestController(ctx context.Context) *TestController {
@@ -68,7 +68,7 @@ func dial(
 	ctx context.Context,
 	dialer *bufconn.Listener,
 ) *grpc.ClientConn {
-	cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
+	cc, err := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
 		grpc.WithContextDialer(
 			func(context.Context, string) (net.Conn, error) {
 				return dialer.Dial()
@@ -217,20 +217,24 @@ func (tc *TestController) startCache() {
 	srv := servers.NewServer(ctx)
 	cache := cachesrv.NewCacheServer(ctx, config.CacheSpec{},
 		cachesrv.WithStorageProvider(
-			storage.NewChainStorageProvider(ctx, storage.NewS3StorageProvider(ctx,
-				config.RemoteStorageSpec{
-					Endpoint:  "192.168.0.84:9000",
-					AccessKey: "minioadmin",
-					SecretKey: "minioadmin",
-					TLS:       false,
-					Bucket:    "kubecc",
-				},
-			)),
-			// storage.NewVolatileStorageProvider(ctx, config.LocalStorageSpec{
-			// 	Limits: config.StorageLimitsSpec{
-			// 		Memory: "10Gi",
-			// 	},
-			// }),
+			storage.NewChainStorageProvider(ctx,
+				storage.NewVolatileStorageProvider(ctx,
+					config.LocalStorageSpec{
+						Limits: config.StorageLimitsSpec{
+							Memory: "4Gi",
+						},
+					},
+				),
+				storage.NewS3StorageProvider(ctx,
+					config.RemoteStorageSpec{
+						Endpoint:  "192.168.0.84:9000",
+						AccessKey: "minioadmin",
+						SecretKey: "minioadmin",
+						TLS:       false,
+						Bucket:    "kubecc",
+					},
+				),
+			),
 		),
 		cachesrv.WithMonitorClient(internalMonClient),
 	)
@@ -272,6 +276,7 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 		}),
 		consumerd.WithUsageLimits(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
+		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithSchedulerClient(schedulerClient, cc),
 		consumerd.WithMonitorClient(monitorClient),
 	)
@@ -311,15 +316,40 @@ func (tc *TestController) Start(ops TestOptions) {
 	for _, cfg := range ops.Clients {
 		tc.startConsumerd(cfg)
 	}
+
+	// Hook into the metrics server and wait for all the components to load up
+	cc, err := servers.Dial(tc.ctx, "127.0.0.1:9097")
+	if err != nil {
+		panic(err)
+	}
+	waitCtx, waitCancel := context.WithCancel(context.Background())
+	wg := sync.WaitGroup{}
+	wg.Add(
+		len(ops.Agents) +
+			len(ops.Agents) +
+			1 /*scheduler*/ +
+			1 /*cache*/)
+	extClient := types.NewExternalMonitorClient(cc)
+	listener := metrics.NewListener(tc.ctx, extClient)
+	// todo this doesnt get all the providers
+	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+		resp, _ := extClient.Whois(tc.ctx, &types.WhoisRequest{
+			UUID: uuid,
+		})
+		if resp.Component == types.Monitor {
+			return
+		}
+		wg.Done()
+		select {
+		case <-pctx.Done():
+		case <-waitCtx.Done():
+		}
+	})
+	wg.Wait()
+	waitCancel()
 }
 
 func (tc *TestController) Teardown() {
-	tc.schedListener.Close()
-	tc.agentListenersLock.Lock()
-	for _, v := range tc.agentListeners {
-		v.Close()
-	}
-	tc.agentListenersLock.Unlock()
 	tc.cancel()
 }
 

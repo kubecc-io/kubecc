@@ -33,8 +33,8 @@ type MonitorServer struct {
 	lg         *zap.SugaredLogger
 
 	buckets       map[string]KeyValueStore
-	providerMutex *sync.RWMutex
 	listeners     map[string]map[string]Receiver
+	providerMutex *sync.RWMutex
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
@@ -49,8 +49,8 @@ func NewMonitorServer(
 		srvContext:    ctx,
 		lg:            meta.Log(ctx),
 		buckets:       make(map[string]KeyValueStore),
-		providerMutex: &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
+		providerMutex: &sync.RWMutex{},
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
 		providers:     &metrics.Providers{},
@@ -76,7 +76,7 @@ func (m *MonitorServer) runPrometheusListener() {
 	}()
 
 	cc, err := servers.Dial(m.srvContext, "bufconn",
-		servers.With(
+		servers.WithDialOpts(
 			grpc.WithContextDialer(
 				func(c context.Context, s string) (net.Conn, error) {
 					return inMemoryListener.Dial()
@@ -266,7 +266,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			metricsPostedTotal.Inc()
 			defer func() {
 				m.notify(metric)
-				go m.notifyStoreMeta()
+				m.notifyStoreMeta()
 			}()
 		}
 	} else {
