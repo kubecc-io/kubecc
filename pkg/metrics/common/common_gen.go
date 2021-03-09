@@ -24,18 +24,6 @@ func (z *Alive) DecodeMsg(dc *msgp.Reader) (err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "component":
-			z.Component, err = dc.ReadInt32()
-			if err != nil {
-				err = msgp.WrapError(err, "Component")
-				return
-			}
-		case "hostname":
-			z.Hostname, err = dc.ReadString()
-			if err != nil {
-				err = msgp.WrapError(err, "Hostname")
-				return
-			}
 		default:
 			err = dc.Skip()
 			if err != nil {
@@ -49,25 +37,9 @@ func (z *Alive) DecodeMsg(dc *msgp.Reader) (err error) {
 
 // EncodeMsg implements msgp.Encodable
 func (z Alive) EncodeMsg(en *msgp.Writer) (err error) {
-	// map header, size 2
-	// write "component"
-	err = en.Append(0x82, 0xa9, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74)
+	// map header, size 0
+	err = en.Append(0x80)
 	if err != nil {
-		return
-	}
-	err = en.WriteInt32(z.Component)
-	if err != nil {
-		err = msgp.WrapError(err, "Component")
-		return
-	}
-	// write "hostname"
-	err = en.Append(0xa8, 0x68, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65)
-	if err != nil {
-		return
-	}
-	err = en.WriteString(z.Hostname)
-	if err != nil {
-		err = msgp.WrapError(err, "Hostname")
 		return
 	}
 	return
@@ -76,13 +48,8 @@ func (z Alive) EncodeMsg(en *msgp.Writer) (err error) {
 // MarshalMsg implements msgp.Marshaler
 func (z Alive) MarshalMsg(b []byte) (o []byte, err error) {
 	o = msgp.Require(b, z.Msgsize())
-	// map header, size 2
-	// string "component"
-	o = append(o, 0x82, 0xa9, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74)
-	o = msgp.AppendInt32(o, z.Component)
-	// string "hostname"
-	o = append(o, 0xa8, 0x68, 0x6f, 0x73, 0x74, 0x6e, 0x61, 0x6d, 0x65)
-	o = msgp.AppendString(o, z.Hostname)
+	// map header, size 0
+	o = append(o, 0x80)
 	return
 }
 
@@ -104,18 +71,6 @@ func (z *Alive) UnmarshalMsg(bts []byte) (o []byte, err error) {
 			return
 		}
 		switch msgp.UnsafeString(field) {
-		case "component":
-			z.Component, bts, err = msgp.ReadInt32Bytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "Component")
-				return
-			}
-		case "hostname":
-			z.Hostname, bts, err = msgp.ReadStringBytes(bts)
-			if err != nil {
-				err = msgp.WrapError(err, "Hostname")
-				return
-			}
 		default:
 			bts, err = msgp.Skip(bts)
 			if err != nil {
@@ -130,7 +85,7 @@ func (z *Alive) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z Alive) Msgsize() (s int) {
-	s = 1 + 10 + msgp.Int32Size + 9 + msgp.StringPrefixSize + len(z.Hostname)
+	s = 1
 	return
 }
 

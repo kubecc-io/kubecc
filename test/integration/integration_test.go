@@ -34,8 +34,8 @@ func TestIntegration(t *testing.T) {
 		ctx, tracer, "integration-test")
 	defer span.Finish()
 
-	numTasks := 4000
-	localJobs := 500
+	numTasks := 400
+	localJobs := 50
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
@@ -56,17 +56,17 @@ func TestIntegration(t *testing.T) {
 		},
 		Agents: []*types.UsageLimits{
 			{
-				ConcurrentProcessLimit:  48,
+				ConcurrentProcessLimit:  24,
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},
 			{
-				ConcurrentProcessLimit:  48,
+				ConcurrentProcessLimit:  16,
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},
 			{
-				ConcurrentProcessLimit:  48,
+				ConcurrentProcessLimit:  32,
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},

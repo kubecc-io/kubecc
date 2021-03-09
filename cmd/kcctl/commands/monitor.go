@@ -47,9 +47,9 @@ func onValueChanged(tb *ui.TextBox) func(*monitormetrics.StoreContents) {
 }
 
 var listenCmd = &cobra.Command{
-	Use:   "listen key",
-	Short: "Display the real-time value of a key in the monitor's key-value store",
-	Args:  cobra.ExactArgs(1),
+	Use:   "listen",
+	Short: "Display the real-time contents of the monitor's key-value store",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		cc, err := servers.Dial(cliContext, cliConfig.MonitorAddress,
 			servers.WithTLS(!cliConfig.DisableTLS))

@@ -8,7 +8,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/storage"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
@@ -69,7 +68,8 @@ func NewCacheServer(
 	}
 	srv.storageProvider = options.storageProvider
 	if options.monitorClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient)
+		srv.metricsProvider = metrics.NewMonitorProvider(
+			ctx, options.monitorClient, metrics.Buffered|metrics.Block)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -110,10 +110,6 @@ func (s *CacheServer) Sync(*types.SyncRequest, types.Cache_SyncServer) error {
 	return status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
 
-func (s *CacheServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
 func (s *CacheServer) postStorageProvider() {
 	s.metricsProvider.Post(&csrvmetrics.StorageProvider{
 		Kind: s.storageProvider.Location().String(),
@@ -130,15 +126,15 @@ func (s *CacheServer) postCacheHits() {
 
 func (s *CacheServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postAlive()
 	s.postStorageProvider()
 
-	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(20*time.Second, 0.5)
 	go func() {
 		for {
 			<-slowTimer
 			s.postStorageInfo()
 			s.postCacheHits()
+			s.postStorageProvider()
 		}
 	}()
 }
