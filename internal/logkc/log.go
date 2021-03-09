@@ -4,6 +4,7 @@ package logkc
 import (
 	"context"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -57,6 +58,7 @@ type LogOptions struct {
 	errorOutputPaths []string
 	logLevel         zapcore.Level
 	name             string
+	writer           io.Writer
 }
 type logOption func(*LogOptions)
 
@@ -90,6 +92,12 @@ func WithName(name string) logOption {
 	}
 }
 
+func WithWriter(writer io.Writer) logOption {
+	return func(opts *LogOptions) {
+		opts.writer = writer
+	}
+}
+
 func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	options := LogOptions{
 		outputPaths:      []string{"stdout"},
@@ -98,37 +106,50 @@ func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	}
 	options.Apply(ops...)
 	color := component.Color()
-	conf := zap.Config{
-		Level:             zap.NewAtomicLevelAt(options.logLevel),
-		Development:       false,
-		DisableCaller:     false,
-		DisableStacktrace: true,
-		Sampling:          nil,
-		Encoding:          "console",
-		OutputPaths:       options.outputPaths,
-		ErrorOutputPaths:  options.errorOutputPaths,
-		EncoderConfig: zapcore.EncoderConfig{
-			MessageKey:       "M",
-			LevelKey:         "L",
-			TimeKey:          "T",
-			NameKey:          "N",
-			CallerKey:        "C",
-			FunctionKey:      "",
-			StacktraceKey:    "S",
-			LineEnding:       "\n",
-			EncodeLevel:      zapkc.CapitalColorLevelEncoder,
-			EncodeTime:       formatTime,
-			EncodeCaller:     zapkc.ShortCallerEncoder,
-			EncodeName:       zapkc.NameEncoder(color),
-			EncodeDuration:   zapcore.SecondsDurationEncoder,
-			ConsoleSeparator: " ",
-		},
+
+	encoderConfig := zapcore.EncoderConfig{
+		MessageKey:       "M",
+		LevelKey:         "L",
+		TimeKey:          "T",
+		NameKey:          "N",
+		CallerKey:        "C",
+		FunctionKey:      "",
+		StacktraceKey:    "S",
+		LineEnding:       "\n",
+		EncodeLevel:      zapkc.CapitalColorLevelEncoder,
+		EncodeTime:       formatTime,
+		EncodeCaller:     zapkc.ShortCallerEncoder,
+		EncodeName:       zapkc.NameEncoder(color),
+		EncodeDuration:   zapcore.SecondsDurationEncoder,
+		ConsoleSeparator: " ",
 	}
-	l, err := conf.Build()
-	if err != nil {
-		panic(err)
+
+	var logger *zap.Logger
+	if options.writer != nil {
+		ws := zapcore.Lock(zapcore.AddSync(options.writer))
+		encoder := zapcore.NewConsoleEncoder(encoderConfig)
+		core := zapcore.NewCore(encoder, ws,
+			zap.NewAtomicLevelAt(options.logLevel))
+		logger = zap.New(core)
+	} else {
+		conf := zap.Config{
+			Level:             zap.NewAtomicLevelAt(options.logLevel),
+			Development:       false,
+			DisableCaller:     false,
+			DisableStacktrace: true,
+			Sampling:          nil,
+			Encoding:          "console",
+			OutputPaths:       options.outputPaths,
+			ErrorOutputPaths:  options.errorOutputPaths,
+			EncoderConfig:     encoderConfig,
+		}
+		l, err := conf.Build()
+		if err != nil {
+			panic(err)
+		}
+		logger = l
 	}
-	s := l.Sugar().Named(component.ShortName())
+	s := logger.Sugar().Named(component.ShortName())
 	if options.name != "" {
 		s = s.Named(options.name)
 	}
