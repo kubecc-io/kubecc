@@ -169,7 +169,7 @@ var _ = Describe("Monitor", func() {
 		It("should notify the listener", func() {
 			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(meta.UUID(ctx))))
 			Expect(listenerEvents["providerRemoved"]).ShouldNot(Receive())
-			// ensure the context is not cancelled and no duplicates occur
+			// ensure the context is not canceled and no duplicates occur
 			Consistently(listenerEvents["providerAdded"]).ShouldNot(Receive())
 			Consistently(listenerEvents["providerRemoved"]).ShouldNot(Receive())
 		})
@@ -269,11 +269,13 @@ var _ = Describe("Monitor", func() {
 	Context("Stress Test", func() {
 		numProviders := 2
 		numListenersPerKey := 10
+		numUpdatesPerKey := 1000
 		callbackTimeout := 10 * time.Second
-		if testutil.RaceDetectorEnabled {
-			// todo
-			numListenersPerKey = 2
-			callbackTimeout = 30 * time.Second
+		stressTestLoops := 5
+		if testutil.IsRaceDetectorEnabled() {
+			numListenersPerKey = 10
+			numUpdatesPerKey = 100
+			stressTestLoops = 3
 		}
 		providers := make([]metrics.Provider, numProviders)
 		listeners := make([]metrics.Listener, numListenersPerKey*4)
@@ -353,47 +355,51 @@ var _ = Describe("Monitor", func() {
 			})
 		}, len(listeners)) // This is the loop
 		Measure("Updating keys rapidly for each provider", func(b Benchmarker) {
+			if testutil.IsRaceDetectorEnabled() {
+				testLog.Warn("Race detector enabled: Data volume limited to 10%")
+			}
 			go func() {
 				defer GinkgoRecover()
-				b.Time("1K Key 1 updates", func() {
-					for i := 0; i < 1000; i++ {
+				b.Time(fmt.Sprintf("%d Key 1 updates", numUpdatesPerKey), func() {
+					for i := 0; i < numUpdatesPerKey; i++ {
 						providers[i%len(providers)].Post(&test.TestKey1{Counter: i})
 					}
 				})
 			}()
 			go func() {
 				defer GinkgoRecover()
-				b.Time("1K Key 2 updates", func() {
-					for i := 0; i < 1000; i++ {
+				b.Time(fmt.Sprintf("%d Key 2 updates", numUpdatesPerKey), func() {
+					for i := 0; i < numUpdatesPerKey; i++ {
 						providers[i%len(providers)].Post(&test.TestKey2{Value: fmt.Sprint(i)})
 					}
 				})
 			}()
 			go func() {
 				defer GinkgoRecover()
-				b.Time("1K Key 3 updates", func() {
-					for i := 0; i < 1000; i++ {
+				b.Time(fmt.Sprintf("%d Key 3 updates", numUpdatesPerKey), func() {
+					for i := 0; i < numUpdatesPerKey; i++ {
 						providers[i%len(providers)].Post(&test.TestKey3{Counter: i})
 					}
 				})
 			}()
 			go func() {
 				defer GinkgoRecover()
-				b.Time("1K Key 4 updates", func() {
-					for i := 0; i < 1000; i++ {
+				b.Time(fmt.Sprintf("%d Key 4 updates", numUpdatesPerKey), func() {
+					for i := 0; i < numUpdatesPerKey; i++ {
 						providers[i%len(providers)].Post(&test.TestKey4{Value: fmt.Sprint(i)})
 					}
 				})
 			}()
+			total := int32(numUpdatesPerKey * numListenersPerKey)
 			var wg sync.WaitGroup
 			wg.Add(4)
 			for i := 0; i < 4; i++ {
 				go func(j int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					b.Time(fmt.Sprintf("10K key %d callbacks", j+1), func() {
+					b.Time(fmt.Sprintf("%d key %d callbacks", total, j+1), func() {
 						timeout := time.NewTimer(callbackTimeout)
-						for totals[j].Load() < 10000 {
+						for totals[j].Load() < total {
 							select {
 							case <-timeout.C:
 								return
@@ -410,7 +416,7 @@ var _ = Describe("Monitor", func() {
 				totals[1].Swap(0),
 				totals[2].Swap(0),
 				totals[3].Swap(0),
-			}).To(Equal([]int32{1e4, 1e4, 1e4, 1e4}))
-		}, 5)
+			}).To(Equal([]int32{total, total, total, total}))
+		}, stressTestLoops)
 	})
 })
