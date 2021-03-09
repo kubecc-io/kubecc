@@ -225,15 +225,15 @@ func (tc *TestController) startCache() {
 						},
 					},
 				),
-				storage.NewS3StorageProvider(ctx,
-					config.RemoteStorageSpec{
-						Endpoint:  "192.168.0.84:9000",
-						AccessKey: "minioadmin",
-						SecretKey: "minioadmin",
-						TLS:       false,
-						Bucket:    "kubecc",
-					},
-				),
+				// storage.NewS3StorageProvider(ctx,
+				// 	config.RemoteStorageSpec{
+				// 		Endpoint:  "192.168.0.84:9000",
+				// 		AccessKey: "minioadmin",
+				// 		SecretKey: "minioadmin",
+				// 		TLS:       false,
+				// 		Bucket:    "kubecc",
+				// 	},
+				// ),
 			),
 		),
 		cachesrv.WithMonitorClient(internalMonClient),
@@ -326,12 +326,11 @@ func (tc *TestController) Start(ops TestOptions) {
 	wg := sync.WaitGroup{}
 	wg.Add(
 		len(ops.Agents) +
-			len(ops.Agents) +
+			len(ops.Clients) +
 			1 /*scheduler*/ +
 			1 /*cache*/)
 	extClient := types.NewExternalMonitorClient(cc)
 	listener := metrics.NewListener(tc.ctx, extClient)
-	// todo this doesnt get all the providers
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 		resp, _ := extClient.Whois(tc.ctx, &types.WhoisRequest{
 			UUID: uuid,
