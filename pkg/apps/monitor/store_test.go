@@ -65,7 +65,6 @@ var _ = Describe("Store", func() {
 		Expect(store.Keys()).To(BeEmpty())
 	})
 	It("Should handle compare-and-swap", func() {
-
 		Expect(store.CAS("key1", []byte("a"))).To(BeTrue())
 		value, ok := store.Get("key1")
 		Expect(ok).To(BeTrue())
