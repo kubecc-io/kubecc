@@ -9,24 +9,28 @@ import (
 	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
 )
 
 type schedulerServer struct {
 	types.UnimplementedSchedulerServer
 
-	monClient       types.InternalMonitorClient
+	monClient   types.InternalMonitorClient
+	cacheClient types.CacheClient
+
 	srvContext      context.Context
 	lg              *zap.SugaredLogger
 	scheduler       *Scheduler
 	metricsProvider metrics.Provider
+	hashSrv         *util.HashServer
 
 	agentCount     *atomic.Int32
 	consumerdCount *atomic.Int32
@@ -35,6 +39,7 @@ type schedulerServer struct {
 type SchedulerServerOptions struct {
 	schedulerOptions []schedulerOption
 	monClient        types.InternalMonitorClient
+	cacheClient      types.CacheClient
 }
 
 type schedulerServerOption func(*SchedulerServerOptions)
@@ -57,6 +62,12 @@ func WithMonitorClient(monClient types.InternalMonitorClient) schedulerServerOpt
 	}
 }
 
+func WithCacheClient(cacheClient types.CacheClient) schedulerServerOption {
+	return func(o *SchedulerServerOptions) {
+		o.cacheClient = cacheClient
+	}
+}
+
 func NewSchedulerServer(
 	ctx context.Context,
 	opts ...schedulerServerOption,
@@ -68,17 +79,42 @@ func NewSchedulerServer(
 		srvContext:     ctx,
 		lg:             meta.Log(ctx),
 		monClient:      options.monClient,
+		cacheClient:    options.cacheClient,
 		scheduler:      NewScheduler(ctx, options.schedulerOptions...),
 		agentCount:     atomic.NewInt32(0),
 		consumerdCount: atomic.NewInt32(0),
+		hashSrv:        util.NewHashServer(),
 	}
 
 	if options.monClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monClient)
+		srv.metricsProvider = metrics.NewMonitorProvider(
+			ctx, options.monClient, metrics.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
+}
+
+func (s *schedulerServer) cacheTransaction(
+	requestHash string,
+	resp *types.CompileResponse,
+) {
+	_, err := s.cacheClient.Push(s.srvContext, &types.PushRequest{
+		Key: &types.CacheKey{
+			Hash: requestHash,
+		},
+		Object: &types.CacheObject{
+			Data: resp.GetCompiledSource(),
+			Metadata: &types.CacheObjectMeta{
+				ExpirationDate: time.Now().Add(1 * time.Hour).UnixNano(),
+			},
+		},
+	})
+	if err != nil && status.Code(err) != codes.AlreadyExists {
+		s.lg.With(
+			zap.Error(err),
+		).Error("Error sending data to the cache server")
+	}
 }
 
 func (s *schedulerServer) Compile(
@@ -95,12 +131,43 @@ func (s *schedulerServer) Compile(
 		ctx = sctx
 		defer span.Finish()
 	}
-
 	peer, ok := peer.FromContext(ctx)
 	if ok {
 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
 	}
-	return s.scheduler.Schedule(ctx, req)
+	cacheMiss := false
+	var reqHash string
+	if s.cacheClient != nil {
+		reqHash = s.hashSrv.Hash(req)
+		obj, err := s.cacheClient.Pull(ctx, &types.PullRequest{
+			Key: &types.CacheKey{
+				Hash: reqHash,
+			},
+		})
+		switch status.Code(err) {
+		case codes.OK:
+			s.lg.Info("Cache Hit")
+			return &types.CompileResponse{
+				CompileResult: types.CompileResponse_Success,
+				Data: &types.CompileResponse_CompiledSource{
+					CompiledSource: obj.GetData(),
+				},
+			}, nil
+		case codes.NotFound:
+			cacheMiss = true
+		default:
+			s.lg.With(
+				zap.Error(err),
+			).Error("Error querying cache server")
+		}
+	}
+	resp, err := s.scheduler.Schedule(ctx, req)
+	if err == nil &&
+		resp.CompileResult == types.CompileResponse_Success &&
+		cacheMiss {
+		go s.cacheTransaction(reqHash, resp)
+	}
+	return resp, err
 }
 
 func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {
@@ -180,10 +247,6 @@ func (s *schedulerServer) ConnectConsumerd(
 	return s.handleClientConnection(srv)
 }
 
-func (s *schedulerServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
 func (s *schedulerServer) postCounts() {
 	s.metricsProvider.Post(&scmetrics.AgentCount{
 		Count: s.agentCount.Load(),
@@ -202,26 +265,25 @@ func (s *schedulerServer) postTotals() {
 
 func (s *schedulerServer) postAgentStats() {
 	for _, stat := range <-s.scheduler.CalcAgentStats() {
-		s.metricsProvider.Post(stat.agentTasksTotal, stat.agentCtx)
-		s.metricsProvider.Post(stat.agentWeight, stat.agentCtx)
+		s.metricsProvider.Post(metrics.WithContext(stat.agentTasksTotal, stat.agentCtx))
+		s.metricsProvider.Post(metrics.WithContext(stat.agentWeight, stat.agentCtx))
 	}
 }
 
 func (s *schedulerServer) postConsumerdStats() {
 	for _, stat := range <-s.scheduler.CalcConsumerdStats() {
-		s.metricsProvider.Post(stat.cdRemoteTasksTotal, stat.consumerdCtx)
+		s.metricsProvider.Post(metrics.WithContext(stat.cdRemoteTasksTotal, stat.consumerdCtx))
 	}
 }
 
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postAlive()
-	s.postCounts()
 
-	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5) // 5-7.5 sec
 	go func() {
 		for {
 			<-slowTimer
+			s.postCounts()
 			s.postTotals()
 			s.postAgentStats()
 			s.postConsumerdStats()

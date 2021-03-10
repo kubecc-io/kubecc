@@ -24,7 +24,7 @@ func (tb *TextBox) Run() {
 
 	tb.Paragraph = widgets.NewParagraph()
 	tb.Paragraph.Text = ""
-	tb.Paragraph.WrapText = false
+	tb.Paragraph.WrapText = true
 
 	termWidth, termHeight := ui.TerminalDimensions()
 	tb.Paragraph.SetRect(0, 0, termWidth, termHeight)

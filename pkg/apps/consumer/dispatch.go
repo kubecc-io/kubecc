@@ -28,7 +28,12 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	stdin := new(bytes.Buffer)
 
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		io.Copy(stdin, os.Stdin)
+		_, err := io.Copy(stdin, os.Stdin)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Fatal("Error forwarding stdin")
+		}
 	}
 
 	var compilerPath string
@@ -52,7 +57,15 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 		lg.With(zap.Error(err)).Error("Dispatch error")
 		os.Exit(1)
 	}
-	io.Copy(os.Stdout, bytes.NewReader(resp.Stdout))
-	io.Copy(os.Stderr, bytes.NewReader(resp.Stderr))
+	if _, err := io.Copy(os.Stdout, bytes.NewReader(resp.Stdout)); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("Error forwarding stdout")
+	}
+	if _, err := io.Copy(os.Stderr, bytes.NewReader(resp.Stderr)); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("Error forwarding stderr")
+	}
 	os.Exit(int(resp.ReturnCode))
 }

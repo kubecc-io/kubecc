@@ -61,3 +61,9 @@ func MakeDownwardApi() []v1.EnvVar {
 		},
 	}
 }
+
+func InCluster() bool {
+	host := os.Getenv("KUBERNETES_SERVICE_HOST")
+	port := os.Getenv("KUBERNETES_SERVICE_PORT")
+	return len(host) != 0 && len(port) != 0
+}

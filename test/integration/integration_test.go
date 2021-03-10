@@ -3,7 +3,6 @@
 package integration_test
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -13,8 +12,6 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
@@ -37,13 +34,13 @@ func TestIntegration(t *testing.T) {
 		ctx, tracer, "integration-test")
 	defer span.Finish()
 
-	numTasks := 100
+	numTasks := 400
 	localJobs := 50
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(6000)+2000)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(100)*80)},
 			UID:      1000,
 			GID:      1000,
 		}
@@ -59,12 +56,7 @@ func TestIntegration(t *testing.T) {
 		},
 		Agents: []*types.UsageLimits{
 			{
-				ConcurrentProcessLimit:  48,
-				QueuePressureMultiplier: 1.5,
-				QueueRejectMultiplier:   2.0,
-			},
-			{
-				ConcurrentProcessLimit:  32,
+				ConcurrentProcessLimit:  24,
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},
@@ -73,29 +65,18 @@ func TestIntegration(t *testing.T) {
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},
+			{
+				ConcurrentProcessLimit:  32,
+				QueuePressureMultiplier: 1.5,
+				QueueRejectMultiplier:   2.0,
+			},
 		},
 	}
 	tc := integration.NewTestController(sctx)
 	tc.Start(testOptions)
-
-	cc, err := servers.Dial(sctx, "127.0.0.1:9960")
-	if err != nil {
-		panic(err)
-	}
-	wg := sync.WaitGroup{}
-	wg.Add(len(testOptions.Agents) + len(testOptions.Clients) + 1 /*scheduler*/)
-	extClient := types.NewExternalMonitorClient(cc)
-	listener := metrics.NewListener(sctx, extClient)
-	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-		wg.Done()
-		<-pctx.Done()
-		wg.Add(1)
-	})
 	defer tc.Teardown()
 
-	// Wait until all agents connect
-	wg.Wait()
-
+	wg := sync.WaitGroup{}
 	wg.Add(len(tc.Consumers) * localJobs)
 
 	for _, c := range tc.Consumers {

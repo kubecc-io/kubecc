@@ -133,7 +133,8 @@ func NewConsumerdServer(
 		srv.connection = options.schedulerConnection
 	}
 	if options.monitorClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient)
+		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient,
+			metrics.Buffered|metrics.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -229,13 +230,13 @@ func (s *consumerdServer) postTotals() {
 
 func (s *consumerdServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postAlive()
 	s.postQueueParams()
 
-	slowTimer := util.NewJitteredTimer(1*time.Second, 1.0)
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.25)
 	go func() {
 		for {
 			<-slowTimer
+			s.postQueueParams()
 			s.postTotals()
 		}
 	}()

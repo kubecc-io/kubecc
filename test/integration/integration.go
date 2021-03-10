@@ -9,18 +9,23 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	agent "github.com/cobalt77/kubecc/pkg/apps/agent"
+	"github.com/cobalt77/kubecc/pkg/apps/cachesrv"
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/storage"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,9 +39,9 @@ type TestController struct {
 	cancel             context.CancelFunc
 	agentListeners     map[string]*bufconn.Listener
 	agentListenersLock *sync.Mutex
-
-	schedListener *bufconn.Listener
-	monListener   *bufconn.Listener
+	schedListener      *bufconn.Listener
+	monListener        *bufconn.Listener
+	cacheListener      *bufconn.Listener
 }
 
 func NewTestController(ctx context.Context) *TestController {
@@ -63,7 +68,7 @@ func dial(
 	ctx context.Context,
 	dialer *bufconn.Listener,
 ) *grpc.ClientConn {
-	cc, err := servers.Dial(ctx, uuid.NewString(), servers.With(
+	cc, err := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
 		grpc.WithContextDialer(
 			func(context.Context, string) (net.Conn, error) {
 				return dialer.Dial()
@@ -135,11 +140,15 @@ func (tc *TestController) startScheduler() {
 	cc := dial(ctx, tc.monListener)
 	internalMonClient := types.NewInternalMonitorClient(cc)
 
+	cc = dial(ctx, tc.cacheListener)
+	cacheClient := types.NewCacheClient(cc)
+
 	sc := scheduler.NewSchedulerServer(ctx,
 		scheduler.WithSchedulerOptions(
 			scheduler.WithAgentDialer(tc),
 		),
 		scheduler.WithMonitorClient(internalMonClient),
+		scheduler.WithCacheClient(cacheClient),
 	)
 	types.RegisterSchedulerServer(srv, sc)
 	go sc.StartMetricsProvider()
@@ -166,7 +175,7 @@ func (tc *TestController) startMonitor() {
 	tc.monListener = bufconn.Listen(bufSize)
 	internalSrv := servers.NewServer(ctx)
 	externalSrv := servers.NewServer(ctx)
-	extListener, err := net.Listen("tcp", "127.0.0.1:9960")
+	extListener, err := net.Listen("tcp", "127.0.0.1:9097")
 	if err != nil {
 		panic(err)
 	}
@@ -184,6 +193,58 @@ func (tc *TestController) startMonitor() {
 	go func() {
 		if err := externalSrv.Serve(extListener); err != nil {
 			lg.Info(err)
+		}
+	}()
+}
+
+func (tc *TestController) startCache() {
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Cache)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.Cache,
+				logkc.WithName("a"),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
+	)
+	lg := meta.Log(ctx)
+
+	cc := dial(ctx, tc.monListener)
+	internalMonClient := types.NewInternalMonitorClient(cc)
+
+	tc.cacheListener = bufconn.Listen(bufSize)
+	srv := servers.NewServer(ctx)
+	cache := cachesrv.NewCacheServer(ctx, config.CacheSpec{},
+		cachesrv.WithStorageProvider(
+			storage.NewChainStorageProvider(ctx,
+				storage.NewVolatileStorageProvider(ctx,
+					config.LocalStorageSpec{
+						Limits: config.StorageLimitsSpec{
+							Memory: "4Gi",
+						},
+					},
+				),
+				// storage.NewS3StorageProvider(ctx,
+				// 	config.RemoteStorageSpec{
+				// 		Endpoint:  "192.168.0.84:9000",
+				// 		AccessKey: "minioadmin",
+				// 		SecretKey: "minioadmin",
+				// 		TLS:       false,
+				// 		Bucket:    "kubecc",
+				// 	},
+				// ),
+			),
+		),
+		cachesrv.WithMonitorClient(internalMonClient),
+	)
+	types.RegisterCacheServer(srv, cache)
+	go cache.StartMetricsProvider()
+
+	go func() {
+		err := srv.Serve(tc.cacheListener)
+		if err != nil {
+			lg.With(zap.Error(err)).Error("GRPC error")
 		}
 	}()
 }
@@ -214,6 +275,7 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 			Finder: testutil.TestToolchainFinder{},
 		}),
 		consumerd.WithUsageLimits(cfg),
+		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithSchedulerClient(schedulerClient, cc),
 		consumerd.WithMonitorClient(monitorClient),
@@ -246,6 +308,7 @@ func (tc *TestController) Start(ops TestOptions) {
 	opentracing.SetGlobalTracer(tracer)
 
 	tc.startMonitor()
+	tc.startCache()
 	tc.startScheduler()
 	for _, cfg := range ops.Agents {
 		tc.startAgent(cfg)
@@ -253,15 +316,39 @@ func (tc *TestController) Start(ops TestOptions) {
 	for _, cfg := range ops.Clients {
 		tc.startConsumerd(cfg)
 	}
+
+	// Hook into the metrics server and wait for all the components to load up
+	cc, err := servers.Dial(tc.ctx, "127.0.0.1:9097")
+	if err != nil {
+		panic(err)
+	}
+	waitCtx, waitCancel := context.WithCancel(context.Background())
+	wg := sync.WaitGroup{}
+	wg.Add(
+		len(ops.Agents) +
+			len(ops.Clients) +
+			1 /*scheduler*/ +
+			1 /*cache*/)
+	extClient := types.NewExternalMonitorClient(cc)
+	listener := metrics.NewListener(tc.ctx, extClient)
+	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+		resp, _ := extClient.Whois(tc.ctx, &types.WhoisRequest{
+			UUID: uuid,
+		})
+		if resp.Component == types.Monitor {
+			return
+		}
+		wg.Done()
+		select {
+		case <-pctx.Done():
+		case <-waitCtx.Done():
+		}
+	})
+	wg.Wait()
+	waitCancel()
 }
 
 func (tc *TestController) Teardown() {
-	tc.schedListener.Close()
-	tc.agentListenersLock.Lock()
-	for _, v := range tc.agentListeners {
-		v.Close()
-	}
-	tc.agentListenersLock.Unlock()
 	tc.cancel()
 }
 

@@ -12,7 +12,7 @@ func NewNoopProvider() Provider {
 	return &noopProvider{}
 }
 
-func (noopProvider) Post(KeyedMetric, ...context.Context) {}
+func (noopProvider) Post(KeyedMetric) {}
 
 type noopListener struct{}
 
