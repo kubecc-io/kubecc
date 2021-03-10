@@ -6,6 +6,7 @@ type KubeccSpec struct {
 	Consumerd ConsumerdSpec `json:"consumerd"`
 	Scheduler SchedulerSpec `json:"scheduler"`
 	Monitor   MonitorSpec   `json:"monitor"`
+	Cache     CacheSpec     `json:"cache"`
 	Kcctl     KcctlSpec     `json:"kcctl"`
 }
 
@@ -34,6 +35,7 @@ type ConsumerdSpec struct {
 
 type SchedulerSpec struct {
 	MonitorAddress string `json:"monitorAddress"`
+	CacheAddress   string `json:"cacheAddress"`
 	ListenAddress  string `json:"listenAddress"`
 	LogLevel       string `json:"logLevel,omitempty"`
 }
@@ -41,6 +43,34 @@ type SchedulerSpec struct {
 type MonitorSpec struct {
 	ListenAddress MonitorListenAddressSpec `json:"listenAddress"`
 	LogLevel      string                   `json:"logLevel,omitempty"`
+}
+
+type CacheSpec struct {
+	LocalStorage   *LocalStorageSpec  `json:"localStorage,omitempty"`
+	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage,omitempty"`
+	ListenAddress  string             `json:"listenAddress"`
+	MonitorAddress string             `json:"monitorAddress"`
+}
+
+type LocalStorageSpec struct {
+	Limits StorageLimitsSpec `json:"limits"`
+	Path   string            `json:"path"`
+}
+
+type RemoteStorageSpec struct {
+	Endpoint       string `json:"endpoint"`
+	AccessKey      string `json:"accessKey"`
+	SecretKey      string `json:"secretKey"`
+	TLS            bool   `json:"tls,omitempty"`
+	CertPath       string `json:"certPath,omitempty"`
+	Bucket         string `json:"bucket"`
+	Region         string `json:"region,omitempty"`
+	ExpirationDays int    `json:"expirationDays"`
+}
+
+type StorageLimitsSpec struct {
+	Memory string `json:"memory"`
+	Disk   string `json:"disk"`
 }
 
 type MonitorListenAddressSpec struct {

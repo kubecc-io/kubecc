@@ -94,8 +94,13 @@ type changeListener struct {
 
 func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
 	lg := meta.Log(cl.ctx)
+	argValue := reflect.New(cl.argType)
+	if _, ok := argValue.Interface().(msgp.Decodable); !ok {
+		panic("Handler argument is not msgp.Decodable")
+	}
+	decodable := argValue.Interface().(msgp.Decodable)
+
 	for {
-		realType := reflect.New(cl.argType)
 		rawData := &types.Value{}
 		err := stream.RecvMsg(rawData)
 		if errors.Is(err, io.EOF) {
@@ -104,16 +109,12 @@ func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
 		}
 		switch status.Code(err) {
 		case codes.OK:
-			if decodable, ok := realType.Interface().(msgp.Decodable); ok {
-				err = util.DecodeMsgp(rawData.Data, decodable)
-				if err != nil {
-					lg.With(zap.Error(err)).Error("Error decoding value")
-					return err
-				}
-				cl.handler.Call([]reflect.Value{realType})
-			} else {
-				return status.Error(codes.InvalidArgument, "Type is not msgp.Decodable")
+			err = util.DecodeMsgp(rawData.Data, decodable)
+			if err != nil {
+				lg.With(zap.Error(err)).Error("Error decoding value")
+				return err
 			}
+			cl.handler.Call([]reflect.Value{argValue})
 		case codes.Aborted, codes.Unavailable:
 			cl.ehMutex.Lock()
 			if cl.expiredHandler != nil {

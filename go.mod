@@ -3,9 +3,8 @@ module github.com/cobalt77/kubecc
 go 1.16
 
 require (
-	cloud.google.com/go v0.76.0 // indirect
-	github.com/Azure/go-autorest/autorest v0.11.17 // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.12 // indirect
+	cloud.google.com/go v0.78.0 // indirect
+	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
@@ -14,19 +13,23 @@ require (
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1
 	github.com/gizak/termui/v3 v3.1.0
+	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.4.3
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0
 	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/mattn/go-runewidth v0.0.10 // indirect
+	github.com/minio/md5-simd v1.1.2
+	github.com/minio/minio-go/v7 v7.0.10
 	github.com/mitchellh/copystructure v1.1.1 // indirect
-	github.com/onsi/ginkgo v1.15.0
-	github.com/onsi/gomega v1.10.5
+	github.com/onsi/ginkgo v1.15.1
+	github.com/onsi/gomega v1.11.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
@@ -38,24 +41,24 @@ require (
 	github.com/tinylib/msgp v1.1.5
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
+	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/atomic v1.7.0
+	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/net v0.0.0-20210220033124-5f55cee0dc0d // indirect
-	golang.org/x/oauth2 v0.0.0-20210216194517-16ff1888fd2e // indirect
-	golang.org/x/sys v0.0.0-20210219172841-57ea560cfca1 // indirect
-	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
-	golang.org/x/time v0.0.0-20201208040808-7e3f01d25324 // indirect
-	google.golang.org/genproto v0.0.0-20210219173056-d891e3cb3b5b // indirect
+	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
+	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
+	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
+	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	google.golang.org/grpc v1.36.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/api v0.20.4
-	k8s.io/apiextensions-apiserver v0.20.2 // indirect
+	k8s.io/apiextensions-apiserver v0.20.4 // indirect
 	k8s.io/apimachinery v0.20.4
 	k8s.io/client-go v0.20.4
-	k8s.io/klog/v2 v2.5.0 // indirect
-	k8s.io/kube-openapi v0.0.0-20210216185858-15cd8face8d6 // indirect
+	k8s.io/klog/v2 v2.6.0 // indirect
+	k8s.io/kube-openapi v0.0.0-20210305164622-f622666832c1 // indirect
 	sigs.k8s.io/controller-runtime v0.8.2
 	sigs.k8s.io/yaml v1.2.0
 )

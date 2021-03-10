@@ -81,17 +81,14 @@ generate:
 
 
 # Build binaries
-.PHONY: bin kubecc kcctl manager consumer make
-bin: kubecc kcctl manager consumer make
+.PHONY: bin kubecc kcctl consumer make
+bin: kubecc kcctl consumer make
 
 kubecc:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/kubecc ./cmd/kubecc
 
 kcctl:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/kcctl ./cmd/kcctl
-
-manager:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/manager
 
 consumer:
 	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumer ./cmd/consumer

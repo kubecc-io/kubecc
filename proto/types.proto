@@ -27,6 +27,64 @@ service ExternalMonitor {
   rpc Whois(WhoisRequest) returns (WhoisResponse);
 }
 
+service Cache {
+  rpc Push(PushRequest) returns (Empty);
+  rpc Pull(PullRequest) returns (CacheObject);
+  rpc Query(QueryRequest) returns (QueryResponse);
+  rpc Sync(SyncRequest) returns (stream CacheObject);
+}
+
+message PushRequest {
+  CacheKey Key = 1;
+  CacheObject Object = 2;
+}
+
+message PullRequest {
+  CacheKey Key = 1;
+}
+
+message QueryRequest {
+  repeated CacheKey Keys = 1;
+}
+
+message QueryResponse {
+  repeated CacheObjectMeta Results = 1;
+}
+
+message SyncRequest {
+  repeated CacheKey LocalCache = 1;
+  int64 DesiredCacheSizeKb = 2;
+}
+
+message CacheKey {
+  string Hash = 1;
+}
+
+message CacheObject {
+  bytes Data = 1;
+  CacheObjectMeta Metadata = 2;
+}
+
+message CacheObjectMeta {
+  map<string, string> Tags = 1;
+  int64 ExpirationDate = 4;
+  CacheObjectManaged ManagedFields = 5;
+}
+
+message CacheObjectManaged {
+  int64 Size = 1;
+  int64 Timestamp = 2;
+  int64 Score = 3;
+  StorageLocation Location = 5;
+}
+
+enum StorageLocation {
+  StorageLocation_Unknown = 0;
+  StorageLocation_Memory = 1;
+  StorageLocation_Disk = 2;
+  StorageLocation_S3 = 3;
+}
+
 message WhoisRequest {
   string UUID = 1;
 }
@@ -77,6 +135,7 @@ enum Component {
   Component_Dashboard = 8;
   Component_CLI = 9;
   Component_Monitor = 10;
+  Component_Cache = 11;
 }
 
 enum QueueStatus {
@@ -173,6 +232,7 @@ message CompileResponse {
     Fail = 1;
   }
   Result CompileResult = 1;
+  int64 CpuSecondsUsed = 2;
   oneof Data {
     string Error = 3;
     bytes CompiledSource = 4;

@@ -4,65 +4,53 @@ import (
 	"context"
 	"errors"
 	"io"
-	"reflect"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
-	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
-func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
-	latestMessages := map[string]KeyedMetric{}
-	for {
-		if e := <-enableQueue; !e {
-			// Already disabled
-			continue
-		}
-		for {
-			select {
-			case m, ok := <-postQueue:
-				if !ok {
-					// Post queue closed
-					return
-				}
-				latestMessages[m.Key()] = m
-			case e := <-enableQueue:
-				if e {
-					// Already enabled
-					continue
-				}
-				// Send the latest queued message for each key
-				for k, v := range latestMessages {
-					postQueue <- v
-					delete(latestMessages, k)
-				}
-				goto restart
-			}
-		}
-	restart:
-	}
-}
-
 type monitorProvider struct {
-	ctx          context.Context
-	lg           *zap.SugaredLogger
-	monClient    types.InternalMonitorClient
-	postQueue    chan KeyedMetric
-	enableWaitRx chan bool
+	ctx           context.Context
+	lg            *zap.SugaredLogger
+	monClient     types.InternalMonitorClient
+	postQueue     chan KeyedMetric
+	queueStrategy QueueStrategy
 }
 
-type deleter struct {
-	msgp.Decodable
-	msgp.Encodable
-	key string
-}
+type QueueStrategy int
 
-func (d deleter) Key() string {
-	return d.key
+const (
+	Buffered QueueStrategy = 1 << iota
+	Discard
+	Block
+)
+
+func NewMonitorProvider(
+	ctx context.Context,
+	client types.InternalMonitorClient,
+	qs QueueStrategy,
+) Provider {
+	var postQueue chan KeyedMetric
+	if (qs & Buffered) != 0 {
+		postQueue = make(chan KeyedMetric, 1e6)
+	} else {
+		postQueue = make(chan KeyedMetric)
+	}
+
+	provider := &monitorProvider{
+		ctx:       ctx,
+		monClient: client,
+		postQueue: postQueue,
+		lg:        meta.Log(ctx),
+	}
+
+	mgr := servers.NewStreamManager(ctx, provider)
+	go mgr.Run()
+	return provider
 }
 
 func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
@@ -76,6 +64,17 @@ func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 			p.lg.With(
 				types.ShortID(key.ShortID()),
 			).Debug("Posting metric")
+			if mctx, ok := metric.(ContextMetric); ok {
+				// The metric has a (presumably cancelable) context
+				// If it is canceled, send a deleter to the server
+				go func() {
+					select {
+					case <-mctx.Context().Done():
+						p.Post(deleter{key: key.Name})
+					case <-p.ctx.Done():
+					}
+				}()
+			}
 			// Set the value to nil, which deletes the key, if metric is a deleter
 			var value *types.Value = nil
 			switch metric.(type) {
@@ -111,49 +110,40 @@ func (p *monitorProvider) TryConnect() (grpc.ClientStream, error) {
 	return p.monClient.Stream(p.ctx)
 }
 
-func (p *monitorProvider) OnConnected() {
-	p.enableWaitRx <- false
-}
-
-func (p *monitorProvider) OnLostConnection() {
-	p.enableWaitRx <- true
-}
-
 func (p *monitorProvider) Target() string {
 	return "monitor"
 }
 
-func NewMonitorProvider(
-	ctx context.Context,
-	client types.InternalMonitorClient,
-) Provider {
-	provider := &monitorProvider{
-		ctx:          ctx,
-		monClient:    client,
-		postQueue:    make(chan KeyedMetric, 10),
-		enableWaitRx: make(chan bool),
-		lg:           meta.Log(ctx),
+func (p *monitorProvider) Post(metric KeyedMetric) {
+	if (p.queueStrategy & Discard) == 0 {
+		// Block is the default
+		p.postQueue <- metric
+		return
 	}
-
-	go runWaitReceiver(provider.postQueue, provider.enableWaitRx)
-	mgr := servers.NewStreamManager(ctx, provider)
-	go mgr.Run()
-	return provider
-}
-
-func (p *monitorProvider) Post(metric KeyedMetric, contexts ...context.Context) {
-	p.postQueue <- metric
-	cases := []reflect.SelectCase{}
-	for _, ctx := range contexts {
-		cases = append(cases, reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(ctx.Done()),
-		})
+	// Discard logic below
+	select {
+	case p.postQueue <- metric:
+		return
+	default:
 	}
-	if len(cases) > 0 {
-		go func(k string) {
-			reflect.Select(cases)
-			p.postQueue <- deleter{key: k}
-		}(metric.Key())
+	// If not buffered, do nothing
+	if (p.queueStrategy & Buffered) == 0 {
+		return
+	}
+	select {
+	case p.postQueue <- metric:
+	default:
+		p.lg.Debug("Post queue filled, dropping some messages")
+		for i := 0; i < cap(p.postQueue)/4; i++ {
+			select {
+			case <-p.postQueue:
+			default:
+				// Drain up to 25% of the oldest items, but the channel could be
+				// being read from elsewhere, so prevent accidental blocking
+				goto done
+			}
+		}
+	done:
+		p.postQueue <- metric
 	}
 }

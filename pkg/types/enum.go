@@ -18,10 +18,16 @@ const (
 	CLI           = Component_Component_CLI
 	Dashboard     = Component_Component_Dashboard
 	Monitor       = Component_Component_Monitor
+	Cache         = Component_Component_Cache
 	TestComponent = Component_Component_Test
 
 	Available     = QueueStatus_Available
 	Queueing      = QueueStatus_Queueing
 	QueuePressure = QueueStatus_QueuePressure
 	QueueFull     = QueueStatus_QueueFull
+
+	Unknown = StorageLocation_StorageLocation_Unknown
+	Memory  = StorageLocation_StorageLocation_Memory
+	Disk    = StorageLocation_StorageLocation_Disk
+	S3      = StorageLocation_StorageLocation_S3
 )

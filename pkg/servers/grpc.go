@@ -24,8 +24,9 @@ import (
 )
 
 type GRPCOptions struct {
-	tls         bool
-	dialOptions []grpc.DialOption
+	tls           bool
+	dialOptions   []grpc.DialOption
+	serverOptions []grpc.ServerOption
 }
 type grpcOption func(*GRPCOptions)
 
@@ -41,9 +42,15 @@ func WithTLS(tls bool) grpcOption {
 	}
 }
 
-func With(dialOption ...grpc.DialOption) grpcOption {
+func WithDialOpts(dialOptions ...grpc.DialOption) grpcOption {
 	return func(op *GRPCOptions) {
-		op.dialOptions = append(op.dialOptions, dialOption...)
+		op.dialOptions = append(op.dialOptions, dialOptions...)
+	}
+}
+
+func WithServerOpts(serverOptions ...grpc.ServerOption) grpcOption {
+	return func(op *GRPCOptions) {
+		op.serverOptions = append(op.serverOptions, serverOptions...)
 	}
 }
 
@@ -71,14 +78,16 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	}
 
 	return grpc.NewServer(
-		grpc.MaxRecvMsgSize(1e8), // 100MB
-		grpc.ChainUnaryInterceptor(
-			otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
-			meta.ServerContextInterceptor(importOptions),
-		),
-		grpc.ChainStreamInterceptor(
-			meta.StreamServerContextInterceptor(importOptions),
-		),
+		append(options.serverOptions,
+			grpc.MaxRecvMsgSize(1e8), // 100MB
+			grpc.ChainUnaryInterceptor(
+				otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
+				meta.ServerContextInterceptor(importOptions),
+			),
+			grpc.ChainStreamInterceptor(
+				meta.StreamServerContextInterceptor(importOptions),
+			),
+		)...,
 	)
 }
 
@@ -103,7 +112,7 @@ func Dial(
 ) (*grpc.ClientConn, error) {
 	options := GRPCOptions{}
 	options.Apply(opts...)
-	dialOpts := append([]grpc.DialOption{
+	dialOpts := append(options.dialOptions,
 		grpc.WithChainUnaryInterceptor(
 			otgrpc.OpenTracingClientInterceptor(
 				meta.Tracer(ctx),
@@ -118,7 +127,7 @@ func Dial(
 			grpc.MaxCallRecvMsgSize(1e8),
 			grpc.UseCompressor(gzip.Name),
 		),
-	}, options.dialOptions...)
+	)
 	if options.tls {
 		pool, err := x509.SystemCertPool()
 		if err != nil {

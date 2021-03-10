@@ -40,13 +40,14 @@ The maximum number of concurrent processes is determined by:
 
 type Scheduler struct {
 	SchedulerOptions
-	w     weighted.W
-	wLock *sync.Mutex
-
-	agents         sync.Map // map[string]*Agent
-	consumerds     sync.Map // map[string]*Consumerd
 	ctx            context.Context
 	lg             *zap.SugaredLogger
+	agents         map[string]*Agent
+	consumerds     map[string]*Consumerd
+	agentsMutex    *sync.RWMutex
+	cdsMutex       *sync.RWMutex
+	w              weighted.W
+	wLock          *sync.Mutex
 	completedTasks *atomic.Int64
 	failedTasks    *atomic.Int64
 	requestCount   *atomic.Int64
@@ -85,6 +86,10 @@ func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
 		completedTasks:   atomic.NewInt64(0),
 		failedTasks:      atomic.NewInt64(0),
 		requestCount:     atomic.NewInt64(0),
+		agents:           make(map[string]*Agent),
+		consumerds:       make(map[string]*Consumerd),
+		agentsMutex:      &sync.RWMutex{},
+		cdsMutex:         &sync.RWMutex{},
 	}
 }
 
@@ -98,10 +103,16 @@ func (s *Scheduler) Schedule(
 		s.wLock.Lock()
 		next := s.w.Next()
 		if next == nil {
-			// No agents available.
-			// This could be because no agents are connected, or all agents have
-			// a weight of 0, which would result in none being chosen.
-			return nil, status.Error(codes.Unavailable, "No agents available")
+			s.agentsMutex.RLock()
+			numAgents := len(s.agents)
+			s.agentsMutex.RUnlock()
+
+			if numAgents > 0 {
+				// All weights 0
+				return nil, status.Error(codes.ResourceExhausted, "All agents busy")
+			} else {
+				return nil, status.Error(codes.Unavailable, "No agents available")
+			}
 		}
 		agent := next.(*Agent)
 		agentClient := agent.Client
@@ -123,12 +134,16 @@ func (s *Scheduler) Schedule(
 }
 
 func (s *Scheduler) AgentIsConnected(a *Agent) bool {
-	_, ok := s.agents.Load(a.UUID)
+	s.agentsMutex.RLock()
+	defer s.agentsMutex.RUnlock()
+	_, ok := s.agents[a.UUID]
 	return ok
 }
 
 func (s *Scheduler) ConsumerdIsConnected(c *Consumerd) bool {
-	_, ok := s.consumerds.Load(c.UUID)
+	s.cdsMutex.RLock()
+	defer s.cdsMutex.RUnlock()
+	_, ok := s.consumerds[c.UUID]
 	return ok
 }
 
@@ -147,10 +162,13 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 			fmt.Sprintf("Error dialing agent: %s", err.Error()))
 	}
 
+	s.agentsMutex.Lock()
+	defer s.agentsMutex.Unlock()
+
 	s.lg.With(
 		zap.String("uuid", agent.UUID),
 	).Info(types.Scheduler.Color().Add("Agent connected"))
-	s.agents.Store(agent.UUID, agent)
+	s.agents[agent.UUID] = agent
 
 	s.wLock.Lock()
 	s.w.Add(agent, int(agent.Weight()))
@@ -158,7 +176,9 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 
 	go func() {
 		<-agent.Context.Done()
-		s.agents.Delete(agent.UUID)
+		s.agentsMutex.Lock()
+		defer s.agentsMutex.Unlock()
+		delete(s.agents, agent.UUID)
 		s.lg.With(
 			zap.String("uuid", agent.UUID),
 		).Info(types.Scheduler.Color().Add("Agent disconnected"))
@@ -174,14 +194,21 @@ func (s *Scheduler) ConsumerdConnected(ctx context.Context) error {
 	if s.ConsumerdIsConnected(cd) {
 		return status.Error(codes.AlreadyExists, "Consumerd already connected")
 	}
+
+	s.cdsMutex.Lock()
+	defer s.cdsMutex.Unlock()
+
 	s.lg.With(
 		zap.String("uuid", cd.UUID),
 	).Info(types.Scheduler.Color().Add("Consumerd connected"))
-	s.consumerds.Store(cd.UUID, cd)
+	s.consumerds[cd.UUID] = cd
 
 	go func() {
 		<-cd.Context.Done()
-		s.consumerds.Delete(cd.UUID)
+		s.cdsMutex.Lock()
+		defer s.cdsMutex.Unlock()
+
+		delete(s.consumerds, cd.UUID)
 		s.lg.With(
 			zap.String("uuid", cd.UUID),
 		).Info(types.Scheduler.Color().Add("Consumerd disconnected"))
@@ -192,37 +219,44 @@ func (s *Scheduler) ConsumerdConnected(ctx context.Context) error {
 func (s *Scheduler) reweightAll() {
 	s.wLock.Lock()
 	defer s.wLock.Unlock()
+	s.agentsMutex.RLock()
+	defer s.agentsMutex.RUnlock()
+
 	s.w.RemoveAll()
-	s.agents.Range(func(_, value interface{}) bool {
-		a := value.(*Agent)
-		a.RLock()
-		defer a.RUnlock()
-		s.w.Add(value, int(a.Weight()))
-		return true
-	})
+	for _, agent := range s.agents {
+		agent.RLock()
+		s.w.Add(agent, int(agent.Weight()))
+		agent.RUnlock()
+	}
 }
 
 func (s *Scheduler) SetQueueStatus(ctx context.Context, stat types.QueueStatus) error {
+	s.agentsMutex.RLock()
+	defer s.agentsMutex.RUnlock()
+
 	uuid := meta.UUID(ctx)
-	if agent, ok := s.agents.Load(uuid); ok {
-		a := agent.(*Agent)
-		a.Lock()
-		a.QueueStatus = stat
-		a.Unlock()
+	if agent, ok := s.agents[uuid]; ok {
+		agent.Lock()
+		agent.QueueStatus = stat
+		agent.Unlock()
+
 		s.reweightAll()
 	}
 	return nil
 }
 
 func (s *Scheduler) SetToolchains(ctx context.Context, tcs []*types.Toolchain) error {
+	s.agentsMutex.RLock()
+	defer s.agentsMutex.RUnlock()
+	s.cdsMutex.RLock()
+	defer s.cdsMutex.RUnlock()
+
 	uuid := meta.UUID(ctx)
-	if agent, ok := s.agents.Load(uuid); ok {
-		a := agent.(*Agent)
-		a.Lock()
-		a.Toolchains = tcs
-		a.Unlock()
-	} else if consumerd, ok := s.consumerds.Load(uuid); ok {
-		cd := consumerd.(*Consumerd)
+	if agent, ok := s.agents[uuid]; ok {
+		agent.Lock()
+		agent.Toolchains = tcs
+		agent.Unlock()
+	} else if cd, ok := s.consumerds[uuid]; ok {
 		cd.Lock()
 		cd.Toolchains = tcs
 		cd.Unlock()
@@ -237,8 +271,10 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 	go func() {
 		var min, max float64
 		statsList := []agentStats{}
-		s.agents.Range(func(key, value interface{}) bool {
-			agent := value.(*Agent)
+		s.agentsMutex.RLock()
+		defer s.agentsMutex.RUnlock()
+
+		for uuid, agent := range s.agents {
 			agent.RLock()
 			defer agent.RUnlock()
 
@@ -248,7 +284,7 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 				agentWeight:     &scmetrics.AgentWeight{},
 			}
 
-			stats.agentWeight.UUID = agent.UUID
+			stats.agentWeight.UUID = uuid
 			stats.agentTasksTotal.Total = agent.CompletedTasks.Load()
 			stats.agentTasksTotal.Identifier = stats.agentWeight.Identifier
 
@@ -266,8 +302,7 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 			// Set the non-normalized weight here, adjust below
 			stats.agentWeight.Value = w
 			statsList = append(statsList, stats)
-			return true
-		})
+		}
 
 		// Normalize weights
 		for i, stat := range statsList {
@@ -279,6 +314,7 @@ func (s *Scheduler) CalcAgentStats() <-chan []agentStats {
 					(stat.agentWeight.Value - min) / (max - min)
 			}
 		}
+
 		stats <- statsList
 	}()
 	return stats
@@ -288,21 +324,23 @@ func (s *Scheduler) CalcConsumerdStats() <-chan []consumerdStats {
 	stats := make(chan []consumerdStats)
 	go func() {
 		statsList := []consumerdStats{}
-		s.consumerds.Range(func(key, value interface{}) bool {
-			cd := value.(*Consumerd)
+		s.cdsMutex.RLock()
+		defer s.cdsMutex.RUnlock()
+
+		for uuid, cd := range s.consumerds {
 			cd.RLock()
 			defer cd.RUnlock()
 
 			total := &scmetrics.CdTasksTotal{
 				Total: cd.CompletedTasks.Load(),
 			}
-			total.Identifier.UUID = cd.UUID
+			total.Identifier.UUID = uuid
 			statsList = append(statsList, consumerdStats{
 				consumerdCtx:       cd.Context,
 				cdRemoteTasksTotal: total,
 			})
-			return true
-		})
+		}
+
 		stats <- statsList
 	}()
 	return stats

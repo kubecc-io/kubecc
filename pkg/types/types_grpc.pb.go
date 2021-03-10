@@ -712,3 +712,225 @@ var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
 	},
 	Metadata: "proto/types.proto",
 }
+
+// CacheClient is the client API for Cache service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CacheClient interface {
+	Push(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*Empty, error)
+	Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*CacheObject, error)
+	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (Cache_SyncClient, error)
+}
+
+type cacheClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCacheClient(cc grpc.ClientConnInterface) CacheClient {
+	return &cacheClient{cc}
+}
+
+func (c *cacheClient) Push(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Cache/Push", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*CacheObject, error) {
+	out := new(CacheObject)
+	err := c.cc.Invoke(ctx, "/Cache/Pull", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/Cache/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (Cache_SyncClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Cache_ServiceDesc.Streams[0], "/Cache/Sync", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &cacheSyncClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Cache_SyncClient interface {
+	Recv() (*CacheObject, error)
+	grpc.ClientStream
+}
+
+type cacheSyncClient struct {
+	grpc.ClientStream
+}
+
+func (x *cacheSyncClient) Recv() (*CacheObject, error) {
+	m := new(CacheObject)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// CacheServer is the server API for Cache service.
+// All implementations must embed UnimplementedCacheServer
+// for forward compatibility
+type CacheServer interface {
+	Push(context.Context, *PushRequest) (*Empty, error)
+	Pull(context.Context, *PullRequest) (*CacheObject, error)
+	Query(context.Context, *QueryRequest) (*QueryResponse, error)
+	Sync(*SyncRequest, Cache_SyncServer) error
+	mustEmbedUnimplementedCacheServer()
+}
+
+// UnimplementedCacheServer must be embedded to have forward compatible implementations.
+type UnimplementedCacheServer struct {
+}
+
+func (UnimplementedCacheServer) Push(context.Context, *PushRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
+}
+func (UnimplementedCacheServer) Pull(context.Context, *PullRequest) (*CacheObject, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pull not implemented")
+}
+func (UnimplementedCacheServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
+}
+func (UnimplementedCacheServer) Sync(*SyncRequest, Cache_SyncServer) error {
+	return status.Errorf(codes.Unimplemented, "method Sync not implemented")
+}
+func (UnimplementedCacheServer) mustEmbedUnimplementedCacheServer() {}
+
+// UnsafeCacheServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CacheServer will
+// result in compilation errors.
+type UnsafeCacheServer interface {
+	mustEmbedUnimplementedCacheServer()
+}
+
+func RegisterCacheServer(s grpc.ServiceRegistrar, srv CacheServer) {
+	s.RegisterService(&Cache_ServiceDesc, srv)
+}
+
+func _Cache_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PushRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Push(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Push",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Push(ctx, req.(*PushRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Pull_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PullRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Pull(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Pull",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Pull(ctx, req.(*PullRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Query(ctx, req.(*QueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Sync_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CacheServer).Sync(m, &cacheSyncServer{stream})
+}
+
+type Cache_SyncServer interface {
+	Send(*CacheObject) error
+	grpc.ServerStream
+}
+
+type cacheSyncServer struct {
+	grpc.ServerStream
+}
+
+func (x *cacheSyncServer) Send(m *CacheObject) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Cache_ServiceDesc is the grpc.ServiceDesc for Cache service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Cache_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "Cache",
+	HandlerType: (*CacheServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Push",
+			Handler:    _Cache_Push_Handler,
+		},
+		{
+			MethodName: "Pull",
+			Handler:    _Cache_Pull_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _Cache_Query_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Sync",
+			Handler:       _Cache_Sync_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
