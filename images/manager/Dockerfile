@@ -1,4 +1,4 @@
-FROM golang:1.15 as builder
+FROM golang:1.16 as builder
 
 WORKDIR /workspace
 
@@ -8,7 +8,7 @@ RUN go mod download
 
 RUN make manager
 
-# Use distroless as minimal base image to package the manager binary
+# Use distroless as minimal base image to package the binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /

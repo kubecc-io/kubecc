@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -25,9 +26,9 @@ func UpdateIfNeeded(
 	updates []Updater,
 ) (ctrl.Result, error) {
 	for _, update := range updates {
-		eq := func() bool {
-			return Equal(update.Actual, update.Desired)
-		}
+		eq := func(u Updater) func() bool {
+			return func() bool { return Equal(update.Actual, update.Desired) }
+		}(update)
 		if update.Equal != nil {
 			eq = update.Equal
 		}
@@ -39,7 +40,11 @@ func UpdateIfNeeded(
 			}
 			err := rc.Client.Update(rc.Context, source)
 			if err != nil {
-				rc.Log.Error(err)
+				if errors.IsConflict(err) {
+					rc.Log.Debug(err)
+				} else {
+					rc.Log.Error(err)
+				}
 				return RequeueWithErr(err)
 			}
 			return Requeue()

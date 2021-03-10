@@ -74,6 +74,11 @@ var _ = Describe("BuildCluster Controller", func() {
 							Image:           "gcr.io/kubecc/scheduler:latest",
 							ImagePullPolicy: "Always",
 						},
+						Monitor: v1alpha1.MonitorSpec{
+							Resources:       resources,
+							Image:           "gcr.io/kubecc/monitor:latest",
+							ImagePullPolicy: "Always",
+						},
 					},
 				},
 			}

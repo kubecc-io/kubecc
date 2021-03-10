@@ -2,20 +2,19 @@ package agent
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"io"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/cluster"
-	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
-	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -23,18 +22,16 @@ import (
 )
 
 type AgentServer struct {
-	types.AgentServer
+	types.UnimplementedAgentServer
 
 	AgentServerOptions
 
+	srvContext      context.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
-	queueStatus     types.QueueStatus
-	queueStatusCh   chan types.QueueStatus
-	srvContext      context.Context
 	tcStore         *toolchains.Store
 	tcRunStore      *run.ToolchainRunnerStore
-	metricsProvider *metrics.Provider
+	metricsProvider metrics.Provider
 }
 
 type AgentServerOptions struct {
@@ -42,7 +39,7 @@ type AgentServerOptions struct {
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
 	monitorClient    types.InternalMonitorClient
-	cpuConfig        *types.CpuConfig
+	usageLimits      *types.UsageLimits
 }
 
 type agentServerOption func(*AgentServerOptions)
@@ -77,9 +74,9 @@ func WithMonitorClient(client types.InternalMonitorClient) agentServerOption {
 	}
 }
 
-func WithCpuConfig(cpuConfig *types.CpuConfig) agentServerOption {
+func WithUsageLimits(usageLimits *types.UsageLimits) agentServerOption {
 	return func(o *AgentServerOptions) {
-		o.cpuConfig = cpuConfig
+		o.usageLimits = usageLimits
 	}
 }
 
@@ -101,18 +98,13 @@ func NewAgentServer(
 		add(runStore)
 	}
 
-	if options.cpuConfig == nil {
-		options.cpuConfig = cpuconfig.Default()
-	}
-
 	srv := &AgentServer{
 		AgentServerOptions: options,
 		srvContext:         ctx,
-		lg:                 logkc.LogFromContext(ctx),
+		lg:                 meta.Log(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:         runStore,
-		executor:           run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
-		queueStatus:        types.Available,
+		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 	}
 	return srv
 }
@@ -121,10 +113,11 @@ func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
-	s.updateQueueStatus(s.executor.Status())
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
 
-	span, sctx, err := servers.StartSpanFromServer(
-		ctx, s.srvContext, "compile")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
 	if err != nil {
 		s.lg.Error(err)
 	} else {
@@ -144,131 +137,82 @@ func (s *AgentServer) Compile(
 	return resp.(*types.CompileResponse), err
 }
 
-func (s *AgentServer) updateQueueStatus(stat types.QueueStatus) {
-	if s.queueStatus != stat {
-		s.queueStatus = stat
-		// todo: remove old queue status system
-		select {
-		case s.queueStatusCh <- stat:
-		default:
-		}
-	}
-}
-
-func (s *AgentServer) postAlive() {
-	s.metricsProvider.Post(&meta.Alive{})
-}
-
 func (s *AgentServer) postQueueParams() {
-	qp := &mstat.QueueParams{}
+	qp := &common.QueueParams{}
 	s.executor.CompleteQueueParams(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *AgentServer) postTaskStatus() {
-	ts := &mstat.TaskStatus{}
+	ts := &common.TaskStatus{}
 	s.executor.CompleteTaskStatus(ts)
 	s.metricsProvider.Post(ts)
 }
 
 func (s *AgentServer) postQueueStatus() {
-	qs := &mstat.QueueStatus{}
+	qs := &common.QueueStatus{}
 	s.executor.CompleteQueueStatus(qs)
 	s.metricsProvider.Post(qs)
 }
 
 func (s *AgentServer) StartMetricsProvider() {
-	id := types.NewIdentity(types.Agent)
-	s.lg.With(zap.Object("identity", id)).Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewProvider(s.srvContext, id, s.monitorClient)
-	s.postAlive()
+	s.lg.Info("Starting metrics provider")
+	s.metricsProvider = metrics.NewMonitorProvider(s.srvContext, s.monitorClient,
+		metrics.Buffered|metrics.Discard)
 	s.postQueueParams()
-	s.postQueueStatus()
 
-	tick := time.NewTicker(time.Second / 10)
+	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
-			<-tick.C
+			<-fastTimer
 			s.postTaskStatus()
 			s.postQueueStatus()
 		}
 	}()
+
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5)
+	go func() {
+		for {
+			<-slowTimer
+			s.postQueueParams()
+		}
+	}()
 }
 
-func (s *AgentServer) RunSchedulerClient() {
-	if s.schedulerClient == nil {
-		cc, err := grpc.Dial(
-			fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090",
-				cluster.GetNamespace()),
-			grpc.WithInsecure())
-		if err != nil {
-			s.lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
-		}
-		s.schedulerClient = types.NewSchedulerClient(cc)
-	}
-
-	for {
-		s.lg.Info("Starting connection to the scheduler")
-		stream, err := s.schedulerClient.ConnectAgent(
-			s.srvContext, grpc.WaitForReady(true))
-		if err != nil {
-			s.lg.With(zap.Error(err)).Error("Error connecting to scheduler. Reconnecting in 5 seconds")
-			time.Sleep(5 * time.Second)
-		}
-		err = stream.Send(&types.Metadata{
-			Contents: &types.Metadata_Toolchains{
-				Toolchains: &types.Toolchains{
-					Items: s.tcStore.ItemsList(),
-				},
-			},
-		})
-		if err != nil {
-			s.lg.Error(err)
-		}
-		s.lg.Info(types.Agent.Color().Add("Connected to the scheduler"))
-
-		streamClosed := make(chan error)
-		go func() {
-			for {
-				_, err := stream.Recv()
-				streamClosed <- err
-				close(streamClosed)
-				return
-			}
-		}()
-
-		select {
-		case stat := <-s.queueStatusCh:
-			s.lg.Info("Sending queue status update: %s",
-				types.QueueStatus_name[int32(stat)])
-			err := stream.Send(&types.Metadata{
-				Contents: &types.Metadata_QueueStatus{
-					QueueStatus: stat,
-				},
-			})
-			if err != nil {
-				s.lg.Error(err)
-			}
-		case err := <-streamClosed:
-			s.lg.With(zap.Error(err)).Warn("Connection lost. Reconnecting in 5 seconds...")
-			time.Sleep(5 * time.Second)
-		}
-	}
-}
-
-func (s *AgentServer) GetCpuConfig(
+func (s *AgentServer) SetUsageLimits(
 	ctx context.Context,
-	_ *types.Empty,
-) (*types.CpuConfig, error) {
-	return s.cpuConfig, nil
-}
-
-func (s *AgentServer) SetCpuConfig(
-	ctx context.Context,
-	cfg *types.CpuConfig,
+	usageLimits *types.UsageLimits,
 ) (*types.Empty, error) {
-	s.executor.(*run.QueuedExecutor).SetCpuConfig(cfg)
-	s.cpuConfig = cfg
+	s.executor.(*run.QueuedExecutor).SetUsageLimits(usageLimits)
+	s.usageLimits = usageLimits
 	s.postQueueParams()
 	return &types.Empty{}, nil
+}
+
+func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
+	err := stream.SendMsg(&types.Metadata{
+		Toolchains: &types.Toolchains{
+			Items: s.tcStore.ItemsList(),
+		},
+	})
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return stream.RecvMsg(nil)
+		}
+		return err
+	}
+	select {
+	case err := <-servers.EmptyServerStreamDone(s.srvContext, stream):
+		return err
+	case <-s.srvContext.Done():
+		return nil
+	}
+}
+
+func (s *AgentServer) TryConnect() (grpc.ClientStream, error) {
+	return s.schedulerClient.ConnectAgent(s.srvContext)
+}
+
+func (s *AgentServer) Target() string {
+	return "scheduler"
 }

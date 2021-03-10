@@ -2,47 +2,75 @@ package scheduler
 
 import (
 	"context"
+	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/cluster"
+	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"go.uber.org/zap/zapcore"
+	"go.uber.org/atomic"
 )
 
+type remoteInfo struct {
+	UUID           string
+	Context        context.Context
+	UsageLimits    *types.UsageLimits
+	SystemInfo     *types.SystemInfo
+	Toolchains     []*types.Toolchain
+	CompletedTasks *atomic.Int64
+}
+
+type Consumerd struct {
+	remoteInfo
+	*sync.RWMutex
+}
+
 type Agent struct {
-	zapcore.ObjectMarshaler
+	remoteInfo
+	*sync.RWMutex
 
-	Context context.Context
-	Client  types.AgentClient
-
-	CpuConfig   *types.CpuConfig
-	Info        *types.AgentInfo
+	Client      types.AgentClient
 	QueueStatus types.QueueStatus
-	Toolchains  []*types.Toolchain
 }
 
-func AgentFromContext(ctx context.Context) (*Agent, error) {
-	info, err := cluster.AgentInfoFromContext(ctx)
-	if err != nil {
-		return nil, err
+func remoteInfoFromContext(ctx context.Context) remoteInfo {
+	return remoteInfo{
+		UUID:           meta.UUID(ctx),
+		Context:        ctx,
+		SystemInfo:     meta.SystemInfo(ctx),
+		CompletedTasks: atomic.NewInt64(0),
 	}
-	return &Agent{
-		Info:    info,
-		Context: ctx,
-	}, nil
-}
-
-func (a Agent) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	return enc.AddObject("info", a.Info)
 }
 
 func (a Agent) Weight() int32 {
+	if a.UsageLimits == nil {
+		// Use a default value of the number of cpu threads
+		// until the agent posts its own usage limits
+		return a.SystemInfo.CpuThreads
+	}
 	switch a.QueueStatus {
 	case types.Available, types.Queueing:
-		return a.CpuConfig.GetMaxRunningProcesses()
+		return a.UsageLimits.GetConcurrentProcessLimit()
 	case types.QueuePressure:
-		return a.CpuConfig.GetMaxRunningProcesses() / 2
+		return a.UsageLimits.GetConcurrentProcessLimit() / 2
 	case types.QueueFull:
 		return 0
 	}
 	return 0
+}
+
+type agentStats struct {
+	agentCtx        context.Context
+	agentTasksTotal *scmetrics.AgentTasksTotal
+	agentWeight     *scmetrics.AgentWeight
+}
+
+type consumerdStats struct {
+	consumerdCtx       context.Context
+	cdRemoteTasksTotal *scmetrics.CdTasksTotal
+}
+
+type taskStats struct {
+	completedTotal *scmetrics.TasksCompletedTotal
+	failedTotal    *scmetrics.TasksFailedTotal
+	requestsTotal  *scmetrics.SchedulingRequestsTotal
 }

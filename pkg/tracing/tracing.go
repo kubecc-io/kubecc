@@ -5,7 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
 	"github.com/cobalt77/kubecc/pkg/types"
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
@@ -16,7 +17,7 @@ import (
 var IsEnabled bool
 
 func Start(ctx context.Context, component types.Component) (opentracing.Tracer, io.Closer) {
-	lg := logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
 		lg.Warn("JAEGER_ENDPOINT not defined, tracing disabled")
@@ -44,18 +45,27 @@ func Start(ctx context.Context, component types.Component) (opentracing.Tracer, 
 	return tracer, closer
 }
 
-type tracerKeyType struct{}
+type tracingProvider struct{}
 
-var tracerKey tracerKeyType
+var Tracer tracingProvider
 
-func ContextWithTracer(ctx context.Context, tracer opentracing.Tracer) context.Context {
-	return context.WithValue(ctx, tracerKey, tracer)
+func (tracingProvider) Key() meta.MetadataKey {
+	return mdkeys.TracingKey
 }
 
-func TracerFromContext(ctx context.Context) opentracing.Tracer {
-	tracer := ctx.Value(tracerKey)
-	if tracer == nil {
-		panic("No tracer associated with context")
-	}
-	return tracer.(opentracing.Tracer)
+func (tracingProvider) InitialValue(ctx context.Context) interface{} {
+	tracer, closer := Start(ctx, meta.Component(ctx))
+	go func() {
+		<-ctx.Done()
+		closer.Close()
+	}()
+	return tracer
+}
+
+func (tracingProvider) Marshal(i interface{}) string {
+	return ""
+}
+
+func (tracingProvider) Unmarshal(s string) (interface{}, error) {
+	return nil, nil
 }

@@ -42,13 +42,3 @@ spec:
             - name: grpc
               containerPort: 9090
               protocol: TCP
-          volumeMounts:
-            - name: config
-              mountPath: /config
-      volumes:
-        - name: config
-          configMap:
-            name: scheduler-config
-            items:
-              - key: scheduler.yaml
-                path: scheduler.yaml

@@ -2,14 +2,21 @@ package servers
 
 import (
 	"context"
-	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"strings"
 
 	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
+	"github.com/cobalt77/kubecc/pkg/host"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/encoding/gzip"
 
@@ -17,9 +24,9 @@ import (
 )
 
 type GRPCOptions struct {
-	AgentInfo   *types.AgentInfo
-	tls         bool
-	dialOptions []grpc.DialOption
+	tls           bool
+	dialOptions   []grpc.DialOption
+	serverOptions []grpc.ServerOption
 }
 type grpcOption func(*GRPCOptions)
 
@@ -29,76 +36,73 @@ func (o *GRPCOptions) Apply(opts ...grpcOption) {
 	}
 }
 
-func WithAgentInfo(info *types.AgentInfo) grpcOption {
-	return func(op *GRPCOptions) {
-		op.AgentInfo = info
-	}
-}
-
 func WithTLS(tls bool) grpcOption {
 	return func(op *GRPCOptions) {
 		op.tls = tls
 	}
 }
 
-func With(dialOption grpc.DialOption) grpcOption {
+func WithDialOpts(dialOptions ...grpc.DialOption) grpcOption {
 	return func(op *GRPCOptions) {
-		op.dialOptions = append(op.dialOptions, dialOption)
+		op.dialOptions = append(op.dialOptions, dialOptions...)
 	}
 }
 
-func ClientAgentContextInterceptor(agentInfo *types.AgentInfo) grpc.UnaryClientInterceptor {
-	return func(
-		ctx context.Context,
-		method string,
-		req, resp interface{},
-		cc *grpc.ClientConn,
-		invoker grpc.UnaryInvoker,
-		opts ...grpc.CallOption,
-	) error {
-		ctx = cluster.ContextWithAgentInfo(ctx, agentInfo)
-		return invoker(ctx, method, req, resp, cc, opts...)
-	}
-}
-
-func ServerAgentContextInterceptor() grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req interface{},
-		_ *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (resp interface{}, err error) {
-		agentInfo, err := cluster.AgentInfoFromContext(ctx)
-		if err == nil {
-			ctx = context.WithValue(ctx, cluster.AgentInfoKey, agentInfo)
-		}
-		return handler(ctx, req)
+func WithServerOpts(serverOptions ...grpc.ServerOption) grpcOption {
+	return func(op *GRPCOptions) {
+		op.serverOptions = append(op.serverOptions, serverOptions...)
 	}
 }
 
 func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	options := GRPCOptions{
-		AgentInfo: nil,
-		tls:       false,
+		tls: false,
 	}
-
-	// Check if the context contains agent info
-	if options.AgentInfo == nil {
-		options.AgentInfo, _ = cluster.AgentInfoFromContext(ctx) // ignore the error
-	}
-
 	options.Apply(opts...)
-	interceptors := []grpc.UnaryServerInterceptor{
-		otgrpc.OpenTracingServerInterceptor(tracing.TracerFromContext(ctx)),
-	}
-	if options.AgentInfo != nil {
-		interceptors = append(interceptors, ServerAgentContextInterceptor())
+
+	importOptions := meta.ImportOptions{
+		Required: []meta.Provider{
+			identity.Component,
+			identity.UUID,
+		},
+		Optional: []meta.Provider{
+			host.SystemInfo,
+		},
+		Inherit: &meta.InheritOptions{
+			InheritFrom: ctx,
+			Providers: []meta.Provider{
+				logkc.Logger,
+				tracing.Tracer,
+			},
+		},
 	}
 
 	return grpc.NewServer(
-		grpc.MaxRecvMsgSize(1e8), // 100MB
-		grpc.ChainUnaryInterceptor(interceptors...),
+		append(options.serverOptions,
+			grpc.MaxRecvMsgSize(1e8), // 100MB
+			grpc.ChainUnaryInterceptor(
+				otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
+				meta.ServerContextInterceptor(importOptions),
+			),
+			grpc.ChainStreamInterceptor(
+				meta.StreamServerContextInterceptor(importOptions),
+			),
+		)...,
 	)
+}
+
+func DialService(
+	ctx context.Context,
+	component types.Component,
+	port int,
+	opts ...grpcOption,
+) (*grpc.ClientConn, error) {
+	addr := fmt.Sprintf("kubecc-%s.%s.svc.cluster.local:%d",
+		strings.ToLower(component.Name()),
+		cluster.GetNamespace(),
+		port,
+	)
+	return Dial(ctx, addr, opts...)
 }
 
 func Dial(
@@ -108,29 +112,30 @@ func Dial(
 ) (*grpc.ClientConn, error) {
 	options := GRPCOptions{}
 	options.Apply(opts...)
-	interceptors := []grpc.UnaryClientInterceptor{
-		otgrpc.OpenTracingClientInterceptor(
-			tracing.TracerFromContext(ctx),
-			otgrpc.CreateSpan(!tracing.IsEnabled),
+	dialOpts := append(options.dialOptions,
+		grpc.WithChainUnaryInterceptor(
+			otgrpc.OpenTracingClientInterceptor(
+				meta.Tracer(ctx),
+				otgrpc.CreateSpan(!tracing.IsEnabled),
+			),
+			meta.ClientContextInterceptor(),
 		),
-	}
-	if options.AgentInfo != nil {
-		interceptors = append(interceptors,
-			ClientAgentContextInterceptor(options.AgentInfo))
-	}
-	dialOpts := append([]grpc.DialOption{
-		grpc.WithChainUnaryInterceptor(interceptors...),
+		grpc.WithChainStreamInterceptor(
+			meta.StreamClientContextInterceptor(),
+		),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(1e8),
 			grpc.UseCompressor(gzip.Name),
 		),
-	}, options.dialOptions...)
+	)
 	if options.tls {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(
-			&tls.Config{
-				InsecureSkipVerify: false,
-			},
-		)))
+		pool, err := x509.SystemCertPool()
+		if err != nil {
+			meta.Log(ctx).With(zap.Error(err)).Fatal("Error reading system cert pool")
+		}
+		dialOpts = append(dialOpts,
+			grpc.WithTransportCredentials(
+				credentials.NewClientTLSFromCert(pool, "")))
 	} else {
 		dialOpts = append(dialOpts, grpc.WithInsecure())
 	}
@@ -139,10 +144,10 @@ func Dial(
 }
 
 func StartSpanFromServer(
-	clientCtx, serverCtx context.Context,
+	clientCtx context.Context,
 	operationName string,
 ) (opentracing.Span, context.Context, error) {
-	tracer := tracing.TracerFromContext(serverCtx)
+	tracer := meta.Tracer(clientCtx)
 	if tracer == nil {
 		panic("No tracer in server context")
 	}

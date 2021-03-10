@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ func samePath(a, b string) bool {
 }
 
 func findCompilerOrDie(ctx context.Context) string {
-	lg := logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 	basename := filepath.Base(os.Args[0])
 	self, err := os.Executable()
 	if err != nil {

@@ -2,15 +2,23 @@ package monitor
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
 	"sync"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
-	"github.com/cobalt77/kubecc/pkg/tools"
+	"github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 type Receiver interface {
@@ -18,19 +26,19 @@ type Receiver interface {
 }
 
 type MonitorServer struct {
-	types.InternalMonitorServer
-	types.ExternalMonitorServer
+	types.UnimplementedInternalMonitorServer
+	types.UnimplementedExternalMonitorServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
 	buckets       map[string]KeyValueStore
-	bucketMutex   *sync.RWMutex
 	listeners     map[string]map[string]Receiver
+	providerMutex *sync.RWMutex
 	listenerMutex *sync.RWMutex
 
 	storeCreator StoreCreator
-	providers    *meta.Providers
+	providers    *metrics.Providers
 }
 
 func NewMonitorServer(
@@ -39,31 +47,65 @@ func NewMonitorServer(
 ) *MonitorServer {
 	srv := &MonitorServer{
 		srvContext:    ctx,
-		lg:            logkc.LogFromContext(ctx),
+		lg:            meta.Log(ctx),
 		buckets:       make(map[string]KeyValueStore),
-		bucketMutex:   &sync.RWMutex{},
 		listeners:     make(map[string]map[string]Receiver),
+		providerMutex: &sync.RWMutex{},
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &meta.Providers{},
+		providers:     &metrics.Providers{},
 	}
-	srv.buckets[meta.Bucket] = storeCreator.NewStore(ctx)
+	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
+
+	go srv.runPrometheusListener()
 	return srv
 }
 
+func (m *MonitorServer) runPrometheusListener() {
+	inMemoryListener := bufconn.Listen(1024 * 1024)
+	inMemoryGrpcSrv := servers.NewServer(m.srvContext)
+	types.RegisterExternalMonitorServer(inMemoryGrpcSrv, m)
+
+	go func() {
+		if err := inMemoryGrpcSrv.Serve(inMemoryListener); err != nil {
+			m.lg.With(
+				zap.Error(err),
+			).Error("Error serving internal metrics listener")
+		}
+	}()
+
+	cc, err := servers.Dial(m.srvContext, "bufconn",
+		servers.WithDialOpts(
+			grpc.WithContextDialer(
+				func(c context.Context, s string) (net.Conn, error) {
+					return inMemoryListener.Dial()
+				},
+			),
+			grpc.WithInsecure(),
+		),
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	client := types.NewExternalMonitorClient(cc)
+
+	servePrometheusMetrics(m.srvContext, client)
+}
+
 func (m *MonitorServer) encodeProviders() []byte {
-	m.bucketMutex.RLock()
-	defer m.bucketMutex.RUnlock()
-	return tools.EncodeMsgp(m.providers)
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+	return util.EncodeMsgp(m.providers)
 }
 
 // bucketMutex must not be held by the same thread when calling this function.
 func (m *MonitorServer) providersUpdated() {
 	err := m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: meta.Bucket,
-			Name:   meta.Providers{}.Key(),
+			Bucket: metrics.MetaBucket,
+			Name:   metrics.Providers{}.Key(),
 		},
 		Value: &types.Value{
 			Data: m.encodeProviders(),
@@ -74,51 +116,85 @@ func (m *MonitorServer) providersUpdated() {
 	}
 }
 
+func providerIP(ctx context.Context) (string, error) {
+	if p, ok := peer.FromContext(ctx); ok {
+		switch addr := p.Addr.(type) {
+		case *net.TCPAddr:
+			return addr.IP.String(), nil
+		default:
+			return addr.String(), nil
+		}
+	}
+	return "", status.Error(codes.InvalidArgument,
+		"No peer information available")
+}
+
 func (m *MonitorServer) Stream(
 	srv types.InternalMonitor_StreamServer,
 ) (streamError error) {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
+	ctx := srv.Context()
+	addr, err := providerIP(srv.Context())
+	if err != nil {
+		return err
+	}
+	uuid := meta.UUID(ctx)
+	component := meta.Component(ctx)
 
-	m.bucketMutex.Lock()
-	if _, ok := m.buckets[id.UUID]; ok {
+	m.providerMutex.Lock()
+	if _, ok := m.buckets[uuid]; ok {
 		return status.Error(codes.AlreadyExists,
 			"A client with the same identity is already connected")
 	}
-	store := m.storeCreator.NewStore(srv.Context())
-	m.buckets[id.UUID] = store
+	bucketCtx, bucketCancel := context.WithCancel(context.Background())
+	store := m.storeCreator.NewStore(bucketCtx)
+	m.buckets[uuid] = store
 	if m.providers.Items == nil {
-		m.providers.Items = make(map[string]int32)
+		m.providers.Items = make(map[string]metrics.ProviderInfo)
 	}
-	m.providers.Items[id.UUID] = int32(id.Component)
-	m.bucketMutex.Unlock()
+	m.providers.Items[uuid] = metrics.ProviderInfo{
+		UUID:      uuid,
+		Component: int32(component),
+		Address:   addr,
+	}
+	providerCount.Inc()
+	m.providerMutex.Unlock()
 	m.providersUpdated()
 
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider connected"))
 	for {
 		metric, err := srv.Recv()
 		if err != nil {
-			m.lg.Error(err)
+			if errors.Is(err, io.EOF) {
+				m.lg.Debug(err)
+			} else {
+				m.lg.Error(err)
+			}
 			break
 		}
 		err = m.post(metric)
 		if err != nil {
+			m.lg.Error(err)
 			streamError = err
 			break
 		}
 	}
 	m.lg.With(
-		zap.Object("identity", id),
+		zap.String("component", component.Name()),
+		types.ShortID(uuid),
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
-	m.bucketMutex.Lock()
-	delete(m.buckets, id.UUID)
-	delete(m.providers.Items, id.UUID)
-	m.bucketMutex.Unlock()
+	m.providerMutex.Lock()
+	bucketCancel()
+	delete(m.buckets, uuid)
+	delete(m.providers.Items, uuid)
+	providerCount.Dec()
+	m.providerMutex.Unlock()
 	m.providersUpdated()
 	return
 }
@@ -137,17 +213,66 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
+var storeContentsKey = (&types.Key{
+	Bucket: metrics.MetaBucket,
+	Name:   metrics.StoreContents{}.Key(),
+}).Canonical()
+
+func (m *MonitorServer) notifyStoreMeta() {
+	m.listenerMutex.RLock()
+	defer m.listenerMutex.RUnlock()
+
+	if listeners, ok := m.listeners[storeContentsKey]; ok {
+		contents := &metrics.StoreContents{
+			Buckets: []metrics.BucketSpec{},
+		}
+		for k, v := range m.buckets {
+			copied := map[string][]byte{}
+			for _, key := range v.Keys() {
+				if value, ok := v.Get(key); ok {
+					copied[key] = value
+				}
+			}
+			contents.Buckets = append(contents.Buckets, metrics.BucketSpec{
+				Name: k,
+				Data: copied,
+			})
+		}
+		encoded := util.EncodeMsgp(contents)
+		for _, v := range listeners {
+			err := v.Send(&types.Value{
+				Data: encoded,
+			})
+			if err != nil {
+				m.lg.With(zap.Error(err)).Error("Error sending data to listener")
+			}
+		}
+	}
+}
+
 func (m *MonitorServer) post(metric *types.Metric) error {
-	m.bucketMutex.RLock()
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
+		if metric.Value == nil {
+			store.Delete(metric.Key.Name)
+			return nil
+		}
 		if store.CAS(metric.Key.Name, metric.Value.Data) {
-			defer m.notify(metric)
+			m.lg.With(
+				zap.String("key", metric.Key.ShortID()),
+			).Debug("Metric updated")
+			metricsPostedTotal.Inc()
+			defer func() {
+				m.notify(metric)
+				m.notifyStoreMeta()
+			}()
 		}
 	} else {
-		return status.Error(codes.InvalidArgument, "No such bucket")
+		return status.Error(codes.InvalidArgument,
+			fmt.Sprintf("No such bucket: '%s'", bucket))
 	}
-	m.bucketMutex.RUnlock()
 	return nil
 }
 
@@ -155,18 +280,23 @@ func (m *MonitorServer) Listen(
 	key *types.Key,
 	srv types.ExternalMonitor_ListenServer,
 ) error {
-	id, err := types.IdentityFromIncomingContext(srv.Context())
-	if err != nil {
-		return status.Error(codes.InvalidArgument, err.Error())
+	if err := meta.CheckContext(srv.Context()); err != nil {
+		return err
 	}
-
-	m.bucketMutex.RLock()
+	ctx := srv.Context()
+	uuid := meta.UUID(ctx)
+	m.lg.With(
+		zap.String("component", meta.Component(ctx).Name()),
+		types.ShortID(uuid),
+	).Debug("Listener added")
+	m.providerMutex.RLock()
 
 	var bucketCtx context.Context
 	bucket, ok := m.buckets[key.Bucket]
 	if !ok {
-		m.bucketMutex.RUnlock()
-		return status.Error(codes.InvalidArgument, "No such bucket")
+		m.providerMutex.RUnlock()
+		return status.Error(codes.FailedPrecondition,
+			fmt.Sprintf("No such bucket: '%s'", key.Bucket))
 	} else {
 		bucketCtx = bucket.Context()
 	}
@@ -176,7 +306,8 @@ func (m *MonitorServer) Listen(
 	if m.listeners[canonical] == nil {
 		m.listeners[canonical] = make(map[string]Receiver)
 	}
-	m.listeners[canonical][id.UUID] = srv
+	listenerCount.Inc()
+	m.listeners[canonical][uuid] = srv
 	m.listenerMutex.Unlock()
 
 	// late join
@@ -188,19 +319,43 @@ func (m *MonitorServer) Listen(
 			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 		}
 	}
+	m.notifyStoreMeta()
 
-	m.bucketMutex.RUnlock()
+	m.providerMutex.RUnlock()
 
 	defer func() {
 		m.listenerMutex.Lock()
-		delete(m.listeners[canonical], id.UUID)
+		delete(m.listeners[canonical], uuid)
+		listenerCount.Dec()
 		m.listenerMutex.Unlock()
+		m.lg.With(
+			zap.String("component", meta.Component(ctx).Name()),
+			types.ShortID(uuid),
+		).Debug("Listener removed")
 	}()
 
 	select {
-	case <-srv.Context().Done():
+	case <-ctx.Done():
 		return status.Error(codes.Canceled, "Context canceled")
 	case <-bucketCtx.Done():
 		return status.Error(codes.Aborted, "Bucket closed")
 	}
+}
+
+func (m *MonitorServer) Whois(
+	ctx context.Context,
+	req *types.WhoisRequest,
+) (*types.WhoisResponse, error) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+
+	if info, ok := m.providers.Items[req.GetUUID()]; ok {
+		return &types.WhoisResponse{
+			UUID:      req.GetUUID(),
+			Address:   info.Address,
+			Component: types.Component(info.Component),
+		}, nil
+	}
+	return nil, status.Error(codes.NotFound,
+		"The requested provider was not found.")
 }

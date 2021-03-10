@@ -105,8 +105,7 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AgentClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error)
-	SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error)
+	SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type agentClient struct {
@@ -126,18 +125,9 @@ func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...g
 	return out, nil
 }
 
-func (c *agentClient) GetCpuConfig(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*CpuConfig, error) {
-	out := new(CpuConfig)
-	err := c.cc.Invoke(ctx, "/Agent/GetCpuConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...grpc.CallOption) (*Empty, error) {
+func (c *agentClient) SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Agent/SetCpuConfig", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/Agent/SetUsageLimits", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -149,8 +139,7 @@ func (c *agentClient) SetCpuConfig(ctx context.Context, in *CpuConfig, opts ...g
 // for forward compatibility
 type AgentServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	GetCpuConfig(context.Context, *Empty) (*CpuConfig, error)
-	SetCpuConfig(context.Context, *CpuConfig) (*Empty, error)
+	SetUsageLimits(context.Context, *UsageLimits) (*Empty, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -161,11 +150,8 @@ type UnimplementedAgentServer struct {
 func (UnimplementedAgentServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (UnimplementedAgentServer) GetCpuConfig(context.Context, *Empty) (*CpuConfig, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCpuConfig not implemented")
-}
-func (UnimplementedAgentServer) SetCpuConfig(context.Context, *CpuConfig) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetCpuConfig not implemented")
+func (UnimplementedAgentServer) SetUsageLimits(context.Context, *UsageLimits) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetUsageLimits not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 
@@ -198,38 +184,20 @@ func _Agent_Compile_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Agent_GetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
+func _Agent_SetUsageLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UsageLimits)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AgentServer).GetCpuConfig(ctx, in)
+		return srv.(AgentServer).SetUsageLimits(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Agent/GetCpuConfig",
+		FullMethod: "/Agent/SetUsageLimits",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).GetCpuConfig(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Agent_SetCpuConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CpuConfig)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServer).SetCpuConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Agent/SetCpuConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).SetCpuConfig(ctx, req.(*CpuConfig))
+		return srv.(AgentServer).SetUsageLimits(ctx, req.(*UsageLimits))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -246,12 +214,8 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Agent_Compile_Handler,
 		},
 		{
-			MethodName: "GetCpuConfig",
-			Handler:    _Agent_GetCpuConfig_Handler,
-		},
-		{
-			MethodName: "SetCpuConfig",
-			Handler:    _Agent_SetCpuConfig_Handler,
+			MethodName: "SetUsageLimits",
+			Handler:    _Agent_SetUsageLimits_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -265,7 +229,6 @@ type SchedulerClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
 	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
 	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
-	SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error)
 }
 
 type schedulerClient struct {
@@ -347,15 +310,6 @@ func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 	return m, nil
 }
 
-func (c *schedulerClient) SystemStatus(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*SystemStatusResponse, error) {
-	out := new(SystemStatusResponse)
-	err := c.cc.Invoke(ctx, "/Scheduler/SystemStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // SchedulerServer is the server API for Scheduler service.
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
@@ -363,7 +317,6 @@ type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	ConnectAgent(Scheduler_ConnectAgentServer) error
 	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
-	SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
 
@@ -379,9 +332,6 @@ func (UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) e
 }
 func (UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
 	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
-}
-func (UnimplementedSchedulerServer) SystemStatus(context.Context, *Empty) (*SystemStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SystemStatus not implemented")
 }
 func (UnimplementedSchedulerServer) mustEmbedUnimplementedSchedulerServer() {}
 
@@ -466,24 +416,6 @@ func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
 	return m, nil
 }
 
-func _Scheduler_SystemStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SchedulerServer).SystemStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Scheduler/SystemStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SchedulerServer).SystemStatus(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // Scheduler_ServiceDesc is the grpc.ServiceDesc for Scheduler service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -494,10 +426,6 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Compile",
 			Handler:    _Scheduler_Compile_Handler,
-		},
-		{
-			MethodName: "SystemStatus",
-			Handler:    _Scheduler_SystemStatus_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -640,6 +568,7 @@ var InternalMonitor_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExternalMonitorClient interface {
 	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error)
+	Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error)
 }
 
 type externalMonitorClient struct {
@@ -682,11 +611,21 @@ func (x *externalMonitorListenClient) Recv() (*Value, error) {
 	return m, nil
 }
 
+func (c *externalMonitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error) {
+	out := new(WhoisResponse)
+	err := c.cc.Invoke(ctx, "/ExternalMonitor/Whois", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ExternalMonitorServer is the server API for ExternalMonitor service.
 // All implementations must embed UnimplementedExternalMonitorServer
 // for forward compatibility
 type ExternalMonitorServer interface {
 	Listen(*Key, ExternalMonitor_ListenServer) error
+	Whois(context.Context, *WhoisRequest) (*WhoisResponse, error)
 	mustEmbedUnimplementedExternalMonitorServer()
 }
 
@@ -696,6 +635,9 @@ type UnimplementedExternalMonitorServer struct {
 
 func (UnimplementedExternalMonitorServer) Listen(*Key, ExternalMonitor_ListenServer) error {
 	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
+}
+func (UnimplementedExternalMonitorServer) Whois(context.Context, *WhoisRequest) (*WhoisResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Whois not implemented")
 }
 func (UnimplementedExternalMonitorServer) mustEmbedUnimplementedExternalMonitorServer() {}
 
@@ -731,17 +673,262 @@ func (x *externalMonitorListenServer) Send(m *Value) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _ExternalMonitor_Whois_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WhoisRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ExternalMonitorServer).Whois(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ExternalMonitor/Whois",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ExternalMonitorServer).Whois(ctx, req.(*WhoisRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ExternalMonitor_ServiceDesc is the grpc.ServiceDesc for ExternalMonitor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "ExternalMonitor",
 	HandlerType: (*ExternalMonitorServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Whois",
+			Handler:    _ExternalMonitor_Whois_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Listen",
 			Handler:       _ExternalMonitor_Listen_Handler,
+			ServerStreams: true,
+		},
+	},
+	Metadata: "proto/types.proto",
+}
+
+// CacheClient is the client API for Cache service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CacheClient interface {
+	Push(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*Empty, error)
+	Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*CacheObject, error)
+	Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error)
+	Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (Cache_SyncClient, error)
+}
+
+type cacheClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCacheClient(cc grpc.ClientConnInterface) CacheClient {
+	return &cacheClient{cc}
+}
+
+func (c *cacheClient) Push(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/Cache/Push", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*CacheObject, error) {
+	out := new(CacheObject)
+	err := c.cc.Invoke(ctx, "/Cache/Pull", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
+	out := new(QueryResponse)
+	err := c.cc.Invoke(ctx, "/Cache/Query", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *cacheClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (Cache_SyncClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Cache_ServiceDesc.Streams[0], "/Cache/Sync", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &cacheSyncClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Cache_SyncClient interface {
+	Recv() (*CacheObject, error)
+	grpc.ClientStream
+}
+
+type cacheSyncClient struct {
+	grpc.ClientStream
+}
+
+func (x *cacheSyncClient) Recv() (*CacheObject, error) {
+	m := new(CacheObject)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// CacheServer is the server API for Cache service.
+// All implementations must embed UnimplementedCacheServer
+// for forward compatibility
+type CacheServer interface {
+	Push(context.Context, *PushRequest) (*Empty, error)
+	Pull(context.Context, *PullRequest) (*CacheObject, error)
+	Query(context.Context, *QueryRequest) (*QueryResponse, error)
+	Sync(*SyncRequest, Cache_SyncServer) error
+	mustEmbedUnimplementedCacheServer()
+}
+
+// UnimplementedCacheServer must be embedded to have forward compatible implementations.
+type UnimplementedCacheServer struct {
+}
+
+func (UnimplementedCacheServer) Push(context.Context, *PushRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Push not implemented")
+}
+func (UnimplementedCacheServer) Pull(context.Context, *PullRequest) (*CacheObject, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Pull not implemented")
+}
+func (UnimplementedCacheServer) Query(context.Context, *QueryRequest) (*QueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")
+}
+func (UnimplementedCacheServer) Sync(*SyncRequest, Cache_SyncServer) error {
+	return status.Errorf(codes.Unimplemented, "method Sync not implemented")
+}
+func (UnimplementedCacheServer) mustEmbedUnimplementedCacheServer() {}
+
+// UnsafeCacheServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CacheServer will
+// result in compilation errors.
+type UnsafeCacheServer interface {
+	mustEmbedUnimplementedCacheServer()
+}
+
+func RegisterCacheServer(s grpc.ServiceRegistrar, srv CacheServer) {
+	s.RegisterService(&Cache_ServiceDesc, srv)
+}
+
+func _Cache_Push_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PushRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Push(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Push",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Push(ctx, req.(*PushRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Pull_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PullRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Pull(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Pull",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Pull(ctx, req.(*PullRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Query_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CacheServer).Query(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Cache/Query",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CacheServer).Query(ctx, req.(*QueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Cache_Sync_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SyncRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(CacheServer).Sync(m, &cacheSyncServer{stream})
+}
+
+type Cache_SyncServer interface {
+	Send(*CacheObject) error
+	grpc.ServerStream
+}
+
+type cacheSyncServer struct {
+	grpc.ServerStream
+}
+
+func (x *cacheSyncServer) Send(m *CacheObject) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+// Cache_ServiceDesc is the grpc.ServiceDesc for Cache service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var Cache_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "Cache",
+	HandlerType: (*CacheServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Push",
+			Handler:    _Cache_Push_Handler,
+		},
+		{
+			MethodName: "Pull",
+			Handler:    _Cache_Pull_Handler,
+		},
+		{
+			MethodName: "Query",
+			Handler:    _Cache_Query_Handler,
+		},
+	},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Sync",
+			Handler:       _Cache_Sync_Handler,
 			ServerStreams: true,
 		},
 	},

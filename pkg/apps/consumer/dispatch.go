@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"golang.org/x/term"
@@ -16,7 +16,7 @@ import (
 )
 
 func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
-	lg := logkc.LogFromContext(ctx)
+	lg := meta.Log(ctx)
 
 	lg.Info("Dispatching to consumerd")
 
@@ -28,7 +28,12 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	stdin := new(bytes.Buffer)
 
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		io.Copy(stdin, os.Stdin)
+		_, err := io.Copy(stdin, os.Stdin)
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Fatal("Error forwarding stdin")
+		}
 	}
 
 	var compilerPath string
@@ -37,7 +42,7 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	} else {
 		compilerPath = findCompilerOrDie(ctx)
 	}
-	resp, err := consumerd.Run(context.Background(), &types.RunRequest{
+	resp, err := consumerd.Run(ctx, &types.RunRequest{
 		Compiler: &types.RunRequest_Path{
 			Path: compilerPath,
 		},
@@ -52,7 +57,15 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 		lg.With(zap.Error(err)).Error("Dispatch error")
 		os.Exit(1)
 	}
-	io.Copy(os.Stdout, bytes.NewReader(resp.Stdout))
-	io.Copy(os.Stderr, bytes.NewReader(resp.Stderr))
+	if _, err := io.Copy(os.Stdout, bytes.NewReader(resp.Stdout)); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("Error forwarding stdout")
+	}
+	if _, err := io.Copy(os.Stderr, bytes.NewReader(resp.Stderr)); err != nil {
+		lg.With(
+			zap.Error(err),
+		).Fatal("Error forwarding stderr")
+	}
 	os.Exit(int(resp.ReturnCode))
 }

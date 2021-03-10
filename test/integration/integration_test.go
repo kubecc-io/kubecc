@@ -3,7 +3,6 @@
 package integration_test
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -11,6 +10,8 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
@@ -18,105 +19,66 @@ import (
 )
 
 func TestIntegration(t *testing.T) {
-	ctx := logkc.NewWithContext(context.Background(), types.TestComponent,
-		logkc.WithName("-"))
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(types.TestComponent, logkc.WithName("-")),
+		)),
+		meta.WithProvider(tracing.Tracer),
+	)
+	lg := meta.Log(ctx)
 
-	tracer, closer := tracing.Start(ctx, types.TestComponent)
-	defer closer.Close()
-	span, ctx := opentracing.StartSpanFromContextWithTracer(
+	tracer := meta.Tracer(ctx)
+	span, sctx := opentracing.StartSpanFromContextWithTracer(
 		ctx, tracer, "integration-test")
 	defer span.Finish()
 
-	lg := logkc.LogFromContext(ctx)
-
-	numTasks := 4000
-	localJobs := 100
+	numTasks := 400
+	localJobs := 50
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(6000)+2000)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(100)*80)},
 			UID:      1000,
 			GID:      1000,
 		}
 	}
 
-	tc := integration.NewTestController(ctx)
-	tc.Start(integration.TestOptions{
-		Clients: []*types.CpuConfig{
+	testOptions := integration.TestOptions{
+		Clients: []*types.UsageLimits{
 			{
-				MaxRunningProcesses:    18,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
+				ConcurrentProcessLimit:  18,
+				QueuePressureMultiplier: 1.5,
+				QueueRejectMultiplier:   2.0,
 			},
 		},
-		Agents: []*types.CpuConfig{
+		Agents: []*types.UsageLimits{
 			{
-				MaxRunningProcesses:    48,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
+				ConcurrentProcessLimit:  24,
+				QueuePressureMultiplier: 1.5,
+				QueueRejectMultiplier:   2.0,
 			},
 			{
-				MaxRunningProcesses:    32,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
+				ConcurrentProcessLimit:  16,
+				QueuePressureMultiplier: 1.5,
+				QueueRejectMultiplier:   2.0,
 			},
 			{
-				MaxRunningProcesses:    16,
-				QueuePressureThreshold: 1.0,
-				QueueRejectThreshold:   2.0,
+				ConcurrentProcessLimit:  32,
+				QueuePressureMultiplier: 1.5,
+				QueueRejectMultiplier:   2.0,
 			},
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
-			// {
-			// 	MaxRunningProcesses:    16,
-			// 	QueuePressureThreshold: 1.0,
-			// 	QueueRejectThreshold:   2.0,
-			// },
 		},
-	})
+	}
+	tc := integration.NewTestController(sctx)
+	tc.Start(testOptions)
 	defer tc.Teardown()
 
-	wg := &sync.WaitGroup{}
+	wg := sync.WaitGroup{}
 	wg.Add(len(tc.Consumers) * localJobs)
+
 	for _, c := range tc.Consumers {
 		for i := 0; i < localJobs; i++ {
 			go func(cd types.ConsumerdClient) {
@@ -124,7 +86,7 @@ func TestIntegration(t *testing.T) {
 				for {
 					select {
 					case task := <-taskPool:
-						_, err := cd.Run(ctx, task)
+						_, err := cd.Run(sctx, task)
 						if err != nil {
 							panic(err)
 						}
@@ -138,6 +100,4 @@ func TestIntegration(t *testing.T) {
 	}
 
 	wg.Wait()
-
-	//tc.Wait()
 }

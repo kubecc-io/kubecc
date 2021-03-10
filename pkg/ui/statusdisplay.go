@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	mstat "github.com/cobalt77/kubecc/pkg/metrics/status"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/types"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -15,9 +15,9 @@ import (
 type agent struct {
 	ctx         context.Context
 	uuid        string
-	queueParams *mstat.QueueParams
-	taskStatus  *mstat.TaskStatus
-	queueStatus *mstat.QueueStatus
+	queueParams *common.QueueParams
+	taskStatus  *common.TaskStatus
+	queueStatus *common.QueueStatus
 }
 
 type StatusDisplay struct {
@@ -43,8 +43,8 @@ func (s *StatusDisplay) makeRows() [][]string {
 	for _, agent := range s.agents {
 		row := []string{
 			agent.uuid,
-			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunningProcesses, agent.queueParams.MaxRunningProcesses),
-			fmt.Sprint(agent.taskStatus.NumQueuedProcesses),
+			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.queueParams.ConcurrentProcessLimit),
+			fmt.Sprint(agent.taskStatus.NumQueued),
 			types.QueueStatus(agent.queueStatus.QueueStatus).String(),
 		}
 		rows = append(rows, row)
@@ -57,9 +57,9 @@ func (s *StatusDisplay) AddAgent(ctx context.Context, uuid string) {
 	s.agents = append(s.agents, &agent{
 		ctx:         ctx,
 		uuid:        uuid,
-		queueParams: &mstat.QueueParams{},
-		taskStatus:  &mstat.TaskStatus{},
-		queueStatus: &mstat.QueueStatus{},
+		queueParams: &common.QueueParams{},
+		taskStatus:  &common.TaskStatus{},
+		queueStatus: &common.QueueStatus{},
 	})
 	s.mutex.Unlock()
 	s.redraw()
@@ -86,11 +86,11 @@ func (s *StatusDisplay) Update(uuid string, params interface{}) {
 		}
 	}
 	switch p := params.(type) {
-	case *mstat.QueueParams:
+	case *common.QueueParams:
 		s.agents[index].queueParams = p
-	case *mstat.TaskStatus:
+	case *common.TaskStatus:
 		s.agents[index].taskStatus = p
-	case *mstat.QueueStatus:
+	case *common.QueueStatus:
 		s.agents[index].queueStatus = p
 	}
 	s.mutex.Unlock()

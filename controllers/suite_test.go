@@ -22,6 +22,8 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/identity"
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
@@ -34,7 +36,7 @@ var cfg *rest.Config
 var k8sClient client.Client
 var k8sManager ctrl.Manager
 var testEnv *envtest.Environment
-var useExistingCluster = true
+var useExistingCluster = false
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -45,8 +47,12 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	ctx := logkc.NewFromContext(context.Background(), types.Controller)
-	lg := logkc.LogFromContext(ctx)
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger),
+	)
+	lg := meta.Log(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -54,8 +60,9 @@ var _ = BeforeSuite(func(done Done) {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		UseExistingCluster: &useExistingCluster,
-		CRDDirectoryPaths:  []string{"../config/crd/bases"},
+		UseExistingCluster:    &useExistingCluster,
+		CRDDirectoryPaths:     []string{"../config/crd/bases"},
+		BinaryAssetsDirectory: "../testbin/bin",
 	}
 
 	cfg, err := testEnv.Start()
@@ -74,18 +81,19 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&BuildClusterReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    lg.Named("BuildCluster"),
-		Scheme: k8sManager.GetScheme(),
+		Context: ctx,
+		Client:  k8sManager.GetClient(),
+		Log:     lg.Named("BuildCluster"),
+		Scheme:  k8sManager.GetScheme(),
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&ToolchainReconciler{
-		Client: k8sManager.GetClient(),
-		Log:    lg.Named("Toolchain"),
-		Scheme: k8sManager.GetScheme(),
-	}).SetupWithManager(k8sManager)
-	Expect(err).NotTo(HaveOccurred())
+	// err = (&ToolchainReconciler{
+	// 	Client: k8sManager.GetClient(),
+	// 	Log:    lg.Named("Toolchain"),
+	// 	Scheme: k8sManager.GetScheme(),
+	// }).SetupWithManager(k8sManager)
+	// Expect(err).NotTo(HaveOccurred())
 
 	go func() {
 		defer GinkgoRecover()

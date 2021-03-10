@@ -2,14 +2,16 @@ package metrics
 
 import (
 	"context"
+	"errors"
+	"io"
 	"reflect"
 	"sync"
-	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/metrics/meta"
-	"github.com/cobalt77/kubecc/pkg/tools"
+	mmetrics "github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -17,29 +19,32 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type Listener struct {
+type monitorListener struct {
 	ctx       context.Context
 	monClient types.ExternalMonitorClient
 	lg        *zap.SugaredLogger
 
 	knownProviders map[string]context.CancelFunc
+
 	providersMutex *sync.Mutex
 }
 
-func NewListener(ctx context.Context, client types.ExternalMonitorClient) *Listener {
-	lg := logkc.LogFromContext(ctx)
-	listener := &Listener{
+func NewListener(
+	ctx context.Context,
+	client types.ExternalMonitorClient,
+) Listener {
+	listener := &monitorListener{
 		ctx:            ctx,
+		lg:             meta.Log(ctx),
 		monClient:      client,
-		lg:             lg,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},
 	}
 	return listener
 }
 
-func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid string)) {
-	doUpdate := func(providers *meta.Providers) {
+func (l *monitorListener) OnProviderAdded(handler func(context.Context, string)) {
+	doUpdate := func(providers *mmetrics.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
 				pctx, cancel := context.WithCancel(context.Background())
@@ -56,15 +61,15 @@ func (l *Listener) OnProviderAdded(handler func(pctx context.Context, uuid strin
 		}
 	}
 
-	l.OnValueChanged(meta.Bucket, func(providers *meta.Providers) {
+	l.OnValueChanged(mmetrics.MetaBucket, func(providers *mmetrics.Providers) {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(providers)
 	}).OrExpired(func() RetryOptions {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
-		doUpdate(&meta.Providers{
-			Items: map[string]int32{},
+		doUpdate(&mmetrics.Providers{
+			Items: make(map[string]mmetrics.ProviderInfo),
 		})
 		return Retry
 	})
@@ -78,17 +83,75 @@ const (
 )
 
 type changeListener struct {
+	ctx            context.Context
 	expiredHandler func() RetryOptions
+	handler        reflect.Value
+	ehMutex        *sync.Mutex
+	monClient      types.ExternalMonitorClient
+	key            *types.Key
+	argType        reflect.Type
+}
+
+func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
+	lg := meta.Log(cl.ctx)
+	argValue := reflect.New(cl.argType)
+	if _, ok := argValue.Interface().(msgp.Decodable); !ok {
+		panic("Handler argument is not msgp.Decodable")
+	}
+	decodable := argValue.Interface().(msgp.Decodable)
+
+	for {
+		rawData := &types.Value{}
+		err := stream.RecvMsg(rawData)
+		if errors.Is(err, io.EOF) {
+			lg.Debug(err)
+			return nil
+		}
+		switch status.Code(err) {
+		case codes.OK:
+			err = util.DecodeMsgp(rawData.Data, decodable)
+			if err != nil {
+				lg.With(zap.Error(err)).Error("Error decoding value")
+				return err
+			}
+			cl.handler.Call([]reflect.Value{argValue})
+		case codes.Aborted, codes.Unavailable:
+			cl.ehMutex.Lock()
+			if cl.expiredHandler != nil {
+				retryOp := cl.expiredHandler()
+				if retryOp == Retry {
+					cl.ehMutex.Unlock()
+					return err
+				}
+			}
+			cl.ehMutex.Unlock()
+			return nil
+		default:
+			lg.With(
+				zap.Error(err),
+				zap.String("bucket", cl.key.Bucket),
+				zap.String("key", cl.key.Name),
+			).Warn("Error watching key, retrying")
+			return err
+		}
+	}
+}
+
+func (s *changeListener) TryConnect() (grpc.ClientStream, error) {
+	return s.monClient.Listen(s.ctx, s.key)
+}
+
+func (s *changeListener) Target() string {
+	return "monitor"
 }
 
 func (c *changeListener) OrExpired(handler func() RetryOptions) {
+	c.ehMutex.Lock()
+	defer c.ehMutex.Unlock()
 	c.expiredHandler = handler
 }
 
-func (l *Listener) OnValueChanged(
-	bucket string,
-	handler interface{}, // func(type)
-) *changeListener {
+func handlerArgType(handler interface{}) (reflect.Type, reflect.Value) {
 	funcType := reflect.TypeOf(handler)
 	if funcType.NumIn() != 1 {
 		panic("handler must be a function with one argument")
@@ -98,64 +161,27 @@ func (l *Listener) OnValueChanged(
 	if !valuePtrType.Implements(reflect.TypeOf((*msgp.Decodable)(nil)).Elem()) {
 		panic("argument must implement msgp.Decodable")
 	}
-	keyName := valueType.Name()
 	funcValue := reflect.ValueOf(handler)
+	return valueType, funcValue
+}
 
-	cl := &changeListener{}
-	go func() {
-		for {
-			stream, err := l.monClient.Listen(l.ctx, &types.Key{
-				Bucket: bucket,
-				Name:   keyName,
-			}, grpc.WaitForReady(true))
-			if err != nil {
-				l.lg.With(
-					zap.Error(err),
-					zap.String("bucket", bucket),
-					zap.String("key", keyName),
-				).Warn("Error watching key, retrying in 1 second...")
-				time.Sleep(1 * time.Second)
-				continue
-			}
-			for {
-				untyped, err := stream.Recv()
-				switch status.Code(err) {
-				case codes.OK:
-					val := reflect.New(valueType)
-					typed := val.Interface().(msgp.Decodable)
-					err = tools.DecodeMsgp(untyped.Data, typed)
-					if err != nil {
-						l.lg.With(zap.Error(err)).Error("Error decoding value")
-						continue
-					}
-					funcValue.Call([]reflect.Value{val})
-				case codes.Aborted, codes.Unavailable:
-					if cl.expiredHandler != nil {
-						retryOp := cl.expiredHandler()
-						if retryOp == Retry {
-							goto retry
-						}
-					}
-					return
-				case codes.InvalidArgument:
-					l.lg.With(
-						zap.Error(err),
-						zap.String("bucket", bucket),
-						zap.String("key", keyName),
-					).Error("Error watching key")
-					return
-				default:
-					l.lg.With(
-						zap.Error(err),
-						zap.String("bucket", bucket),
-						zap.String("key", keyName),
-					).Warn("Error watching key, retrying in 1 second...")
-					time.Sleep(1 * time.Second)
-					goto retry
-				}
-			}
-		retry:
-		}
-	}()
+func (l *monitorListener) OnValueChanged(
+	bucket string,
+	handler interface{}, // func(type)
+) ChangeListener {
+	argType, funcValue := handlerArgType(handler)
+	cl := &changeListener{
+		ctx:       l.ctx,
+		handler:   funcValue,
+		argType:   argType,
+		ehMutex:   &sync.Mutex{},
+		monClient: l.monClient,
+		key: &types.Key{
+			Bucket: bucket,
+			Name:   argType.Name(),
+		},
+	}
+	mgr := servers.NewStreamManager(l.ctx, cl)
+	go mgr.Run()
 	return cl
 }

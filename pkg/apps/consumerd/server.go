@@ -3,45 +3,55 @@ package consumerd
 import (
 	"context"
 	"io/fs"
+	"time"
 
+	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/cpuconfig"
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/pkg/errors"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type consumerdServer struct {
-	types.ConsumerdServer
+	types.UnimplementedConsumerdServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
-	tcRunStore      *run.ToolchainRunnerStore
-	tcStore         *toolchains.Store
-	schedulerClient types.SchedulerClient
-	connection      *grpc.ClientConn
-	localExecutor   run.Executor
-	remoteExecutor  run.Executor
-	remoteOnly      bool
+	tcRunStore          *run.ToolchainRunnerStore
+	tcStore             *toolchains.Store
+	storeUpdateCh       chan struct{}
+	schedulerClient     types.SchedulerClient
+	metricsProvider     metrics.Provider
+	connection          *grpc.ClientConn
+	localExecutor       run.Executor
+	remoteExecutor      run.Executor
+	remoteOnly          bool
+	numConsumers        *atomic.Int32
+	localTasksCompleted *atomic.Int64
 }
 
 type ConsumerdServerOptions struct {
 	toolchainFinders    []toolchains.FinderWithOptions
 	toolchainRunners    []run.StoreAddFunc
 	schedulerClient     types.SchedulerClient
+	monitorClient       types.InternalMonitorClient
 	schedulerConnection *grpc.ClientConn
-	cpuConfig           *types.CpuConfig
+	usageLimits         *types.UsageLimits
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -74,9 +84,19 @@ func WithSchedulerClient(
 	}
 }
 
-func WithCpuConfig(cpuConfig *types.CpuConfig) consumerdServerOption {
+// Note this accepts an InternalMonitorClient even though consumerd runs
+// outside the cluster.
+func WithMonitorClient(
+	client types.InternalMonitorClient,
+) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
-		o.cpuConfig = cpuConfig
+		o.monitorClient = client
+	}
+}
+
+func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
+	return func(o *ConsumerdServerOptions) {
+		o.usageLimits = cpuConfig
 	}
 }
 
@@ -93,26 +113,30 @@ func NewConsumerdServer(
 	}
 	options.Apply(opts...)
 
-	if options.cpuConfig == nil {
-		options.cpuConfig = cpuconfig.Default()
-	}
-
 	runStore := run.NewToolchainRunnerStore()
 	for _, add := range options.toolchainRunners {
 		add(runStore)
 	}
 	srv := &consumerdServer{
-		srvContext:     ctx,
-		lg:             logkc.LogFromContext(ctx),
-		tcStore:        toolchains.Aggregate(ctx, options.toolchainFinders...),
-		tcRunStore:     runStore,
-		localExecutor:  run.NewQueuedExecutor(run.WithCpuConfig(options.cpuConfig)),
-		remoteExecutor: run.NewUnqueuedExecutor(),
-		remoteOnly:     viper.GetBool("remoteOnly"),
+		srvContext:          ctx,
+		lg:                  meta.Log(ctx),
+		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:          runStore,
+		localExecutor:       run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
+		remoteExecutor:      run.NewDelegatingExecutor(),
+		storeUpdateCh:       make(chan struct{}, 1),
+		numConsumers:        atomic.NewInt32(0),
+		localTasksCompleted: atomic.NewInt64(0),
 	}
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
 		srv.connection = options.schedulerConnection
+	}
+	if options.monitorClient != nil {
+		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient,
+			metrics.Buffered|metrics.Discard)
+	} else {
+		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
 }
@@ -128,6 +152,18 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		return status.Error(codes.InvalidArgument, "No compiler path given")
 	}
 	tc, err := c.tcStore.Find(path)
+	defer func(r *types.RunRequest) {
+		r.Compiler = &types.RunRequest_Toolchain{
+			Toolchain: tc,
+		}
+	}(req)
+	sendUpdate := func() {
+		select {
+		case c.storeUpdateCh <- struct{}{}:
+		default:
+		}
+	}
+
 	if err != nil {
 		// Add a new toolchain
 		c.lg.Info("Consumer sent unknown toolchain; attempting to add it")
@@ -137,8 +173,17 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 			return status.Error(codes.InvalidArgument,
 				errors.WithMessage(err, "Could not add toolchain").Error())
 		}
+		defer sendUpdate()
 		c.lg.With("compiler", tc.Executable).Info("New toolchain added")
-	} else if err := c.tcStore.UpdateIfNeeded(tc); err != nil {
+		return nil
+	}
+
+	// err and updated are independent
+	err, updated := c.tcStore.UpdateIfNeeded(tc)
+	if updated {
+		defer sendUpdate()
+	}
+	if err != nil {
 		// The toolchain was updated and is no longer valid
 		c.lg.With(
 			"compiler", tc.Executable,
@@ -151,21 +196,75 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 		return status.Error(codes.InvalidArgument,
 			errors.WithMessage(err, "Toolchain is no longer valid").Error())
 	}
-	req.Compiler = &types.RunRequest_Toolchain{
-		Toolchain: tc,
-	}
 	return nil
+}
+
+func (s *consumerdServer) postAlive() {
+	s.metricsProvider.Post(&common.Alive{})
+}
+
+func (s *consumerdServer) postQueueParams() {
+	qp := &common.QueueParams{}
+	s.localExecutor.CompleteQueueParams(qp)
+	s.metricsProvider.Post(qp)
+}
+
+func (s *consumerdServer) postTaskStatus() {
+	ts := &common.TaskStatus{}
+	s.localExecutor.CompleteTaskStatus(ts)  // Complete Running and Queued
+	s.remoteExecutor.CompleteTaskStatus(ts) // Complete Delegated
+	s.metricsProvider.Post(ts)
+}
+
+func (s *consumerdServer) postQueueStatus() {
+	qs := &common.QueueStatus{}
+	s.localExecutor.CompleteQueueStatus(qs)
+	s.metricsProvider.Post(qs)
+}
+
+func (s *consumerdServer) postTotals() {
+	s.metricsProvider.Post(&cdmetrics.LocalTasksCompleted{
+		Total: s.localTasksCompleted.Load(),
+	})
+}
+
+func (s *consumerdServer) StartMetricsProvider() {
+	s.lg.Info("Starting metrics provider")
+	s.postQueueParams()
+
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.25)
+	go func() {
+		for {
+			<-slowTimer
+			s.postQueueParams()
+			s.postTotals()
+		}
+	}()
+
+	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
+	go func() {
+		for {
+			<-fastTimer
+			s.postTaskStatus()
+			s.postQueueStatus()
+		}
+	}()
 }
 
 func (c *consumerdServer) Run(
 	ctx context.Context,
 	req *types.RunRequest,
 ) (*types.RunResponse, error) {
+	if err := meta.CheckContext(ctx); err != nil {
+		return nil, err
+	}
+
 	c.lg.Debug("Running request")
 	err := c.applyToolchainToReq(req)
 	if err != nil {
 		return nil, err
 	}
+	// todo
 	// rootContext := tracing.ContextWithTracer(ctx, tracer)
 	// for _, env := range req.Env {
 	// 	spl := strings.Split(env, "=")
@@ -179,7 +278,7 @@ func (c *consumerdServer) Run(
 	// 	}
 	// }
 
-	span, sctx, err := servers.StartSpanFromServer(ctx, c.srvContext, "run")
+	span, sctx, err := servers.StartSpanFromServer(ctx, "run")
 	if err != nil {
 		c.lg.Error(err)
 	} else {
@@ -212,6 +311,7 @@ func (c *consumerdServer) Run(
 	}
 
 	if !canRunRemote {
+		defer c.localTasksCompleted.Inc()
 		resp, err := runner.RunLocal(ap).Run(run.Contexts{
 			ServerContext: c.srvContext,
 			ClientContext: ctx,
@@ -232,17 +332,41 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) ConnectToRemote() {
-	addr := viper.GetString("schedulerAddress")
-	if addr == "" {
-		c.lg.Debug("Remote compilation unavailable: scheduler address not configured")
-		return
+func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+	select {
+	case c.storeUpdateCh <- struct{}{}:
+	default:
 	}
-	cc, err := servers.Dial(c.srvContext, addr, servers.WithTLS(viper.GetBool("tls")))
-	if err != nil {
-		c.lg.With(zap.Error(err)).Info("Remote compilation unavailable")
-	} else {
-		c.connection = cc
-		c.schedulerClient = types.NewSchedulerClient(cc)
+	for {
+		select {
+		case <-c.storeUpdateCh:
+			copiedItems := []*types.Toolchain{}
+			for tc := range c.tcStore.Items() {
+				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
+			}
+			err := stream.SendMsg(&types.Metadata{
+				Toolchains: &types.Toolchains{
+					Items: copiedItems,
+				},
+			})
+			if err != nil {
+				c.lg.With(
+					zap.Error(err),
+				).Error("Error sending updated toolchains to scheduler")
+				return err
+			}
+		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
+			return err
+		case <-c.srvContext.Done():
+			return nil
+		}
 	}
+}
+
+func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
+	return c.schedulerClient.ConnectConsumerd(c.srvContext)
+}
+
+func (c *consumerdServer) Target() string {
+	return "scheduler"
 }

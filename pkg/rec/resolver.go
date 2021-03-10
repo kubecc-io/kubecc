@@ -3,6 +3,7 @@ package rec
 import (
 	"context"
 
+	"github.com/cobalt77/kubecc/pkg/meta"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,27 +23,30 @@ type ResolveContext struct {
 }
 
 type ResolverTree struct {
+	ctrlCtx  context.Context
 	client   client.Client
 	Resolver Resolver
 	Find     func() interface{}
 	Nodes    []*ResolverTree
 }
 
-func BuildRootResolver(client client.Client, tree *ResolverTree) *ResolverTree {
-	tree.injectClient(client)
+func BuildRootResolver(ctrlCtx context.Context, client client.Client, tree *ResolverTree) *ResolverTree {
+	tree.injectClient(ctrlCtx, client)
 	return tree
 }
 
-func (t *ResolverTree) injectClient(client client.Client) {
+func (t *ResolverTree) injectClient(ctrlCtx context.Context, client client.Client) {
 	t.client = client
+	t.ctrlCtx = ctrlCtx
 	for _, node := range t.Nodes {
-		node.injectClient(client)
+		node.injectClient(ctrlCtx, client)
 	}
 }
 
 func (t *ResolverTree) Walk(ctx context.Context, root client.Object) (ctrl.Result, error) {
 	for _, node := range t.Nodes {
 		if res, err := node.Resolver.Resolve(ResolveContext{
+			Log:        meta.Log(t.ctrlCtx),
 			Context:    ctx,
 			Client:     t.client,
 			RootObject: root,
