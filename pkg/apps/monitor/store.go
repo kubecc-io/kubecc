@@ -13,6 +13,7 @@ type KeyValueStore interface {
 	Get(key string) ([]byte, bool)
 	CAS(key string, value []byte) bool
 	Keys() []string
+	Len() int
 }
 
 type StoreCreator interface {
@@ -84,4 +85,10 @@ func (m *InMemoryStore) Keys() []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+func (m *InMemoryStore) Len() int {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return len(m.data)
 }
