@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sync"
-	"testing"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
@@ -15,10 +14,11 @@ import (
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
+	. "github.com/onsi/ginkgo"
 	"github.com/opentracing/opentracing-go"
 )
 
-func TestIntegration(t *testing.T) {
+var _ = Describe("Integration test", func() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
@@ -72,32 +72,38 @@ func TestIntegration(t *testing.T) {
 			},
 		},
 	}
-	tc := integration.NewTestController(sctx)
-	tc.Start(testOptions)
-	defer tc.Teardown()
+	Measure("Run test", func(b Benchmarker) {
+		var tc *integration.TestController
+		b.Time("Start components", func() {
+			tc = integration.NewTestController(sctx)
+			tc.Start(testOptions)
+		})
+		defer tc.Teardown()
 
-	wg := sync.WaitGroup{}
-	wg.Add(len(tc.Consumers) * localJobs)
+		wg := sync.WaitGroup{}
+		wg.Add(len(tc.Consumers) * localJobs)
 
-	for _, c := range tc.Consumers {
-		for i := 0; i < localJobs; i++ {
-			go func(cd types.ConsumerdClient) {
-				defer wg.Done()
-				for {
-					select {
-					case task := <-taskPool:
-						_, err := cd.Run(sctx, task)
-						if err != nil {
-							panic(err)
+		for _, c := range tc.Consumers {
+			for i := 0; i < localJobs; i++ {
+				go func(cd types.ConsumerdClient) {
+					defer wg.Done()
+					for {
+						select {
+						case task := <-taskPool:
+							b.Time("Run task", func() {
+								_, err := cd.Run(sctx, task)
+								if err != nil {
+									panic(err)
+								}
+							})
+						default:
+							lg.Info("Finished")
+							return
 						}
-					default:
-						lg.Info("Finished")
-						return
 					}
-				}
-			}(c)
+				}(c)
+			}
 		}
-	}
-
-	wg.Wait()
-}
+		wg.Wait()
+	}, 1)
+})
