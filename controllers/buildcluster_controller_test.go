@@ -1,5 +1,3 @@
-// +build operator
-
 package controllers
 
 import (
