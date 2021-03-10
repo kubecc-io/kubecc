@@ -12,6 +12,8 @@ require (
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1
+	github.com/gin-contrib/cors v1.3.1 // indirect
+	github.com/gin-gonic/gin v1.6.3 // indirect
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0 // indirect
