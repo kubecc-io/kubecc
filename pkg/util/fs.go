@@ -10,13 +10,16 @@ type ReadDirStatFS interface {
 	fs.ReadDirFS
 }
 
-type OSFS struct {
+// OSFS represents the host operating system's FS
+var OSFS = osfs{}
+
+type osfs struct {
 	ReadDirStatFS
 }
 
-func (rfs OSFS) Stat(name string) (os.FileInfo, error) {
+func (osfs) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
 }
-func (rfs OSFS) ReadDir(name string) ([]os.DirEntry, error) {
+func (osfs) ReadDir(name string) ([]os.DirEntry, error) {
 	return os.ReadDir(name)
 }

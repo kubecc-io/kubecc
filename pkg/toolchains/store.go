@@ -149,8 +149,7 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 
 	data := s.toolchains[tc.Executable]
 	timestamp, err := data.querier.ModTime(tc.Executable)
-	var pathError *fs.PathError
-	if errors.Is(err, pathError) {
+	if _, ok := err.(*fs.PathError); ok {
 		// Executable no longer exists; remove toolchain
 		delete(s.toolchains, tc.Executable)
 		return err, true
@@ -162,6 +161,7 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 			// Toolchain became invalid
 			return err, true
 		}
+		data.modTime = timestamp
 		// Updated successfully
 		return nil, true
 	}
@@ -194,4 +194,11 @@ func (s *Store) Intersection(other *Store) []*types.Toolchain {
 		}
 	}
 	return tcList
+}
+
+func (s *Store) Len() int {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
+
+	return len(s.toolchains)
 }

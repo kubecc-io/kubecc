@@ -22,7 +22,6 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
 )
@@ -50,8 +49,6 @@ var _ = BeforeSuite(func(done Done) {
 	lg := meta.Log(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	templates.SetPathPrefix("../config/manager/templates")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{

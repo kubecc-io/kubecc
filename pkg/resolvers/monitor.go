@@ -25,7 +25,7 @@ func (r *MonitorResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      monitorAppName,
 	}, deployment,
-		rec.WithCreator(rec.FromTemplate("monitor_deployment.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/monitor_deployment.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
@@ -60,7 +60,7 @@ func (r *MonitorResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      monitorAppName,
 	}, svc,
-		rec.WithCreator(rec.FromTemplate("monitor_service.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/monitor_service.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
