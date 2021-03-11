@@ -19,7 +19,7 @@ type CCFinder struct{}
 
 func (f CCFinder) FindToolchains(ctx context.Context, opts ...toolchains.FindOption) *toolchains.Store {
 	options := toolchains.FindOptions{
-		FS:      util.OSFS{},
+		FS:      util.OSFS,
 		Querier: toolchains.ExecQuerier{},
 		SearchPaths: []string{
 			"/usr/bin",

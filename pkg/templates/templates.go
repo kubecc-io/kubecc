@@ -2,7 +2,8 @@ package templates
 
 import (
 	"bytes"
-	"path"
+	"io/fs"
+	"path/filepath"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,15 +15,9 @@ type wrapper struct {
 	Spec interface{}
 }
 
-var pathPrefix = "/templates"
-
-func SetPathPrefix(prefix string) {
-	pathPrefix = prefix
-}
-
-func Load(name string, spec interface{}) ([]byte, error) {
-	tmpl := template.New(name).Funcs(Funcs())
-	tmpl, err := tmpl.ParseFiles(path.Join(pathPrefix, name))
+func Load(fsys fs.FS, name string, spec interface{}) ([]byte, error) {
+	tmpl := template.New(filepath.Base(name)).Funcs(Funcs())
+	tmpl, err := tmpl.ParseFS(fsys, name)
 	if err != nil {
 		return nil, err
 	}

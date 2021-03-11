@@ -1,9 +1,15 @@
 package rec
 
 import (
+	"embed"
+	_ "embed"
+
 	"github.com/cobalt77/kubecc/pkg/templates"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+//go:embed objects
+var objectsFS embed.FS
 
 type mustExist struct {
 	error
@@ -21,7 +27,7 @@ var (
 
 func FromTemplate(templateName string) ObjectCreator {
 	return func(rc ResolveContext) (client.Object, error) {
-		tmplData, err := templates.Load(templateName, rc.Object)
+		tmplData, err := templates.Load(objectsFS, templateName, rc.Object)
 		if err != nil {
 			return nil, err
 		}

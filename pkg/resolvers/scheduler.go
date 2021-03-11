@@ -25,7 +25,7 @@ func (r *SchedulerResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      schedulerAppName,
 	}, deployment,
-		rec.WithCreator(rec.FromTemplate("scheduler_deployment.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/scheduler_deployment.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
@@ -60,7 +60,7 @@ func (r *SchedulerResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      schedulerAppName,
 	}, svc,
-		rec.WithCreator(rec.FromTemplate("scheduler_service.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/scheduler_service.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
