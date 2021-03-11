@@ -26,7 +26,7 @@ func (r *AgentResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      agentAppName,
 	}, daemonSet,
-		rec.WithCreator(rec.FromTemplate("agent_daemonset.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/agent_daemonset.yaml")),
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
@@ -61,7 +61,7 @@ func (r *AgentResolver) Resolve(
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      agentAppName,
 	}, svc,
-		rec.WithCreator(rec.FromTemplate("agent_service.yaml")),
+		rec.WithCreator(rec.FromTemplate("objects/agent_service.yaml")),
 		rec.RecreateIfChanged(),
 	)
 

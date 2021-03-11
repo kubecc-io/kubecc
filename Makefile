@@ -23,7 +23,7 @@ setup:
 	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
 
 # Tests
-.PHONY: test-operator test-integration test-e2e test-unit
+.PHONY: test-operator test-integration test-e2e test-unit test
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -31,7 +31,7 @@ test-operator: generate fmt vet manifests
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test -v ./... -coverprofile cover.out -tags operator
 
 test-integration:
-	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -race -tags integration -v -count=1
+	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
 
 test-e2e:
 	$(GO) build -tags integration -coverprofile cover.out -o bin/test-e2e ./test/e2e
@@ -40,6 +40,8 @@ test-e2e:
 test-unit:
 	$(GO) test ./... -race -coverprofile cover.out
 
+test:
+	ginkgo -coverprofile cover.out -race -skipPackage cmd ./...
 
 # Installation and deployment
 .PHONY: install uninstall deploy undeploy manifests

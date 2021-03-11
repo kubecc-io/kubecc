@@ -20,7 +20,6 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/spf13/cobra"
@@ -44,7 +43,6 @@ func run(cmd *cobra.Command, args []string) {
 	flag.Parse()
 
 	ctrl.SetLogger(util.ZapfLogShim{ZapLogger: lg})
-	templates.SetPathPrefix(tmplPrefix)
 
 	var err error
 	options := ctrl.Options{Scheme: scheme}
