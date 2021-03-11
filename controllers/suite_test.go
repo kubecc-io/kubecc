@@ -20,6 +20,7 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -33,6 +34,9 @@ var testEnv *envtest.Environment
 var useExistingCluster = false
 
 func TestAPIs(t *testing.T) {
+	if testutil.InGithubWorkflow() {
+		t.SkipNow()
+	}
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
