@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -45,13 +44,6 @@ func recycle(c chan context.CancelFunc) {
 		default:
 			return
 		}
-	}
-}
-
-func skipInGithubWorkflow() {
-	if _, ok := os.LookupEnv("GITHUB_WORKFLOW"); ok {
-		Skip("Skipping test inside Github workflow")
-		return
 	}
 }
 
@@ -308,7 +300,7 @@ var _ = Describe("Monitor", func() {
 		}
 
 		Specify("Creating providers", func() {
-			skipInGithubWorkflow()
+			testutil.SkipInGithubWorkflow()
 			for i := 0; i < numProviders; i++ {
 				ctx := meta.NewContext(
 					meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
@@ -330,7 +322,7 @@ var _ = Describe("Monitor", func() {
 		})
 		sampleIdx := 0
 		Measure("Creating listeners for each key", func(b Benchmarker) {
-			skipInGithubWorkflow()
+			testutil.SkipInGithubWorkflow()
 			defer func() {
 				sampleIdx++
 			}()
@@ -364,7 +356,7 @@ var _ = Describe("Monitor", func() {
 			})
 		}, len(listeners)) // This is the loop
 		Measure("Updating keys rapidly for each provider", func(b Benchmarker) {
-			skipInGithubWorkflow()
+			testutil.SkipInGithubWorkflow()
 			if testutil.IsRaceDetectorEnabled() {
 				testLog.Warn("Race detector enabled: Data volume limited to 10%")
 			}
