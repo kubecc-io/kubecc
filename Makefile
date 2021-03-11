@@ -23,7 +23,7 @@ setup:
 	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
 
 # Tests
-.PHONY: test-operator test-integration test-e2e test-unit test
+.PHONY: test-operator test-integration test-e2e test-unit test gtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -37,10 +37,10 @@ test-e2e:
 	$(GO) build -tags integration -coverprofile cover.out -o bin/test-e2e ./test/e2e
 	bin/test-e2e
 
-test-unit:
-	$(GO) test ./... -race -coverprofile cover.out
-
 test:
+	$(GO) test -race -coverprofile cover.out ./...
+
+gtest:
 	ginkgo -coverprofile cover.out -race -skipPackage cmd ./...
 
 # Installation and deployment
