@@ -128,5 +128,5 @@ var _ = Describe("Store", func() {
 		})
 		store.Delete("key1")
 		Expect(store.Len()).To(Equal(0))
-	}, 1000)
+	}, 100)
 })
