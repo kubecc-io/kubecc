@@ -119,7 +119,9 @@ func (s *Scheduler) Schedule(
 		s.wLock.Unlock()
 		response, err := agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
 		if status.Code(err) == codes.Unavailable {
-			s.lg.Info("Agent rejected task, re-scheduling...")
+			s.lg.With(
+				zap.Error(err),
+			).Info("Agent rejected task, re-scheduling...")
 			continue
 		}
 		if err != nil {

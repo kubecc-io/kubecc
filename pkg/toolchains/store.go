@@ -1,6 +1,7 @@
 package toolchains
 
 import (
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"sync"
@@ -201,4 +202,13 @@ func (s *Store) Len() int {
 	defer s.tcMutex.RUnlock()
 
 	return len(s.toolchains)
+}
+
+func (s *Store) TryMatch(other *types.Toolchain) (*types.Toolchain, error) {
+	for tc := range s.Items() {
+		if tc.EquivalentTo(other) {
+			return tc, nil
+		}
+	}
+	return nil, fmt.Errorf("No local toolchain matches remote")
 }
