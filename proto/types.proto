@@ -150,6 +150,7 @@ enum ToolchainKind {
   ToolchainKind_Gnu = 1;
   ToolchainKind_Clang = 2;
   ToolchainKind_Test = 3;
+  ToolchainKind_Sleep = 4;
 }
 
 enum ToolchainLang {

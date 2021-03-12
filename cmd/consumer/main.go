@@ -30,7 +30,7 @@ func main() {
 
 	cc, err := servers.Dial(ctx, conf.ConsumerdAddress)
 	if err != nil {
-		lg.With(zap.Error(err)).Fatal("Error connecting to leader")
+		lg.With(zap.Error(err)).Fatal("Error connecting to consumerd")
 	}
 	consumer.DispatchAndWait(ctx, cc)
 }
