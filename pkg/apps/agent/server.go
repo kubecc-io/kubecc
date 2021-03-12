@@ -6,7 +6,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/common"
@@ -84,13 +83,7 @@ func NewAgentServer(
 	ctx context.Context,
 	opts ...agentServerOption,
 ) *AgentServer {
-	options := AgentServerOptions{
-		toolchainFinders: []toolchains.FinderWithOptions{
-			{
-				Finder: cc.CCFinder{},
-			},
-		},
-	}
+	options := AgentServerOptions{}
 	options.Apply(opts...)
 
 	runStore := run.NewToolchainRunnerStore()

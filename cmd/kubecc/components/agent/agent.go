@@ -4,12 +4,17 @@ import (
 	"net"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/sleep"
+	sleeptoolchain "github.com/cobalt77/kubecc/internal/sleep/toolchain"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
+	"github.com/cobalt77/kubecc/pkg/cc"
+	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/servers"
+	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
@@ -60,6 +65,15 @@ func run(cmd *cobra.Command, args []string) {
 			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
 			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
 		}),
+		agent.WithToolchainFinders(
+			toolchains.FinderWithOptions{
+				Finder: cc.CCFinder{},
+			},
+			toolchains.FinderWithOptions{
+				Finder: sleep.SleepToolchainFinder{},
+			},
+		),
+		agent.WithToolchainRunners(cctoolchain.AddToStore, sleeptoolchain.AddToStore),
 		agent.WithSchedulerClient(schedulerClient),
 		agent.WithMonitorClient(monitorClient),
 	)

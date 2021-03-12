@@ -6,7 +6,6 @@ import (
 	"time"
 
 	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
-	"github.com/cobalt77/kubecc/pkg/cc"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/common"
@@ -104,13 +103,7 @@ func NewConsumerdServer(
 	ctx context.Context,
 	opts ...consumerdServerOption,
 ) *consumerdServer {
-	options := ConsumerdServerOptions{
-		toolchainFinders: []toolchains.FinderWithOptions{
-			{
-				Finder: cc.CCFinder{},
-			},
-		},
-	}
+	options := ConsumerdServerOptions{}
 	options.Apply(opts...)
 
 	runStore := run.NewToolchainRunnerStore()

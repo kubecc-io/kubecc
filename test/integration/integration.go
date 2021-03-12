@@ -276,7 +276,6 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 		}),
 		consumerd.WithUsageLimits(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
-		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
 		consumerd.WithSchedulerClient(schedulerClient, cc),
 		consumerd.WithMonitorClient(monitorClient),
 	)

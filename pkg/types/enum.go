@@ -4,6 +4,7 @@ const (
 	Clang         = ToolchainKind_ToolchainKind_Clang
 	Gnu           = ToolchainKind_ToolchainKind_Gnu
 	TestToolchain = ToolchainKind_ToolchainKind_Test
+	Sleep         = ToolchainKind_ToolchainKind_Sleep
 
 	C     = ToolchainLang_ToolchainLang_C
 	CXX   = ToolchainLang_ToolchainLang_CXX
