@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+	conf := (&config.ConfigMapProvider{}).Load().Consumer
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
 		meta.WithProvider(identity.UUID),
@@ -20,13 +21,12 @@ func main() {
 			logkc.New(types.Consumer,
 				logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
 				logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
+				logkc.WithLogLevel(conf.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
 	)
 	lg := meta.Log(ctx)
-
-	conf := (&config.ConfigMapProvider{}).Load(ctx).Consumer
 
 	cc, err := servers.Dial(ctx, conf.ConsumerdAddress)
 	if err != nil {

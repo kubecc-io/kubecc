@@ -41,6 +41,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/metrics/common"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -205,7 +206,9 @@ func servePrometheusMetrics(
 ) {
 	go serveMetricsEndpoint(srvContext, ":2112")
 	lg := meta.Log(srvContext)
-	listener := metrics.NewListener(srvContext, client)
+	listener := metrics.NewListener(srvContext, client,
+		servers.WithLogEvents(servers.LogNone),
+	)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
 		info, err := client.Whois(srvContext, &types.WhoisRequest{UUID: uuid})
 		if err != nil {

@@ -23,6 +23,22 @@ var (
 		schedcmd.Command.Name(): schedcmd.Command,
 		ctrlcmd.Command.Name():  ctrlcmd.Command,
 		cachecmd.Command.Name(): cachecmd.Command,
+		"all": {
+			Run: func(cmd *cobra.Command, args []string) {
+				go agentcmd.Command.Run(agentcmd.Command, args)
+				go cdcmd.Command.Run(agentcmd.Command, args)
+				go moncmd.Command.Run(agentcmd.Command, args)
+				go schedcmd.Command.Run(agentcmd.Command, args)
+				go cachecmd.Command.Run(agentcmd.Command, args)
+			},
+		},
+		"servers": {
+			Run: func(cmd *cobra.Command, args []string) {
+				go moncmd.Command.Run(agentcmd.Command, args)
+				go schedcmd.Command.Run(agentcmd.Command, args)
+				go cachecmd.Command.Run(agentcmd.Command, args)
+			},
+		},
 	}
 	componentNames []string
 
@@ -42,9 +58,6 @@ var runCmd = &cobra.Command{
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return cobra.MinimumNArgs(1)(cmd, args)
-		}
-		if len(args) == 1 && args[0] == "all" {
-			return nil
 		}
 		for _, arg := range args {
 			if _, ok := components[arg]; !ok {

@@ -105,6 +105,7 @@ func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 		logLevel:         zapcore.DebugLevel,
 	}
 	options.Apply(ops...)
+
 	color := component.Color()
 
 	encoderConfig := zapcore.EncoderConfig{

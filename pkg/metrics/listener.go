@@ -20,18 +20,18 @@ import (
 )
 
 type monitorListener struct {
-	ctx       context.Context
-	monClient types.ExternalMonitorClient
-	lg        *zap.SugaredLogger
-
+	ctx            context.Context
+	monClient      types.ExternalMonitorClient
+	lg             *zap.SugaredLogger
+	streamOpts     []servers.StreamManagerOption
 	knownProviders map[string]context.CancelFunc
-
 	providersMutex *sync.Mutex
 }
 
 func NewListener(
 	ctx context.Context,
 	client types.ExternalMonitorClient,
+	streamOpts ...servers.StreamManagerOption,
 ) Listener {
 	listener := &monitorListener{
 		ctx:            ctx,
@@ -39,6 +39,7 @@ func NewListener(
 		monClient:      client,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},
+		streamOpts:     streamOpts,
 	}
 	return listener
 }
@@ -181,7 +182,7 @@ func (l *monitorListener) OnValueChanged(
 			Name:   argType.Name(),
 		},
 	}
-	mgr := servers.NewStreamManager(l.ctx, cl)
+	mgr := servers.NewStreamManager(l.ctx, cl, l.streamOpts...)
 	go mgr.Run()
 	return cl
 }
