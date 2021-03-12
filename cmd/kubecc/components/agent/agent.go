@@ -18,16 +18,20 @@ import (
 )
 
 func run(cmd *cobra.Command, args []string) {
+	conf := (&config.ConfigMapProvider{}).Load().Agent
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(
+				types.Agent,
+				logkc.WithLogLevel(conf.LogLevel.Level()),
+			),
+		)),
 		meta.WithProvider(tracing.Tracer),
 		meta.WithProvider(host.SystemInfo),
 	)
 	lg := meta.Log(ctx)
-
-	conf := (&config.ConfigMapProvider{}).Load(ctx).Agent
 
 	srv := servers.NewServer(ctx)
 	listener, err := net.Listen("tcp", conf.ListenAddress)

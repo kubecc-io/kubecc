@@ -36,18 +36,55 @@ type OnConnectFailedEventHandler interface {
 }
 
 type StreamManager struct {
+	StreamManagerOptions
 	ctx        context.Context
 	handler    StreamHandler
 	backoffMgr wait.BackoffManager
 }
 
+type EventKind uint
+
+const (
+	LogConnected EventKind = 1 << iota
+	LogConnectionFailed
+	LogConnectionLost
+	LogStreamFinished
+
+	LogNone     EventKind = 0
+	LogDefaults EventKind = LogConnected | LogConnectionFailed | LogConnectionLost
+)
+
+type StreamManagerOptions struct {
+	logEvents EventKind
+}
+type StreamManagerOption func(*StreamManagerOptions)
+
+func (o *StreamManagerOptions) Apply(opts ...StreamManagerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithLogEvents(events EventKind) StreamManagerOption {
+	return func(opts *StreamManagerOptions) {
+		opts.logEvents = events
+	}
+}
+
 func NewStreamManager(
 	ctx context.Context,
 	handler StreamHandler,
+	opts ...StreamManagerOption,
 ) *StreamManager {
+	options := StreamManagerOptions{
+		logEvents: LogDefaults,
+	}
+	options.Apply(opts...)
+
 	return &StreamManager{
-		ctx:     ctx,
-		handler: handler,
+		StreamManagerOptions: options,
+		ctx:                  ctx,
+		handler:              handler,
 		backoffMgr: wait.NewExponentialBackoffManager(
 			500*time.Millisecond, // Initial
 			8*time.Second,        // Max
@@ -67,16 +104,20 @@ func (cm *StreamManager) Run() {
 			if e, ok := cm.handler.(OnConnectFailedEventHandler); ok {
 				e.OnConnectFailed()
 			}
-			lg.With(
-				zap.String("err", status.Convert(err).Message()),
-				zap.String("target", cm.handler.Target()),
-			).Warn(zapkc.Red.Add("Failed to connect"))
+			if cm.logEvents&LogConnectionFailed != 0 {
+				lg.With(
+					zap.String("err", status.Convert(err).Message()),
+					zap.String("target", cm.handler.Target()),
+				).Warn(zapkc.Red.Add("Failed to connect"))
+			}
 			<-cm.backoffMgr.Backoff().C()
 		} else {
 			if e, ok := cm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
-			lg.Infof(color.Add("Connected to %s"), cm.handler.Target())
+			if cm.logEvents&LogConnected != 0 {
+				lg.Infof(color.Add("Connected to %s"), cm.handler.Target())
+			}
 			err := cm.handler.HandleStream(stream)
 			if err := stream.CloseSend(); err != nil {
 				lg.With(zap.Error(err)).Error("Failed to close stream")
@@ -85,13 +126,17 @@ func (cm *StreamManager) Run() {
 				e.OnLostConnection()
 			}
 			if err != nil {
-				lg.With(
-					zap.Error(err),
-					zap.String("target", cm.handler.Target()),
-				).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
+				if cm.logEvents&LogConnectionLost != 0 {
+					lg.With(
+						zap.Error(err),
+						zap.String("target", cm.handler.Target()),
+					).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
+				}
 				<-cm.backoffMgr.Backoff().C()
 			} else {
-				lg.Debug("Stream finished")
+				if cm.logEvents&LogStreamFinished != 0 {
+					lg.Debug("Stream finished")
+				}
 				return
 			}
 		}

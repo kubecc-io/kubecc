@@ -33,10 +33,17 @@ The kubecc CLI utility`),
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	cliConfig = (&config.ConfigMapProvider{}).Load().Kcctl
+
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(
+				types.CLI,
+				logkc.WithLogLevel(cliConfig.LogLevel.Level()),
+			),
+		)),
 		meta.WithProvider(tracing.Tracer),
 	)
 	lg := meta.Log(ctx)
@@ -48,13 +55,4 @@ func Execute() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-}
-
-// initConfig reads in the config file.
-func initConfig() {
-	cliConfig = (&config.ConfigMapProvider{}).Load(cliContext).Kcctl
 }

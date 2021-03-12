@@ -1,6 +1,41 @@
 package config
 
+import (
+	"fmt"
+	"reflect"
+
+	"go.uber.org/zap/zapcore"
+)
+
+type logLevelString string
+
+func (str logLevelString) Level() (l zapcore.Level) {
+	if err := l.Set(string(str)); err != nil {
+		panic(fmt.Sprintf("Could not parse log level string %q", str))
+	}
+	return
+}
+
+type GlobalSpec struct {
+	LogLevel logLevelString `json:"logLevel"`
+	LogFile  string         `json:"logFile"`
+}
+
+// LoadIfUnset will load fields from the global GlobalSpec into
+// a component's optional GlobalSpec if a field has not been
+// specifically overridden by the component.
+func (override GlobalSpec) LoadIfUnset(global GlobalSpec) {
+	overrideValue := reflect.ValueOf(override)
+	globalValue := reflect.ValueOf(global)
+	for i := 0; i < overrideValue.NumField(); i++ {
+		if field := overrideValue.Field(i); !field.IsValid() {
+			globalValue.Field(i).Set(field)
+		}
+	}
+}
+
 type KubeccSpec struct {
+	Global    GlobalSpec    `json:"global"`
 	Agent     AgentSpec     `json:"agent"`
 	Consumer  ConsumerSpec  `json:"consumer"`
 	Consumerd ConsumerdSpec `json:"consumerd"`
@@ -11,43 +46,43 @@ type KubeccSpec struct {
 }
 
 type AgentSpec struct {
-	UsageLimits      UsageLimitsSpec `json:"usageLimits,omitempty"`
+	GlobalSpec
+	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
 	SchedulerAddress string          `json:"schedulerAddress"`
 	MonitorAddress   string          `json:"monitorAddress"`
 	ListenAddress    string          `json:"listenAddress"`
-	LogLevel         string          `json:"logLevel,omitempty"`
 }
 
 type ConsumerSpec struct {
+	GlobalSpec
 	ConsumerdAddress string `json:"consumerdAddress"`
-	LogLevel         string `json:"logLevel,omitempty"`
-	LogFile          string `json:"logFile,omitempty"`
 }
 
 type ConsumerdSpec struct {
-	UsageLimits      UsageLimitsSpec `json:"usageLimits,omitempty"`
+	GlobalSpec
+	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
 	SchedulerAddress string          `json:"schedulerAddress"`
 	MonitorAddress   string          `json:"monitorAddress"`
 	ListenAddress    string          `json:"listenAddress"`
-	LogLevel         string          `json:"logLevel"`
-	DisableTLS       bool            `json:"disableTLS,omitempty"`
+	DisableTLS       bool            `json:"disableTLS"`
 }
 
 type SchedulerSpec struct {
+	GlobalSpec
 	MonitorAddress string `json:"monitorAddress"`
 	CacheAddress   string `json:"cacheAddress"`
 	ListenAddress  string `json:"listenAddress"`
-	LogLevel       string `json:"logLevel,omitempty"`
 }
 
 type MonitorSpec struct {
+	GlobalSpec
 	ListenAddress MonitorListenAddressSpec `json:"listenAddress"`
-	LogLevel      string                   `json:"logLevel,omitempty"`
 }
 
 type CacheSpec struct {
-	LocalStorage   *LocalStorageSpec  `json:"localStorage,omitempty"`
-	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage,omitempty"`
+	GlobalSpec
+	LocalStorage   *LocalStorageSpec  `json:"localStorage"`
+	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage"`
 	ListenAddress  string             `json:"listenAddress"`
 	MonitorAddress string             `json:"monitorAddress"`
 }
@@ -61,10 +96,10 @@ type RemoteStorageSpec struct {
 	Endpoint       string `json:"endpoint"`
 	AccessKey      string `json:"accessKey"`
 	SecretKey      string `json:"secretKey"`
-	TLS            bool   `json:"tls,omitempty"`
-	CertPath       string `json:"certPath,omitempty"`
+	TLS            bool   `json:"tls"`
+	CertPath       string `json:"certPath"`
 	Bucket         string `json:"bucket"`
-	Region         string `json:"region,omitempty"`
+	Region         string `json:"region"`
 	ExpirationDays int    `json:"expirationDays"`
 }
 
@@ -79,13 +114,13 @@ type MonitorListenAddressSpec struct {
 }
 
 type KcctlSpec struct {
+	GlobalSpec
 	MonitorAddress string `json:"monitorAddress"`
-	LogLevel       string `json:"logLevel,omitempty"`
-	DisableTLS     bool   `json:"disableTLS,omitempty"`
+	DisableTLS     bool   `json:"disableTLS"`
 }
 
 type UsageLimitsSpec struct {
-	QueuePressureMultiplier float64 `json:"queuePressureMultiplier,omitempty"`
-	QueueRejectMultiplier   float64 `json:"queueRejectMultiplier,omitempty"`
-	ConcurrentProcessLimit  int     `json:"concurrentProcessLimit,omitempty"`
+	QueuePressureMultiplier float64 `json:"queuePressureMultiplier"`
+	QueueRejectMultiplier   float64 `json:"queueRejectMultiplier"`
+	ConcurrentProcessLimit  int     `json:"concurrentProcessLimit"`
 }

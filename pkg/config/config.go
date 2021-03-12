@@ -1,15 +1,14 @@
 package config
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"go.uber.org/zap"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
 )
@@ -20,13 +19,29 @@ type ConfigProvider interface {
 
 type ConfigMapProvider struct{}
 
-func loadConfigOrDie(lg *zap.SugaredLogger, path string) *KubeccSpec {
+// applyGlobals walks the config structure of KubeccSpec (depth 1), finds any
+// structs that contain a *GlobalSpec field, and syncs non-overridden global
+// fields from the top level KubeccSpec globals.
+func applyGlobals(cfg *KubeccSpec) {
+	cfgValue := reflect.ValueOf(cfg).Elem()
+	for i := 0; i < cfgValue.NumField(); i++ {
+		component := cfgValue.Field(i)
+		if component.Type() == reflect.TypeOf(cfg.Global) {
+			continue
+		}
+		for j := 0; j < component.NumField(); j++ {
+			if f := component.Field(j); f.Type() == reflect.TypeOf(cfg.Global) {
+				f.Interface().(GlobalSpec).LoadIfUnset(cfg.Global)
+			}
+		}
+	}
+	cfg.Agent.GlobalSpec.LoadIfUnset(cfg.Global)
+}
+
+func loadConfigOrDie(path string) *KubeccSpec {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		lg.With(
-			zap.Error(err),
-			zap.String("path", path),
-		).Fatal("Error reading config file")
+		panic(fmt.Sprintf("Error reading config file %s: %s", path, err.Error()))
 	}
 	cfg := &KubeccSpec{}
 	if strings.HasSuffix(path, ".json") {
@@ -35,16 +50,13 @@ func loadConfigOrDie(lg *zap.SugaredLogger, path string) *KubeccSpec {
 		err = yaml.Unmarshal(contents, cfg, yaml.DisallowUnknownFields)
 	}
 	if err != nil {
-		lg.With(
-			zap.Error(err),
-			zap.String("path", path),
-		).Fatal("Error parsing config file")
+		panic(fmt.Sprintf("Error parsing config file %s: %s", path, err.Error()))
 	}
+	applyGlobals(cfg)
 	return cfg
 }
 
-func (cmp *ConfigMapProvider) Load(ctx context.Context) *KubeccSpec {
-	lg := meta.Log(ctx)
+func (cmp *ConfigMapProvider) Load() *KubeccSpec {
 	paths := []string{
 		"/etc/kubecc",
 		path.Join(homedir.HomeDir(), ".kubecc"),
@@ -60,9 +72,8 @@ func (cmp *ConfigMapProvider) Load(ctx context.Context) *KubeccSpec {
 			if _, err := os.Stat(abs); err != nil {
 				continue
 			}
-			return loadConfigOrDie(lg, abs)
+			return loadConfigOrDie(abs)
 		}
 	}
-	lg.Fatal("Could not find config file")
-	return nil
+	panic("Could not find config file")
 }
