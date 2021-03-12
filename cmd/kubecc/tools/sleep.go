@@ -70,7 +70,7 @@ func worker(
 		select {
 		case <-queue:
 		default:
-			break
+			return
 		}
 		lg.Infof("[%0*d/%0*d] Running task",
 			counterLen, numTasks-int64(len(queue)),

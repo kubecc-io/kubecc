@@ -68,10 +68,14 @@ func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 				// The metric has a (presumably cancelable) context
 				// If it is canceled, send a deleter to the server
 				go func() {
-					select {
-					case <-mctx.Context().Done():
-						p.Post(deleter{key: key.Name})
-					case <-p.ctx.Done():
+					if mctx.Context() != nil {
+						select {
+						case <-mctx.Context().Done():
+							p.Post(deleter{key: key.Name})
+						case <-p.ctx.Done():
+						}
+					} else {
+						<-p.ctx.Done()
 					}
 				}()
 			}

@@ -106,6 +106,7 @@ func (s *AgentServer) Compile(
 	ctx context.Context,
 	req *types.CompileRequest,
 ) (*types.CompileResponse, error) {
+	s.lg.Debug("Handling compile request")
 	if err := meta.CheckContext(ctx); err != nil {
 		return nil, err
 	}
@@ -123,10 +124,24 @@ func (s *AgentServer) Compile(
 			"No toolchain runner available")
 	}
 
+	tc, err := s.tcStore.TryMatch(req.GetToolchain())
+	if err != nil {
+		return nil, status.Error(codes.Unavailable,
+			err.Error())
+	}
+
+	// Swap remote toolchain with the local toolchain in case the executable
+	// path is different locally
+	req.Toolchain = tc
 	resp, err := runner.RecvRemote().Run(run.Contexts{
 		ServerContext: s.srvContext,
 		ClientContext: sctx,
 	}, s.executor, req)
+	if err != nil {
+		s.lg.With(
+			zap.Error(err),
+		).Error("Error from remote runner")
+	}
 	return resp.(*types.CompileResponse), err
 }
 
@@ -183,6 +198,8 @@ func (s *AgentServer) SetUsageLimits(
 }
 
 func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
+	s.lg.Info("Streaming metadata to scheduler")
+	defer s.lg.Warn("Stream closed")
 	err := stream.SendMsg(&types.Metadata{
 		Toolchains: &types.Toolchains{
 			Items: s.tcStore.ItemsList(),
@@ -192,6 +209,7 @@ func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 		if errors.Is(err, io.EOF) {
 			return stream.RecvMsg(nil)
 		}
+		s.lg.Error(err)
 		return err
 	}
 	select {

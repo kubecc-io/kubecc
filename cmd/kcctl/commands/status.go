@@ -2,8 +2,10 @@ package commands
 
 import (
 	"context"
+	"io"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -25,14 +27,18 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		cc, err := servers.Dial(cliContext, "127.0.0.1:9960")
+		conf := (&config.ConfigMapProvider{}).Load().Kcctl
+
+		cc, err := servers.Dial(cliContext, conf.MonitorAddress)
 		if err != nil {
 			cliLog.Fatal(err)
 		}
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
 			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.Logger),
+			meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
+				logkc.WithWriter(io.Discard),
+			))),
 		)
 		client := types.NewExternalMonitorClient(cc)
 		listener := metrics.NewListener(ctx, client)
