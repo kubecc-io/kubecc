@@ -27,7 +27,7 @@ type CacheServer struct {
 
 type CacheServerOptions struct {
 	storageProvider storage.StorageProvider
-	monitorClient   types.InternalMonitorClient
+	monitorClient   types.MonitorClient
 }
 
 type cacheServerOption func(*CacheServerOptions)
@@ -45,7 +45,7 @@ func WithStorageProvider(sp storage.StorageProvider) cacheServerOption {
 }
 
 func WithMonitorClient(
-	client types.InternalMonitorClient,
+	client types.MonitorClient,
 ) cacheServerOption {
 	return func(o *CacheServerOptions) {
 		o.monitorClient = client

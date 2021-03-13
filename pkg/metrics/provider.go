@@ -16,7 +16,7 @@ import (
 type monitorProvider struct {
 	ctx           context.Context
 	lg            *zap.SugaredLogger
-	monClient     types.InternalMonitorClient
+	monClient     types.MonitorClient
 	postQueue     chan KeyedMetric
 	queueStrategy QueueStrategy
 }
@@ -31,7 +31,7 @@ const (
 
 func NewMonitorProvider(
 	ctx context.Context,
-	client types.InternalMonitorClient,
+	client types.MonitorClient,
 	qs QueueStrategy,
 ) Provider {
 	var postQueue chan KeyedMetric

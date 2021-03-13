@@ -54,7 +54,6 @@ type Scheduler struct {
 }
 
 type SchedulerOptions struct {
-	agentDialer AgentDialer
 }
 
 type schedulerOption func(*SchedulerOptions)
@@ -65,16 +64,8 @@ func (o *SchedulerOptions) Apply(opts ...schedulerOption) {
 	}
 }
 
-func WithAgentDialer(d AgentDialer) schedulerOption {
-	return func(o *SchedulerOptions) {
-		o.agentDialer = d
-	}
-}
-
 func NewScheduler(ctx context.Context, opts ...schedulerOption) *Scheduler {
-	options := SchedulerOptions{
-		agentDialer: &tcpDialer{},
-	}
+	options := SchedulerOptions{}
 	options.Apply(opts...)
 
 	return &Scheduler{

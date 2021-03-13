@@ -16,28 +16,24 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type AgentServer struct {
-	types.UnimplementedAgentServer
-
 	AgentServerOptions
 
 	srvContext      context.Context
 	executor        run.Executor
 	lg              *zap.SugaredLogger
 	tcStore         *toolchains.Store
-	tcRunStore      *run.ToolchainRunnerStore
 	metricsProvider metrics.Provider
+	taskStreamMgr   *TaskStreamManager
 }
 
 type AgentServerOptions struct {
 	toolchainFinders []toolchains.FinderWithOptions
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
-	monitorClient    types.InternalMonitorClient
+	monitorClient    types.MonitorClient
 	usageLimits      *types.UsageLimits
 }
 
@@ -67,7 +63,7 @@ func WithSchedulerClient(client types.SchedulerClient) agentServerOption {
 	}
 }
 
-func WithMonitorClient(client types.InternalMonitorClient) agentServerOption {
+func WithMonitorClient(client types.MonitorClient) agentServerOption {
 	return func(o *AgentServerOptions) {
 		o.monitorClient = client
 	}
@@ -96,53 +92,20 @@ func NewAgentServer(
 		srvContext:         ctx,
 		lg:                 meta.Log(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
-		tcRunStore:         runStore,
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
 	}
+	srv.taskStreamMgr = &TaskStreamManager{
+		srvContext:      ctx,
+		lg:              meta.Log(ctx),
+		schedulerClient: options.schedulerClient,
+		tcStore:         srv.tcStore,
+		tcRunStore:      runStore,
+		executor:        srv.executor,
+	}
+	mgr := servers.NewStreamManager(ctx, srv.taskStreamMgr)
+	go mgr.Run()
+
 	return srv
-}
-
-func (s *AgentServer) Compile(
-	ctx context.Context,
-	req *types.CompileRequest,
-) (*types.CompileResponse, error) {
-	s.lg.Debug("Handling compile request")
-	if err := meta.CheckContext(ctx); err != nil {
-		return nil, err
-	}
-
-	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
-	if err != nil {
-		s.lg.Error(err)
-	} else {
-		defer span.Finish()
-	}
-
-	runner, err := s.tcRunStore.Get(req.GetToolchain().Kind)
-	if err != nil {
-		return nil, status.Error(codes.Unavailable,
-			"No toolchain runner available")
-	}
-
-	tc, err := s.tcStore.TryMatch(req.GetToolchain())
-	if err != nil {
-		return nil, status.Error(codes.Unavailable,
-			err.Error())
-	}
-
-	// Swap remote toolchain with the local toolchain in case the executable
-	// path is different locally
-	req.Toolchain = tc
-	resp, err := runner.RecvRemote().Run(run.Contexts{
-		ServerContext: s.srvContext,
-		ClientContext: sctx,
-	}, s.executor, req)
-	if err != nil {
-		s.lg.With(
-			zap.Error(err),
-		).Error("Error from remote runner")
-	}
-	return resp.(*types.CompileResponse), err
 }
 
 func (s *AgentServer) postQueueParams() {

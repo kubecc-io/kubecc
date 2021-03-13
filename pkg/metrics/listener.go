@@ -21,7 +21,7 @@ import (
 
 type monitorListener struct {
 	ctx            context.Context
-	monClient      types.ExternalMonitorClient
+	monClient      types.MonitorClient
 	lg             *zap.SugaredLogger
 	streamOpts     []servers.StreamManagerOption
 	knownProviders map[string]context.CancelFunc
@@ -30,7 +30,7 @@ type monitorListener struct {
 
 func NewListener(
 	ctx context.Context,
-	client types.ExternalMonitorClient,
+	client types.MonitorClient,
 	streamOpts ...servers.StreamManagerOption,
 ) Listener {
 	listener := &monitorListener{
@@ -88,7 +88,7 @@ type changeListener struct {
 	expiredHandler func() RetryOptions
 	handler        reflect.Value
 	ehMutex        *sync.Mutex
-	monClient      types.ExternalMonitorClient
+	monClient      types.MonitorClient
 	key            *types.Key
 	argType        reflect.Type
 }

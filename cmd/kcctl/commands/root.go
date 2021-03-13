@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/zapkc"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -24,10 +23,8 @@ var (
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "kcctl",
-	Short: "A brief description of your application",
-	Long: fmt.Sprintf("%s\n%s", zapkc.Yellow.Add(logkc.BigAsciiTextColored), `
-The kubecc CLI utility`),
+	Use:  "kcctl",
+	Long: fmt.Sprintf("%s\n%s", logkc.BigAsciiTextColored, `The kubecc CLI utility`),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

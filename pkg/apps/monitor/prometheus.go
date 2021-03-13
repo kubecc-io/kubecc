@@ -202,7 +202,7 @@ func serveMetricsEndpoint(ctx context.Context, address string) {
 
 func servePrometheusMetrics(
 	srvContext context.Context,
-	client types.ExternalMonitorClient,
+	client types.MonitorClient,
 ) {
 	go serveMetricsEndpoint(srvContext, ":2112")
 	lg := meta.Log(srvContext)

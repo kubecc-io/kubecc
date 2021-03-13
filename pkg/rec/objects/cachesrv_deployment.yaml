@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kubecc-monitor
+  name: kubecc-cache
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kubecc-monitor
+      app: kubecc-cache
   template:
     metadata:
       labels: 
-        app: kubecc-monitor
+        app: kubecc-cache
     spec:
 {{ if .Spec.NodeAffinity }}
       affinity:
@@ -18,11 +18,11 @@ spec:
 {{ .Spec.NodeAffinity | toYaml | indent 10 }}
 {{ end }}
       containers:
-        - name: kubecc-monitor
+        - name: kubecc-cache
           command:
             - /kubecc
             - run
-            - monitor
+            - cache
           image: {{ .Spec.Image }}
           imagePullPolicy: {{ .Spec.ImagePullPolicy }}
 {{ if .Spec.Resources }}

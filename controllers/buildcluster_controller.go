@@ -69,10 +69,16 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					{
 						Resolver: &resolvers.MonitorResolver{},
 					},
+					{
+						Resolver: &resolvers.CacheSrvResolver{},
+					},
 				},
 			},
 			{
 				Resolver: &resolvers.TracingResolver{},
+			},
+			{
+				Resolver: &resolvers.ConfigMapResolver{},
 			},
 		},
 	})

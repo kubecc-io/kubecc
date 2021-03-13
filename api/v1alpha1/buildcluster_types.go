@@ -16,6 +16,7 @@ type ComponentsSpec struct {
 	Agent     AgentSpec     `json:"agent"`
 	Scheduler SchedulerSpec `json:"scheduler,omitempty"` // +optional
 	Monitor   MonitorSpec   `json:"monitor,omitempty"`   // +optional
+	Cache     CacheSpec     `json:"cache,omitempty"`     // +optional
 }
 
 type IngressSpec struct {
@@ -52,8 +53,6 @@ type AgentSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/agent:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
@@ -64,8 +63,6 @@ type SchedulerSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/scheduler:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
@@ -76,8 +73,16 @@ type MonitorSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
+	// +kubebuilder:default:=Always
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+}
+
+type CacheSpec struct {
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
+	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
+	Image            string            `json:"image"`                      // +optional
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
