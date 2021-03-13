@@ -77,6 +77,11 @@ var _ = Describe("BuildCluster Controller", func() {
 							Image:           "gcr.io/kubecc/monitor:latest",
 							ImagePullPolicy: "Always",
 						},
+						Cache: v1alpha1.CacheSpec{
+							Resources:       resources,
+							Image:           "gcr.io/kubecc/cache:latest",
+							ImagePullPolicy: "Always",
+						},
 					},
 				},
 			}
@@ -106,6 +111,36 @@ var _ = Describe("BuildCluster Controller", func() {
 				agents := &appsv1.DaemonSet{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "kubecc-agent",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a monitor deployment", func() {
+			Eventually(func() bool {
+				agents := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc-monitor",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a cache server deployment", func() {
+			Eventually(func() bool {
+				agents := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc-cache",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a configmap", func() {
+			Eventually(func() bool {
+				agents := &v1.ConfigMap{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc",
 					Namespace: Namespace,
 				}, agents)
 				return err == nil

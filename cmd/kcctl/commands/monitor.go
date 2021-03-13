@@ -56,7 +56,7 @@ var listenCmd = &cobra.Command{
 		if err != nil {
 			cliLog.Fatal(err)
 		}
-		client := types.NewExternalMonitorClient(cc)
+		client := types.NewMonitorClient(cc)
 		listener := metrics.NewListener(cliContext, client)
 		tb := &ui.TextBox{}
 

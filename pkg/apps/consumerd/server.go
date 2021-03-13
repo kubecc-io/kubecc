@@ -48,7 +48,7 @@ type ConsumerdServerOptions struct {
 	toolchainFinders    []toolchains.FinderWithOptions
 	toolchainRunners    []run.StoreAddFunc
 	schedulerClient     types.SchedulerClient
-	monitorClient       types.InternalMonitorClient
+	monitorClient       types.MonitorClient
 	schedulerConnection *grpc.ClientConn
 	usageLimits         *types.UsageLimits
 }
@@ -83,10 +83,10 @@ func WithSchedulerClient(
 	}
 }
 
-// Note this accepts an InternalMonitorClient even though consumerd runs
+// Note this accepts an MonitorClient even though consumerd runs
 // outside the cluster.
 func WithMonitorClient(
-	client types.InternalMonitorClient,
+	client types.MonitorClient,
 ) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.monitorClient = client

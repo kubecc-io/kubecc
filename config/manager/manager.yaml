@@ -26,10 +26,11 @@ spec:
         runAsUser: 65532
       containers:
       - command:
-        - /manager
+        - /kubecc
+        - controller
         args:
         - --leader-elect
-        image: gcr.io/kubecc/manager
+        image: gcr.io/kubecc/kubecc
         imagePullPolicy: Always
         name: manager
         securityContext:

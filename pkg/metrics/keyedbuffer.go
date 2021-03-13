@@ -47,7 +47,7 @@ func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
 
 func NewKeyedBufferMonitorProvider(
 	ctx context.Context,
-	client types.InternalMonitorClient,
+	client types.MonitorClient,
 ) Provider {
 	provider := &keyedBufferMonitorProvider{
 		monitorProvider: monitorProvider{

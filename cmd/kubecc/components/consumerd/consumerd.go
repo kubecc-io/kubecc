@@ -46,14 +46,15 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
 	}
 
-	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
+	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress,
+		servers.WithTLS(!conf.DisableTLS))
 	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
 	}
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
-	monitorClient := types.NewInternalMonitorClient(monitorCC)
+	monitorClient := types.NewMonitorClient(monitorCC)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithUsageLimits(&types.UsageLimits{

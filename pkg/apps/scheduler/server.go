@@ -23,7 +23,7 @@ import (
 type schedulerServer struct {
 	types.UnimplementedSchedulerServer
 
-	monClient   types.InternalMonitorClient
+	monClient   types.MonitorClient
 	cacheClient types.CacheClient
 
 	srvContext      context.Context
@@ -38,7 +38,7 @@ type schedulerServer struct {
 
 type SchedulerServerOptions struct {
 	schedulerOptions []schedulerOption
-	monClient        types.InternalMonitorClient
+	monClient        types.MonitorClient
 	cacheClient      types.CacheClient
 }
 
@@ -56,7 +56,7 @@ func WithSchedulerOptions(opts ...schedulerOption) schedulerServerOption {
 	}
 }
 
-func WithMonitorClient(monClient types.InternalMonitorClient) schedulerServerOption {
+func WithMonitorClient(monClient types.MonitorClient) schedulerServerOption {
 	return func(o *SchedulerServerOptions) {
 		o.monClient = monClient
 	}

@@ -28,7 +28,7 @@ type Agent struct {
 	remoteInfo
 	*sync.RWMutex
 
-	Client      types.AgentClient
+	Client      types.Scheduler_StreamTasksServer
 	QueueStatus types.QueueStatus
 }
 

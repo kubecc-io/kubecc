@@ -26,8 +26,7 @@ type Receiver interface {
 }
 
 type MonitorServer struct {
-	types.UnimplementedInternalMonitorServer
-	types.UnimplementedExternalMonitorServer
+	types.UnimplementedMonitorServer
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
@@ -65,7 +64,7 @@ func NewMonitorServer(
 func (m *MonitorServer) runPrometheusListener() {
 	inMemoryListener := bufconn.Listen(1024 * 1024)
 	inMemoryGrpcSrv := servers.NewServer(m.srvContext)
-	types.RegisterExternalMonitorServer(inMemoryGrpcSrv, m)
+	types.RegisterMonitorServer(inMemoryGrpcSrv, m)
 
 	go func() {
 		if err := inMemoryGrpcSrv.Serve(inMemoryListener); err != nil {
@@ -89,7 +88,7 @@ func (m *MonitorServer) runPrometheusListener() {
 		panic(err)
 	}
 
-	client := types.NewExternalMonitorClient(cc)
+	client := types.NewMonitorClient(cc)
 
 	servePrometheusMetrics(m.srvContext, client)
 }
@@ -130,14 +129,20 @@ func providerIP(ctx context.Context) (string, error) {
 }
 
 func (m *MonitorServer) Stream(
-	srv types.InternalMonitor_StreamServer,
+	srv types.Monitor_StreamServer,
 ) (streamError error) {
 	if err := meta.CheckContext(srv.Context()); err != nil {
+		m.lg.With(
+			zap.Error(err),
+		).Error("Error handling provider stream")
 		return err
 	}
 	ctx := srv.Context()
 	addr, err := providerIP(srv.Context())
 	if err != nil {
+		m.lg.With(
+			zap.Error(err),
+		).Error("Error handling provider stream")
 		return err
 	}
 	uuid := meta.UUID(ctx)
@@ -278,7 +283,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 
 func (m *MonitorServer) Listen(
 	key *types.Key,
-	srv types.ExternalMonitor_ListenServer,
+	srv types.Monitor_ListenServer,
 ) error {
 	if err := meta.CheckContext(srv.Context()); err != nil {
 		return err

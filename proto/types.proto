@@ -7,22 +7,15 @@ service Consumerd {
   rpc Run(RunRequest) returns (RunResponse);
 }
 
-service Agent {
-  rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc SetUsageLimits (UsageLimits) returns (Empty);
-}
-
 service Scheduler {
   rpc Compile(CompileRequest) returns (CompileResponse);
   rpc ConnectAgent(stream Metadata) returns (stream Empty);
   rpc ConnectConsumerd(stream Metadata) returns (stream Empty);
+  rpc StreamTasks(stream CompileResponse) returns (stream CompileRequest);
 }
 
-service InternalMonitor {
+service Monitor {
   rpc Stream(stream Metric) returns (stream Empty);
-}
-
-service ExternalMonitor {
   rpc Listen(Key) returns (stream Value);
   rpc Whois(WhoisRequest) returns (WhoisResponse);
 }

@@ -100,10 +100,10 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 	cc := dial(ctx, tc.schedListener)
 	schedClient := types.NewSchedulerClient(cc)
 	cc = dial(ctx, tc.monListener)
-	internalMonClient := types.NewInternalMonitorClient(cc)
+	monClient := types.NewMonitorClient(cc)
 	agentSrv := agent.NewAgentServer(ctx,
 		agent.WithSchedulerClient(schedClient),
-		agent.WithMonitorClient(internalMonClient),
+		agent.WithMonitorClient(monClient),
 		agent.WithUsageLimits(cfg),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
@@ -138,7 +138,7 @@ func (tc *TestController) startScheduler() {
 	srv := servers.NewServer(ctx)
 
 	cc := dial(ctx, tc.monListener)
-	internalMonClient := types.NewInternalMonitorClient(cc)
+	monClient := types.NewMonitorClient(cc)
 
 	cc = dial(ctx, tc.cacheListener)
 	cacheClient := types.NewCacheClient(cc)
@@ -147,7 +147,7 @@ func (tc *TestController) startScheduler() {
 		scheduler.WithSchedulerOptions(
 			scheduler.WithAgentDialer(tc),
 		),
-		scheduler.WithMonitorClient(internalMonClient),
+		scheduler.WithMonitorClient(monClient),
 		scheduler.WithCacheClient(cacheClient),
 	)
 	types.RegisterSchedulerServer(srv, sc)
@@ -173,25 +173,13 @@ func (tc *TestController) startMonitor() {
 	lg := meta.Log(ctx)
 
 	tc.monListener = bufconn.Listen(bufSize)
-	internalSrv := servers.NewServer(ctx)
-	externalSrv := servers.NewServer(ctx)
-	extListener, err := net.Listen("tcp", "127.0.0.1:9097")
-	if err != nil {
-		panic(err)
-	}
+	srv := servers.NewServer(ctx)
 
 	mon := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
-	types.RegisterInternalMonitorServer(internalSrv, mon)
-	types.RegisterExternalMonitorServer(externalSrv, mon)
+	types.RegisterMonitorServer(srv, mon)
 
 	go func() {
-		if err := internalSrv.Serve(tc.monListener); err != nil {
-			lg.Info(err)
-		}
-	}()
-
-	go func() {
-		if err := externalSrv.Serve(extListener); err != nil {
+		if err := srv.Serve(tc.monListener); err != nil {
 			lg.Info(err)
 		}
 	}()
@@ -211,7 +199,7 @@ func (tc *TestController) startCache() {
 	lg := meta.Log(ctx)
 
 	cc := dial(ctx, tc.monListener)
-	internalMonClient := types.NewInternalMonitorClient(cc)
+	internalMonClient := types.NewMonitorClient(cc)
 
 	tc.cacheListener = bufconn.Listen(bufSize)
 	srv := servers.NewServer(ctx)
@@ -268,7 +256,7 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 	cc := dial(ctx, tc.schedListener)
 	schedulerClient := types.NewSchedulerClient(cc)
 	cc = dial(ctx, tc.monListener)
-	monitorClient := types.NewInternalMonitorClient(cc)
+	monitorClient := types.NewMonitorClient(cc)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
@@ -328,7 +316,7 @@ func (tc *TestController) Start(ops TestOptions) {
 			len(ops.Clients) +
 			1 /*scheduler*/ +
 			1 /*cache*/)
-	extClient := types.NewExternalMonitorClient(cc)
+	extClient := types.NewMonitorClient(cc)
 	listener := metrics.NewListener(tc.ctx, extClient)
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 		resp, _ := extClient.Whois(tc.ctx, &types.WhoisRequest{

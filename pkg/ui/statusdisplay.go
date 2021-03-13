@@ -14,7 +14,7 @@ import (
 
 type agent struct {
 	ctx         context.Context
-	uuid        string
+	info        *types.WhoisResponse
 	queueParams *common.QueueParams
 	taskStatus  *common.TaskStatus
 	queueStatus *common.QueueStatus
@@ -42,7 +42,7 @@ func (s *StatusDisplay) makeRows() [][]string {
 	rows = append(rows, header)
 	for _, agent := range s.agents {
 		row := []string{
-			agent.uuid,
+			fmt.Sprintf("[%s] %s", agent.info.Component.Name(), agent.info.Address),
 			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.queueParams.ConcurrentProcessLimit),
 			fmt.Sprint(agent.taskStatus.NumQueued),
 			types.QueueStatus(agent.queueStatus.QueueStatus).String(),
@@ -52,11 +52,11 @@ func (s *StatusDisplay) makeRows() [][]string {
 	return rows
 }
 
-func (s *StatusDisplay) AddAgent(ctx context.Context, uuid string) {
+func (s *StatusDisplay) AddAgent(ctx context.Context, info *types.WhoisResponse) {
 	s.mutex.Lock()
 	s.agents = append(s.agents, &agent{
 		ctx:         ctx,
-		uuid:        uuid,
+		info:        info,
 		queueParams: &common.QueueParams{},
 		taskStatus:  &common.TaskStatus{},
 		queueStatus: &common.QueueStatus{},
@@ -68,7 +68,7 @@ func (s *StatusDisplay) AddAgent(ctx context.Context, uuid string) {
 		<-ctx.Done()
 		s.mutex.Lock()
 		for i, a := range s.agents {
-			if a.uuid == uuid {
+			if a.info.UUID == info.UUID {
 				s.agents = append(s.agents[:i], s.agents[i+1:]...)
 			}
 		}
@@ -81,7 +81,7 @@ func (s *StatusDisplay) Update(uuid string, params interface{}) {
 	s.mutex.Lock()
 	var index int
 	for i, a := range s.agents {
-		if a.uuid == uuid {
+		if a.info.UUID == uuid {
 			index = i
 		}
 	}

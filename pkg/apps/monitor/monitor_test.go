@@ -70,8 +70,7 @@ var _ = Describe("Monitor", func() {
 		srv := servers.NewServer(monitorCtx, servers.WithServerOpts(
 			grpc.NumStreamWorkers(12),
 		))
-		types.RegisterInternalMonitorServer(srv, mon)
-		types.RegisterExternalMonitorServer(srv, mon)
+		types.RegisterMonitorServer(srv, mon)
 		go func() {
 			Expect(srv.Serve(listener)).NotTo(HaveOccurred())
 		}()
@@ -113,7 +112,7 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewExternalMonitorClient(cc)
+			client := types.NewMonitorClient(cc)
 			listener := metrics.NewListener(ctx, client)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				listenerEvents["providerAdded"] <- uuid
@@ -157,7 +156,7 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewInternalMonitorClient(cc)
+			client := types.NewMonitorClient(cc)
 			provider = metrics.NewMonitorProvider(cctx, client, metrics.Buffered|metrics.Block)
 			Expect(provider).NotTo(BeNil())
 		})
@@ -202,7 +201,7 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewExternalMonitorClient(cc)
+			client := types.NewMonitorClient(cc)
 			listener := metrics.NewListener(ctx, client)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				lateJoinListenerEvents["providerAdded"] <- uuid
@@ -315,7 +314,7 @@ var _ = Describe("Monitor", func() {
 							return listener.Dial()
 						}),
 				))
-				client := types.NewInternalMonitorClient(cc)
+				client := types.NewMonitorClient(cc)
 				provider := metrics.NewMonitorProvider(ctx, client, metrics.Buffered)
 				providers[i] = provider
 			}
@@ -339,7 +338,7 @@ var _ = Describe("Monitor", func() {
 						return listener.Dial()
 					}),
 			))
-			client := types.NewExternalMonitorClient(cc)
+			client := types.NewMonitorClient(cc)
 			l := metrics.NewListener(ctx, client)
 			listeners[sampleIdx] = l
 			handler := handlers[sampleIdx%4]

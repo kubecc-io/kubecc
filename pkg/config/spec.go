@@ -76,7 +76,7 @@ type SchedulerSpec struct {
 
 type MonitorSpec struct {
 	GlobalSpec
-	ListenAddress MonitorListenAddressSpec `json:"listenAddress"`
+	ListenAddress string `json:"listenAddress"`
 }
 
 type CacheSpec struct {
@@ -106,11 +106,6 @@ type RemoteStorageSpec struct {
 type StorageLimitsSpec struct {
 	Memory string `json:"memory"`
 	Disk   string `json:"disk"`
-}
-
-type MonitorListenAddressSpec struct {
-	Internal string `json:"internal"`
-	External string `json:"external"`
 }
 
 type KcctlSpec struct {

@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"net"
-
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/sleep"
 	sleeptoolchain "github.com/cobalt77/kubecc/internal/sleep/toolchain"
@@ -38,12 +36,6 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	srv := servers.NewServer(ctx)
-	listener, err := net.Listen("tcp", conf.ListenAddress)
-	if err != nil {
-		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
-	}
-
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress)
 	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 	if err != nil {
@@ -57,7 +49,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
-	monitorClient := types.NewInternalMonitorClient(monitorCC)
+	monitorClient := types.NewMonitorClient(monitorCC)
 
 	a := agent.NewAgentServer(ctx,
 		agent.WithUsageLimits(&types.UsageLimits{
@@ -77,15 +69,10 @@ func run(cmd *cobra.Command, args []string) {
 		agent.WithSchedulerClient(schedulerClient),
 		agent.WithMonitorClient(monitorClient),
 	)
-	types.RegisterAgentServer(srv, a)
+	go a.StartMetricsProvider()
 
 	mgr := servers.NewStreamManager(ctx, a)
-	go mgr.Run()
-	go a.StartMetricsProvider()
-	err = srv.Serve(listener)
-	if err != nil {
-		lg.With(zap.Error(err)).Error("GRPC error")
-	}
+	mgr.Run()
 }
 
 var Command = &cobra.Command{
