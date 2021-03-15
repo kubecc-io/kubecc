@@ -11,6 +11,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -52,7 +53,7 @@ func run(cmd *cobra.Command, args []string) {
 	monitorClient := types.NewMonitorClient(monitorCC)
 
 	a := agent.NewAgentServer(ctx,
-		agent.WithUsageLimits(&types.UsageLimits{
+		agent.WithUsageLimits(&metrics.UsageLimits{
 			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
 			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
 			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,

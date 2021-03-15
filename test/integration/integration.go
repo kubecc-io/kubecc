@@ -55,15 +55,6 @@ func NewTestController(ctx context.Context) *TestController {
 	}
 }
 
-func (tc *TestController) Dial(ctx context.Context) (types.AgentClient, error) {
-	tc.agentListenersLock.Lock()
-	defer tc.agentListenersLock.Unlock()
-
-	listener := tc.agentListeners[meta.UUID(ctx)]
-	cc := dial(ctx, listener)
-	return types.NewAgentClient(cc), nil
-}
-
 func dial(
 	ctx context.Context,
 	dialer *bufconn.Listener,
@@ -80,7 +71,7 @@ func dial(
 	return cc
 }
 
-func (tc *TestController) startAgent(cfg *types.UsageLimits) {
+func (tc *TestController) startAgent(cfg *metrics.UsageLimits) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
 		meta.WithProvider(identity.UUID),
@@ -110,7 +101,6 @@ func (tc *TestController) startAgent(cfg *types.UsageLimits) {
 		}),
 		agent.WithToolchainRunners(testtoolchain.AddToStore),
 	)
-	types.RegisterAgentServer(srv, agentSrv)
 	mgr := servers.NewStreamManager(ctx, agentSrv)
 	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
@@ -144,9 +134,6 @@ func (tc *TestController) startScheduler() {
 	cacheClient := types.NewCacheClient(cc)
 
 	sc := scheduler.NewSchedulerServer(ctx,
-		scheduler.WithSchedulerOptions(
-			scheduler.WithAgentDialer(tc),
-		),
 		scheduler.WithMonitorClient(monClient),
 		scheduler.WithCacheClient(cacheClient),
 	)
@@ -237,7 +224,7 @@ func (tc *TestController) startCache() {
 	}()
 }
 
-func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
+func (tc *TestController) startConsumerd(cfg *metrics.UsageLimits) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumerd)),
 		meta.WithProvider(identity.UUID),
@@ -283,8 +270,8 @@ func (tc *TestController) startConsumerd(cfg *types.UsageLimits) {
 }
 
 type TestOptions struct {
-	Clients []*types.UsageLimits
-	Agents  []*types.UsageLimits
+	Clients []*metrics.UsageLimits
+	Agents  []*metrics.UsageLimits
 }
 
 func (tc *TestController) Start(ops TestOptions) {

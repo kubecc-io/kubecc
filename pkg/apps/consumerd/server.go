@@ -5,10 +5,9 @@ import (
 	"io/fs"
 	"time"
 
-	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -22,7 +21,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 type consumerdServer struct {
@@ -50,7 +48,7 @@ type ConsumerdServerOptions struct {
 	schedulerClient     types.SchedulerClient
 	monitorClient       types.MonitorClient
 	schedulerConnection *grpc.ClientConn
-	usageLimits         *types.UsageLimits
+	usageLimits         *metrics.UsageLimits
 }
 
 type consumerdServerOption func(*ConsumerdServerOptions)
@@ -93,7 +91,7 @@ func WithMonitorClient(
 	}
 }
 
-func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
+func WithUsageLimits(cpuConfig *metrics.UsageLimits) consumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.usageLimits = cpuConfig
 	}
@@ -126,8 +124,8 @@ func NewConsumerdServer(
 		srv.connection = options.schedulerConnection
 	}
 	if options.monitorClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient,
-			metrics.Buffered|metrics.Discard)
+		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
+			clients.Buffered|clients.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -192,44 +190,41 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 	return nil
 }
 
-func (s *consumerdServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
-func (s *consumerdServer) postQueueParams() {
-	qp := &common.QueueParams{}
-	s.localExecutor.CompleteQueueParams(qp)
+func (s *consumerdServer) postUsageLimits() {
+	qp := &metrics.UsageLimits{}
+	s.localExecutor.CompleteUsageLimits(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *consumerdServer) postTaskStatus() {
-	ts := &common.TaskStatus{}
+	ts := &metrics.TaskStatus{}
 	s.localExecutor.CompleteTaskStatus(ts)  // Complete Running and Queued
 	s.remoteExecutor.CompleteTaskStatus(ts) // Complete Delegated
 	s.metricsProvider.Post(ts)
 }
 
-func (s *consumerdServer) postQueueStatus() {
-	qs := &common.QueueStatus{}
-	s.localExecutor.CompleteQueueStatus(qs)
-	s.metricsProvider.Post(qs)
+func (s *consumerdServer) postTotals() {
+	s.metricsProvider.Post(&metrics.LocalTasksCompleted{
+		Total: s.localTasksCompleted.Load(),
+	})
 }
 
-func (s *consumerdServer) postTotals() {
-	s.metricsProvider.Post(&cdmetrics.LocalTasksCompleted{
-		Total: s.localTasksCompleted.Load(),
+func (s *consumerdServer) postToolchains() {
+	s.metricsProvider.Post(&metrics.Toolchains{
+		Items: s.tcStore.ItemsList(),
 	})
 }
 
 func (s *consumerdServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postQueueParams()
+	s.postUsageLimits()
+	s.postToolchains()
 
 	slowTimer := util.NewJitteredTimer(5*time.Second, 0.25)
 	go func() {
 		for {
 			<-slowTimer
-			s.postQueueParams()
+			s.postUsageLimits()
 			s.postTotals()
 		}
 	}()
@@ -239,7 +234,13 @@ func (s *consumerdServer) StartMetricsProvider() {
 		for {
 			<-fastTimer
 			s.postTaskStatus()
-			s.postQueueStatus()
+		}
+	}()
+
+	go func() {
+		for {
+			<-s.storeUpdateCh
+			s.postToolchains()
 		}
 	}()
 }
@@ -298,10 +299,11 @@ func (c *consumerdServer) Run(
 		c.lg.Info("Running local, scheduler disconnected")
 		canRunRemote = false
 	}
-	if !c.remoteOnly && c.localExecutor.Status() == types.Available {
-		c.lg.Info("Running local, not at capacity yet")
-		canRunRemote = false
-	}
+	// todo
+	// if !c.remoteOnly && c.localExecutor.Status() == types.Available {
+	// 	c.lg.Info("Running local, not at capacity yet")
+	// 	canRunRemote = false
+	// }
 
 	if !canRunRemote {
 		defer c.localTasksCompleted.Inc()
@@ -325,41 +327,41 @@ func (c *consumerdServer) Run(
 	}
 }
 
-func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
-	select {
-	case c.storeUpdateCh <- struct{}{}:
-	default:
-	}
-	for {
-		select {
-		case <-c.storeUpdateCh:
-			copiedItems := []*types.Toolchain{}
-			for tc := range c.tcStore.Items() {
-				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
-			}
-			err := stream.SendMsg(&types.Metadata{
-				Toolchains: &types.Toolchains{
-					Items: copiedItems,
-				},
-			})
-			if err != nil {
-				c.lg.With(
-					zap.Error(err),
-				).Error("Error sending updated toolchains to scheduler")
-				return err
-			}
-		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
-			return err
-		case <-c.srvContext.Done():
-			return nil
-		}
-	}
-}
+// func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+// 	select {
+// 	case c.storeUpdateCh <- struct{}{}:
+// 	default:
+// 	}
+// 	for {
+// 		select {
+// 		case <-c.storeUpdateCh:
+// 			copiedItems := []*types.Toolchain{}
+// 			for tc := range c.tcStore.Items() {
+// 				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
+// 			}
+// 			err := stream.SendMsg(&types.Metadata{
+// 				Toolchains: &metrics.Toolchains{
+// 					Items: copiedItems,
+// 				},
+// 			})
+// 			if err != nil {
+// 				c.lg.With(
+// 					zap.Error(err),
+// 				).Error("Error sending updated toolchains to scheduler")
+// 				return err
+// 			}
+// 		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
+// 			return err
+// 		case <-c.srvContext.Done():
+// 			return nil
+// 		}
+// 	}
+// }
 
-func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
-	return c.schedulerClient.ConnectConsumerd(c.srvContext)
-}
+// func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
+// 	return c.schedulerClient.ConnectConsumerd(c.srvContext)
+// }
 
-func (c *consumerdServer) Target() string {
-	return "scheduler"
-}
+// func (c *consumerdServer) Target() string {
+// 	return "scheduler"
+// }

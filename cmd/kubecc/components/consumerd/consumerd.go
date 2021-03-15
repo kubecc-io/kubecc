@@ -13,6 +13,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -57,7 +58,7 @@ func run(cmd *cobra.Command, args []string) {
 	monitorClient := types.NewMonitorClient(monitorCC)
 
 	d := consumerd.NewConsumerdServer(ctx,
-		consumerd.WithUsageLimits(&types.UsageLimits{
+		consumerd.WithUsageLimits(&metrics.UsageLimits{
 			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
 			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
 			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
@@ -75,9 +76,9 @@ func run(cmd *cobra.Command, args []string) {
 		consumerd.WithMonitorClient(monitorClient),
 	)
 
-	mgr := servers.NewStreamManager(ctx, d)
-	go d.StartMetricsProvider()
-	go mgr.Run()
+	// mgr := servers.NewStreamManager(ctx, d)
+	// go d.StartMetricsProvider()
+	// go mgr.Run()
 
 	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {

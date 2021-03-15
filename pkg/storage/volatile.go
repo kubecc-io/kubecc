@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/karlseguin/ccache/v2"
 	"go.uber.org/atomic"
@@ -129,7 +129,7 @@ func (sp *volatileStorageProvider) Query(
 	return results, nil
 }
 
-func (sp *volatileStorageProvider) UsageInfo() *metrics.UsageInfo {
+func (sp *volatileStorageProvider) UsageInfo() *metrics.CacheUsage {
 	totalSize := sp.totalSize.Load()
 	var usagePercent float64
 	if sp.storageLimit == 0 {
@@ -137,7 +137,7 @@ func (sp *volatileStorageProvider) UsageInfo() *metrics.UsageInfo {
 	} else {
 		usagePercent = float64(totalSize) / float64(sp.storageLimit)
 	}
-	return &metrics.UsageInfo{
+	return &metrics.CacheUsage{
 		ObjectCount:  int64(sp.cache.ItemCount()),
 		TotalSize:    totalSize,
 		UsagePercent: usagePercent,

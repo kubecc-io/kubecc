@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/ui"
@@ -40,7 +40,7 @@ to quickly create a Cobra application.`,
 			))),
 		)
 		client := types.NewMonitorClient(cc)
-		listener := metrics.NewListener(ctx, client)
+		listener := clients.NewListener(ctx, client)
 		display := ui.NewStatusDisplay()
 
 		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
@@ -55,13 +55,10 @@ to quickly create a Cobra application.`,
 			}
 
 			display.AddAgent(pctx, info)
-			listener.OnValueChanged(uuid, func(qp *common.QueueParams) {
+			listener.OnValueChanged(uuid, func(qp *metrics.UsageLimits) {
 				display.Update(uuid, qp)
 			})
-			listener.OnValueChanged(uuid, func(qs *common.QueueStatus) {
-				display.Update(uuid, qs)
-			})
-			listener.OnValueChanged(uuid, func(ts *common.TaskStatus) {
+			listener.OnValueChanged(uuid, func(ts *metrics.TaskStatus) {
 				display.Update(uuid, ts)
 			})
 			<-pctx.Done()

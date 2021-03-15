@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 )
 
 type noopProvider struct{}
@@ -12,7 +13,9 @@ func NewNoopProvider() Provider {
 	return &noopProvider{}
 }
 
-func (noopProvider) Post(KeyedMetric) {}
+func (noopProvider) Post(proto.Message) {}
+
+func (noopProvider) PostContext(proto.Message, context.Context) {}
 
 type noopListener struct{}
 

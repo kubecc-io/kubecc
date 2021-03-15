@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -15,9 +15,8 @@ import (
 type agent struct {
 	ctx         context.Context
 	info        *types.WhoisResponse
-	queueParams *common.QueueParams
-	taskStatus  *common.TaskStatus
-	queueStatus *common.QueueStatus
+	usageLimits *metrics.UsageLimits
+	taskStatus  *metrics.TaskStatus
 }
 
 type StatusDisplay struct {
@@ -38,14 +37,13 @@ func (s *StatusDisplay) makeRows() [][]string {
 	defer s.mutex.RUnlock()
 
 	rows := make([][]string, 0)
-	header := []string{"ID", "Running Tasks", "Queued Tasks", "Queue Status"}
+	header := []string{"ID", "Running Tasks", "Queued Tasks"}
 	rows = append(rows, header)
 	for _, agent := range s.agents {
 		row := []string{
 			fmt.Sprintf("[%s] %s", agent.info.Component.Name(), agent.info.Address),
-			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.queueParams.ConcurrentProcessLimit),
+			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.usageLimits.ConcurrentProcessLimit),
 			fmt.Sprint(agent.taskStatus.NumQueued),
-			types.QueueStatus(agent.queueStatus.QueueStatus).String(),
 		}
 		rows = append(rows, row)
 	}
@@ -57,9 +55,8 @@ func (s *StatusDisplay) AddAgent(ctx context.Context, info *types.WhoisResponse)
 	s.agents = append(s.agents, &agent{
 		ctx:         ctx,
 		info:        info,
-		queueParams: &common.QueueParams{},
-		taskStatus:  &common.TaskStatus{},
-		queueStatus: &common.QueueStatus{},
+		usageLimits: &metrics.UsageLimits{},
+		taskStatus:  &metrics.TaskStatus{},
 	})
 	s.mutex.Unlock()
 	s.redraw()
@@ -86,12 +83,10 @@ func (s *StatusDisplay) Update(uuid string, params interface{}) {
 		}
 	}
 	switch p := params.(type) {
-	case *common.QueueParams:
-		s.agents[index].queueParams = p
-	case *common.TaskStatus:
+	case *metrics.UsageLimits:
+		s.agents[index].usageLimits = p
+	case *metrics.TaskStatus:
 		s.agents[index].taskStatus = p
-	case *common.QueueStatus:
-		s.agents[index].queueStatus = p
 	}
 	s.mutex.Unlock()
 	s.redraw()

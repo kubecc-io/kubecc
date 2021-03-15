@@ -8,21 +8,21 @@ import (
 	"net"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type Receiver interface {
-	Send(*types.Value) error
+	Send(*anypb.Any) error
 }
 
 type MonitorServer struct {
@@ -93,22 +93,18 @@ func (m *MonitorServer) runPrometheusListener() {
 	servePrometheusMetrics(m.srvContext, client)
 }
 
-func (m *MonitorServer) encodeProviders() []byte {
-	m.providerMutex.RLock()
-	defer m.providerMutex.RUnlock()
-	return util.EncodeMsgp(m.providers)
-}
-
 // bucketMutex must not be held by the same thread when calling this function.
 func (m *MonitorServer) providersUpdated() {
-	err := m.post(&types.Metric{
+	any, err := anypb.New(m.providers)
+	if err != nil {
+		panic(err)
+	}
+	err = m.post(&types.Metric{
 		Key: &types.Key{
 			Bucket: metrics.MetaBucket,
-			Name:   metrics.Providers{}.Key(),
+			Name:   any.GetTypeUrl(),
 		},
-		Value: &types.Value{
-			Data: m.encodeProviders(),
-		},
+		Value: any,
 	})
 	if err != nil {
 		panic(err)
@@ -157,11 +153,11 @@ func (m *MonitorServer) Stream(
 	store := m.storeCreator.NewStore(bucketCtx)
 	m.buckets[uuid] = store
 	if m.providers.Items == nil {
-		m.providers.Items = make(map[string]metrics.ProviderInfo)
+		m.providers.Items = make(map[string]*metrics.ProviderInfo)
 	}
-	m.providers.Items[uuid] = metrics.ProviderInfo{
+	m.providers.Items[uuid] = &metrics.ProviderInfo{
 		UUID:      uuid,
-		Component: int32(component),
+		Component: component,
 		Address:   addr,
 	}
 	providerCount.Inc()
@@ -218,10 +214,16 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
-var storeContentsKey = (&types.Key{
-	Bucket: metrics.MetaBucket,
-	Name:   metrics.StoreContents{}.Key(),
-}).Canonical()
+var storeContentsKey string
+
+func init() {
+	sc := &metrics.StoreContents{}
+	any, err := anypb.New(sc)
+	if err != nil {
+		panic(err)
+	}
+	storeContentsKey = any.GetTypeUrl()
+}
 
 func (m *MonitorServer) notifyStoreMeta() {
 	m.listenerMutex.RLock()
@@ -229,25 +231,31 @@ func (m *MonitorServer) notifyStoreMeta() {
 
 	if listeners, ok := m.listeners[storeContentsKey]; ok {
 		contents := &metrics.StoreContents{
-			Buckets: []metrics.BucketSpec{},
+			Buckets: []*metrics.BucketSpec{},
 		}
 		for k, v := range m.buckets {
-			copied := map[string][]byte{}
+			copied := map[string]*anypb.Any{}
 			for _, key := range v.Keys() {
 				if value, ok := v.Get(key); ok {
-					copied[key] = value
+					any, err := anypb.New(value)
+					if err != nil {
+						m.lg.Error(err)
+						continue
+					}
+					copied[key] = any
 				}
 			}
-			contents.Buckets = append(contents.Buckets, metrics.BucketSpec{
+			contents.Buckets = append(contents.Buckets, &metrics.BucketSpec{
 				Name: k,
 				Data: copied,
 			})
 		}
-		encoded := util.EncodeMsgp(contents)
 		for _, v := range listeners {
-			err := v.Send(&types.Value{
-				Data: encoded,
-			})
+			any, err := anypb.New(contents)
+			if err != nil {
+				panic(err)
+			}
+			err = v.Send(any)
 			if err != nil {
 				m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 			}
@@ -264,7 +272,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			store.Delete(metric.Key.Name)
 			return nil
 		}
-		if store.CAS(metric.Key.Name, metric.Value.Data) {
+		if store.CAS(metric.Key.Name, metric.Value) {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")
@@ -317,9 +325,11 @@ func (m *MonitorServer) Listen(
 
 	// late join
 	if value, ok := bucket.Get(key.Name); ok {
-		err := srv.Send(&types.Value{
-			Data: value,
-		})
+		any, err := anypb.New(value)
+		if err != nil {
+			panic(err)
+		}
+		err = srv.Send(any)
 		if err != nil {
 			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 		}
