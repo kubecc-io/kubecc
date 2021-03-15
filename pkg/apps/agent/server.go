@@ -2,13 +2,11 @@ package agent
 
 import (
 	"context"
-	"errors"
-	"io"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -16,6 +14,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type AgentServer struct {
@@ -25,8 +24,8 @@ type AgentServer struct {
 	executor        run.Executor
 	lg              *zap.SugaredLogger
 	tcStore         *toolchains.Store
+	tcRunStore      *run.ToolchainRunnerStore
 	metricsProvider metrics.Provider
-	taskStreamMgr   *TaskStreamManager
 }
 
 type AgentServerOptions struct {
@@ -34,7 +33,7 @@ type AgentServerOptions struct {
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
 	monitorClient    types.MonitorClient
-	usageLimits      *types.UsageLimits
+	usageLimits      *metrics.UsageLimits
 }
 
 type agentServerOption func(*AgentServerOptions)
@@ -69,7 +68,7 @@ func WithMonitorClient(client types.MonitorClient) agentServerOption {
 	}
 }
 
-func WithUsageLimits(usageLimits *types.UsageLimits) agentServerOption {
+func WithUsageLimits(usageLimits *metrics.UsageLimits) agentServerOption {
 	return func(o *AgentServerOptions) {
 		o.usageLimits = usageLimits
 	}
@@ -93,51 +92,38 @@ func NewAgentServer(
 		lg:                 meta.Log(ctx),
 		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
 		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
+		tcRunStore:         runStore,
 	}
-	srv.taskStreamMgr = &TaskStreamManager{
-		srvContext:      ctx,
-		lg:              meta.Log(ctx),
-		schedulerClient: options.schedulerClient,
-		tcStore:         srv.tcStore,
-		tcRunStore:      runStore,
-		executor:        srv.executor,
-	}
-	mgr := servers.NewStreamManager(ctx, srv.taskStreamMgr)
+
+	mgr := servers.NewStreamManager(ctx, srv)
 	go mgr.Run()
 
 	return srv
 }
 
-func (s *AgentServer) postQueueParams() {
-	qp := &common.QueueParams{}
-	s.executor.CompleteQueueParams(qp)
+func (s *AgentServer) postUsageLimits() {
+	qp := &metrics.UsageLimits{}
+	s.executor.CompleteUsageLimits(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *AgentServer) postTaskStatus() {
-	ts := &common.TaskStatus{}
+	ts := &metrics.TaskStatus{}
 	s.executor.CompleteTaskStatus(ts)
 	s.metricsProvider.Post(ts)
 }
 
-func (s *AgentServer) postQueueStatus() {
-	qs := &common.QueueStatus{}
-	s.executor.CompleteQueueStatus(qs)
-	s.metricsProvider.Post(qs)
-}
-
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.metricsProvider = metrics.NewMonitorProvider(s.srvContext, s.monitorClient,
-		metrics.Buffered|metrics.Discard)
-	s.postQueueParams()
+	s.metricsProvider = clients.NewMonitorProvider(s.srvContext, s.monitorClient,
+		clients.Buffered|clients.Discard)
+	s.postUsageLimits()
 
 	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
 		for {
 			<-fastTimer
 			s.postTaskStatus()
-			s.postQueueStatus()
 		}
 	}()
 
@@ -145,48 +131,100 @@ func (s *AgentServer) StartMetricsProvider() {
 	go func() {
 		for {
 			<-slowTimer
-			s.postQueueParams()
+			s.postUsageLimits()
 		}
 	}()
 }
 
 func (s *AgentServer) SetUsageLimits(
 	ctx context.Context,
-	usageLimits *types.UsageLimits,
+	usageLimits *metrics.UsageLimits,
 ) (*types.Empty, error) {
 	s.executor.(*run.QueuedExecutor).SetUsageLimits(usageLimits)
 	s.usageLimits = usageLimits
-	s.postQueueParams()
+	s.postUsageLimits()
 	return &types.Empty{}, nil
 }
 
 func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
-	s.lg.Info("Streaming metadata to scheduler")
-	defer s.lg.Warn("Stream closed")
-	err := stream.SendMsg(&types.Metadata{
-		Toolchains: &types.Toolchains{
-			Items: s.tcStore.ItemsList(),
-		},
-	})
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return stream.RecvMsg(nil)
+	s.lg.Info("Streaming tasks from scheduler")
+	defer s.lg.Warn("Task stream closed")
+	streamCtx := stream.Context()
+	for {
+		compileRequest := &types.CompileRequest{}
+		err := stream.RecvMsg(compileRequest)
+		if err != nil {
+			return err
 		}
-		s.lg.Error(err)
-		return err
-	}
-	select {
-	case err := <-servers.EmptyServerStreamDone(s.srvContext, stream):
-		return err
-	case <-s.srvContext.Done():
-		return nil
+		go func() {
+			err := stream.SendMsg(s.compile(streamCtx, compileRequest))
+			if err != nil {
+				s.lg.With(
+					zap.Error(err),
+				).Error("Error sending response to scheduler")
+			}
+		}()
 	}
 }
 
 func (s *AgentServer) TryConnect() (grpc.ClientStream, error) {
-	return s.schedulerClient.ConnectAgent(s.srvContext)
+	tcs := s.tcStore.ItemsList()
+	md := toolchains.CreateMetadata(&metrics.Toolchains{
+		Items: tcs,
+	})
+	ctx := metadata.NewOutgoingContext(s.srvContext, md)
+	return s.schedulerClient.StreamIncomingTasks(ctx)
 }
 
 func (s *AgentServer) Target() string {
 	return "scheduler"
+}
+
+func (s *AgentServer) compile(
+	ctx context.Context,
+	req *types.CompileRequest,
+) *types.CompileResponse {
+	makeInternalErr := func(err string) *types.CompileResponse {
+		return &types.CompileResponse{
+			RequestID:     req.RequestID,
+			CompileResult: types.CompileResponse_InternalError,
+			Data: &types.CompileResponse_Error{
+				Error: err,
+			},
+		}
+	}
+
+	s.lg.Debug("Handling compile request")
+	if err := meta.CheckContext(ctx); err != nil {
+		return makeInternalErr(err.Error())
+	}
+
+	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
+	if err != nil {
+		s.lg.Error(err)
+	} else {
+		defer span.Finish()
+	}
+
+	runner, err := s.tcRunStore.Get(req.GetToolchain().Kind)
+	if err != nil {
+		return makeInternalErr("No toolchain runner available")
+	}
+
+	tc, err := s.tcStore.TryMatch(req.GetToolchain())
+	if err != nil {
+		return makeInternalErr(err.Error())
+	}
+
+	// Swap remote toolchain with the local toolchain in case the executable
+	// path is different locally
+	req.Toolchain = tc
+	resp, err := runner.RecvRemote().Run(run.Contexts{
+		ServerContext: s.srvContext,
+		ClientContext: sctx,
+	}, s.executor, req)
+	if err != nil {
+		return makeInternalErr(err.Error())
+	}
+	return resp.(*types.CompileResponse)
 }

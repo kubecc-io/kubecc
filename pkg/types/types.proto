@@ -1,5 +1,8 @@
 syntax = "proto3";
-option go_package = "pkg/types";
+option go_package = "github.com/cobalt77/kubecc/pkg/types";
+import "google/protobuf/any.proto";
+
+package types;
 
 message Empty {}
 
@@ -9,14 +12,13 @@ service Consumerd {
 
 service Scheduler {
   rpc Compile(CompileRequest) returns (CompileResponse);
-  rpc ConnectAgent(stream Metadata) returns (stream Empty);
-  rpc ConnectConsumerd(stream Metadata) returns (stream Empty);
-  rpc StreamTasks(stream CompileResponse) returns (stream CompileRequest);
+  rpc StreamIncomingTasks(stream CompileResponse) returns (stream CompileRequest);
+  rpc StreamOutgoingTasks(stream CompileRequest) returns (stream CompileResponse);
 }
 
 service Monitor {
   rpc Stream(stream Metric) returns (stream Empty);
-  rpc Listen(Key) returns (stream Value);
+  rpc Listen(Key) returns (stream google.protobuf.Any);
   rpc Whois(WhoisRequest) returns (WhoisResponse);
 }
 
@@ -90,30 +92,12 @@ message WhoisResponse {
 
 message Metric {
   Key Key = 1;
-  Value Value = 2;
+  google.protobuf.Any Value = 2;
 }
 
 message Key {
   string Bucket = 1;
   string Name = 2;
-}
-
-message Value {
-  bytes Data = 1;
-}
-
-message UsageLimits {
-  int32 ConcurrentProcessLimit = 1;
-  double QueuePressureMultiplier = 2;
-  double QueueRejectMultiplier = 3;
-}
-
-message Toolchains {
-  repeated Toolchain Items = 1;
-}
-
-message Metadata {
-  Toolchains Toolchains = 2;
 }
 
 enum Component {
@@ -129,13 +113,6 @@ enum Component {
   Component_CLI = 9;
   Component_Monitor = 10;
   Component_Cache = 11;
-}
-
-enum QueueStatus {
-  Available = 0;
-  Queueing = 1;
-  QueuePressure = 2;
-  QueueFull = 3;
 }
 
 enum ToolchainKind {
@@ -198,25 +175,12 @@ message ScheduleRequest {}
 // scheduler -> consumerd
 message ScheduleResponse {}
 
-
-message AgentInfo {
-  string Node = 4;
-  string Pod = 5;
-  string Namespace = 6;
-}
-
-message SystemInfo {
-  string Arch = 1;
-  int32 CpuThreads = 2;
-  uint64 SystemMemory = 3;
-  string Hostname = 4;
-}
-
 // consumerd -> scheduler -> agent
 message CompileRequest {
-  Toolchain Toolchain = 1;
-  repeated string Args = 2;
-  bytes PreprocessedSource = 3;
+  string RequestID = 1;
+  Toolchain Toolchain = 2;
+  repeated string Args = 3;
+  bytes PreprocessedSource = 4;
 }
 
 // agent -> scheduler -> consumerd
@@ -224,11 +188,20 @@ message CompileResponse {
   enum Result {
     Success = 0;
     Fail = 1;
+    InternalError = 2;
   }
-  Result CompileResult = 1;
-  int64 CpuSecondsUsed = 2;
+  string RequestID = 1;
+  Result CompileResult = 2;
+  int64 CpuSecondsUsed = 3;
   oneof Data {
-    string Error = 3;
-    bytes CompiledSource = 4;
+    string Error = 4;
+    bytes CompiledSource = 5;
   }
+}
+
+message SystemInfo {
+  string Arch = 1;
+  int32 CpuThreads = 2;
+  uint64 SystemMemory = 3;
+  string Hostname = 4;
 }

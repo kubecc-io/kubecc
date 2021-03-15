@@ -12,9 +12,7 @@ import (
 	"github.com/smallnest/weighted"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 )
 
@@ -106,9 +104,9 @@ func (s *Scheduler) Schedule(
 			}
 		}
 		agent := next.(*Agent)
-		agentClient := agent.Client
+		agentStream := agent.Stream
 		s.wLock.Unlock()
-		response, err := agentClient.Compile(ctx, req, grpc.UseCompressor(gzip.Name))
+		err := agentStream.Send(req)
 		if status.Code(err) == codes.Unavailable {
 			s.lg.With(
 				zap.Error(err),
@@ -149,7 +147,7 @@ func (s *Scheduler) AgentConnected(ctx context.Context) error {
 		return status.Error(codes.AlreadyExists, "Agent already connected")
 	}
 	var err error
-	agent.Client, err = s.agentDialer.Dial(ctx)
+	agent.Stream, err = s.agentDialer.Dial(ctx)
 	if err != nil {
 		return status.Error(codes.Internal,
 			fmt.Sprintf("Error dialing agent: %s", err.Error()))

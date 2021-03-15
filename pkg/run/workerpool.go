@@ -51,6 +51,8 @@ type worker struct {
 
 func (w *worker) Run() {
 	for {
+		// Checking stopQueue up front allows it to terminate immediately,
+		// since if both channels can be read from, go will pick one at random.
 		select {
 		case <-w.stopQueue:
 			return

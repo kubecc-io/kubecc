@@ -1,17 +1,15 @@
 package commands
 
 import (
-	"bytes"
 	"encoding/json"
 	"strings"
 
-	monitormetrics "github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
-	"github.com/tinylib/msgp/msgp"
 )
 
 // monitorCmd represents the monitor command.
@@ -20,19 +18,13 @@ var monitorCmd = &cobra.Command{
 	Short: "Commands to interact with the monitor",
 }
 
-func onValueChanged(tb *ui.TextBox) func(*monitormetrics.StoreContents) {
-	return func(contents *monitormetrics.StoreContents) {
+func onValueChanged(tb *ui.TextBox) func(*metrics.StoreContents) {
+	return func(contents *metrics.StoreContents) {
 		printable := map[string]interface{}{}
 		for _, bucket := range contents.Buckets {
 			jsonContents := map[string]string{}
 			for k, v := range bucket.Data {
-				buf := new(bytes.Buffer)
-				_, err := msgp.UnmarshalAsJSON(buf, v)
-				if err != nil {
-					jsonContents[k] = "<error>"
-				} else {
-					jsonContents[k] = buf.String()
-				}
+				jsonContents[k] = v.String()
 			}
 			printable[bucket.Name] = jsonContents
 		}
@@ -57,10 +49,10 @@ var listenCmd = &cobra.Command{
 			cliLog.Fatal(err)
 		}
 		client := types.NewMonitorClient(cc)
-		listener := metrics.NewListener(cliContext, client)
+		listener := clients.NewListener(cliContext, client)
 		tb := &ui.TextBox{}
 
-		listener.OnValueChanged(monitormetrics.MetaBucket, onValueChanged(tb)).
+		listener.OnValueChanged(metrics.MetaBucket, onValueChanged(tb)).
 			OrExpired(func() metrics.RetryOptions {
 				tb.SetText("-- KEY EXPIRED -- \n\n" + tb.Paragraph.Text)
 				return metrics.NoRetry

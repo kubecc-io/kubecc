@@ -5,6 +5,7 @@ import (
 	. "github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -23,7 +24,7 @@ var _ = Describe("Run", func() {
 
 	When("something", func() {
 		It("should do something", func() {
-			exec := run.NewQueuedExecutor(run.WithUsageLimits(&types.UsageLimits{
+			exec := run.NewQueuedExecutor(run.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit:  1,
 				QueuePressureMultiplier: 1,
 				QueueRejectMultiplier:   1,

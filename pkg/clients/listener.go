@@ -1,4 +1,4 @@
-package metrics
+package clients
 
 import (
 	"context"
@@ -7,16 +7,17 @@ import (
 	"reflect"
 	"sync"
 
-	mmetrics "github.com/cobalt77/kubecc/pkg/apps/monitor/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type monitorListener struct {
@@ -32,7 +33,7 @@ func NewListener(
 	ctx context.Context,
 	client types.MonitorClient,
 	streamOpts ...servers.StreamManagerOption,
-) Listener {
+) metrics.Listener {
 	listener := &monitorListener{
 		ctx:            ctx,
 		lg:             meta.Log(ctx),
@@ -45,7 +46,7 @@ func NewListener(
 }
 
 func (l *monitorListener) OnProviderAdded(handler func(context.Context, string)) {
-	doUpdate := func(providers *mmetrics.Providers) {
+	doUpdate := func(providers *metrics.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
 				pctx, cancel := context.WithCancel(context.Background())
@@ -62,30 +63,21 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 		}
 	}
 
-	l.OnValueChanged(mmetrics.MetaBucket, func(providers *mmetrics.Providers) {
+	l.OnValueChanged(metrics.MetaBucket, func(providers *metrics.Providers) {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(providers)
-	}).OrExpired(func() RetryOptions {
+	}).OrExpired(func() metrics.RetryOptions {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
-		doUpdate(&mmetrics.Providers{
-			Items: make(map[string]mmetrics.ProviderInfo),
-		})
-		return Retry
+		doUpdate(&metrics.Providers{})
+		return metrics.Retry
 	})
 }
 
-type RetryOptions uint32
-
-const (
-	NoRetry RetryOptions = iota
-	Retry
-)
-
 type changeListener struct {
 	ctx            context.Context
-	expiredHandler func() RetryOptions
+	expiredHandler func() metrics.RetryOptions
 	handler        reflect.Value
 	ehMutex        *sync.Mutex
 	monClient      types.MonitorClient
@@ -93,25 +85,24 @@ type changeListener struct {
 	argType        reflect.Type
 }
 
-func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
+func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
+	stream := clientStream.(types.Monitor_ListenClient)
 	lg := meta.Log(cl.ctx)
 	argValue := reflect.New(cl.argType)
-	if _, ok := argValue.Interface().(msgp.Decodable); !ok {
-		panic("Handler argument is not msgp.Decodable")
+	var msgReflect protoreflect.ProtoMessage
+	if msg, ok := argValue.Interface().(proto.Message); !ok {
+		msgReflect = msg
+		panic("Handler argument does not implement proto.Message")
 	}
-	decodable := argValue.Interface().(msgp.Decodable)
-
 	for {
-		rawData := &types.Value{}
-		err := stream.RecvMsg(rawData)
+		any, err := stream.Recv()
 		if errors.Is(err, io.EOF) {
 			lg.Debug(err)
 			return nil
 		}
 		switch status.Code(err) {
 		case codes.OK:
-			err = util.DecodeMsgp(rawData.Data, decodable)
-			if err != nil {
+			if err := any.UnmarshalTo(msgReflect); err != nil {
 				lg.With(zap.Error(err)).Error("Error decoding value")
 				return err
 			}
@@ -120,7 +111,7 @@ func (cl *changeListener) HandleStream(stream grpc.ClientStream) error {
 			cl.ehMutex.Lock()
 			if cl.expiredHandler != nil {
 				retryOp := cl.expiredHandler()
-				if retryOp == Retry {
+				if retryOp == metrics.Retry {
 					cl.ehMutex.Unlock()
 					return err
 				}
@@ -146,7 +137,7 @@ func (s *changeListener) Target() string {
 	return "monitor"
 }
 
-func (c *changeListener) OrExpired(handler func() RetryOptions) {
+func (c *changeListener) OrExpired(handler func() metrics.RetryOptions) {
 	c.ehMutex.Lock()
 	defer c.ehMutex.Unlock()
 	c.expiredHandler = handler
@@ -169,7 +160,7 @@ func handlerArgType(handler interface{}) (reflect.Type, reflect.Value) {
 func (l *monitorListener) OnValueChanged(
 	bucket string,
 	handler interface{}, // func(type)
-) ChangeListener {
+) metrics.ChangeListener {
 	argType, funcValue := handlerArgType(handler)
 	cl := &changeListener{
 		ctx:       l.ctx,

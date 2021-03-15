@@ -2,11 +2,10 @@ package scheduler
 
 import (
 	"context"
-	"errors"
-	"io"
 	"time"
 
 	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -14,7 +13,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -31,6 +29,7 @@ type schedulerServer struct {
 	scheduler       *Scheduler
 	metricsProvider metrics.Provider
 	hashSrv         *util.HashServer
+	broker          *Broker
 
 	agentCount     *atomic.Int32
 	consumerdCount *atomic.Int32
@@ -83,12 +82,13 @@ func NewSchedulerServer(
 		scheduler:      NewScheduler(ctx, options.schedulerOptions...),
 		agentCount:     atomic.NewInt32(0),
 		consumerdCount: atomic.NewInt32(0),
+		broker:         NewBroker(ctx, options.monClient),
 		hashSrv:        util.NewHashServer(),
 	}
 
 	if options.monClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(
-			ctx, options.monClient, metrics.Discard)
+		srv.metricsProvider = clients.NewMonitorProvider(
+			ctx, options.monClient, clients.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -161,6 +161,7 @@ func (s *schedulerServer) Compile(
 			).Error("Error querying cache server")
 		}
 	}
+
 	resp, err := s.scheduler.Schedule(ctx, req)
 	if err == nil &&
 		resp.CompileResult == types.CompileResponse_Success &&
@@ -170,81 +171,120 @@ func (s *schedulerServer) Compile(
 	return resp, err
 }
 
-func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {
-	done := make(chan error)
-	ctx := srv.Context()
-	go func() {
-		defer close(done)
-		for {
-			metadata := &types.Metadata{}
-			err := srv.RecvMsg(metadata)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					s.lg.Debug(err)
-					done <- nil
-				} else {
-					s.lg.Error(err)
-					done <- err
-				}
-				return
-			}
-			if err := s.scheduler.SetToolchains(
-				ctx, metadata.Toolchains.GetItems()); err != nil {
-				s.lg.Error(err)
-			}
-		}
-	}()
-	return <-done
-}
+// func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {
+// 	done := make(chan error)
+// 	ctx := srv.Context()
+// 	go func() {
+// 		defer close(done)
+// 		for {
+// 			metadata := &types.Metadata{}
+// 			err := srv.RecvMsg(metadata)
+// 			if err != nil {
+// 				if errors.Is(err, io.EOF) {
+// 					s.lg.Debug(err)
+// 					done <- nil
+// 				} else {
+// 					s.lg.Error(err)
+// 					done <- err
+// 				}
+// 				return
+// 			}
+// 			if err := s.scheduler.SetToolchains(
+// 				ctx, metadata.Toolchains.GetItems()); err != nil {
+// 				s.lg.Error(err)
+// 			}
+// 		}
+// 	}()
+// 	return <-done
+// }
 
-func (s *schedulerServer) ConnectAgent(
-	srv types.Scheduler_ConnectAgentServer,
+// func (s *schedulerServer) ConnectAgent(
+// 	srv types.Scheduler_ConnectAgentServer,
+// ) error {
+// 	ctx := srv.Context()
+// 	if err := meta.CheckContext(ctx); err != nil {
+// 		s.lg.Error(err)
+// 		return err
+// 	}
+// 	if err := s.scheduler.AgentConnected(ctx); err != nil {
+// 		s.lg.Error(err)
+// 		return err
+// 	}
+
+// 	s.metricsProvider.Post(&scmetrics.AgentCount{
+// 		Count: s.agentCount.Inc(),
+// 	})
+// 	defer func() {
+// 		s.metricsProvider.Post(&scmetrics.AgentCount{
+// 			Count: s.agentCount.Dec(),
+// 		})
+// 	}()
+
+// 	return s.handleClientConnection(srv)
+// }
+
+// func (s *schedulerServer) StreamMetadata(
+// 	srv types.Scheduler_StreamMetadataServer,
+// ) error {
+// 	ctx := srv.Context()
+// 	if err := meta.CheckContext(ctx); err != nil {
+// 		s.lg.Error(err)
+// 		return err
+// 	}
+
+// 	if err := s.scheduler.ConsumerdConnected(ctx); err != nil {
+// 		s.lg.Error(err)
+// 		return err
+// 	}
+
+// 	s.metricsProvider.Post(&scmetrics.CdCount{
+// 		Count: s.consumerdCount.Inc(),
+// 	})
+// 	defer func() {
+// 		s.metricsProvider.Post(&scmetrics.CdCount{
+// 			Count: s.consumerdCount.Dec(),
+// 		})
+// 	}()
+
+// 	return s.handleClientConnection(srv)
+// }
+
+func (s *schedulerServer) StreamIncomingTasks(
+	srv types.Scheduler_StreamIncomingTasksServer,
 ) error {
 	ctx := srv.Context()
 	if err := meta.CheckContext(ctx); err != nil {
 		s.lg.Error(err)
 		return err
 	}
-	if err := s.scheduler.AgentConnected(ctx); err != nil {
-		s.lg.Error(err)
-		return err
+
+	s.broker.HandleIncomingTasksStream(srv)
+
+	select {
+	case <-srv.Context().Done():
+	case <-s.srvContext.Done():
 	}
 
-	s.metricsProvider.Post(&scmetrics.AgentCount{
-		Count: s.agentCount.Inc(),
-	})
-	defer func() {
-		s.metricsProvider.Post(&scmetrics.AgentCount{
-			Count: s.agentCount.Dec(),
-		})
-	}()
-
-	return s.handleClientConnection(srv)
+	return nil
 }
 
-func (s *schedulerServer) ConnectConsumerd(
-	srv types.Scheduler_ConnectConsumerdServer,
+func (s *schedulerServer) StreamOutgoingTasks(
+	srv types.Scheduler_StreamOutgoingTasksServer,
 ) error {
 	ctx := srv.Context()
 	if err := meta.CheckContext(ctx); err != nil {
 		s.lg.Error(err)
 		return err
 	}
-	if err := s.scheduler.ConsumerdConnected(ctx); err != nil {
-		s.lg.Error(err)
-		return err
+
+	s.broker.HandleOutgoingTasksStream(srv)
+
+	select {
+	case <-srv.Context().Done():
+	case <-s.srvContext.Done():
 	}
 
-	s.metricsProvider.Post(&scmetrics.CdCount{
-		Count: s.consumerdCount.Inc(),
-	})
-	defer func() {
-		s.metricsProvider.Post(&scmetrics.CdCount{
-			Count: s.consumerdCount.Dec(),
-		})
-	}()
-
-	return s.handleClientConnection(srv)
+	return nil
 }
 
 func (s *schedulerServer) postCounts() {
@@ -265,14 +305,14 @@ func (s *schedulerServer) postTotals() {
 
 func (s *schedulerServer) postAgentStats() {
 	for _, stat := range <-s.scheduler.CalcAgentStats() {
-		s.metricsProvider.Post(metrics.WithContext(stat.agentTasksTotal, stat.agentCtx))
-		s.metricsProvider.Post(metrics.WithContext(stat.agentWeight, stat.agentCtx))
+		s.metricsProvider.PostContext(stat.agentTasksTotal, stat.agentCtx)
+		s.metricsProvider.PostContext(stat.agentWeight, stat.agentCtx)
 	}
 }
 
 func (s *schedulerServer) postConsumerdStats() {
 	for _, stat := range <-s.scheduler.CalcConsumerdStats() {
-		s.metricsProvider.Post(metrics.WithContext(stat.cdRemoteTasksTotal, stat.consumerdCtx))
+		s.metricsProvider.PostContext(stat.cdRemoteTasksTotal, stat.consumerdCtx)
 	}
 }
 

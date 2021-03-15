@@ -2,19 +2,16 @@ package run
 
 import (
 	"github.com/cobalt77/kubecc/pkg/host"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"go.uber.org/atomic"
 )
 
 type ExecutorStatus int
 
 type Executor interface {
-	common.QueueParamsCompleter
-	common.TaskStatusCompleter
-	common.QueueStatusCompleter
+	metrics.UsageLimitsCompleter
+	metrics.TaskStatusCompleter
 	Exec(task *Task) error
-	Status() types.QueueStatus
 }
 
 type QueuedExecutor struct {
@@ -26,7 +23,7 @@ type QueuedExecutor struct {
 }
 
 type ExecutorOptions struct {
-	usageLimits *types.UsageLimits
+	usageLimits *metrics.UsageLimits
 }
 type ExecutorOption func(*ExecutorOptions)
 
@@ -36,7 +33,7 @@ func (o *ExecutorOptions) Apply(opts ...ExecutorOption) {
 	}
 }
 
-func WithUsageLimits(cfg *types.UsageLimits) ExecutorOption {
+func WithUsageLimits(cfg *metrics.UsageLimits) ExecutorOption {
 	return func(o *ExecutorOptions) {
 		o.usageLimits = cfg
 	}
@@ -47,7 +44,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options.Apply(opts...)
 
 	if options.usageLimits == nil {
-		options.usageLimits = &types.UsageLimits{
+		options.usageLimits = &metrics.UsageLimits{
 			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
 			QueuePressureMultiplier: 1,
 			QueueRejectMultiplier:   1,
@@ -75,7 +72,7 @@ func NewDelegatingExecutor() *DelegatingExecutor {
 	}
 }
 
-func (x *QueuedExecutor) SetUsageLimits(cfg *types.UsageLimits) {
+func (x *QueuedExecutor) SetUsageLimits(cfg *metrics.UsageLimits) {
 	x.usageLimits = cfg
 	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
 }
@@ -97,36 +94,15 @@ func (x *QueuedExecutor) Exec(
 	return task.Error()
 }
 
-func (x *QueuedExecutor) Status() types.QueueStatus {
-	queued := x.numQueued.Load()
-	running := x.numRunning.Load()
-
-	switch {
-	case running < x.usageLimits.ConcurrentProcessLimit:
-		return types.Available
-	case queued < int32(float64(x.usageLimits.ConcurrentProcessLimit)*
-		x.usageLimits.QueuePressureMultiplier):
-		return types.Queueing
-	case queued < int32(float64(x.usageLimits.ConcurrentProcessLimit)*
-		x.usageLimits.QueueRejectMultiplier):
-		return types.QueuePressure
-	}
-	return types.QueueFull
-}
-
-func (x *QueuedExecutor) CompleteQueueParams(stat *common.QueueParams) {
+func (x *QueuedExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {
 	stat.ConcurrentProcessLimit = x.usageLimits.ConcurrentProcessLimit
 	stat.QueuePressureMultiplier = x.usageLimits.QueuePressureMultiplier
 	stat.QueueRejectMultiplier = x.usageLimits.QueueRejectMultiplier
 }
 
-func (x *QueuedExecutor) CompleteTaskStatus(stat *common.TaskStatus) {
+func (x *QueuedExecutor) CompleteTaskStatus(stat *metrics.TaskStatus) {
 	stat.NumQueued = x.numQueued.Load()
 	stat.NumRunning = x.numRunning.Load()
-}
-
-func (x *QueuedExecutor) CompleteQueueStatus(stat *common.QueueStatus) {
-	stat.QueueStatus = int32(x.Status())
 }
 
 // DelegatingExecutor is an executor that does not run a worker pool,
@@ -149,14 +125,8 @@ func (x *DelegatingExecutor) Exec(task *Task) error {
 	return task.Error()
 }
 
-func (x *DelegatingExecutor) Status() types.QueueStatus {
-	return types.Available
-}
+func (x *DelegatingExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {}
 
-func (x *DelegatingExecutor) CompleteQueueParams(stat *common.QueueParams) {}
-
-func (x *DelegatingExecutor) CompleteTaskStatus(stat *common.TaskStatus) {
+func (x *DelegatingExecutor) CompleteTaskStatus(stat *metrics.TaskStatus) {
 	stat.NumDelegated = x.numTasks.Load()
 }
-
-func (x *DelegatingExecutor) CompleteQueueStatus(stat *common.QueueStatus) {}

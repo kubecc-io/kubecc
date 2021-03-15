@@ -31,7 +31,7 @@ func NewFooClient(cc grpc.ClientConnInterface) FooClient {
 
 func (c *fooClient) Foo(ctx context.Context, in *Baz, opts ...grpc.CallOption) (*Baz, error) {
 	out := new(Baz)
-	err := c.cc.Invoke(ctx, "/Foo/Foo", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/testutil.Foo/Foo", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func _Foo_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Foo/Foo",
+		FullMethod: "/testutil.Foo/Foo",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(FooServer).Foo(ctx, req.(*Baz))
@@ -88,7 +88,7 @@ func _Foo_Foo_Handler(srv interface{}, ctx context.Context, dec func(interface{}
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Foo_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Foo",
+	ServiceName: "testutil.Foo",
 	HandlerType: (*FooServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -97,7 +97,7 @@ var Foo_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/testpb.proto",
+	Metadata: "internal/testutil/testutil.proto",
 }
 
 // BarClient is the client API for Bar service.
@@ -116,7 +116,7 @@ func NewBarClient(cc grpc.ClientConnInterface) BarClient {
 }
 
 func (c *barClient) Bar(ctx context.Context, opts ...grpc.CallOption) (Bar_BarClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Bar_ServiceDesc.Streams[0], "/Bar/Bar", opts...)
+	stream, err := c.cc.NewStream(ctx, &Bar_ServiceDesc.Streams[0], "/testutil.Bar/Bar", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (x *barBarServer) Recv() (*Baz, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Bar_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Bar",
+	ServiceName: "testutil.Bar",
 	HandlerType: (*BarServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
@@ -215,5 +215,5 @@ var Bar_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "proto/testpb.proto",
+	Metadata: "internal/testutil/testutil.proto",
 }

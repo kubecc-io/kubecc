@@ -1,24 +1,29 @@
-package metrics
+package clients
 
 import (
 	"context"
 	"errors"
 	"io"
+	"sync"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type monitorProvider struct {
-	ctx           context.Context
-	lg            *zap.SugaredLogger
-	monClient     types.MonitorClient
-	postQueue     chan KeyedMetric
-	queueStrategy QueueStrategy
+	ctx               context.Context
+	lg                *zap.SugaredLogger
+	monClient         types.MonitorClient
+	postQueue         chan proto.Message
+	queueStrategy     QueueStrategy
+	metricCtxMap      map[string]context.CancelFunc
+	metricCtxMapMutex *sync.Mutex
 }
 
 type QueueStrategy int
@@ -33,19 +38,21 @@ func NewMonitorProvider(
 	ctx context.Context,
 	client types.MonitorClient,
 	qs QueueStrategy,
-) Provider {
-	var postQueue chan KeyedMetric
+) metrics.Provider {
+	var postQueue chan proto.Message
 	if (qs & Buffered) != 0 {
-		postQueue = make(chan KeyedMetric, 1e6)
+		postQueue = make(chan proto.Message, 1e6)
 	} else {
-		postQueue = make(chan KeyedMetric)
+		postQueue = make(chan proto.Message)
 	}
 
 	provider := &monitorProvider{
-		ctx:       ctx,
-		monClient: client,
-		postQueue: postQueue,
-		lg:        meta.Log(ctx),
+		ctx:               ctx,
+		monClient:         client,
+		postQueue:         postQueue,
+		lg:                meta.Log(ctx),
+		metricCtxMap:      make(map[string]context.CancelFunc),
+		metricCtxMapMutex: &sync.Mutex{},
 	}
 
 	mgr := servers.NewStreamManager(ctx, provider)
@@ -57,40 +64,17 @@ func (p *monitorProvider) HandleStream(stream grpc.ClientStream) error {
 	for {
 		select {
 		case metric := <-p.postQueue:
+			any, err := anypb.New(metric)
 			key := &types.Key{
 				Bucket: meta.UUID(p.ctx),
-				Name:   metric.Key(),
+				Name:   any.GetTypeUrl(),
 			}
 			p.lg.With(
 				types.ShortID(key.ShortID()),
 			).Debug("Posting metric")
-			if mctx, ok := metric.(ContextMetric); ok {
-				// The metric has a (presumably cancelable) context
-				// If it is canceled, send a deleter to the server
-				go func() {
-					if mctx.Context() != nil {
-						select {
-						case <-mctx.Context().Done():
-							p.Post(deleter{key: key.Name})
-						case <-p.ctx.Done():
-						}
-					} else {
-						<-p.ctx.Done()
-					}
-				}()
-			}
-			// Set the value to nil, which deletes the key, if metric is a deleter
-			var value *types.Value = nil
-			switch metric.(type) {
-			case deleter:
-			default:
-				value = &types.Value{
-					Data: util.EncodeMsgp(metric),
-				}
-			}
-			err := stream.SendMsg(&types.Metric{
+			err = stream.SendMsg(&types.Metric{
 				Key:   key,
-				Value: value,
+				Value: any,
 			})
 			if err != nil {
 				if errors.Is(err, io.EOF) {
@@ -118,7 +102,40 @@ func (p *monitorProvider) Target() string {
 	return "monitor"
 }
 
-func (p *monitorProvider) Post(metric KeyedMetric) {
+func (p *monitorProvider) PostContext(metric proto.Message, ctx context.Context) {
+	p.Post(metric)
+	p.metricCtxMapMutex.Lock()
+	defer p.metricCtxMapMutex.Unlock()
+	any, err := anypb.New(metric)
+	if err != nil {
+		panic(err)
+	}
+	key := any.GetTypeUrl()
+	if cancel, ok := p.metricCtxMap[key]; ok {
+		cancel()
+	}
+	localCtx, cancel := context.WithCancel(ctx)
+	p.metricCtxMap[key] = cancel
+	// When the context is done, send a deleter to the server
+	go func() {
+		defer func() {
+			p.metricCtxMapMutex.Lock()
+			defer p.metricCtxMapMutex.Unlock()
+			delete(p.metricCtxMap, key)
+		}()
+		select {
+		case <-ctx.Done():
+			p.Post(&metrics.Deleter{
+				Key: key,
+			})
+		case <-localCtx.Done(): // the map context
+			return
+		case <-p.ctx.Done():
+		}
+	}()
+}
+
+func (p *monitorProvider) Post(metric proto.Message) {
 	if (p.queueStrategy & Discard) == 0 {
 		// Block is the default
 		p.postQueue <- metric

@@ -9,6 +9,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/test/integration"
@@ -45,14 +46,14 @@ var _ = Describe("Integration test", func() {
 	}
 
 	testOptions := integration.TestOptions{
-		Clients: []*types.UsageLimits{
+		Clients: []*metrics.UsageLimits{
 			{
 				ConcurrentProcessLimit:  18,
 				QueuePressureMultiplier: 1.5,
 				QueueRejectMultiplier:   2.0,
 			},
 		},
-		Agents: []*types.UsageLimits{
+		Agents: []*metrics.UsageLimits{
 			{
 				ConcurrentProcessLimit:  24,
 				QueuePressureMultiplier: 1.5,

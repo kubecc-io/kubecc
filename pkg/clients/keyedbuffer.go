@@ -1,11 +1,14 @@
-package metrics
+package clients
 
 import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type keyedBufferMonitorProvider struct {
@@ -13,8 +16,8 @@ type keyedBufferMonitorProvider struct {
 	enableWaitRx chan bool
 }
 
-func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
-	latestMessages := map[string]KeyedMetric{}
+func runWaitReceiver(postQueue chan proto.Message, enableQueue <-chan bool) {
+	latestMessages := map[string]proto.Message{}
 	for {
 		if e := <-enableQueue; !e {
 			// Already disabled
@@ -27,7 +30,11 @@ func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
 					// Post queue closed
 					return
 				}
-				latestMessages[m.Key()] = m
+				any, err := anypb.New(m)
+				if err != nil {
+					panic(err)
+				}
+				latestMessages[any.GetTypeUrl()] = m
 			case e := <-enableQueue:
 				if e {
 					// Already enabled
@@ -48,14 +55,14 @@ func runWaitReceiver(postQueue chan KeyedMetric, enableQueue <-chan bool) {
 func NewKeyedBufferMonitorProvider(
 	ctx context.Context,
 	client types.MonitorClient,
-) Provider {
+) metrics.Provider {
 	provider := &keyedBufferMonitorProvider{
 		monitorProvider: monitorProvider{
 			ctx:       ctx,
 			lg:        meta.Log(ctx),
 			monClient: client,
 			// Buffer enough for the WaitReceiver to keep up
-			postQueue:     make(chan KeyedMetric, 10),
+			postQueue:     make(chan proto.Message, 10),
 			queueStrategy: Block,
 		},
 		enableWaitRx: make(chan bool),
