@@ -10,8 +10,11 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type worker struct {
@@ -36,6 +39,8 @@ type Broker struct {
 	completedTasks  *atomic.Int64
 	failedTasks     *atomic.Int64
 	requestCount    *atomic.Int64
+	cacheHitCount   *atomic.Int64
+	cacheMissCount  *atomic.Int64
 	requestQueue    chan *types.CompileRequest
 	responseQueue   chan *types.CompileResponse
 	agents          map[string]*Agent
@@ -44,7 +49,9 @@ type Broker struct {
 	consumerdsMutex *sync.RWMutex
 	filter          *ToolchainFilter
 	monClient       types.MonitorClient
-	pendingRequests sync.Map // map[uuid string]Scheduler_StreamOutgoingTasksServer
+	cacheClient     types.CacheClient
+	hashSrv         *util.HashServer
+	pendingRequests sync.Map // map[uuid string]*Consumerd
 }
 
 func NewBroker(ctx context.Context, monClient types.MonitorClient) *Broker {
@@ -61,6 +68,7 @@ func NewBroker(ctx context.Context, monClient types.MonitorClient) *Broker {
 		agentsMutex:     &sync.RWMutex{},
 		consumerdsMutex: &sync.RWMutex{},
 		filter:          NewToolchainFilter(ctx),
+		hashSrv:         util.NewHashServer(),
 		monClient:       monClient,
 	}
 }
@@ -84,6 +92,11 @@ func (b *Broker) handleAgentStream(
 	srv types.Scheduler_StreamIncomingTasksServer,
 	filterOutput <-chan interface{},
 ) {
+	b.agentsMutex.RLock()
+	uuid := meta.UUID(srv.Context())
+	agent := b.agents[uuid]
+	b.agentsMutex.RUnlock()
+
 	go func() {
 		b.lg.Debug("Handling agent stream (send)")
 		defer b.lg.Debug("Agent stream done (send)")
@@ -120,6 +133,8 @@ func (b *Broker) handleAgentStream(
 				}
 				return
 			}
+
+			agent.CompletedTasks.Inc()
 			b.responseQueue <- resp
 		}
 	}()
@@ -128,6 +143,11 @@ func (b *Broker) handleAgentStream(
 func (b *Broker) handleConsumerdStream(
 	srv types.Scheduler_StreamOutgoingTasksServer,
 ) {
+	b.consumerdsMutex.RLock()
+	uuid := meta.UUID(srv.Context())
+	cd := b.consumerds[uuid]
+	b.consumerdsMutex.RUnlock()
+
 	b.lg.Debug("Handling consumerd stream (recv)")
 	defer b.lg.Debug("Consumerd stream done (recv)")
 
@@ -141,8 +161,9 @@ func (b *Broker) handleConsumerdStream(
 			}
 			return
 		}
-		b.pendingRequests.Store(req.RequestID, srv)
-		if err := b.filter.Send(req); err != nil {
+		b.requestCount.Inc()
+		b.pendingRequests.Store(req.RequestID, cd)
+		if err := b.filter.Send(srv.Context(), req); err != nil {
 			b.pendingRequests.Delete(req.RequestID)
 			b.responseQueue <- &types.CompileResponse{
 				RequestID:     req.RequestID,
@@ -162,8 +183,16 @@ func (b *Broker) handleResponseQueue() {
 			b.lg.Debug("Response queue closed")
 			return
 		}
-		if stream, ok := b.pendingRequests.LoadAndDelete(resp.RequestID); ok {
-			err := stream.(types.Scheduler_StreamOutgoingTasksServer).Send(resp)
+		if value, ok := b.pendingRequests.LoadAndDelete(resp.RequestID); ok {
+			consumerd := value.(*Consumerd)
+			consumerd.CompletedTasks.Inc()
+			switch resp.CompileResult {
+			case types.CompileResponse_Fail, types.CompileResponse_InternalError:
+				b.failedTasks.Inc()
+			case types.CompileResponse_Success:
+				b.completedTasks.Inc()
+			}
+			err := consumerd.Stream.Send(resp)
 			if err != nil {
 				b.lg.With(
 					zap.Error(err),
@@ -177,7 +206,7 @@ func (b *Broker) handleResponseQueue() {
 	}
 }
 
-func (b *Broker) HandleIncomingTasksStream(
+func (b *Broker) HandleAgentTaskStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
 ) {
 	b.agentsMutex.Lock()
@@ -211,7 +240,7 @@ func (b *Broker) HandleIncomingTasksStream(
 	}()
 }
 
-func (b *Broker) HandleOutgoingTasksStream(
+func (b *Broker) HandleConsumerdTaskStream(
 	stream types.Scheduler_StreamOutgoingTasksServer,
 ) {
 	b.consumerdsMutex.Lock()
@@ -252,4 +281,119 @@ func (b *Broker) HandleOutgoingTasksStream(
 		defer b.agentsMutex.RUnlock()
 		delete(b.agents, cd.UUID)
 	}()
+}
+
+var float64Epsilon = 1e-6
+
+func (b *Broker) CalcAgentStats() <-chan []agentStats {
+	stats := make(chan []agentStats)
+	go func() {
+		statsList := []agentStats{}
+		b.agentsMutex.RLock()
+		defer b.agentsMutex.RUnlock()
+
+		for uuid, agent := range b.agents {
+			agent.RLock()
+			defer agent.RUnlock()
+
+			stats := agentStats{
+				agentCtx:        agent.Context,
+				agentTasksTotal: &metrics.AgentTasksTotal{},
+			}
+
+			stats.agentTasksTotal.Total = agent.CompletedTasks.Load()
+			stats.agentTasksTotal.UUID = uuid
+
+			statsList = append(statsList, stats)
+		}
+
+		stats <- statsList
+	}()
+	return stats
+}
+
+func (b *Broker) CalcConsumerdStats() <-chan []consumerdStats {
+	stats := make(chan []consumerdStats)
+	go func() {
+		statsList := []consumerdStats{}
+		b.consumerdsMutex.RLock()
+		defer b.consumerdsMutex.RUnlock()
+
+		for uuid, cd := range b.consumerds {
+			cd.RLock()
+			defer cd.RUnlock()
+
+			total := &metrics.ConsumerdTasksTotal{
+				Total: cd.CompletedTasks.Load(),
+			}
+			total.UUID = uuid
+			statsList = append(statsList, consumerdStats{
+				consumerdCtx:       cd.Context,
+				cdRemoteTasksTotal: total,
+			})
+		}
+
+		stats <- statsList
+	}()
+	return stats
+}
+
+func (b *Broker) TaskStats() taskStats {
+	return taskStats{
+		completedTotal: &metrics.TasksCompletedTotal{
+			Total: b.completedTasks.Load(),
+		},
+		failedTotal: &metrics.TasksFailedTotal{
+			Total: b.failedTasks.Load(),
+		},
+		requestsTotal: &metrics.SchedulingRequestsTotal{
+			Total: b.requestCount.Load(),
+		},
+	}
+}
+
+func (b *Broker) PreReceive(
+	ctx context.Context,
+	taskCh *taskChannel,
+	req *types.CompileRequest,
+) (action HookAction) {
+	defer func() {
+		switch action {
+		case ProcessRequestNormally:
+			b.cacheMissCount.Inc()
+		case RequestIntercepted:
+			b.cacheHitCount.Inc()
+		}
+	}()
+
+	if b.cacheClient == nil {
+		action = ProcessRequestNormally
+		return
+	}
+	var reqHash string
+	reqHash = b.hashSrv.Hash(req)
+	obj, err := b.cacheClient.Pull(ctx, &types.PullRequest{
+		Key: &types.CacheKey{
+			Hash: reqHash,
+		},
+	})
+	switch status.Code(err) {
+	case codes.OK:
+		b.responseQueue <- &types.CompileResponse{
+			CompileResult: types.CompileResponse_Success,
+			Data: &types.CompileResponse_CompiledSource{
+				CompiledSource: obj.GetData(),
+			},
+		}
+
+		action = RequestIntercepted
+		return
+	case codes.NotFound:
+	default:
+		b.lg.With(
+			zap.Error(err),
+		).Error("Error querying cache server")
+	}
+	action = ProcessRequestNormally
+	return
 }

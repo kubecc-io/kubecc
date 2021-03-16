@@ -4,17 +4,14 @@ import (
 	"context"
 	"time"
 
-	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -26,19 +23,17 @@ type schedulerServer struct {
 
 	srvContext      context.Context
 	lg              *zap.SugaredLogger
-	scheduler       *Scheduler
 	metricsProvider metrics.Provider
 	hashSrv         *util.HashServer
 	broker          *Broker
 
-	agentCount     *atomic.Int32
-	consumerdCount *atomic.Int32
+	agentCount     *atomic.Int64
+	consumerdCount *atomic.Int64
 }
 
 type SchedulerServerOptions struct {
-	schedulerOptions []schedulerOption
-	monClient        types.MonitorClient
-	cacheClient      types.CacheClient
+	monClient   types.MonitorClient
+	cacheClient types.CacheClient
 }
 
 type schedulerServerOption func(*SchedulerServerOptions)
@@ -46,12 +41,6 @@ type schedulerServerOption func(*SchedulerServerOptions)
 func (o *SchedulerServerOptions) Apply(opts ...schedulerServerOption) {
 	for _, op := range opts {
 		op(o)
-	}
-}
-
-func WithSchedulerOptions(opts ...schedulerOption) schedulerServerOption {
-	return func(o *SchedulerServerOptions) {
-		o.schedulerOptions = opts
 	}
 }
 
@@ -79,9 +68,8 @@ func NewSchedulerServer(
 		lg:             meta.Log(ctx),
 		monClient:      options.monClient,
 		cacheClient:    options.cacheClient,
-		scheduler:      NewScheduler(ctx, options.schedulerOptions...),
-		agentCount:     atomic.NewInt32(0),
-		consumerdCount: atomic.NewInt32(0),
+		agentCount:     atomic.NewInt64(0),
+		consumerdCount: atomic.NewInt64(0),
 		broker:         NewBroker(ctx, options.monClient),
 		hashSrv:        util.NewHashServer(),
 	}
@@ -117,59 +105,59 @@ func (s *schedulerServer) cacheTransaction(
 	}
 }
 
-func (s *schedulerServer) Compile(
-	ctx context.Context,
-	req *types.CompileRequest,
-) (*types.CompileResponse, error) {
-	if err := meta.CheckContext(ctx); err != nil {
-		return nil, err
-	}
-	span, sctx, err := servers.StartSpanFromServer(ctx, "schedule-compile")
-	if err != nil {
-		s.lg.Error(err)
-	} else {
-		ctx = sctx
-		defer span.Finish()
-	}
-	peer, ok := peer.FromContext(ctx)
-	if ok {
-		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
-	}
-	cacheMiss := false
-	var reqHash string
-	if s.cacheClient != nil {
-		reqHash = s.hashSrv.Hash(req)
-		obj, err := s.cacheClient.Pull(ctx, &types.PullRequest{
-			Key: &types.CacheKey{
-				Hash: reqHash,
-			},
-		})
-		switch status.Code(err) {
-		case codes.OK:
-			s.lg.Info("Cache Hit")
-			return &types.CompileResponse{
-				CompileResult: types.CompileResponse_Success,
-				Data: &types.CompileResponse_CompiledSource{
-					CompiledSource: obj.GetData(),
-				},
-			}, nil
-		case codes.NotFound:
-			cacheMiss = true
-		default:
-			s.lg.With(
-				zap.Error(err),
-			).Error("Error querying cache server")
-		}
-	}
+// func (s *schedulerServer) Compile(
+// 	ctx context.Context,
+// 	req *types.CompileRequest,
+// ) (*types.CompileResponse, error) {
+// 	if err := meta.CheckContext(ctx); err != nil {
+// 		return nil, err
+// 	}
+// 	span, sctx, err := servers.StartSpanFromServer(ctx, "schedule-compile")
+// 	if err != nil {
+// 		s.lg.Error(err)
+// 	} else {
+// 		ctx = sctx
+// 		defer span.Finish()
+// 	}
+// 	peer, ok := peer.FromContext(ctx)
+// 	if ok {
+// 		s.lg.With("peer", peer.Addr.String()).Info("Schedule requested")
+// 	}
+// 	cacheMiss := false
+// 	var reqHash string
+// 	if s.cacheClient != nil {
+// 		reqHash = s.hashSrv.Hash(req)
+// 		obj, err := s.cacheClient.Pull(ctx, &types.PullRequest{
+// 			Key: &types.CacheKey{
+// 				Hash: reqHash,
+// 			},
+// 		})
+// 		switch status.Code(err) {
+// 		case codes.OK:
+// 			s.lg.Info("Cache Hit")
+// 			return &types.CompileResponse{
+// 				CompileResult: types.CompileResponse_Success,
+// 				Data: &types.CompileResponse_CompiledSource{
+// 					CompiledSource: obj.GetData(),
+// 				},
+// 			}, nil
+// 		case codes.NotFound:
+// 			cacheMiss = true
+// 		default:
+// 			s.lg.With(
+// 				zap.Error(err),
+// 			).Error("Error querying cache server")
+// 		}
+// 	}
 
-	resp, err := s.scheduler.Schedule(ctx, req)
-	if err == nil &&
-		resp.CompileResult == types.CompileResponse_Success &&
-		cacheMiss {
-		go s.cacheTransaction(reqHash, resp)
-	}
-	return resp, err
-}
+// 	resp, err := s.scheduler.Schedule(ctx, req)
+// 	if err == nil &&
+// 		resp.CompileResult == types.CompileResponse_Success &&
+// 		cacheMiss {
+// 		go s.cacheTransaction(reqHash, resp)
+// 	}
+// 	return resp, err
+// }
 
 // func (s *schedulerServer) handleClientConnection(srv grpc.ServerStream) error {
 // 	done := make(chan error)
@@ -258,7 +246,9 @@ func (s *schedulerServer) StreamIncomingTasks(
 		return err
 	}
 
-	s.broker.HandleIncomingTasksStream(srv)
+	s.broker.HandleAgentTaskStream(srv)
+	s.agentCount.Inc()
+	defer s.agentCount.Dec()
 
 	select {
 	case <-srv.Context().Done():
@@ -277,7 +267,16 @@ func (s *schedulerServer) StreamOutgoingTasks(
 		return err
 	}
 
-	s.broker.HandleOutgoingTasksStream(srv)
+	s.broker.HandleConsumerdTaskStream(srv)
+
+	s.metricsProvider.Post(&metrics.ConsumerdCount{
+		Count: s.consumerdCount.Inc(),
+	})
+	defer func() {
+		s.metricsProvider.Post(&metrics.ConsumerdCount{
+			Count: s.consumerdCount.Dec(),
+		})
+	}()
 
 	select {
 	case <-srv.Context().Done():
@@ -288,30 +287,29 @@ func (s *schedulerServer) StreamOutgoingTasks(
 }
 
 func (s *schedulerServer) postCounts() {
-	s.metricsProvider.Post(&scmetrics.AgentCount{
+	s.metricsProvider.Post(&metrics.AgentCount{
 		Count: s.agentCount.Load(),
 	})
-	s.metricsProvider.Post(&scmetrics.CdCount{
+	s.metricsProvider.Post(&metrics.ConsumerdCount{
 		Count: s.consumerdCount.Load(),
 	})
 }
 
 func (s *schedulerServer) postTotals() {
-	stats := s.scheduler.TaskStats()
+	stats := s.broker.TaskStats()
 	s.metricsProvider.Post(stats.completedTotal)
 	s.metricsProvider.Post(stats.failedTotal)
 	s.metricsProvider.Post(stats.requestsTotal)
 }
 
 func (s *schedulerServer) postAgentStats() {
-	for _, stat := range <-s.scheduler.CalcAgentStats() {
+	for _, stat := range <-s.broker.CalcAgentStats() {
 		s.metricsProvider.PostContext(stat.agentTasksTotal, stat.agentCtx)
-		s.metricsProvider.PostContext(stat.agentWeight, stat.agentCtx)
 	}
 }
 
 func (s *schedulerServer) postConsumerdStats() {
-	for _, stat := range <-s.scheduler.CalcConsumerdStats() {
+	for _, stat := range <-s.broker.CalcConsumerdStats() {
 		s.metricsProvider.PostContext(stat.cdRemoteTasksTotal, stat.consumerdCtx)
 	}
 }

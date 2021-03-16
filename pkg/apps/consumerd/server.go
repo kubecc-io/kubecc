@@ -37,7 +37,7 @@ type consumerdServer struct {
 	connection          *grpc.ClientConn
 	localExecutor       run.Executor
 	remoteExecutor      run.Executor
-	remoteOnly          bool
+	queue               *splitQueue
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
 }
@@ -118,7 +118,9 @@ func NewConsumerdServer(
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
+		queue:               NewSplitQueue(ctx),
 	}
+
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
 		srv.connection = options.schedulerConnection
@@ -294,37 +296,25 @@ func (c *consumerdServer) Run(
 	ap := runner.NewArgParser(c.srvContext, req.Args)
 	ap.Parse()
 
-	canRunRemote := ap.CanRunRemote()
-	if !c.schedulerConnected() {
-		c.lg.Info("Running local, scheduler disconnected")
-		canRunRemote = false
+	ctxs := run.Contexts{
+		ServerContext: c.srvContext,
+		ClientContext: ctx,
 	}
-	// todo
-	// if !c.remoteOnly && c.localExecutor.Status() == types.Available {
-	// 	c.lg.Info("Running local, not at capacity yet")
-	// 	canRunRemote = false
-	// }
 
-	if !canRunRemote {
-		defer c.localTasksCompleted.Inc()
-		resp, err := runner.RunLocal(ap).Run(run.Contexts{
-			ServerContext: c.srvContext,
-			ClientContext: ctx,
-		}, c.localExecutor, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp.(*types.RunResponse), nil
-	} else {
-		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
-			ServerContext: c.srvContext,
-			ClientContext: ctx,
-		}, c.remoteExecutor, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp.(*types.RunResponse), nil
+	st := &splitTask{
+		local: run.Package(
+			runner.RunLocal(ap), ctxs, c.localExecutor, req),
+		remote: run.Package(
+			runner.SendRemote(ap, c.schedulerClient), ctxs, c.remoteExecutor, req),
 	}
+	c.queue.In() <- st
+
+	resp, err := st.Wait()
+
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*types.RunResponse), nil
 }
 
 // func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {

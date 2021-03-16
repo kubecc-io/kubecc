@@ -21,6 +21,31 @@ type RunnerManager interface {
 	Run(ctx Contexts, x Executor, request interface{}) (response interface{}, err error)
 }
 
+type PackagedTask struct {
+	F func() (response interface{}, err error)
+	C chan struct {
+		Response interface{}
+		Err      error
+	}
+}
+
+func Package(
+	rm RunnerManager,
+	ctx Contexts,
+	x Executor,
+	request interface{},
+) PackagedTask {
+	return PackagedTask{
+		F: func() (response interface{}, err error) {
+			return rm.Run(ctx, x, request)
+		},
+		C: make(chan struct {
+			Response interface{}
+			Err      error
+		}),
+	}
+}
+
 type ArgParser interface {
 	Parse()
 	CanRunRemote() bool

@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -46,17 +45,16 @@ func remoteInfoFromContext(ctx context.Context) remoteInfo {
 
 type agentStats struct {
 	agentCtx        context.Context
-	agentTasksTotal *scmetrics.AgentTasksTotal
-	agentWeight     *scmetrics.AgentWeight
+	agentTasksTotal *metrics.AgentTasksTotal
 }
 
 type consumerdStats struct {
 	consumerdCtx       context.Context
-	cdRemoteTasksTotal *scmetrics.CdTasksTotal
+	cdRemoteTasksTotal *metrics.ConsumerdTasksTotal
 }
 
 type taskStats struct {
-	completedTotal *scmetrics.TasksCompletedTotal
-	failedTotal    *scmetrics.TasksFailedTotal
-	requestsTotal  *scmetrics.SchedulingRequestsTotal
+	completedTotal *metrics.TasksCompletedTotal
+	failedTotal    *metrics.TasksFailedTotal
+	requestsTotal  *metrics.SchedulingRequestsTotal
 }

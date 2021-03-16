@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrNoAgents     = errors.New("No available agents can run this task")
-	ErrStreamClosed = errors.New("Task stream closed")
+	ErrNoAgents        = errors.New("No available agents can run this task")
+	ErrStreamClosed    = errors.New("Task stream closed")
+	ErrRequestRejected = errors.New("The task has been rejected by the server")
 )
 
 type sender struct {
@@ -100,6 +101,18 @@ func (c *taskChannel) AttachReceiver(r *receiver) {
 	}
 }
 
+type HookAction int
+
+const (
+	ProcessRequestNormally HookAction = iota
+	RejectRequest
+	RequestIntercepted
+)
+
+type FilterHook interface {
+	PreReceive(*taskChannel, *types.CompileRequest) HookAction
+}
+
 type ToolchainFilter struct {
 	ctx            context.Context
 	senders        map[string]*sender      // key = uuid
@@ -108,6 +121,7 @@ type ToolchainFilter struct {
 	channelsMutex  *sync.RWMutex
 	sendersMutex   *sync.RWMutex
 	receiversMutex *sync.RWMutex
+	hooks          []FilterHook
 }
 
 func NewToolchainFilter(ctx context.Context) *ToolchainFilter {
@@ -237,14 +251,25 @@ func (f *ToolchainFilter) UpdateSenderToolchains(
 	sender.cd.Toolchains = newToolchains
 }
 
-func (f *ToolchainFilter) Send(req *types.CompileRequest) error {
+func (f *ToolchainFilter) Send(ctx context.Context, req *types.CompileRequest) error {
 	taskCh := f.taskChannelForToolchain(req.GetToolchain())
+	for _, hook := range f.hooks {
+		switch hook.PreReceive(taskCh, req) {
+		case ProcessRequestNormally:
+		case RejectRequest:
+			return ErrRequestRejected
+		case RequestIntercepted:
+			return nil
+		}
+	}
 	if taskCh.rxRefCount.Load() == 0 {
 		return ErrNoAgents
 	}
 	select {
 	case taskCh.C <- req:
 		return nil
+	case <-ctx.Done():
+		return context.Canceled
 	default:
 		return ErrStreamClosed
 	}
