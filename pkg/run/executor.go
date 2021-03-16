@@ -12,6 +12,7 @@ type Executor interface {
 	metrics.UsageLimitsCompleter
 	metrics.TaskStatusCompleter
 	Exec(task *Task) error
+	ExecAsync(task *Task) <-chan error
 }
 
 type QueuedExecutor struct {
@@ -77,9 +78,7 @@ func (x *QueuedExecutor) SetUsageLimits(cfg *metrics.UsageLimits) {
 	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
 }
 
-func (x *QueuedExecutor) Exec(
-	task *Task,
-) error {
+func (x *QueuedExecutor) Exec(task *Task) error {
 	x.numQueued.Inc()
 	x.taskQueue <- task
 	x.numQueued.Dec()
@@ -92,6 +91,27 @@ func (x *QueuedExecutor) Exec(
 	x.numRunning.Dec()
 
 	return task.Error()
+}
+
+func (x *QueuedExecutor) ExecAsync(task *Task) <-chan error {
+	ch := make(chan error)
+	x.numQueued.Inc()
+	x.taskQueue <- task
+	x.numQueued.Dec()
+
+	go func() {
+		x.numRunning.Inc()
+		select {
+		case <-task.Done():
+		case <-task.ctx.Done():
+		}
+		x.numRunning.Dec()
+
+		ch <- task.Error()
+		close(ch)
+	}()
+
+	return ch
 }
 
 func (x *QueuedExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {
@@ -123,6 +143,24 @@ func (x *DelegatingExecutor) Exec(task *Task) error {
 	case <-task.ctx.Done():
 	}
 	return task.Error()
+}
+
+func (x *DelegatingExecutor) ExecAsync(task *Task) <-chan error {
+	ch := make(chan error)
+	x.numTasks.Inc()
+	defer x.numTasks.Dec()
+
+	go func() {
+		task.Run()
+		select {
+		case <-task.Done():
+		case <-task.ctx.Done():
+		}
+		ch <- task.Error()
+		close(ch)
+	}()
+
+	return ch
 }
 
 func (x *DelegatingExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {}

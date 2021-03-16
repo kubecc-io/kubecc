@@ -13,6 +13,7 @@ import (
 	consumerd "github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	scheduler "github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
@@ -256,8 +257,8 @@ func (tc *TestController) startConsumerd(cfg *metrics.UsageLimits) {
 	)
 	types.RegisterConsumerdServer(srv, d)
 
-	mgr := servers.NewStreamManager(ctx, d)
-	go mgr.Run()
+	// mgr := servers.NewStreamManager(ctx, d)
+	// go mgr.Run()
 	go d.StartMetricsProvider()
 	cdListener := dial(ctx, listener)
 	cdClient := types.NewConsumerdClient(cdListener)
@@ -304,7 +305,7 @@ func (tc *TestController) Start(ops TestOptions) {
 			1 /*scheduler*/ +
 			1 /*cache*/)
 	extClient := types.NewMonitorClient(cc)
-	listener := metrics.NewListener(tc.ctx, extClient)
+	listener := clients.NewListener(tc.ctx, extClient)
 	listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 		resp, _ := extClient.Whois(tc.ctx, &types.WhoisRequest{
 			UUID: uuid,

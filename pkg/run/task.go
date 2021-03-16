@@ -53,3 +53,17 @@ func Begin(sctx context.Context, r Runner, tc *types.Toolchain) *Task {
 		span:   span,
 	}
 }
+
+func (t *Task) Restart() *Task {
+	span := t.tracer.StartSpan("task-restart",
+		opentracing.FollowsFrom(t.span.Context()))
+	sctx := opentracing.ContextWithSpan(t.ctx, span)
+	return &Task{
+		doneCh: make(chan struct{}),
+		tracer: t.tracer,
+		ctx:    sctx,
+		tc:     t.tc,
+		runner: t.runner,
+		span:   span,
+	}
+}
