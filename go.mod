@@ -29,7 +29,7 @@ require (
 	github.com/minio/md5-simd v1.1.2
 	github.com/minio/minio-go/v7 v7.0.10
 	github.com/mitchellh/copystructure v1.1.1 // indirect
-	github.com/onsi/ginkgo v1.15.1
+	github.com/onsi/ginkgo v1.15.2
 	github.com/onsi/gomega v1.11.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
@@ -47,7 +47,7 @@ require (
 	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
-	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
+	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5
 	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
