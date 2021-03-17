@@ -36,39 +36,39 @@ type AgentServerOptions struct {
 	usageLimits      *metrics.UsageLimits
 }
 
-type agentServerOption func(*AgentServerOptions)
+type AgentServerOption func(*AgentServerOptions)
 
-func (o *AgentServerOptions) Apply(opts ...agentServerOption) {
+func (o *AgentServerOptions) Apply(opts ...AgentServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithToolchainFinders(args ...toolchains.FinderWithOptions) agentServerOption {
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) AgentServerOption {
 	return func(o *AgentServerOptions) {
 		o.toolchainFinders = args
 	}
 }
 
-func WithToolchainRunners(args ...run.StoreAddFunc) agentServerOption {
+func WithToolchainRunners(args ...run.StoreAddFunc) AgentServerOption {
 	return func(o *AgentServerOptions) {
 		o.toolchainRunners = args
 	}
 }
 
-func WithSchedulerClient(client types.SchedulerClient) agentServerOption {
+func WithSchedulerClient(client types.SchedulerClient) AgentServerOption {
 	return func(o *AgentServerOptions) {
 		o.schedulerClient = client
 	}
 }
 
-func WithMonitorClient(client types.MonitorClient) agentServerOption {
+func WithMonitorClient(client types.MonitorClient) AgentServerOption {
 	return func(o *AgentServerOptions) {
 		o.monitorClient = client
 	}
 }
 
-func WithUsageLimits(usageLimits *metrics.UsageLimits) agentServerOption {
+func WithUsageLimits(usageLimits *metrics.UsageLimits) AgentServerOption {
 	return func(o *AgentServerOptions) {
 		o.usageLimits = usageLimits
 	}
@@ -76,7 +76,7 @@ func WithUsageLimits(usageLimits *metrics.UsageLimits) agentServerOption {
 
 func NewAgentServer(
 	ctx context.Context,
-	opts ...agentServerOption,
+	opts ...AgentServerOption,
 ) *AgentServer {
 	options := AgentServerOptions{}
 	options.Apply(opts...)

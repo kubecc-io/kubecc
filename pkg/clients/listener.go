@@ -11,13 +11,13 @@ import (
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/tinylib/msgp/msgp"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type monitorListener struct {
@@ -90,8 +90,9 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 	lg := meta.Log(cl.ctx)
 	argValue := reflect.New(cl.argType)
 	var msgReflect protoreflect.ProtoMessage
-	if msg, ok := argValue.Interface().(proto.Message); !ok {
+	if msg, ok := argValue.Interface().(proto.Message); ok {
 		msgReflect = msg
+	} else {
 		panic("Handler argument does not implement proto.Message")
 	}
 	for {
@@ -143,25 +144,29 @@ func (c *changeListener) OrExpired(handler func() metrics.RetryOptions) {
 	c.expiredHandler = handler
 }
 
-func handlerArgType(handler interface{}) (reflect.Type, reflect.Value) {
+func handlerArgType(handler interface{}) (reflect.Type, reflect.Value, string) {
 	funcType := reflect.TypeOf(handler)
 	if funcType.NumIn() != 1 {
 		panic("handler must be a function with one argument")
 	}
-	valuePtrType := funcType.In(0)
-	valueType := valuePtrType.Elem()
-	if !valuePtrType.Implements(reflect.TypeOf((*msgp.Decodable)(nil)).Elem()) {
-		panic("argument must implement msgp.Decodable")
+	valueType := funcType.In(0).Elem()
+	proto, ok := reflect.New(valueType).Interface().(proto.Message)
+	if !ok {
+		panic("argument must implement proto.Message")
+	}
+	any, err := anypb.New(proto)
+	if err != nil {
+		panic(err)
 	}
 	funcValue := reflect.ValueOf(handler)
-	return valueType, funcValue
+	return valueType, funcValue, any.GetTypeUrl()
 }
 
 func (l *monitorListener) OnValueChanged(
 	bucket string,
 	handler interface{}, // func(type)
 ) metrics.ChangeListener {
-	argType, funcValue := handlerArgType(handler)
+	argType, funcValue, typeUrl := handlerArgType(handler)
 	cl := &changeListener{
 		ctx:       l.ctx,
 		handler:   funcValue,
@@ -170,7 +175,7 @@ func (l *monitorListener) OnValueChanged(
 		monClient: l.monClient,
 		key: &types.Key{
 			Bucket: bucket,
-			Name:   argType.Name(),
+			Name:   typeUrl,
 		},
 	}
 	mgr := servers.NewStreamManager(l.ctx, cl, l.streamOpts...)

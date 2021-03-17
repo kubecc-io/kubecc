@@ -174,7 +174,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			mc := types.NewMonitorClient(cc)
-			provider = clients.NewMonitorProvider(cctx, mc, clients.Buffered|clients.Block)
+			provider = clients.NewMonitorProvider(cctx, mc, clients.Buffered)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -197,7 +197,7 @@ var _ = Describe("Monitor", func() {
 			})
 		})
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["testKey1Changed"]).Should(Receive(Equal(1)))
+			Eventually(listenerEvents["testKey1Changed"]).Should(Receive(Equal(int32(1))))
 			Expect(listenerEvents["testKey2Changed"]).ShouldNot(Receive())
 			Consistently(listenerEvents["testKey1Changed"]).ShouldNot(Receive())
 		})
@@ -232,7 +232,7 @@ var _ = Describe("Monitor", func() {
 				lateJoinListenerEvents["providerRemoved"] <- struct{}{}
 			})
 			Eventually(lateJoinListenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid)))
-			Eventually(lateJoinListenerEvents["testKey1Changed"]).Should(Receive(Equal(1)))
+			Eventually(lateJoinListenerEvents["testKey1Changed"]).Should(Receive(Equal(int32(1))))
 		})
 	})
 	When("The provider updates a different key", func() {
@@ -285,7 +285,7 @@ var _ = Describe("Monitor", func() {
 		numProviders := 2
 		numListenersPerKey := 10
 		numUpdatesPerKey := 1000
-		callbackTimeout := 10 * time.Second
+		callbackTimeout := 60 * time.Second
 		stressTestLoops := 5
 		if testutil.IsRaceDetectorEnabled() {
 			numListenersPerKey = 10

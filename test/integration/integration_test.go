@@ -71,7 +71,7 @@ var _ = Describe("Integration test", func() {
 			},
 		},
 	}
-	Measure("Run test", func(b Benchmarker) {
+	PMeasure("Run test", func(b Benchmarker) {
 		var tc *integration.TestController
 		b.Time("Start components", func() {
 			tc = integration.NewTestController(sctx)

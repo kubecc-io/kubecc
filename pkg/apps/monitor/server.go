@@ -272,7 +272,11 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			store.Delete(metric.Key.Name)
 			return nil
 		}
-		if store.CAS(metric.Key.Name, metric.Value) {
+		contents, err := metric.Value.UnmarshalNew()
+		if err != nil {
+			return err
+		}
+		if store.CAS(metric.Key.Name, contents) {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")

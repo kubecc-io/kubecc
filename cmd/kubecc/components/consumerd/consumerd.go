@@ -72,7 +72,7 @@ func run(cmd *cobra.Command, args []string) {
 			},
 		),
 		consumerd.WithToolchainRunners(cctoolchain.AddToStore, sleeptoolchain.AddToStore),
-		consumerd.WithSchedulerClient(schedulerClient, schedulerCC),
+		consumerd.WithSchedulerClient(schedulerClient),
 		consumerd.WithMonitorClient(monitorClient),
 	)
 
