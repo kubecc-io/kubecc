@@ -30,15 +30,15 @@ type CacheServerOptions struct {
 	monitorClient   types.MonitorClient
 }
 
-type cacheServerOption func(*CacheServerOptions)
+type CacheServerOption func(*CacheServerOptions)
 
-func (o *CacheServerOptions) Apply(opts ...cacheServerOption) {
+func (o *CacheServerOptions) Apply(opts ...CacheServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithStorageProvider(sp storage.StorageProvider) cacheServerOption {
+func WithStorageProvider(sp storage.StorageProvider) CacheServerOption {
 	return func(o *CacheServerOptions) {
 		o.storageProvider = sp
 	}
@@ -46,7 +46,7 @@ func WithStorageProvider(sp storage.StorageProvider) cacheServerOption {
 
 func WithMonitorClient(
 	client types.MonitorClient,
-) cacheServerOption {
+) CacheServerOption {
 	return func(o *CacheServerOptions) {
 		o.monitorClient = client
 	}
@@ -54,7 +54,7 @@ func WithMonitorClient(
 func NewCacheServer(
 	ctx context.Context,
 	cfg config.CacheSpec,
-	opts ...cacheServerOption,
+	opts ...CacheServerOption,
 ) *CacheServer {
 	options := CacheServerOptions{}
 	options.Apply(opts...)

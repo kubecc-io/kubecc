@@ -36,21 +36,21 @@ type SchedulerServerOptions struct {
 	cacheClient types.CacheClient
 }
 
-type schedulerServerOption func(*SchedulerServerOptions)
+type SchedulerServerOption func(*SchedulerServerOptions)
 
-func (o *SchedulerServerOptions) Apply(opts ...schedulerServerOption) {
+func (o *SchedulerServerOptions) Apply(opts ...SchedulerServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithMonitorClient(monClient types.MonitorClient) schedulerServerOption {
+func WithMonitorClient(monClient types.MonitorClient) SchedulerServerOption {
 	return func(o *SchedulerServerOptions) {
 		o.monClient = monClient
 	}
 }
 
-func WithCacheClient(cacheClient types.CacheClient) schedulerServerOption {
+func WithCacheClient(cacheClient types.CacheClient) SchedulerServerOption {
 	return func(o *SchedulerServerOptions) {
 		o.cacheClient = cacheClient
 	}
@@ -58,7 +58,7 @@ func WithCacheClient(cacheClient types.CacheClient) schedulerServerOption {
 
 func NewSchedulerServer(
 	ctx context.Context,
-	opts ...schedulerServerOption,
+	opts ...SchedulerServerOption,
 ) *schedulerServer {
 	options := SchedulerServerOptions{}
 	options.Apply(opts...)

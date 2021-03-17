@@ -182,6 +182,13 @@ func WithProvider(kp Provider, opts ...withProviderOption) providerInitInfo {
 }
 
 func NewContext(providers ...providerInitInfo) context.Context {
+	return NewContextWithParent(context.Background(), providers...)
+}
+
+func NewContextWithParent(
+	parentCtx context.Context,
+	providers ...providerInitInfo,
+) context.Context {
 	providerMap := map[interface{}]Provider{}
 	for _, mp := range providers {
 		providerMap[mp.KeyProvider.Key()] = mp.KeyProvider

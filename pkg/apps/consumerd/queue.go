@@ -2,117 +2,64 @@ package consumerd
 
 import (
 	"context"
-	"sync"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/types"
 )
 
-type remoteStatus int
-
-const (
-	unavailable remoteStatus = iota
-	available
-	full
-)
-
-type remoteStatusManager struct {
-	status remoteStatus
-	cond   *sync.Cond
+type SplitTask struct {
+	Local, Remote run.PackagedTask
 }
 
-func newRemoteStatusManager() *remoteStatusManager {
-	rsm := &remoteStatusManager{
-		status: unavailable,
-		cond:   sync.NewCond(&sync.Mutex{}),
-	}
-
-	// todo: watch monitor for scheduler status
-	return rsm
-}
-
-func (rsm *remoteStatusManager) EnsureStatus(stat remoteStatus) <-chan struct{} {
-	ch := make(chan struct{})
-	defer func() {
-		go func() {
-			rsm.cond.L.Lock()
-			defer rsm.cond.L.Unlock()
-
-			for {
-				if rsm.status != stat {
-					close(ch)
-					return
-				}
-				rsm.cond.Wait()
-			}
-		}()
-	}()
-
-	rsm.cond.L.Lock()
-	defer rsm.cond.L.Unlock()
-
-	for {
-		if rsm.status == stat {
-			return ch
-		}
-		rsm.cond.Wait()
-	}
-}
-
-func (rsm *remoteStatusManager) SetStatus(stat remoteStatus) {
-	rsm.cond.L.Lock()
-	defer rsm.cond.L.Unlock()
-	rsm.status = stat
-	rsm.cond.Broadcast()
-}
-
-type splitTask struct {
-	local, remote run.PackagedTask
-}
-
-func (s *splitTask) Wait() (interface{}, error) {
+func (s *SplitTask) Wait() (interface{}, error) {
 	select {
-	case results := <-s.local.C:
+	case results := <-s.Local.C:
 		return results.Response, results.Err
-	case results := <-s.remote.C:
+	case results := <-s.Remote.C:
 		return results.Response, results.Err
 	}
 }
 
-type splitQueue struct {
+type SplitQueue struct {
 	ctx       context.Context
-	rsm       *remoteStatusManager
-	taskQueue chan *splitTask
+	avc       *clients.AvailabilityChecker
+	taskQueue chan *SplitTask
 }
 
-type queueAction int
+type QueueAction int
 
 const (
-	requeue queueAction = iota
-	doNotRequeue
+	Requeue QueueAction = iota
+	DoNotRequeue
 )
 
 func NewSplitQueue(
 	ctx context.Context,
-) *splitQueue {
-	sq := &splitQueue{
+	monClient types.MonitorClient,
+) *SplitQueue {
+	sq := &SplitQueue{
 		ctx:       ctx,
-		taskQueue: make(chan *splitTask),
-		rsm:       newRemoteStatusManager(),
+		taskQueue: make(chan *SplitTask),
+		avc: clients.NewAvailabilityChecker(
+			clients.ComponentFilter(types.Scheduler),
+		),
 	}
+	clients.WatchAvailability(ctx, types.Scheduler, monClient, sq.avc)
 
 	go sq.runLocalQueue()
 	go sq.runRemoteQueue()
 	return sq
 }
 
-func (s *splitQueue) In() chan<- *splitTask {
+func (s *SplitQueue) In() chan<- *SplitTask {
 	return s.taskQueue
 }
 
-func (s *splitQueue) processTask(pt run.PackagedTask) queueAction {
+func (s *SplitQueue) processTask(pt run.PackagedTask) QueueAction {
 	response, err := pt.F()
 	if err != nil {
-		return requeue
+		return Requeue
 	}
 	pt.C <- struct {
 		Response interface{}
@@ -121,35 +68,35 @@ func (s *splitQueue) processTask(pt run.PackagedTask) queueAction {
 		Response: response,
 		Err:      err,
 	}
-	return doNotRequeue
+	return DoNotRequeue
 }
 
-func (s *splitQueue) runLocalQueue() {
+func (s *SplitQueue) runLocalQueue() {
 	for {
 		select {
 		case <-s.ctx.Done():
 			return
 		case task := <-s.taskQueue:
-			switch s.processTask(task.local) {
-			case requeue:
+			switch s.processTask(task.Local) {
+			case Requeue:
 				s.In() <- task
 			}
 		}
 	}
 }
 
-func (s *splitQueue) runRemoteQueue() {
+func (s *SplitQueue) runRemoteQueue() {
 	for {
-		statusChanged := s.rsm.EnsureStatus(available)
+		available := s.avc.EnsureAvailable()
 		for {
 			select {
 			case <-s.ctx.Done():
 				return
-			case <-statusChanged:
+			case <-available.Done():
 				goto restart
 			case task := <-s.taskQueue:
-				switch s.processTask(task.remote) {
-				case requeue:
+				switch s.processTask(task.Remote) {
+				case Requeue:
 					s.In() <- task
 				}
 			}

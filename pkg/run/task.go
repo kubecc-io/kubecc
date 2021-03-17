@@ -19,6 +19,10 @@ type Task struct {
 	span   opentracing.Span
 }
 
+func (t *Task) Context() context.Context {
+	return t.ctx
+}
+
 func (t *Task) Run() {
 	if t == nil {
 		return

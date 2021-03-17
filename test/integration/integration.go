@@ -252,12 +252,12 @@ func (tc *TestController) startConsumerd(cfg *metrics.UsageLimits) {
 		}),
 		consumerd.WithUsageLimits(cfg),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
-		consumerd.WithSchedulerClient(schedulerClient, cc),
+		consumerd.WithSchedulerClient(schedulerClient),
 		consumerd.WithMonitorClient(monitorClient),
 	)
 	types.RegisterConsumerdServer(srv, d)
 
-	// mgr := servers.NewStreamManager(ctx, d)
+	// mgr := servers.NewStreamManager(ctx, d)s
 	// go mgr.Run()
 	go d.StartMetricsProvider()
 	cdListener := dial(ctx, listener)

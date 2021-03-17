@@ -37,35 +37,34 @@ type consumerdServer struct {
 	connection          *grpc.ClientConn
 	localExecutor       run.Executor
 	remoteExecutor      run.Executor
-	queue               *splitQueue
+	queue               *SplitQueue
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
 }
 
 type ConsumerdServerOptions struct {
-	toolchainFinders    []toolchains.FinderWithOptions
-	toolchainRunners    []run.StoreAddFunc
-	schedulerClient     types.SchedulerClient
-	monitorClient       types.MonitorClient
-	schedulerConnection *grpc.ClientConn
-	usageLimits         *metrics.UsageLimits
+	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
+	schedulerClient  types.SchedulerClient
+	monitorClient    types.MonitorClient
+	usageLimits      *metrics.UsageLimits
 }
 
-type consumerdServerOption func(*ConsumerdServerOptions)
+type ConsumerdServerOption func(*ConsumerdServerOptions)
 
-func (o *ConsumerdServerOptions) Apply(opts ...consumerdServerOption) {
+func (o *ConsumerdServerOptions) Apply(opts ...ConsumerdServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithToolchainFinders(args ...toolchains.FinderWithOptions) consumerdServerOption {
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.toolchainFinders = args
 	}
 }
 
-func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
+func WithToolchainRunners(args ...run.StoreAddFunc) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.toolchainRunners = args
 	}
@@ -73,11 +72,9 @@ func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
 
 func WithSchedulerClient(
 	client types.SchedulerClient,
-	cc *grpc.ClientConn,
-) consumerdServerOption {
+) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.schedulerClient = client
-		o.schedulerConnection = cc
 	}
 }
 
@@ -85,13 +82,13 @@ func WithSchedulerClient(
 // outside the cluster.
 func WithMonitorClient(
 	client types.MonitorClient,
-) consumerdServerOption {
+) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.monitorClient = client
 	}
 }
 
-func WithUsageLimits(cpuConfig *metrics.UsageLimits) consumerdServerOption {
+func WithUsageLimits(cpuConfig *metrics.UsageLimits) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.usageLimits = cpuConfig
 	}
@@ -99,7 +96,7 @@ func WithUsageLimits(cpuConfig *metrics.UsageLimits) consumerdServerOption {
 
 func NewConsumerdServer(
 	ctx context.Context,
-	opts ...consumerdServerOption,
+	opts ...ConsumerdServerOption,
 ) *consumerdServer {
 	options := ConsumerdServerOptions{}
 	options.Apply(opts...)
@@ -118,12 +115,11 @@ func NewConsumerdServer(
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
-		queue:               NewSplitQueue(ctx),
+		queue:               NewSplitQueue(ctx, options.monitorClient),
 	}
 
 	if options.schedulerClient != nil {
 		srv.schedulerClient = options.schedulerClient
-		srv.connection = options.schedulerConnection
 	}
 	if options.monitorClient != nil {
 		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
@@ -301,10 +297,10 @@ func (c *consumerdServer) Run(
 		ClientContext: ctx,
 	}
 
-	st := &splitTask{
-		local: run.Package(
+	st := &SplitTask{
+		Local: run.Package(
 			runner.RunLocal(ap), ctxs, c.localExecutor, req),
-		remote: run.Package(
+		Remote: run.Package(
 			runner.SendRemote(ap, c.schedulerClient), ctxs, c.remoteExecutor, req),
 	}
 	c.queue.In() <- st

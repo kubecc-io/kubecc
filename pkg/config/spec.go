@@ -50,7 +50,6 @@ type AgentSpec struct {
 	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
 	SchedulerAddress string          `json:"schedulerAddress"`
 	MonitorAddress   string          `json:"monitorAddress"`
-	ListenAddress    string          `json:"listenAddress"`
 }
 
 type ConsumerSpec struct {

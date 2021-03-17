@@ -3,6 +3,7 @@ package monitor_test
 import (
 	"context"
 	"strings"
+	"time"
 
 	mapset "github.com/deckarep/golang-set"
 	. "github.com/onsi/ginkgo"
@@ -129,5 +130,14 @@ var _ = Describe("Store", func() {
 		})
 		store.Delete("key1")
 		Expect(store.Len()).To(Equal(0))
+	}, 100)
+	Measure("Throughput", func(b Benchmarker) {
+		start := time.Now()
+		for i := 0; i < 1000; i++ {
+			store.CAS("throughput", &testutil.Test1{Counter: int32(i)})
+		}
+		elapsed := time.Since(start)
+		b.RecordValueWithPrecision("Updates per second",
+			float64(1e12/elapsed.Nanoseconds())/1e6, "M", 3)
 	}, 100)
 })

@@ -18,7 +18,6 @@ import (
 	"github.com/opentracing/opentracing-go/ext"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/encoding/gzip"
 
 	"google.golang.org/grpc"
 )
@@ -125,7 +124,8 @@ func Dial(
 		),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(1e8),
-			grpc.UseCompressor(gzip.Name),
+			// note: this maybe causes massive slowdowns when used with anypb
+			// grpc.UseCompressor(gzip.Name),
 		),
 	)
 	if options.tls {
