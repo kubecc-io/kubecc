@@ -8,6 +8,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -42,6 +43,7 @@ type MonitorServer struct {
 
 func NewMonitorServer(
 	ctx context.Context,
+	conf config.MonitorSpec,
 	storeCreator StoreCreator,
 ) *MonitorServer {
 	srv := &MonitorServer{
@@ -57,7 +59,9 @@ func NewMonitorServer(
 	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 
-	go srv.runPrometheusListener()
+	if conf.ServePrometheusMetrics {
+		go srv.runPrometheusListener()
+	}
 	return srv
 }
 

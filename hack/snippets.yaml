@@ -69,6 +69,9 @@ Expect ... To Equal:
 Expect ... To Receive:
   prefix: etr
   body: Expect($1).To(Receive())
+Expect Error Not To Have Occurred:
+  prefix: eent
+  body: Expect(err).NotTo(HaveOccurred())
 Consistently Should Not Receive:
   prefix: csnr
   body: Consistently($1).ShouldNot(Receive()
