@@ -233,7 +233,7 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 	)
 	ctx, cancel := context.WithCancel(ctx)
 
-	mon := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
+	mon := monitor.NewMonitorServer(ctx, cfg.Monitor, monitor.InMemoryStoreCreator)
 	types.RegisterMonitorServer(e.server, mon)
 
 	return ctx, cancel
@@ -304,6 +304,9 @@ func DefaultConfig() config.KubeccSpec {
 					Memory: "1Gi",
 				},
 			},
+		},
+		Monitor: config.MonitorSpec{
+			ServePrometheusMetrics: false,
 		},
 		Consumerd: config.ConsumerdSpec{
 			DisableTLS: true,

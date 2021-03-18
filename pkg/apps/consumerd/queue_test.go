@@ -1,142 +1,92 @@
 package consumerd_test
 
 import (
-	"context"
+	"time"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/testutil"
-	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/tracing"
+	"github.com/cobalt77/kubecc/pkg/test"
 	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"go.uber.org/atomic"
 )
 
-type testExecutor struct {
-	numTasks  *atomic.Int32
-	completed *atomic.Int32
-}
-
-func (x *testExecutor) Exec(task *run.Task) error {
-	x.numTasks.Inc()
-	defer x.numTasks.Dec()
-
-	go func() {
-		defer GinkgoRecover()
-		task.Run()
-	}()
-	select {
-	case <-task.Done():
-	case <-task.Context().Done():
-	}
-	x.completed.Inc()
-	return task.Error()
-}
-
-func newTestExecutor() *testExecutor {
-	return &testExecutor{
-		numTasks:  atomic.NewInt32(0),
-		completed: atomic.NewInt32(0),
-	}
-}
-
-func (x *testExecutor) CompleteUsageLimits(*metrics.UsageLimits) {
-
-}
-
-func (x *testExecutor) CompleteTaskStatus(s *metrics.TaskStatus) {
-	s.NumDelegated = x.numTasks.Load()
-}
-
-func (x *testExecutor) ExecAsync(task *run.Task) <-chan error {
-	panic("not implemented")
-}
-
 var _ = Describe("Split Queue", func() {
-	testCtx := meta.NewContext(
-		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
-		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
-		meta.WithProvider(tracing.Tracer),
-	)
-
 	numTasks := 100
-	taskPool := make(chan *consumerd.SplitTask, numTasks)
-	cleanup := make(chan context.CancelFunc, 100)
-	localExec := newTestExecutor()
-	remoteExec := newTestExecutor()
-	tc := &types.Toolchain{
-		Kind:       types.Gnu,
-		Lang:       types.CXX,
-		Executable: testutil.TestToolchainExecutable,
-		TargetArch: "testarch",
-		Version:    "0",
-		PicDefault: true,
-	}
-	taskArgs := []string{"-duration", "0"}
-	rm := &testtoolchain.TestToolchainRunner{}
-	request := &types.RunRequest{
-		Compiler: &types.RunRequest_Toolchain{
-			Toolchain: tc,
-		},
-		Args: taskArgs,
-		UID:  1000,
-		GID:  1000,
-	}
+	When("when no scheduler is available", func() {
+		Specify("startup", func() {
+			testEnv = test.NewDefaultEnvironment()
+			testEnv.SpawnMonitor()
+			go testEnv.Serve()
+			testEnv.WaitForServices([]string{
+				types.Monitor_ServiceDesc.ServiceName,
+			})
+		})
+		Specify("the queue should run all tasks locally", func() {
+			taskPool := makeTaskPool(numTasks)
+			sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
+			go func() {
+				defer GinkgoRecover()
+				for {
+					select {
+					case task := <-taskPool:
+						sq.In() <- task
+						go func() {
+							_, err := task.Wait()
+							Expect(err).NotTo(HaveOccurred())
 
-	BeforeEach(func() {
-		schedulerClient := testEnv.NewSchedulerClient(testCtx)
-
-		Expect(len(taskPool)).To(Equal(0))
-		Expect(cap(taskPool)).To(Equal(numTasks))
-
-		for i := 0; i < numTasks; i++ {
-			contexts := run.Contexts{
-				ServerContext: testCtx,
-				ClientContext: testCtx,
-			}
-			taskPool <- &consumerd.SplitTask{
-				Local: run.Package(
-					rm.RunLocal(rm.NewArgParser(testCtx, taskArgs)),
-					contexts,
-					localExec,
-					request,
-				),
-				Remote: run.Package(
-					rm.SendRemote(
-						rm.NewArgParser(testCtx, taskArgs),
-						schedulerClient,
-					),
-					contexts,
-					remoteExec,
-					request,
-				),
-			}
-		}
-
-		_, cf := testEnv.SpawnMonitor()
-		cleanup <- cf
+						}()
+					default:
+						return
+					}
+				}
+			}()
+			Eventually(func() int32 {
+				return localExec.completed.Load()
+			}).Should(Equal(int32(numTasks)))
+		})
+		Specify("shutdown", func() {
+			testEnv.Shutdown()
+		})
 	})
+	When("a scheduler is available", func() {
+		Specify("startup", func() {
+			testEnv = test.NewDefaultEnvironment()
+			testEnv.SpawnMonitor()
+			testEnv.SpawnScheduler()
+			go testEnv.Serve()
+			testEnv.WaitForServices([]string{
+				types.Monitor_ServiceDesc.ServiceName,
+				types.Scheduler_ServiceDesc.ServiceName,
+			})
+		})
+		Specify("the queue should split tasks between local and remote", func() {
+			taskPool := makeTaskPool(numTasks)
+			sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
+			time.Sleep(100 * time.Millisecond)
+			go func() {
+				defer GinkgoRecover()
+				for {
+					select {
+					case task := <-taskPool:
+						sq.In() <- task
+						go func() {
+							_, err := task.Wait()
+							Expect(err).NotTo(HaveOccurred())
 
-	AfterEach(func() {
-		for c := range cleanup {
-			c()
-		}
-	})
-
-	PSpecify("when no scheduler is available, the queue should run all tasks locally", func() {
-		sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
-		for task := range taskPool {
-			sq.In() <- task
-		}
-		Eventually(func() int32 {
-			return localExec.numTasks.Load()
-		}).Should(Equal(int32(numTasks)))
+						}()
+					default:
+						return
+					}
+				}
+			}()
+			Eventually(func() int32 {
+				return localExec.completed.Load() + remoteExec.completed.Load()
+			}).Should(Equal(int32(numTasks)))
+			Expect(localExec.completed.Load()).To(BeNumerically(">", 0))
+			Expect(remoteExec.completed.Load()).To(BeNumerically(">", 0))
+		})
+		Specify("shutdown", func() {
+			testEnv.Shutdown()
+		})
 	})
 })

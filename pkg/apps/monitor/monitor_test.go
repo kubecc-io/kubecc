@@ -11,6 +11,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	"github.com/cobalt77/kubecc/pkg/clients"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -82,7 +83,7 @@ var _ = Describe("Monitor", func() {
 				logkc.WithLogLevel(zapcore.WarnLevel)))),
 			meta.WithProvider(tracing.Tracer),
 		)
-		mon := monitor.NewMonitorServer(monitorCtx, storeCreator)
+		mon := monitor.NewMonitorServer(monitorCtx, config.MonitorSpec{}, storeCreator)
 		listener = bufconn.Listen(1024 * 1024)
 		srv := servers.NewServer(monitorCtx, servers.WithServerOpts(
 			grpc.NumStreamWorkers(12),

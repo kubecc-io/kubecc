@@ -75,7 +75,8 @@ type SchedulerSpec struct {
 
 type MonitorSpec struct {
 	GlobalSpec
-	ListenAddress string `json:"listenAddress"`
+	ListenAddress          string `json:"listenAddress"`
+	ServePrometheusMetrics bool   `json:"servePrometheusMetrics"`
 }
 
 type CacheSpec struct {
