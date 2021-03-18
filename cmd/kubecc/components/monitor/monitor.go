@@ -37,7 +37,7 @@ func run(cmd *cobra.Command, args []string) {
 	lg.With("addr", listener.Addr().String()).Info("Metrics API listening")
 
 	srv := servers.NewServer(ctx)
-	monitorServer := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
+	monitorServer := monitor.NewMonitorServer(ctx, conf, monitor.InMemoryStoreCreator)
 	types.RegisterMonitorServer(srv, monitorServer)
 
 	err = srv.Serve(listener)
