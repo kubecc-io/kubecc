@@ -8,7 +8,7 @@ import (
 )
 
 type sendRemoteRunnerManager struct {
-	client types.SchedulerClient
+	client types.SchedulerClient // todo: this needs to be a stream
 }
 
 func (m sendRemoteRunnerManager) Run(

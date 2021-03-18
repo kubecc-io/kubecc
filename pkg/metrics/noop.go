@@ -29,6 +29,8 @@ func (noopListener) OnValueChanged(string, interface{}) ChangeListener {
 
 func (noopListener) OnProviderAdded(func(context.Context, string)) {}
 
+func (noopListener) Stop() {}
+
 type noopChangeListener struct{}
 
 func (noopChangeListener) TryConnect() (grpc.ClientStream, error) {
