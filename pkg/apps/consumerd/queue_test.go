@@ -91,7 +91,7 @@ var _ = Describe("Split Queue", func() {
 	}
 
 	BeforeEach(func() {
-		schedulerClient := testEnv.NewSchedulerClient()
+		schedulerClient := testEnv.NewSchedulerClient(testCtx)
 
 		Expect(len(taskPool)).To(Equal(0))
 		Expect(cap(taskPool)).To(Equal(numTasks))
@@ -131,7 +131,7 @@ var _ = Describe("Split Queue", func() {
 	})
 
 	PSpecify("when no scheduler is available, the queue should run all tasks locally", func() {
-		sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient())
+		sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
 		for task := range taskPool {
 			sq.In() <- task
 		}

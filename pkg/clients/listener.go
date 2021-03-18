@@ -22,6 +22,7 @@ import (
 
 type monitorListener struct {
 	ctx            context.Context
+	cancel         context.CancelFunc
 	monClient      types.MonitorClient
 	lg             *zap.SugaredLogger
 	streamOpts     []servers.StreamManagerOption
@@ -34,8 +35,10 @@ func NewListener(
 	client types.MonitorClient,
 	streamOpts ...servers.StreamManagerOption,
 ) metrics.Listener {
+	ctx, cancel := context.WithCancel(ctx)
 	listener := &monitorListener{
 		ctx:            ctx,
+		cancel:         cancel,
 		lg:             meta.Log(ctx),
 		monClient:      client,
 		knownProviders: make(map[string]context.CancelFunc),
@@ -49,7 +52,7 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 	doUpdate := func(providers *metrics.Providers) {
 		for uuid := range providers.Items {
 			if _, ok := l.knownProviders[uuid]; !ok {
-				pctx, cancel := context.WithCancel(context.Background())
+				pctx, cancel := context.WithCancel(l.ctx)
 				l.knownProviders[uuid] = cancel
 				go handler(pctx, uuid)
 			}
@@ -97,7 +100,7 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 	}
 	for {
 		any, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
 			lg.Debug(err)
 			return nil
 		}
@@ -181,4 +184,8 @@ func (l *monitorListener) OnValueChanged(
 	mgr := servers.NewStreamManager(l.ctx, cl, l.streamOpts...)
 	go mgr.Run()
 	return cl
+}
+
+func (l *monitorListener) Stop() {
+	l.cancel()
 }

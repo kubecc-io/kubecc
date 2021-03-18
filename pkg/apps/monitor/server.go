@@ -74,7 +74,7 @@ func (m *MonitorServer) runPrometheusListener() {
 		}
 	}()
 
-	cc, err := servers.Dial(m.srvContext, "bufconn",
+	cc, err := servers.Dial(m.srvContext, meta.UUID(m.srvContext),
 		servers.WithDialOpts(
 			grpc.WithContextDialer(
 				func(c context.Context, s string) (net.Conn, error) {
@@ -372,7 +372,7 @@ func (m *MonitorServer) Whois(
 		return &types.WhoisResponse{
 			UUID:      req.GetUUID(),
 			Address:   info.Address,
-			Component: types.Component(info.Component),
+			Component: info.Component,
 		}, nil
 	}
 	return nil, status.Error(codes.NotFound,

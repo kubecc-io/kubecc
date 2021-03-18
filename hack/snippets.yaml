@@ -57,6 +57,12 @@ It:
     It("$1", func() {
       $0
     })
+Specify:
+  prefix: specify
+  body: |-
+    Specify("$1", func() {
+      $0
+    })
 Expect ... To Equal:
   prefix: ete
   body: Expect($1).To(Equal($2))

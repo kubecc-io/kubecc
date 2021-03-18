@@ -17,7 +17,6 @@ func TestConsumerd(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	testEnv = test.NewDefaultEnvironment()
-	testEnv.Start()
 })
 
 var _ = AfterSuite(func() {

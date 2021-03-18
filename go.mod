@@ -23,7 +23,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/googleapis/gnostic v0.5.4 // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
-	github.com/imdario/mergo v0.3.11 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/mattn/go-runewidth v0.0.10 // indirect
 	github.com/minio/md5-simd v1.1.2

@@ -18,14 +18,17 @@ import (
 )
 
 type AgentServer struct {
-	AgentServerOptions
-
-	srvContext      context.Context
-	executor        run.Executor
-	lg              *zap.SugaredLogger
-	tcStore         *toolchains.Store
-	tcRunStore      *run.ToolchainRunnerStore
-	metricsProvider metrics.Provider
+	srvContext       context.Context
+	executor         run.Executor
+	lg               *zap.SugaredLogger
+	tcStore          *toolchains.Store
+	tcRunStore       *run.ToolchainRunnerStore
+	metricsProvider  metrics.Provider
+	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
+	schedulerClient  types.SchedulerClient
+	monitorClient    types.MonitorClient
+	usageLimits      *metrics.UsageLimits
 }
 
 type AgentServerOptions struct {
@@ -87,12 +90,23 @@ func NewAgentServer(
 	}
 
 	srv := &AgentServer{
-		AgentServerOptions: options,
-		srvContext:         ctx,
-		lg:                 meta.Log(ctx),
-		tcStore:            toolchains.Aggregate(ctx, options.toolchainFinders...),
-		executor:           run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		tcRunStore:         runStore,
+		srvContext:       ctx,
+		lg:               meta.Log(ctx),
+		tcStore:          toolchains.Aggregate(ctx, options.toolchainFinders...),
+		executor:         run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
+		tcRunStore:       runStore,
+		toolchainFinders: options.toolchainFinders,
+		toolchainRunners: options.toolchainRunners,
+		monitorClient:    options.monitorClient,
+		usageLimits:      options.usageLimits,
+		schedulerClient:  options.schedulerClient,
+	}
+
+	if options.monitorClient != nil {
+		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
+			clients.Buffered|clients.Discard)
+	} else {
+		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 
 	mgr := servers.NewStreamManager(ctx, srv)
@@ -115,8 +129,6 @@ func (s *AgentServer) postTaskStatus() {
 
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.metricsProvider = clients.NewMonitorProvider(s.srvContext, s.monitorClient,
-		clients.Buffered|clients.Discard)
 	s.postUsageLimits()
 
 	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)

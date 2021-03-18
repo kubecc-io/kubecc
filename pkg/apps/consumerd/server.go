@@ -17,9 +17,7 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 )
 
@@ -34,7 +32,6 @@ type consumerdServer struct {
 	storeUpdateCh       chan struct{}
 	schedulerClient     types.SchedulerClient
 	metricsProvider     metrics.Provider
-	connection          *grpc.ClientConn
 	localExecutor       run.Executor
 	remoteExecutor      run.Executor
 	queue               *SplitQueue
@@ -116,11 +113,9 @@ func NewConsumerdServer(
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
 		queue:               NewSplitQueue(ctx, options.monitorClient),
+		schedulerClient:     options.schedulerClient,
 	}
 
-	if options.schedulerClient != nil {
-		srv.schedulerClient = options.schedulerClient
-	}
 	if options.monitorClient != nil {
 		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
 			clients.Buffered|clients.Discard)
@@ -128,11 +123,6 @@ func NewConsumerdServer(
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
-}
-
-func (c *consumerdServer) schedulerConnected() bool {
-	return c.schedulerClient != nil &&
-		c.connection.GetState() == connectivity.Ready
 }
 
 func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
