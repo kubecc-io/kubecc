@@ -16,7 +16,6 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/gojp/goreportcard v0.0.0-20210127091035-7a8a1ebca86e // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -33,8 +32,7 @@ require (
 	github.com/onsi/gomega v1.11.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.9.0
-	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/prometheus/client_golang v1.10.0
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/smallnest/weighted v0.0.0-20201102054551-85ac5c79528c
 	github.com/spf13/cobra v1.1.3
@@ -44,7 +42,6 @@ require (
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/atomic v1.7.0
-	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5
