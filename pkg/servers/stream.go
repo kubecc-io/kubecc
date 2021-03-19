@@ -2,14 +2,11 @@ package servers
 
 import (
 	"context"
-	"errors"
-	"io"
 	"math"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -40,6 +37,7 @@ type StreamManager struct {
 	ctx        context.Context
 	handler    StreamHandler
 	backoffMgr wait.BackoffManager
+	immediate  chan struct{}
 }
 
 type EventKind uint
@@ -71,6 +69,19 @@ func WithLogEvents(events EventKind) StreamManagerOption {
 	}
 }
 
+func makeBackoffMgr() wait.BackoffManager {
+	return wait.NewExponentialBackoffManager(
+		500*time.Millisecond, // Initial
+		5*time.Second,        // Max
+		10*time.Second,       // Reset
+		math.Sqrt2,           // Backoff factor
+		0.25,                 // Jitter factor
+		clock.RealClock{},
+	)
+}
+
+// todo: unit tests here
+
 func NewStreamManager(
 	ctx context.Context,
 	handler StreamHandler,
@@ -85,14 +96,36 @@ func NewStreamManager(
 		StreamManagerOptions: options,
 		ctx:                  ctx,
 		handler:              handler,
-		backoffMgr: wait.NewExponentialBackoffManager(
-			500*time.Millisecond, // Initial
-			8*time.Second,        // Max
-			15*time.Second,       // Reset
-			math.Sqrt2,           // Backoff factor
-			0.25,                 // Jitter factor
-			clock.RealClock{},
-		),
+		backoffMgr:           makeBackoffMgr(),
+		immediate:            make(chan struct{}),
+	}
+}
+
+// TryImmediately will immediately invoke TryConnect.
+// This should only be used when you are reasonably certain the connection
+// to the server will succeed, but you may be stuck in a long backoff timer.
+// This function has the side effect of resetting the backoff manager to its
+// defaults, but only if a backoff timer is currently active. If the
+// backoff timer is not currently active, this function will do nothing.
+func (cm *StreamManager) TryImmediately() {
+	close(cm.immediate)
+}
+
+// this must only be called by Run() which should be running in a separate
+// goroutine.
+func (cm *StreamManager) waitBackoff() {
+	lg := meta.Log(cm.ctx)
+	lg.Debug("Backing off")
+	cm.immediate = make(chan struct{})
+	select {
+	case <-cm.backoffMgr.Backoff().C():
+		lg.Debug("Backoff timer completed")
+		close(cm.immediate)
+	case <-cm.immediate:
+		lg.Debug(zapkc.Yellow.Add("Requested to try connecting immediately"))
+		// We need to reset the backoff manager since its timer is most likely
+		// still waiting.
+		cm.backoffMgr = makeBackoffMgr()
 	}
 }
 
@@ -110,8 +143,9 @@ func (cm *StreamManager) Run() {
 					zap.String("target", cm.handler.Target()),
 				).Warn(zapkc.Red.Add("Failed to connect"))
 			}
-			<-cm.backoffMgr.Backoff().C()
+			cm.waitBackoff()
 		} else {
+			close(cm.immediate)
 			if e, ok := cm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
@@ -132,7 +166,7 @@ func (cm *StreamManager) Run() {
 						zap.String("target", cm.handler.Target()),
 					).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
 				}
-				<-cm.backoffMgr.Backoff().C()
+				cm.waitBackoff()
 			} else {
 				if cm.logEvents&LogStreamFinished != 0 {
 					lg.Debug("Stream finished")
@@ -141,28 +175,4 @@ func (cm *StreamManager) Run() {
 			}
 		}
 	}
-}
-
-func EmptyServerStreamDone(
-	ctx context.Context,
-	stream grpc.ClientStream,
-) chan error {
-	lg := meta.Log(ctx)
-	errCh := make(chan error, 1)
-	go func() {
-		for {
-			empty := &types.Empty{}
-			err := stream.RecvMsg(empty)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					lg.Debug(err)
-				} else {
-					lg.Error(err)
-				}
-				errCh <- err
-				return
-			}
-		}
-	}()
-	return errCh
 }

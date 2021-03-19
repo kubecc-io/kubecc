@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/testutil"
 	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/identity"
@@ -27,49 +26,32 @@ var (
 		meta.WithProvider(logkc.Logger),
 		meta.WithProvider(tracing.Tracer),
 	)
-	testToolchainRunner = &testtoolchain.TestToolchainRunner{}
-	taskArgs            = []string{"-duration", "0"}
+	testToolchainRunner = &testtoolchain.NoopToolchainRunner{}
 	localExec           = newTestExecutor()
 	remoteExec          = newTestExecutor()
 )
 
 func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 	taskPool := make(chan *consumerd.SplitTask, numTasks)
-	tc := &types.Toolchain{
-		Kind:       types.Gnu,
-		Lang:       types.CXX,
-		Executable: testutil.TestToolchainExecutable,
-		TargetArch: "testarch",
-		Version:    "0",
-		PicDefault: true,
-	}
-
 	for i := 0; i < numTasks; i++ {
 		contexts := run.Contexts{
 			ServerContext: testCtx,
 			ClientContext: testCtx,
 		}
-		request := &types.RunRequest{
-			Compiler: &types.RunRequest_Toolchain{
-				Toolchain: tc,
-			},
-			Args: taskArgs,
-			UID:  1000,
-			GID:  1000,
-		}
+		request := &types.RunRequest{}
 
 		taskPool <- &consumerd.SplitTask{
 			Local: run.Package(
 				testToolchainRunner.RunLocal(
-					testToolchainRunner.NewArgParser(testCtx, taskArgs)),
+					testToolchainRunner.NewArgParser(testCtx, []string{})),
 				contexts,
 				localExec,
 				request,
 			),
 			Remote: run.Package(
 				testToolchainRunner.SendRemote(
-					testToolchainRunner.NewArgParser(testCtx, taskArgs),
-					nil,
+					testToolchainRunner.NewArgParser(testCtx, []string{}),
+					nil, // Testing CompileRequestClient is out of scope for this test
 				),
 				contexts,
 				remoteExec,

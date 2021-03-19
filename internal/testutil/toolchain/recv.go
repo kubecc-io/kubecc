@@ -8,8 +8,7 @@ import (
 	"github.com/opentracing/opentracing-go"
 )
 
-type recvRemoteRunnerManager struct {
-}
+type recvRemoteRunnerManager struct{}
 
 func (m recvRemoteRunnerManager) Run(
 	ctx run.Contexts,
@@ -37,5 +36,18 @@ func (m recvRemoteRunnerManager) Run(
 		panic(err)
 	}
 	lg.Info("=> Done.")
-	return &types.CompileResponse{}, nil
+	return &types.CompileResponse{
+		RequestID:     req.RequestID,
+		CompileResult: types.CompileResponse_Success,
+	}, nil
+}
+
+type recvRemoteRunnerManagerNoop struct{}
+
+func (m recvRemoteRunnerManagerNoop) Run(
+	ctx run.Contexts,
+	x run.Executor,
+	request interface{},
+) (response interface{}, err error) {
+	panic("Unimplemented")
 }

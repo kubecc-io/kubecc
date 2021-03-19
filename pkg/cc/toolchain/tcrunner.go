@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -16,7 +17,7 @@ func (r *CCToolchainRunner) RunLocal(ap run.ArgParser) run.RunnerManager {
 	}
 }
 
-func (r *CCToolchainRunner) SendRemote(ap run.ArgParser, client types.SchedulerClient) run.RunnerManager {
+func (r *CCToolchainRunner) SendRemote(ap run.ArgParser, client *clients.CompileRequestClient) run.RunnerManager {
 	return &sendRemoteRunnerManager{
 		ArgParser:       ap.(*cc.ArgParser),
 		schedulerClient: client,

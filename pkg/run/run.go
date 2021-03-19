@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 )
@@ -53,7 +54,7 @@ type ArgParser interface {
 
 type ToolchainRunner interface {
 	RunLocal(ArgParser) RunnerManager
-	SendRemote(ArgParser, types.SchedulerClient) RunnerManager
+	SendRemote(ArgParser, *clients.CompileRequestClient) RunnerManager
 	RecvRemote() RunnerManager
 	NewArgParser(ctx context.Context, args []string) ArgParser
 }
