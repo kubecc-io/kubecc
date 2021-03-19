@@ -79,15 +79,6 @@ var _ = Describe("Integration test", func() {
 				QueueRejectMultiplier:   2.0,
 			},
 		}))
-
-		go testEnv.Serve()
-
-		testEnv.WaitForServices([]string{
-			types.Monitor_ServiceDesc.ServiceName,
-			types.Cache_ServiceDesc.ServiceName,
-			types.Scheduler_ServiceDesc.ServiceName,
-			types.Consumerd_ServiceDesc.ServiceName,
-		})
 	})
 
 	Measure("Run test", func(b Benchmarker) {

@@ -145,7 +145,6 @@ func (cm *StreamManager) Run() {
 			}
 			cm.waitBackoff()
 		} else {
-			close(cm.immediate)
 			if e, ok := cm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
