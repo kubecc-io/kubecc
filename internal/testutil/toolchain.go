@@ -63,6 +63,12 @@ func (r *SleepRunner) Run(_ context.Context, _ *types.Toolchain) error {
 	return nil
 }
 
+type NoopRunner struct{}
+
+func (*NoopRunner) Run(context.Context, *types.Toolchain) error {
+	return nil
+}
+
 type TestArgParser struct {
 	Args     []string
 	Duration time.Duration
@@ -84,5 +90,13 @@ func (ap *TestArgParser) Parse() {
 }
 
 func (TestArgParser) CanRunRemote() bool {
+	return true
+}
+
+type NoopArgParser struct{}
+
+func (*NoopArgParser) Parse() {}
+
+func (NoopArgParser) CanRunRemote() bool {
 	return true
 }

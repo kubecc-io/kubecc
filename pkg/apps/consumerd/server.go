@@ -17,7 +17,9 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 )
 
@@ -31,12 +33,15 @@ type consumerdServer struct {
 	tcStore             *toolchains.Store
 	storeUpdateCh       chan struct{}
 	schedulerClient     types.SchedulerClient
+	monitorClient       types.MonitorClient
 	metricsProvider     metrics.Provider
 	localExecutor       run.Executor
 	remoteExecutor      run.Executor
 	queue               *SplitQueue
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
+	requestClient       *clients.CompileRequestClient
+	streamMgr           *servers.StreamManager
 }
 
 type ConsumerdServerOptions struct {
@@ -114,7 +119,9 @@ func NewConsumerdServer(
 		localTasksCompleted: atomic.NewInt64(0),
 		queue:               NewSplitQueue(ctx, options.monitorClient),
 		schedulerClient:     options.schedulerClient,
+		requestClient:       clients.NewCompileRequestClient(ctx, nil),
 	}
+	srv.streamMgr = servers.NewStreamManager(srv.srvContext, srv)
 
 	if options.monitorClient != nil {
 		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
@@ -122,7 +129,23 @@ func NewConsumerdServer(
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
+
+	go srv.runRequestClient()
+	go srv.streamMgr.Run()
 	return srv
+}
+
+func (c *consumerdServer) runRequestClient() {
+	av := clients.NewAvailabilityChecker(clients.ComponentFilter(types.Scheduler))
+	clients.WatchAvailability(c.srvContext, types.Scheduler, c.monitorClient, av)
+
+	for {
+		ctx := av.EnsureAvailable()
+		c.lg.Debug("Remote is now available: Trying to connect immediately")
+		// Try to connect to the scheduler immediately in case we are in a backoff
+		c.streamMgr.TryImmediately()
+		<-ctx.Done()
+	}
 }
 
 func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
@@ -291,7 +314,7 @@ func (c *consumerdServer) Run(
 		Local: run.Package(
 			runner.RunLocal(ap), ctxs, c.localExecutor, req),
 		Remote: run.Package(
-			runner.SendRemote(ap, c.schedulerClient), ctxs, c.remoteExecutor, req),
+			runner.SendRemote(ap, c.requestClient), ctxs, c.remoteExecutor, req),
 	}
 	c.queue.In() <- st
 
@@ -303,41 +326,22 @@ func (c *consumerdServer) Run(
 	return resp.(*types.RunResponse), nil
 }
 
-// func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
-// 	select {
-// 	case c.storeUpdateCh <- struct{}{}:
-// 	default:
-// 	}
-// 	for {
-// 		select {
-// 		case <-c.storeUpdateCh:
-// 			copiedItems := []*types.Toolchain{}
-// 			for tc := range c.tcStore.Items() {
-// 				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
-// 			}
-// 			err := stream.SendMsg(&types.Metadata{
-// 				Toolchains: &metrics.Toolchains{
-// 					Items: copiedItems,
-// 				},
-// 			})
-// 			if err != nil {
-// 				c.lg.With(
-// 					zap.Error(err),
-// 				).Error("Error sending updated toolchains to scheduler")
-// 				return err
-// 			}
-// 		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
-// 			return err
-// 		case <-c.srvContext.Done():
-// 			return nil
-// 		}
-// 	}
-// }
+func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+	c.requestClient.LoadNewStream(
+		stream.(types.Scheduler_StreamOutgoingTasksClient))
+	select {
+	case <-c.srvContext.Done():
+		return c.srvContext.Err()
+	case <-stream.Context().Done():
+		return stream.Context().Err()
+	}
+}
 
-// func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
-// 	return c.schedulerClient.ConnectConsumerd(c.srvContext)
-// }
+func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
+	return c.schedulerClient.StreamOutgoingTasks(
+		c.srvContext, grpc.UseCompressor(gzip.Name))
+}
 
-// func (c *consumerdServer) Target() string {
-// 	return "scheduler"
-// }
+func (c *consumerdServer) Target() string {
+	return "scheduler"
+}

@@ -237,6 +237,7 @@ func (s *schedulerServer) cacheTransaction(
 // 	return s.handleClientConnection(srv)
 // }
 
+// agent <-> scheduler
 func (s *schedulerServer) StreamIncomingTasks(
 	srv types.Scheduler_StreamIncomingTasksServer,
 ) error {
@@ -258,6 +259,7 @@ func (s *schedulerServer) StreamIncomingTasks(
 	return nil
 }
 
+// consumerd <-> scheduler
 func (s *schedulerServer) StreamOutgoingTasks(
 	srv types.Scheduler_StreamOutgoingTasksServer,
 ) error {

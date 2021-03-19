@@ -115,7 +115,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		agent.WithToolchainRunners(testtoolchain.AddToStore),
+		agent.WithToolchainRunners(testtoolchain.AddToStoreNoop),
 		agent.WithMonitorClient(types.NewMonitorClient(e.Dial(ctx))),
 		agent.WithSchedulerClient(types.NewSchedulerClient(e.Dial(ctx))),
 	}

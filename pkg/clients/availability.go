@@ -100,7 +100,7 @@ func WatchAvailability(
 	ctx context.Context,
 	component types.Component,
 	monClient types.MonitorClient,
-	csl AvailabilityListener,
+	al AvailabilityListener,
 ) {
 	listener := NewListener(ctx, monClient, servers.WithLogEvents(0))
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
@@ -111,7 +111,7 @@ func WatchAvailability(
 			return
 		}
 		if info.Component == component {
-			csl.OnComponentAvailable(ctx, info)
+			al.OnComponentAvailable(ctx, info)
 		}
 	})
 }

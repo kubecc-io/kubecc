@@ -40,3 +40,24 @@ func (m localRunnerManager) Run(
 		ReturnCode: 0,
 	}, nil
 }
+
+type localRunnerManagerNoop struct{}
+
+func (m localRunnerManagerNoop) Run(
+	ctx run.Contexts,
+	x run.Executor,
+	request interface{},
+) (response interface{}, err error) {
+	lg := meta.Log(ctx.ServerContext)
+	lg.Info("=> Running local")
+	req := request.(*types.RunRequest)
+	task := run.Begin(ctx.ClientContext, &testutil.NoopRunner{}, req.GetToolchain())
+	err = x.Exec(task)
+	if err != nil {
+		panic(err)
+	}
+	lg.Info("=> Done.")
+	return &types.RunResponse{
+		ReturnCode: 0,
+	}, nil
+}

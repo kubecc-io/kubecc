@@ -9,26 +9,25 @@ import (
 	"path/filepath"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
 )
 
 type remoteCompileRunner struct {
 	run.RunnerOptions
 
-	client types.SchedulerClient
+	client *clients.CompileRequestClient
 }
 
 func NewRemoteCompileRunner(
-	client types.SchedulerClient,
+	client *clients.CompileRequestClient,
 	opts ...run.RunOption,
 ) run.Runner {
 	r := &remoteCompileRunner{
@@ -43,11 +42,11 @@ func (r *remoteCompileRunner) Run(ctx context.Context, tc *types.Toolchain) erro
 	if err != nil {
 		return err
 	}
-	resp, err := r.client.Compile(ctx, &types.CompileRequest{
+	resp, err := r.client.Compile(&types.CompileRequest{
 		Toolchain:          tc,
 		Args:               r.Args,
 		PreprocessedSource: preprocessedSource,
-	}, grpc.UseCompressor(gzip.Name))
+	})
 	if r.OutputVar != nil {
 		r.OutputVar = resp
 	}
@@ -55,7 +54,7 @@ func (r *remoteCompileRunner) Run(ctx context.Context, tc *types.Toolchain) erro
 }
 
 type sendRemoteRunnerManager struct {
-	schedulerClient types.SchedulerClient
+	schedulerClient *clients.CompileRequestClient
 	ArgParser       *cc.ArgParser
 }
 

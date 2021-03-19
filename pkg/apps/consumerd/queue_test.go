@@ -42,7 +42,7 @@ var _ = Describe("Split Queue", func() {
 			}()
 			Eventually(func() int32 {
 				return localExec.completed.Load()
-			}).Should(Equal(int32(numTasks)))
+			}, 10*time.Second, 100*time.Millisecond).Should(Equal(int32(numTasks)))
 		})
 		Specify("shutdown", func() {
 			testEnv.Shutdown()
@@ -60,6 +60,7 @@ var _ = Describe("Split Queue", func() {
 			})
 		})
 		Specify("the queue should split tasks between local and remote", func() {
+			initial := int(localExec.completed.Load() + remoteExec.completed.Load())
 			taskPool := makeTaskPool(numTasks)
 			sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
 			time.Sleep(100 * time.Millisecond)
@@ -81,7 +82,7 @@ var _ = Describe("Split Queue", func() {
 			}()
 			Eventually(func() int32 {
 				return localExec.completed.Load() + remoteExec.completed.Load()
-			}).Should(Equal(int32(numTasks)))
+			}, 10*time.Second, 100*time.Millisecond).Should(Equal(int32(initial + numTasks)))
 			Expect(localExec.completed.Load()).To(BeNumerically(">", 0))
 			Expect(remoteExec.completed.Load()).To(BeNumerically(">", 0))
 		})
