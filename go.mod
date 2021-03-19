@@ -16,7 +16,6 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/gojp/goreportcard v0.0.0-20210127091035-7a8a1ebca86e // indirect
 	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -44,7 +43,6 @@ require (
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/atomic v1.7.0
-	go.uber.org/goleak v1.1.10 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5
@@ -54,10 +52,10 @@ require (
 	google.golang.org/grpc v1.36.0
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/api v0.20.4
+	k8s.io/api v0.20.5
 	k8s.io/apiextensions-apiserver v0.20.4 // indirect
-	k8s.io/apimachinery v0.20.4
-	k8s.io/client-go v0.20.4
+	k8s.io/apimachinery v0.20.5
+	k8s.io/client-go v0.20.5
 	k8s.io/klog/v2 v2.6.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210305164622-f622666832c1 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3
