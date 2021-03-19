@@ -2,7 +2,6 @@ package consumerd
 
 import (
 	"context"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -90,7 +89,6 @@ func (s *SplitQueue) runLocalQueue() {
 			case Requeue:
 				s.In() <- task
 			}
-			time.Sleep(10 * time.Millisecond)
 		}
 	}
 }
