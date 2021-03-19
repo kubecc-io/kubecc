@@ -16,18 +16,21 @@ type CompileRequestClient struct {
 	pending sync.Map // map[string]chan response
 	queue   chan request
 
-	streamLock   sync.Mutex
-	streamActive sync.Cond
+	streamLock   *sync.Mutex
+	streamActive *sync.Cond
 }
 
 func NewCompileRequestClient(
 	ctx context.Context,
 	stream types.Scheduler_StreamOutgoingTasksClient,
 ) *CompileRequestClient {
+	lock := &sync.Mutex{}
 	c := &CompileRequestClient{
-		ctx:    ctx,
-		stream: stream,
-		queue:  make(chan request),
+		ctx:          ctx,
+		stream:       stream,
+		queue:        make(chan request),
+		streamLock:   lock,
+		streamActive: sync.NewCond(lock),
 	}
 	go c.recvWorker()
 	return c

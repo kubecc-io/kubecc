@@ -83,8 +83,9 @@ func WithName(name string) SpawnOption {
 func (e *Environment) serve(ctx context.Context, server interface{}, name string) {
 	srv := servers.NewServer(ctx)
 	component := meta.Component(ctx)
-	ls := bufconn.Listen(bufferSize)
-	e.listeners[component][name] = ls
+	if _, ok := e.listeners[component][name]; !ok {
+		e.listeners[component][name] = bufconn.Listen(bufferSize)
+	}
 	switch s := server.(type) {
 	case types.ConsumerdServer:
 		types.RegisterConsumerdServer(srv, s)
@@ -97,7 +98,7 @@ func (e *Environment) serve(ctx context.Context, server interface{}, name string
 	}
 	go func() {
 		defer delete(e.listeners[component], name)
-		err := srv.Serve(ls)
+		err := srv.Serve(e.listeners[component][name])
 		if err != nil {
 			meta.Log(ctx).Error(err)
 		}
@@ -151,7 +152,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 	mgr := servers.NewStreamManager(ctx, agentSrv)
 	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
-	e.serve(ctx, agentSrv, so.name)
+
 	return ctx, cancel
 }
 
