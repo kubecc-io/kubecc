@@ -54,7 +54,7 @@ func (m sendRemoteRunnerManagerNoop) Run(
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
-	lg.Info("Sending remote")
+	lg.Info("=> Sending remote")
 	req := request.(*types.RunRequest)
 	task := run.Begin(ctx.ClientContext, &testutil.NoopRunner{}, req.GetToolchain())
 	err = x.Exec(task)

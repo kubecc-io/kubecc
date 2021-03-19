@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"net"
-	"time"
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
@@ -23,13 +22,9 @@ import (
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
-	mapset "github.com/deckarep/golang-set"
 	"github.com/imdario/mergo"
 	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	reftypes "google.golang.org/grpc/reflection/grpc_reflection_v1alpha"
 	"google.golang.org/grpc/test/bufconn"
 )
 
@@ -37,7 +32,7 @@ type Environment struct {
 	defaultConfig  config.KubeccSpec
 	envContext     context.Context
 	envCancel      context.CancelFunc
-	listener       *bufconn.Listener
+	listeners      map[types.Component]map[string]*bufconn.Listener
 	server         *grpc.Server
 	agentCount     *atomic.Int32
 	consumerdCount *atomic.Int32
@@ -49,6 +44,7 @@ var (
 
 type SpawnOptions struct {
 	config config.KubeccSpec
+	name   string
 }
 
 type SpawnOption func(*SpawnOptions)
@@ -78,9 +74,40 @@ func WithConfig(cfg interface{}) SpawnOption {
 	}
 }
 
+func WithName(name string) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.name = name
+	}
+}
+
+func (e *Environment) serve(ctx context.Context, server interface{}, name string) {
+	srv := servers.NewServer(ctx)
+	component := meta.Component(ctx)
+	ls := bufconn.Listen(bufferSize)
+	e.listeners[component][name] = ls
+	switch s := server.(type) {
+	case types.ConsumerdServer:
+		types.RegisterConsumerdServer(srv, s)
+	case types.SchedulerServer:
+		types.RegisterSchedulerServer(srv, s)
+	case types.MonitorServer:
+		types.RegisterMonitorServer(srv, s)
+	case types.CacheServer:
+		types.RegisterCacheServer(srv, s)
+	}
+	go func() {
+		defer delete(e.listeners[component], name)
+		err := srv.Serve(ls)
+		if err != nil {
+			meta.Log(ctx).Error(err)
+		}
+	}()
+}
+
 func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
+		name:   "default",
 	}
 	so.Apply(opts...)
 	cfg := e.defaultConfig
@@ -116,20 +143,22 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 			Finder: testutil.TestToolchainFinder{},
 		}),
 		agent.WithToolchainRunners(testtoolchain.AddToStoreNoop),
-		agent.WithMonitorClient(types.NewMonitorClient(e.Dial(ctx))),
-		agent.WithSchedulerClient(types.NewSchedulerClient(e.Dial(ctx))),
+		agent.WithMonitorClient(e.NewMonitorClient(ctx)),
+		agent.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
 
 	agentSrv := agent.NewAgentServer(ctx, options...)
 	mgr := servers.NewStreamManager(ctx, agentSrv)
 	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
+	e.serve(ctx, agentSrv, so.name)
 	return ctx, cancel
 }
 
 func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
+		name:   "default",
 	}
 	so.Apply(opts...)
 	cfg := e.defaultConfig
@@ -150,20 +179,21 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 	ctx, cancel := context.WithCancel(ctx)
 
 	options := []scheduler.SchedulerServerOption{
-		scheduler.WithMonitorClient(types.NewMonitorClient(e.Dial(ctx))),
-		scheduler.WithCacheClient(types.NewCacheClient(e.Dial(ctx))),
+		scheduler.WithMonitorClient(e.NewMonitorClient(ctx)),
+		scheduler.WithCacheClient(e.NewCacheClient(ctx)),
 	}
 
 	sc := scheduler.NewSchedulerServer(ctx, options...)
 	types.RegisterSchedulerServer(e.server, sc)
 	go sc.StartMetricsProvider()
-
+	e.serve(ctx, sc, so.name)
 	return ctx, cancel
 }
 
 func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
+		name:   "default",
 	}
 	so.Apply(opts...)
 	cfg := e.defaultConfig
@@ -199,14 +229,15 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 			Finder: testutil.TestToolchainFinder{},
 		}),
 		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
-		consumerd.WithMonitorClient(types.NewMonitorClient(e.Dial(ctx))),
-		consumerd.WithSchedulerClient(types.NewSchedulerClient(e.Dial(ctx))),
+		consumerd.WithMonitorClient(e.NewMonitorClient(ctx)),
+		consumerd.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
 
 	cd := consumerd.NewConsumerdServer(ctx, options...)
 	types.RegisterConsumerdServer(e.server, cd)
 
 	go cd.StartMetricsProvider()
+	e.serve(ctx, cd, so.name)
 
 	return ctx, cancel
 }
@@ -214,6 +245,7 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
+		name:   "default",
 	}
 	so.Apply(opts...)
 	cfg := e.defaultConfig
@@ -235,6 +267,7 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 
 	mon := monitor.NewMonitorServer(ctx, cfg.Monitor, monitor.InMemoryStoreCreator)
 	types.RegisterMonitorServer(e.server, mon)
+	e.serve(ctx, mon, so.name)
 
 	return ctx, cancel
 }
@@ -242,6 +275,7 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
+		name:   "default",
 	}
 	so.Apply(opts...)
 	cfg := e.defaultConfig
@@ -262,7 +296,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 	ctx, cancel := context.WithCancel(ctx)
 
 	options := []cachesrv.CacheServerOption{
-		cachesrv.WithMonitorClient(types.NewMonitorClient(e.Dial(ctx))),
+		cachesrv.WithMonitorClient(e.NewMonitorClient(ctx)),
 	}
 
 	providers := []storage.StorageProvider{}
@@ -282,6 +316,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 
 	types.RegisterCacheServer(e.server, cacheSrv)
 	go cacheSrv.StartMetricsProvider()
+	e.serve(ctx, cacheSrv, so.name)
 
 	return ctx, cancel
 }
@@ -326,73 +361,42 @@ func NewEnvironment(cfg config.KubeccSpec) *Environment {
 	)
 	ctx, cancel := context.WithCancel(ctx)
 
-	return &Environment{
+	env := &Environment{
 		defaultConfig:  cfg,
 		envContext:     ctx,
 		envCancel:      cancel,
-		listener:       bufconn.Listen(bufferSize),
+		listeners:      make(map[types.Component]map[string]*bufconn.Listener),
 		server:         servers.NewServer(ctx),
 		agentCount:     atomic.NewInt32(0),
 		consumerdCount: atomic.NewInt32(0),
 	}
+	for _, component := range []types.Component{
+		types.Scheduler,
+		types.Consumerd,
+		types.Monitor,
+		types.Cache,
+	} {
+		env.listeners[component] = make(map[string]*bufconn.Listener)
+	}
+	return env
 }
 
 func NewDefaultEnvironment() *Environment {
 	return NewEnvironment(DefaultConfig())
 }
 
-func (e *Environment) Serve() {
-	reflection.Register(e.server)
-	go func() {
-		err := e.server.Serve(e.listener)
-		if err != nil {
-			meta.Log(e.envContext).Error(err)
-		}
-	}()
-}
-
-func (e *Environment) WaitForServices(names []string) {
-	c := reftypes.NewServerReflectionClient(e.Dial(e.envContext))
-	stream, err := c.ServerReflectionInfo(e.envContext)
-	if err != nil {
-		panic(err)
+func (e *Environment) Dial(ctx context.Context, c types.Component, name ...string) *grpc.ClientConn {
+	srvName := "default"
+	if len(name) > 0 {
+		srvName = name[0]
 	}
-	for {
-		err := stream.Send(&reftypes.ServerReflectionRequest{
-			MessageRequest: &reftypes.ServerReflectionRequest_ListServices{ListServices: ""},
-		})
-		if err != nil {
-			panic(err)
-		}
-		response, err := stream.Recv()
-		if err != nil {
-			panic(err)
-		}
-		list := response.MessageResponse.(*reftypes.ServerReflectionResponse_ListServicesResponse)
-		services := mapset.NewSet()
-		for _, svc := range list.ListServicesResponse.Service {
-			services.Add(svc.GetName())
-		}
-		values := []interface{}{}
-		for _, name := range names {
-			values = append(values, name)
-		}
-		if services.Contains(values...) {
-			return
-		}
-		meta.Log(e.envContext).With(
-			zap.Any("have", services),
-			zap.Any("want", names),
-		).Info("Waiting for services")
-		time.Sleep(250 * time.Millisecond)
+	if _, ok := e.listeners[c][srvName]; !ok {
+		e.listeners[c][srvName] = bufconn.Listen(bufferSize)
 	}
-}
-
-func (e *Environment) Dial(ctx context.Context) *grpc.ClientConn {
 	cc, err := servers.Dial(ctx, "bufconn", servers.WithDialOpts(
 		grpc.WithContextDialer(
 			func(context.Context, string) (net.Conn, error) {
-				return e.listener.Dial()
+				return e.listeners[c][srvName].Dial()
 			}),
 	))
 	if err != nil {
@@ -401,20 +405,36 @@ func (e *Environment) Dial(ctx context.Context) *grpc.ClientConn {
 	return cc
 }
 
-func (e *Environment) NewMonitorClient(ctx context.Context) types.MonitorClient {
-	return types.NewMonitorClient(e.Dial(ctx))
+func (e *Environment) NewMonitorClient(ctx context.Context, name ...string) types.MonitorClient {
+	srvName := "default"
+	if len(name) > 0 {
+		srvName = name[0]
+	}
+	return types.NewMonitorClient(e.Dial(ctx, types.Monitor, srvName))
 }
 
-func (e *Environment) NewSchedulerClient(ctx context.Context) types.SchedulerClient {
-	return types.NewSchedulerClient(e.Dial(ctx))
+func (e *Environment) NewSchedulerClient(ctx context.Context, name ...string) types.SchedulerClient {
+	srvName := "default"
+	if len(name) > 0 {
+		srvName = name[0]
+	}
+	return types.NewSchedulerClient(e.Dial(ctx, types.Scheduler, srvName))
 }
 
-func (e *Environment) NewCacheClient(ctx context.Context) types.CacheClient {
-	return types.NewCacheClient(e.Dial(ctx))
+func (e *Environment) NewCacheClient(ctx context.Context, name ...string) types.CacheClient {
+	srvName := "default"
+	if len(name) > 0 {
+		srvName = name[0]
+	}
+	return types.NewCacheClient(e.Dial(ctx, types.Cache, srvName))
 }
 
-func (e *Environment) NewConsumerdClient(ctx context.Context) types.ConsumerdClient {
-	return types.NewConsumerdClient(e.Dial(ctx))
+func (e *Environment) NewConsumerdClient(ctx context.Context, name ...string) types.ConsumerdClient {
+	srvName := "default"
+	if len(name) > 0 {
+		srvName = name[0]
+	}
+	return types.NewConsumerdClient(e.Dial(ctx, types.Consumerd, srvName))
 }
 
 func (e *Environment) Shutdown() {
