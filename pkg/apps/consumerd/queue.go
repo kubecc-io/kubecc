@@ -67,7 +67,9 @@ func NewSplitQueue(
 			t.(*SplitTask).Remote.Run()
 		})),
 	}
-	sq.remoteWorkers.Pause() // Starts paused, resumes when scheduler connects
+	sq.localWorkers.SetWorkerCount(10)  // todo
+	sq.remoteWorkers.SetWorkerCount(10) // todo
+	sq.remoteWorkers.Pause()            // Starts paused, resumes when scheduler connects
 	clients.WatchAvailability(ctx, types.Scheduler, monClient, sq.avc)
 
 	go sq.handleAvailabilityChanged()

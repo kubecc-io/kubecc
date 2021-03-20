@@ -235,6 +235,9 @@ func (x *testExecutor) Slope() float64 {
 	indexes := []float64{}
 	values := []float64{}
 	x.stats.Do(func(i interface{}) {
+		if i == nil {
+			return
+		}
 		indexes = append(indexes, float64(len(indexes)))
 		values = append(values, i.(float64))
 	})

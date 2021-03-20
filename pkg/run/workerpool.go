@@ -12,7 +12,6 @@ type WorkerPool struct {
 	workers    mapset.Set // *worker
 	workerLock *sync.Mutex
 	runner     func(Task)
-	pauseLock  *sync.Mutex
 	paused     bool
 	pause      *sync.Cond
 }
@@ -50,6 +49,7 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 		runner:     options.runner,
 		workers:    mapset.NewSet(),
 		workerLock: &sync.Mutex{},
+		pause:      sync.NewCond(&sync.Mutex{}),
 	}
 
 	go func() {
@@ -60,11 +60,11 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 				wp.pause.Wait()
 			}
 			wp.pause.L.Unlock()
-			select {
-			case queue <- <-taskQueue:
-			default:
+			task, open := <-taskQueue
+			if !open {
 				return
 			}
+			queue <- task
 		}
 	}()
 
@@ -79,7 +79,7 @@ func (wp *WorkerPool) Pause() {
 
 func (wp *WorkerPool) Resume() {
 	wp.pause.L.Lock()
-	wp.paused = true
+	wp.paused = false
 	wp.pause.L.Unlock()
 	wp.pause.Signal()
 }
