@@ -1,4 +1,4 @@
-package toolchain
+package controller
 
 import (
 	"errors"
@@ -16,7 +16,7 @@ type sendRemoteRunnerManager struct {
 	client *clients.CompileRequestClient
 }
 
-func (m sendRemoteRunnerManager) Run(
+func (m sendRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	x run.Executor,
 	request interface{},
@@ -46,22 +46,25 @@ func (m sendRemoteRunnerManager) Run(
 	}, nil
 }
 
-type sendRemoteRunnerManagerNoop struct{}
+type sendRemoteRunnerManagerSim struct{}
 
-func (m sendRemoteRunnerManagerNoop) Run(
+func (m sendRemoteRunnerManagerSim) Process(
 	ctx run.Contexts,
 	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
-	lg.Info("=> Sending remote")
+
+	lg.Info("=> Receiving remote")
 	req := request.(*types.RunRequest)
-	task := run.Begin(ctx.ClientContext, &testutil.NoopRunner{}, req.GetToolchain())
-	err = x.Exec(task)
+	ap := testutil.SleepArgParser{
+		Args: req.Args,
+	}
+	ap.Parse()
+	err = x.Exec(&testutil.SleepTask{
+		Duration: ap.Duration,
+	})
 	if err != nil {
-		if errors.Is(err, clients.ErrStreamNotReady) {
-			return nil, err
-		}
 		panic(err)
 	}
 	return &types.RunResponse{

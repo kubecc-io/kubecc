@@ -1,33 +1,26 @@
-package toolchain
+package controller
 
 import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 )
 
 type recvRemoteRunnerManager struct {
 }
 
-func (m recvRemoteRunnerManager) Run(
+func (m recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
-	tracer := meta.Tracer(ctx.ServerContext)
 
 	lg.Info("=> Receiving remote")
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "run-recv")
-	defer span.Finish()
 	req := request.(*types.CompileRequest)
-	task := run.Begin(sctx,
-		&run.BasicExecutableRunner{
-			Args: req.Args,
-		}, req.GetToolchain())
-	err = x.Exec(task)
+	err = x.Exec(&run.ExecCommandTask{
+		Args: req.Args,
+	})
 	if err != nil {
 		lg.Error(err)
 		return &types.CompileResponse{

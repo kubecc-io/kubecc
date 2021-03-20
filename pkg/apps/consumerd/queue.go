@@ -11,23 +11,34 @@ import (
 )
 
 type SplitTask struct {
-	Local, Remote run.PackagedTask
+	Local, Remote run.PackagedRequest
 }
 
 func (s *SplitTask) Wait() (interface{}, error) {
 	select {
-	case results := <-s.Local.C:
-		return results.Response, results.Err
-	case results := <-s.Remote.C:
-		return results.Response, results.Err
+	case resp := <-s.Local.Response():
+		return resp, s.Local.Err()
+	case resp := <-s.Remote.Response():
+		return resp, s.Remote.Err()
 	}
 }
 
+func (*SplitTask) Run() {
+	panic("Run is not implemented for SplitTask; Use Local.Run or Remote.Run")
+}
+
+func (*SplitTask) Err() error {
+	panic("Err is not implemented for SplitTask; Use Local.Err or Remote.Err")
+}
+
 type SplitQueue struct {
-	ctx       context.Context
-	lg        *zap.SugaredLogger
-	avc       *clients.AvailabilityChecker
-	taskQueue chan *SplitTask
+	ctx        context.Context
+	lg         *zap.SugaredLogger
+	avc        *clients.AvailabilityChecker
+	inputQueue chan run.Task
+
+	localWorkers  *run.WorkerPool
+	remoteWorkers *run.WorkerPool
 }
 
 type QueueAction int
@@ -41,77 +52,42 @@ func NewSplitQueue(
 	ctx context.Context,
 	monClient types.MonitorClient,
 ) *SplitQueue {
+	queue := make(chan run.Task)
 	sq := &SplitQueue{
-		ctx:       ctx,
-		lg:        meta.Log(ctx),
-		taskQueue: make(chan *SplitTask),
+		ctx:        ctx,
+		lg:         meta.Log(ctx),
+		inputQueue: queue,
 		avc: clients.NewAvailabilityChecker(
 			clients.ComponentFilter(types.Scheduler),
 		),
+		localWorkers: run.NewWorkerPool(queue, run.WithRunner(func(t run.Task) {
+			t.(*SplitTask).Local.Run()
+		})),
+		remoteWorkers: run.NewWorkerPool(queue, run.WithRunner(func(t run.Task) {
+			t.(*SplitTask).Remote.Run()
+		})),
 	}
+	sq.remoteWorkers.Pause() // Starts paused, resumes when scheduler connects
 	clients.WatchAvailability(ctx, types.Scheduler, monClient, sq.avc)
 
-	go sq.runLocalQueue()
-	go sq.runRemoteQueue()
+	go sq.handleAvailabilityChanged()
 	return sq
 }
 
-func (s *SplitQueue) In() chan<- *SplitTask {
-	return s.taskQueue
+func (s *SplitQueue) Put(st *SplitTask) {
+	s.inputQueue <- st
 }
 
-func (s *SplitQueue) processTask(pt run.PackagedTask) QueueAction {
-	s.lg.Debug("Processing packaged task")
-	response, err := pt.F()
-	if err != nil {
-		s.lg.With(zap.Error(err)).Debug("Requeueing")
-		return Requeue
-	}
-	pt.C <- struct {
-		Response interface{}
-		Err      error
-	}{
-		Response: response,
-		Err:      err,
-	}
-	s.lg.Debug("Success - not requeueing")
-	return DoNotRequeue
-}
-
-func (s *SplitQueue) runLocalQueue() {
+func (s *SplitQueue) handleAvailabilityChanged() {
 	for {
-		select {
-		case <-s.ctx.Done():
+		if s.ctx.Err() != nil {
 			return
-		case task := <-s.taskQueue:
-			s.lg.Debug("Received task on local queue")
-			switch s.processTask(task.Local) {
-			case Requeue:
-				s.In() <- task
-			}
 		}
-	}
-}
-
-func (s *SplitQueue) runRemoteQueue() {
-	for {
 		available := s.avc.EnsureAvailable()
+		s.remoteWorkers.Resume()
 		s.lg.Debug("Remote is now available")
-		for {
-			select {
-			case <-s.ctx.Done():
-				return
-			case <-available.Done():
-				s.lg.Debug("Remote is no longer available")
-				goto restart
-			case task := <-s.taskQueue:
-				s.lg.Debug("Received task on remote queue")
-				switch s.processTask(task.Remote) {
-				case Requeue:
-					s.In() <- task
-				}
-			}
-		}
-	restart:
+		<-available.Done()
+		s.remoteWorkers.Pause()
+		s.lg.Debug("Remote is no longer available")
 	}
 }

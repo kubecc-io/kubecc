@@ -1,4 +1,4 @@
-package toolchain
+package controller
 
 import (
 	"context"
@@ -8,28 +8,28 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 )
 
-type SleepToolchainRunner struct{}
+type SleepToolchainCtrl struct{}
 
-func (r *SleepToolchainRunner) RunLocal(run.ArgParser) run.RunnerManager {
+func (r *SleepToolchainCtrl) RunLocal(run.ArgParser) run.RequestManager {
 	return &localRunnerManager{}
 }
 
-func (r *SleepToolchainRunner) SendRemote(_ run.ArgParser, client *clients.CompileRequestClient) run.RunnerManager {
+func (r *SleepToolchainCtrl) SendRemote(_ run.ArgParser, client *clients.CompileRequestClient) run.RequestManager {
 	return &sendRemoteRunnerManager{
 		client: client,
 	}
 }
 
-func (r *SleepToolchainRunner) RecvRemote() run.RunnerManager {
+func (r *SleepToolchainCtrl) RecvRemote() run.RequestManager {
 	return &recvRemoteRunnerManager{}
 }
 
-func (r *SleepToolchainRunner) NewArgParser(context.Context, []string) run.ArgParser {
+func (r *SleepToolchainCtrl) NewArgParser(context.Context, []string) run.ArgParser {
 	return &NoopArgParser{}
 }
 
 func AddToStore(store *run.ToolchainRunnerStore) {
-	store.Add(types.Sleep, &SleepToolchainRunner{})
+	store.Add(types.Sleep, &SleepToolchainCtrl{})
 }
 
 type NoopArgParser struct{}
