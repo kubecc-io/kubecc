@@ -14,7 +14,7 @@ import (
 )
 
 var _ = Describe("Run", func() {
-	ctx := meta.NewContext(
+	_ = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger),
@@ -29,7 +29,7 @@ var _ = Describe("Run", func() {
 				QueuePressureMultiplier: 1,
 				QueueRejectMultiplier:   1,
 			}))
-			exec.Exec(run.Begin(ctx, &SleepRunner{Duration: 1}, nil))
+			exec.Exec(&SleepTask{Duration: 1})
 		})
 	})
 })

@@ -12,10 +12,11 @@ import (
 )
 
 type localRunnerManager struct {
-	ArgParser *cc.ArgParser
+	tc *types.Toolchain
+	ap *cc.ArgParser
 }
 
-func (r localRunnerManager) Run(
+func (m localRunnerManager) Process(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},
@@ -27,12 +28,11 @@ func (r localRunnerManager) Run(
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 	lg := meta.Log(ctx.ServerContext)
-	ap := r.ArgParser
 
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	runner := cc.NewCompileRunner(ap,
+	task := cc.NewCompileTask(m.tc, m.ap,
 		run.WithContext(sctx),
 		run.WithLog(meta.Log(ctx.ServerContext)),
 		run.InPlace(true),
@@ -42,12 +42,10 @@ func (r localRunnerManager) Run(
 		run.WithUidGid(req.UID, req.GID),
 		run.WithWorkDir(req.WorkDir),
 	)
-
-	t := run.Begin(ctx.ClientContext, runner, req.GetToolchain())
-	err := executor.Exec(t)
+	err := executor.Exec(task)
 
 	if err != nil && run.IsCompilerError(err) {
-		lg.With(zap.Error(err), zap.Object("args", ap)).Error("Compiler error")
+		lg.With(zap.Error(err), zap.Object("args", m.ap)).Error("Compiler error")
 		errString := stderrBuf.String()
 		lg.Error(errString)
 		return &types.RunResponse{

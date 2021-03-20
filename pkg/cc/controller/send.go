@@ -20,46 +20,53 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type remoteCompileRunner struct {
-	run.RunnerOptions
+type remoteCompileTask struct {
+	util.NullableError
+	run.TaskOptions
 
+	tc     *types.Toolchain
 	client *clients.CompileRequestClient
 }
 
-func NewRemoteCompileRunner(
+func makeRemoteCompileTask(
 	client *clients.CompileRequestClient,
-	opts ...run.RunOption,
-) run.Runner {
-	r := &remoteCompileRunner{
+	tc *types.Toolchain,
+	opts ...run.TaskOption,
+) run.Task {
+	m := &remoteCompileTask{
+		tc:     tc,
 		client: client,
 	}
-	r.Apply(opts...)
-	return r
+	m.Apply(opts...)
+	return m
 }
 
-func (r *remoteCompileRunner) Run(ctx context.Context, tc *types.Toolchain) error {
-	preprocessedSource, err := io.ReadAll(r.Stdin)
+func (m *remoteCompileTask) Run() {
+	preprocessedSource, err := io.ReadAll(m.Stdin)
 	if err != nil {
-		return err
+		m.SetErr(err)
+		return
 	}
-	resp, err := r.client.Compile(&types.CompileRequest{
-		Toolchain:          tc,
-		Args:               r.Args,
+	resp, err := m.client.Compile(&types.CompileRequest{
+		Toolchain:          m.tc,
+		Args:               m.Args,
 		PreprocessedSource: preprocessedSource,
 	})
-	if r.OutputVar != nil {
-		r.OutputVar = resp
+	if m.OutputVar != nil {
+		m.OutputVar = resp
 	}
-	return err
+	m.SetErr(nil)
 }
 
 type sendRemoteRunnerManager struct {
-	schedulerClient *clients.CompileRequestClient
-	ArgParser       *cc.ArgParser
+	tc        *types.Toolchain
+	reqClient *clients.CompileRequestClient
+	ap        *cc.ArgParser
 }
 
 func runPreprocessor(
 	ctx context.Context,
+	tc *types.Toolchain,
 	ap *cc.ArgParser,
 	req *types.RunRequest,
 ) ([]byte, *types.RunResponse) {
@@ -73,7 +80,7 @@ func runPreprocessor(
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	runner := cc.NewPreprocessRunner(ap,
+	task := cc.NewPreprocessTask(tc, ap,
 		run.WithContext(sctx),
 		run.WithLog(lg),
 		run.WithEnv(req.Env),
@@ -83,7 +90,7 @@ func runPreprocessor(
 		run.WithWorkDir(req.WorkDir),
 	)
 
-	if err := runner.Run(sctx, req.GetToolchain()); err != nil {
+	if err := run.RunWait(task); err != nil {
 		stderr := stderrBuf.Bytes()
 		lg.With(
 			zap.Error(err),
@@ -99,7 +106,7 @@ func runPreprocessor(
 	return outBuf.Bytes(), nil
 }
 
-func (r sendRemoteRunnerManager) Run(
+func (m sendRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},
@@ -110,7 +117,7 @@ func (r sendRemoteRunnerManager) Run(
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 	lg := meta.Log(ctx.ServerContext)
-	ap := r.ArgParser
+	ap := m.ap
 
 	ap.ConfigurePreprocessorOptions()
 
@@ -118,7 +125,7 @@ func (r sendRemoteRunnerManager) Run(
 
 	lg.Debug("Preprocessing")
 	ap.SetActionOpt(cc.Preprocess)
-	preprocessedSource, errResp := runPreprocessor(sctx, ap, req)
+	preprocessedSource, errResp := runPreprocessor(sctx, m.tc, ap, req)
 	if errResp != nil {
 		return errResp, nil
 	}
@@ -140,12 +147,12 @@ func (r sendRemoteRunnerManager) Run(
 	ap.RemoveLocalArgs()
 	lg.Debug("Starting remote compile")
 	resp := &types.CompileResponse{}
-	runner := NewRemoteCompileRunner(r.schedulerClient,
+	task := makeRemoteCompileTask(m.reqClient, req.GetToolchain(),
+		run.WithContext(sctx),
 		run.WithArgs(ap.Args),
 		run.WithStdin(bytes.NewReader(preprocessedSource)),
 		run.WithOutputVar(resp),
 	)
-	task := run.Begin(sctx, runner, req.GetToolchain())
 	err := executor.Exec(task)
 
 	if err != nil {

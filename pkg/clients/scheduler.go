@@ -88,7 +88,7 @@ func (rc *CompileRequestClient) Compile(
 func (rc *CompileRequestClient) recvWorker() {
 	for {
 		rc.streamLock.Lock()
-		if rc.stream == nil {
+		for rc.stream == nil {
 			rc.streamActive.Wait()
 		}
 		rc.streamLock.Unlock()

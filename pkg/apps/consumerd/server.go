@@ -311,12 +311,12 @@ func (c *consumerdServer) Run(
 	}
 
 	st := &SplitTask{
-		Local: run.Package(
+		Local: run.PackageRequest(
 			runner.RunLocal(ap), ctxs, c.localExecutor, req),
-		Remote: run.Package(
+		Remote: run.PackageRequest(
 			runner.SendRemote(ap, c.requestClient), ctxs, c.remoteExecutor, req),
 	}
-	c.queue.In() <- st
+	c.queue.Put(st)
 
 	resp, err := st.Wait()
 

@@ -14,9 +14,11 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type recvRemoteRunnerManager struct{}
+type recvRemoteRunnerManager struct {
+	tc *types.Toolchain
+}
 
-func (r *recvRemoteRunnerManager) Run(
+func (m *recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	executor run.Executor,
 	request interface{},
@@ -29,14 +31,13 @@ func (r *recvRemoteRunnerManager) Run(
 
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
-	runner := cc.NewCompileRunner(ap,
+	task := cc.NewCompileTask(m.tc, ap,
 		run.WithContext(ctx.ClientContext),
 		run.WithLog(meta.Log(ctx.ServerContext)),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	task := run.Begin(ctx.ClientContext, runner, req.Toolchain)
 	err := executor.Exec(task)
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {

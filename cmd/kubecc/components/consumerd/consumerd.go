@@ -5,10 +5,10 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/sleep"
-	sleeptoolchain "github.com/cobalt77/kubecc/internal/sleep/toolchain"
+	sleepctrl "github.com/cobalt77/kubecc/internal/sleep/controller"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
+	ccctrl "github.com/cobalt77/kubecc/pkg/cc/controller"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
@@ -71,7 +71,7 @@ func run(cmd *cobra.Command, args []string) {
 				Finder: sleep.SleepToolchainFinder{},
 			},
 		),
-		consumerd.WithToolchainRunners(cctoolchain.AddToStore, sleeptoolchain.AddToStore),
+		consumerd.WithToolchainRunners(ccctrl.AddToStore, sleepctrl.AddToStore),
 		consumerd.WithSchedulerClient(schedulerClient),
 		consumerd.WithMonitorClient(monitorClient),
 	)

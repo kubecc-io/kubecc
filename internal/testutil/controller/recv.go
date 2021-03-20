@@ -1,37 +1,30 @@
-package toolchain
+package controller
 
 import (
 	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/opentracing/opentracing-go"
 )
 
 type recvRemoteRunnerManager struct{}
 
-func (m recvRemoteRunnerManager) Run(
+func (m recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
-	tracer := meta.Tracer(ctx.ServerContext)
 
 	lg.Info("=> Receiving remote")
-	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "run-recv")
-	defer span.Finish()
 	req := request.(*types.CompileRequest)
-	ap := testutil.TestArgParser{
+	ap := testutil.SleepArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
-	task := run.Begin(sctx,
-		&testutil.SleepRunner{
-			Duration: ap.Duration,
-		}, req.GetToolchain())
-	err = x.Exec(task)
+	err = x.Exec(&testutil.SleepTask{
+		Duration: ap.Duration,
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -42,9 +35,9 @@ func (m recvRemoteRunnerManager) Run(
 	}, nil
 }
 
-type recvRemoteRunnerManagerNoop struct{}
+type recvRemoteRunnerManagerSim struct{}
 
-func (m recvRemoteRunnerManagerNoop) Run(
+func (m recvRemoteRunnerManagerSim) Process(
 	ctx run.Contexts,
 	x run.Executor,
 	request interface{},

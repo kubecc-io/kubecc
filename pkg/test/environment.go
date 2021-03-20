@@ -6,7 +6,7 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
-	testtoolchain "github.com/cobalt77/kubecc/internal/testutil/toolchain"
+	testctrl "github.com/cobalt77/kubecc/internal/testutil/controller"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
 	"github.com/cobalt77/kubecc/pkg/apps/cachesrv"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
@@ -143,7 +143,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		agent.WithToolchainRunners(testtoolchain.AddToStoreNoop),
+		agent.WithToolchainRunners(testctrl.AddToStoreSim),
 		agent.WithMonitorClient(e.NewMonitorClient(ctx)),
 		agent.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
@@ -229,7 +229,7 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		consumerd.WithToolchainRunners(testtoolchain.AddToStore),
+		consumerd.WithToolchainRunners(testctrl.AddToStore),
 		consumerd.WithMonitorClient(e.NewMonitorClient(ctx)),
 		consumerd.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}

@@ -231,7 +231,7 @@ func (s *AgentServer) compile(
 	// Swap remote toolchain with the local toolchain in case the executable
 	// path is different locally
 	req.Toolchain = tc
-	resp, err := runner.RecvRemote().Run(run.Contexts{
+	resp, err := runner.RecvRemote().Process(run.Contexts{
 		ServerContext: s.srvContext,
 		ClientContext: sctx,
 	}, s.executor, req)

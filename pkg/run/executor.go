@@ -1,6 +1,8 @@
 package run
 
 import (
+	"context"
+
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"go.uber.org/atomic"
@@ -11,14 +13,14 @@ type ExecutorStatus int
 type Executor interface {
 	metrics.UsageLimitsCompleter
 	metrics.TaskStatusCompleter
-	Exec(task *Task) error
-	ExecAsync(task *Task) <-chan error
+	Exec(task Task) error
+	ExecAsync(task Task) <-chan error
 }
 
 type QueuedExecutor struct {
 	ExecutorOptions
 	workerPool *WorkerPool
-	taskQueue  chan *Task
+	taskQueue  chan Task
 	numRunning *atomic.Int32
 	numQueued  *atomic.Int32
 }
@@ -27,6 +29,11 @@ type ExecutorOptions struct {
 	usageLimits *metrics.UsageLimits
 }
 type ExecutorOption func(*ExecutorOptions)
+
+type contextTask struct {
+	Task
+	ctx context.Context
+}
 
 func (o *ExecutorOptions) Apply(opts ...ExecutorOption) {
 	for _, op := range opts {
@@ -55,7 +62,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 			host.AutoConcurrentProcessLimit()
 	}
 
-	queue := make(chan *Task)
+	queue := make(chan Task)
 	s := &QueuedExecutor{
 		ExecutorOptions: options,
 		taskQueue:       queue,
@@ -78,36 +85,41 @@ func (x *QueuedExecutor) SetUsageLimits(cfg *metrics.UsageLimits) {
 	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
 }
 
-func (x *QueuedExecutor) Exec(task *Task) error {
+func (x *QueuedExecutor) Exec(task Task) error {
 	x.numQueued.Inc()
-	x.taskQueue <- task
+	ctx := context.Background()
+	x.taskQueue <- contextTask{
+		Task: task,
+		ctx:  ctx,
+	}
 	x.numQueued.Dec()
 
 	x.numRunning.Inc()
-	select {
-	case <-task.Done():
-	case <-task.ctx.Done():
-	}
-	x.numRunning.Dec()
+	defer x.numRunning.Dec()
 
-	return task.Error()
+	<-ctx.Done()
+	return task.Err()
 }
 
-func (x *QueuedExecutor) ExecAsync(task *Task) <-chan error {
+func (x *QueuedExecutor) ExecAsync(task Task) <-chan error {
 	ch := make(chan error)
 	x.numQueued.Inc()
-	x.taskQueue <- task
+	ctx := context.Background()
+	x.taskQueue <- contextTask{
+		Task: task,
+		ctx:  ctx,
+	}
 	x.numQueued.Dec()
 
 	go func() {
+		// Order is important here. Need to decrement the numRunning counter before
+		// writing to the error channel, because the receiver of the channel might
+		// not be listening on it yet. We don't want to hold up the running counter,
+		// since the task is actually done running.
 		x.numRunning.Inc()
-		select {
-		case <-task.Done():
-		case <-task.ctx.Done():
-		}
+		<-ctx.Done()
 		x.numRunning.Dec()
-
-		ch <- task.Error()
+		ch <- task.Err()
 		close(ch)
 	}()
 
@@ -133,30 +145,21 @@ type DelegatingExecutor struct {
 	numTasks *atomic.Int32
 }
 
-func (x *DelegatingExecutor) Exec(task *Task) error {
+func (x *DelegatingExecutor) Exec(task Task) error {
 	x.numTasks.Inc()
 	defer x.numTasks.Dec()
 
-	go task.Run()
-	select {
-	case <-task.Done():
-	case <-task.ctx.Done():
-	}
-	return task.Error()
+	return <-RunAsync(task)
 }
 
-func (x *DelegatingExecutor) ExecAsync(task *Task) <-chan error {
+func (x *DelegatingExecutor) ExecAsync(task Task) <-chan error {
 	ch := make(chan error)
-	x.numTasks.Inc()
-	defer x.numTasks.Dec()
 
 	go func() {
+		x.numTasks.Inc()
 		task.Run()
-		select {
-		case <-task.Done():
-		case <-task.ctx.Done():
-		}
-		ch <- task.Error()
+		x.numTasks.Dec()
+		ch <- task.Err()
 		close(ch)
 	}()
 
