@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/test"
+	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -63,8 +65,14 @@ var _ = Describe("Split Queue", func() {
 			Measure("the queue should split tasks between local and remote evenly", func(b Benchmarker) {
 				resetCounts()
 				taskPool := makeTaskPool(numTasks)
-				sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
-				time.Sleep(50 * time.Millisecond) // wait a bit for the remote to become available
+				monClient := testEnv.NewMonitorClient(testCtx)
+				sq := consumerd.NewSplitQueue(testCtx, monClient)
+				avc := clients.NewAvailabilityChecker(
+					clients.ComponentFilter(types.Scheduler),
+				)
+				clients.WatchAvailability(testCtx, types.Scheduler, monClient, avc)
+				avc.EnsureAvailable()
+
 				processTasks(taskPool, sq)
 				Eventually(func() int32 {
 					return localExec.completed.Load() + remoteExec.completed.Load()
@@ -80,7 +88,7 @@ var _ = Describe("Split Queue", func() {
 		})
 	})
 
-	Describe("Redirecting tasks when state changes", func() {
+	PDescribe("Redirecting tasks when state changes", func() {
 		var cancelPool context.CancelFunc
 		Specify("startup", func() {
 			testEnv = test.NewDefaultEnvironment()
