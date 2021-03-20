@@ -3,9 +3,9 @@ module github.com/cobalt77/kubecc
 go 1.16
 
 require (
-	cloud.google.com/go v0.78.0 // indirect
+	cloud.google.com/go v0.79.0 // indirect
 	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
-	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
+	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
@@ -16,7 +16,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/protobuf v1.4.3
+	github.com/golang/protobuf v1.5.1
 	github.com/google/go-cmp v0.5.5
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.2.0
@@ -32,8 +32,7 @@ require (
 	github.com/onsi/gomega v1.11.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.9.0
-	github.com/prometheus/procfs v0.6.0 // indirect
+	github.com/prometheus/client_golang v1.10.0
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/spf13/cobra v1.1.3
 	github.com/stretchr/testify v1.7.0
@@ -42,21 +41,21 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
-	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5
-	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110 // indirect
-	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
+	golang.org/x/crypto v0.0.0-20210317152858-513c2a44f670 // indirect
+	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f
+	golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4 // indirect
+	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
 	gonum.org/v1/gonum v0.9.0
 	gonum.org/v1/plot v0.9.0
 	google.golang.org/grpc v1.36.0
-	google.golang.org/protobuf v1.25.0
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/api v0.20.4
-	k8s.io/apiextensions-apiserver v0.20.4 // indirect
-	k8s.io/apimachinery v0.20.4
-	k8s.io/client-go v0.20.4
-	k8s.io/klog/v2 v2.6.0 // indirect
+	k8s.io/api v0.20.5
+	k8s.io/apiextensions-apiserver v0.20.5 // indirect
+	k8s.io/apimachinery v0.20.5
+	k8s.io/client-go v0.20.5
+	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210305164622-f622666832c1 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/yaml v1.2.0
