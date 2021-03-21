@@ -1,9 +1,9 @@
 package consumerd_test
 
 import (
-	"container/ring"
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -13,16 +13,13 @@ import (
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/test"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"go.uber.org/atomic"
 	"go.uber.org/zap/zapcore"
-	"gonum.org/v1/gonum/stat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
 	"gonum.org/v1/plot/plotutil"
@@ -34,25 +31,26 @@ func TestConsumerd(t *testing.T) {
 	RunSpecs(t, "Consumerd Suite")
 }
 
+var _ = BeforeSuite(func() {
+	// go collectStats()
+})
+
 var _ = AfterSuite(func() {
+	testEnv.Shutdown()
 	plotStatsLog()
 })
 
 var (
 	testEnv *test.Environment
+	queue   *consumerd.SplitQueue
 	testCtx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+			logkc.WithLogLevel(zapcore.WarnLevel)))),
 		meta.WithProvider(tracing.Tracer),
 	)
-	outLog = logkc.New(types.TestComponent,
-		logkc.WithLogLevel(zapcore.DebugLevel),
-		logkc.WithOutputPaths([]string{"./test.log"}),
-	)
 	testToolchainRunner = &testctrl.TestToolchainCtrlLocal{}
-	localExec           = newTestExecutor()
-	remoteExec          = newTestExecutor()
 )
 
 func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
@@ -63,7 +61,7 @@ func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 			ClientContext: testCtx,
 		}
 		request := &types.RunRequest{
-			Args: []string{"--duration", "1ms"},
+			Args: []string{"--duration", fmt.Sprintf("%dms", rand.Intn(4)+1)},
 		}
 
 		taskPool <- &consumerd.SplitTask{
@@ -71,7 +69,6 @@ func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 				testToolchainRunner.RunLocal(
 					testToolchainRunner.NewArgParser(testCtx, []string{})),
 				contexts,
-				localExec,
 				request,
 			),
 			Remote: run.PackageRequest(
@@ -80,7 +77,6 @@ func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 					nil, // Testing CompileRequestClient is out of scope for this test
 				),
 				contexts,
-				remoteExec,
 				request,
 			),
 		}
@@ -106,7 +102,6 @@ func makeInfiniteTaskPool() (chan *consumerd.SplitTask, context.CancelFunc) {
 					testToolchainRunner.RunLocal(
 						testToolchainRunner.NewArgParser(testCtx, []string{})),
 					contexts,
-					localExec,
 					request,
 				),
 				Remote: run.PackageRequest(
@@ -115,7 +110,6 @@ func makeInfiniteTaskPool() (chan *consumerd.SplitTask, context.CancelFunc) {
 						nil, // Testing CompileRequestClient is out of scope for this test
 					),
 					contexts,
-					remoteExec,
 					request,
 				),
 			}
@@ -124,104 +118,71 @@ func makeInfiniteTaskPool() (chan *consumerd.SplitTask, context.CancelFunc) {
 	return taskPool, cancel
 }
 
-var collectionPeriod = 500 * time.Millisecond
+var collectionPeriod = 50 * time.Millisecond
 
-type testExecutor struct {
-	numTasks       *atomic.Int32
-	completed      *atomic.Int32
-	completedTotal *atomic.Int32 // same as completed, but doesn't get reset
+var start = time.Now()
+var statsTicker = time.NewTicker(collectionPeriod)
 
-	pauseLock *sync.Mutex
-	paused    bool
-	pause     *sync.Cond
-	stats     *ring.Ring
-	statsLog  plotter.XYs
-}
+// func collectStats() {
+// 	times := ring.New(15)
+// 	local := ring.New(15)
+// 	remote := ring.New(15)
+// 	for range statsTicker.C {
+// 		timestamp := time.Since(start)
+// 		localCompleted := localExec.completedTotal.Load()
+// 		remoteCompleted := remoteExec.completedTotal.Load()
 
-type testExecutorStats struct {
-	period    time.Duration
-	completed int64
-}
+// 		times.Value = float64(timestamp.Milliseconds())
+// 		local.Value = float64(localCompleted)
+// 		remote.Value = float64(remoteCompleted)
 
-func (x *testExecutor) Pause() {
-	x.pause.L.Lock()
-	x.paused = true
-	x.pause.L.Unlock()
-}
+// 		localValues := []float64{}
+// 		remoteValues := []float64{}
+// 		timeValues := []float64{}
+// 		local.Do(func(i interface{}) {
+// 			if i == nil {
+// 				return
+// 			}
+// 			localValues = append(localValues, i.(float64))
+// 		})
+// 		remote.Do(func(i interface{}) {
+// 			if i == nil {
+// 				return
+// 			}
+// 			remoteValues = append(remoteValues, i.(float64))
+// 		})
+// 		times.Do(func(i interface{}) {
+// 			if i == nil {
+// 				return
+// 			}
+// 			timeValues = append(timeValues, i.(float64))
+// 		})
+// 		if len(timeValues) >= 2 {
+// 			_, localBeta := stat.LinearRegression(timeValues, localValues, nil, false)
+// 			_, remoteBeta := stat.LinearRegression(timeValues, remoteValues, nil, false)
 
-func (x *testExecutor) Resume() {
-	x.pause.L.Lock()
-	x.paused = true
-	x.pause.L.Unlock()
-	x.pause.Signal()
-}
-
-func (x *testExecutor) Exec(task run.Task) error {
-	x.numTasks.Inc()
-	defer x.numTasks.Dec()
-
-	x.pause.L.Lock()
-	for x.paused {
-		x.pause.Wait()
-	}
-	x.pause.L.Unlock()
-
-	err := <-run.RunAsync(task)
-
-	x.pause.L.Lock()
-	for x.paused {
-		x.pause.Wait()
-	}
-	x.pause.L.Unlock()
-
-	x.completed.Inc()
-	x.completedTotal.Inc()
-	return err
-}
-
-func newTestExecutor() *testExecutor {
-	lock := &sync.Mutex{}
-	x := &testExecutor{
-		numTasks:       atomic.NewInt32(0),
-		completed:      atomic.NewInt32(0),
-		completedTotal: atomic.NewInt32(0),
-		pauseLock:      &sync.Mutex{},
-		pause:          sync.NewCond(lock),
-		stats:          ring.New(10),
-	}
-
-	go x.collectStats()
-	return x
-}
-
-func (x *testExecutor) CompleteUsageLimits(*metrics.UsageLimits) {
-
-}
-
-func (x *testExecutor) CompleteTaskStatus(s *metrics.TaskStatus) {
-	s.NumDelegated = x.numTasks.Load()
-}
-
-func (x *testExecutor) ExecAsync(task run.Task) <-chan error {
-	panic("not implemented")
-}
-
-var startTime = time.Now()
-
-func (x *testExecutor) collectStats() {
-	lastCompleted := x.completedTotal.Load()
-	for range time.Tick(collectionPeriod) {
-		completed := x.completedTotal.Load()
-		value := float64(completed - lastCompleted)
-		x.stats.Value = value
-		x.stats = x.stats.Next()
-		lastCompleted = completed
-		x.statsLog = append(x.statsLog, plotter.XY{
-			X: float64(time.Since(startTime).Milliseconds()),
-			Y: value,
-		})
-	}
-}
+// 			localExec.stats = append(localExec.stats, plotter.XY{
+// 				X: times.Value.(float64),
+// 				Y: math.Max(localValues[len(localValues)-1]-localValues[len(localValues)-2], 0),
+// 			})
+// 			remoteExec.stats = append(remoteExec.stats, plotter.XY{
+// 				X: times.Value.(float64),
+// 				Y: remoteValues[len(remoteValues)-1] - remoteValues[len(remoteValues)-2],
+// 			})
+// 			localExec.stats2 = append(localExec.stats2, plotter.XY{
+// 				X: times.Value.(float64),
+// 				Y: localBeta,
+// 			})
+// 			remoteExec.stats2 = append(remoteExec.stats2, plotter.XY{
+// 				X: times.Value.(float64),
+// 				Y: remoteBeta,
+// 			})
+// 		}
+// 		times = times.Next()
+// 		local = local.Next()
+// 		remote = remote.Next()
+// 	}
+// }
 
 type trend int
 
@@ -231,18 +192,26 @@ const (
 	steady
 )
 
-func (x *testExecutor) Slope() float64 {
-	indexes := []float64{}
-	values := []float64{}
-	x.stats.Do(func(i interface{}) {
-		if i == nil {
-			return
-		}
-		indexes = append(indexes, float64(len(indexes)))
-		values = append(values, i.(float64))
-	})
-	_, slope := stat.LinearRegression(indexes, values, nil, true)
-	return slope
+// func (x *testExecutor) Slope() float64 {
+// 	indexes := []float64{}
+// 	values := []float64{}
+// 	x.stats.Do(func(i interface{}) {
+// 		if i == nil {
+// 			return
+// 		}
+// 		indexes = append(indexes, float64(len(indexes)))
+// 		values = append(values, i.(float64))
+// 	})
+// 	_, slope := stat.LinearRegression(indexes, values, nil, false)
+// 	if math.IsNaN(slope) {
+// 		return 0
+// 	}
+// 	return slope
+// }
+
+type filter struct {
+	loc  consumerd.SplitTaskLocation
+	kind consumerd.EntryKind
 }
 
 func plotStatsLog() {
@@ -250,13 +219,84 @@ func plotStatsLog() {
 	p.Title.Text = "Local/Remote Executor Usage"
 	p.X.Label.Text = "Time since test start (ms)"
 	p.Y.Label.Text = fmt.Sprintf("Tasks completed per period (%s)", collectionPeriod.String())
+
+	entries := queue.Telemetry().Entries()
+	filters := []filter{
+		{
+			kind: consumerd.DelegatedTasks,
+		},
+		{
+			kind: consumerd.QueuedTasks,
+		},
+		{
+			loc:  consumerd.Local,
+			kind: consumerd.CompletedTasks,
+		},
+		{
+			loc:  consumerd.Remote,
+			kind: consumerd.CompletedTasks,
+		},
+	}
+	filtered := make([]consumerd.Entries, len(filters))
+	xys := make([]plotter.XYs, len(filters))
+	wg := sync.WaitGroup{}
+	wg.Add(len(filters))
+
+	for i, f := range filters {
+		go func(i int, f filter) {
+			defer wg.Done()
+			filtered[i] = entries.Filter(func(e consumerd.Entry) bool {
+				return e.Loc == f.loc && e.Kind == f.kind
+			})
+		}(i, f)
+	}
+
+	wg.Wait()
+
+	wg.Add(4)
+	go func() {
+		wg.Done()
+		xys[0] = filtered[0].ToXYs()
+	}()
+	go func() {
+		wg.Done()
+		xys[1] = filtered[1].ToXYs()
+	}()
+	go func() {
+		wg.Done()
+		xys[2] = filtered[2].Deltas().ToXYs()
+	}()
+	go func() {
+		wg.Done()
+		xys[3] = filtered[3].Deltas().ToXYs()
+	}()
+	wg.Wait()
+
 	if err := plotutil.AddLinePoints(p,
-		"Local", localExec.statsLog,
-		"Remote", remoteExec.statsLog,
+		"Delegated", xys[0],
+		"Queued", xys[1],
+		"Local/Completed", xys[2],
+		"Remote/Completed", xys[3],
 	); err != nil {
 		panic(err)
 	}
-	if err := p.Save(16*vg.Inch, 8*vg.Inch, "stats.png"); err != nil {
+	if err := p.Save(16*vg.Inch, 8*vg.Inch, "stats.svg"); err != nil {
 		panic(err)
 	}
+
+	// p2 := plot.New()
+	// p2.Title.Text = "Local/Remote Executor Rate of Change"
+	// p2.X.Label.Text = "Time since test start (ms)"
+	// p2.Y.Label.Text = "dy/dt"
+
+	// if err := plotutil.AddLinePoints(p2,
+	// 	"Local", localExec.stats2,
+	// 	"Remote", remoteExec.stats2,
+	// ); err != nil {
+	// 	panic(err)
+	// }
+	// if err := p2.Save(16*vg.Inch, 8*vg.Inch, "stats2.svg"); err != nil {
+	// 	panic(err)
+	// }
+
 }
