@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"io"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
@@ -127,9 +129,16 @@ func (s *AgentServer) postTaskStatus() {
 	s.metricsProvider.Post(ts)
 }
 
+func (s *AgentServer) postToolchains() {
+	s.metricsProvider.Post(&metrics.Toolchains{
+		Items: s.tcStore.ItemsList(),
+	})
+}
+
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 	s.postUsageLimits()
+	s.postToolchains()
 
 	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
 	go func() {
@@ -161,13 +170,18 @@ func (s *AgentServer) SetUsageLimits(
 func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 	s.lg.Info("Streaming tasks from scheduler")
 	defer s.lg.Warn("Task stream closed")
-	streamCtx := stream.Context()
 	for {
 		compileRequest := &types.CompileRequest{}
 		err := stream.RecvMsg(compileRequest)
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				s.lg.Debug(err)
+			} else {
+				s.lg.Error(err)
+			}
 			return err
 		}
+		streamCtx := stream.Context()
 		go func() {
 			err := stream.SendMsg(s.compile(streamCtx, compileRequest))
 			if err != nil {

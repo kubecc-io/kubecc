@@ -169,10 +169,11 @@ func (f *ToolchainFilter) taskChannelForToolchain(tc *types.Toolchain) *taskChan
 	defer f.channelsMutex.Unlock()
 	hash := tcHash(tc)
 	var taskCh *taskChannel
-	if c, ok := f.channels[hash]; ok {
-		taskCh = c
-	} else {
+	if c, ok := f.channels[hash]; !ok || c == nil {
 		f.channels[hash] = f.newTaskChannel(hash)
+		taskCh = f.channels[hash]
+	} else {
+		taskCh = c
 	}
 	return taskCh
 }

@@ -54,7 +54,9 @@ func NewMonitorServer(
 		providerMutex: &sync.RWMutex{},
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
-		providers:     &metrics.Providers{},
+		providers: &metrics.Providers{
+			Items: make(map[string]*metrics.ProviderInfo),
+		},
 	}
 	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()

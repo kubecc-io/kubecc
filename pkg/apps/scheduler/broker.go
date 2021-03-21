@@ -80,6 +80,7 @@ func (b *Broker) watchToolchains(uuid string) chan *metrics.Toolchains {
 		if id != uuid {
 			return
 		}
+		defer listener.Stop()
 		listener.OnValueChanged(id, func(tc *metrics.Toolchains) {
 			ch <- tc
 		})

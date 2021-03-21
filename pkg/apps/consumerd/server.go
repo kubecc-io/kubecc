@@ -117,6 +117,7 @@ func NewConsumerdServer(
 		localTasksCompleted: atomic.NewInt64(0),
 		queue:               NewSplitQueue(ctx, options.monitorClient),
 		schedulerClient:     options.schedulerClient,
+		monitorClient:       options.monitorClient,
 		requestClient:       clients.NewCompileRequestClient(ctx, nil),
 	}
 	srv.streamMgr = servers.NewStreamManager(srv.srvContext, srv)

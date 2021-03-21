@@ -72,7 +72,6 @@ var _ = Describe("Integration test", func() {
 		}))
 
 		testEnv.SpawnConsumerd(test.WithConfig(config.ConsumerdSpec{
-			ListenAddress: "1111",
 			UsageLimits: config.UsageLimitsSpec{
 				ConcurrentProcessLimit:  18,
 				QueuePressureMultiplier: 1.5,
