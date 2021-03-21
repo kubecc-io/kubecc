@@ -107,67 +107,67 @@ func NewStreamManager(
 // This function has the side effect of resetting the backoff manager to its
 // defaults, but only if a backoff timer is currently active. If the
 // backoff timer is not currently active, this function will do nothing.
-func (cm *StreamManager) TryImmediately() {
-	close(cm.immediate)
+func (sm *StreamManager) TryImmediately() {
+	close(sm.immediate)
 }
 
 // this must only be called by Run() which should be running in a separate
 // goroutine.
-func (cm *StreamManager) waitBackoff() {
-	lg := meta.Log(cm.ctx)
+func (sm *StreamManager) waitBackoff() {
+	lg := meta.Log(sm.ctx)
 	lg.Debug("Backing off")
-	cm.immediate = make(chan struct{})
+	sm.immediate = make(chan struct{})
 	select {
-	case <-cm.backoffMgr.Backoff().C():
+	case <-sm.backoffMgr.Backoff().C():
 		lg.Debug("Backoff timer completed")
-		close(cm.immediate)
-	case <-cm.immediate:
+		close(sm.immediate)
+	case <-sm.immediate:
 		lg.Debug(zapkc.Yellow.Add("Requested to try connecting immediately"))
 		// We need to reset the backoff manager since its timer is most likely
 		// still waiting.
-		cm.backoffMgr = makeBackoffMgr()
+		sm.backoffMgr = makeBackoffMgr()
 	}
 }
 
-func (cm *StreamManager) Run() {
-	lg := meta.Log(cm.ctx)
-	color := meta.Component(cm.ctx).Color()
+func (sm *StreamManager) Run() {
+	lg := meta.Log(sm.ctx)
+	color := meta.Component(sm.ctx).Color()
 	for {
-		if stream, err := cm.handler.TryConnect(); err != nil {
-			if e, ok := cm.handler.(OnConnectFailedEventHandler); ok {
+		if stream, err := sm.handler.TryConnect(); err != nil {
+			if e, ok := sm.handler.(OnConnectFailedEventHandler); ok {
 				e.OnConnectFailed()
 			}
-			if cm.logEvents&LogConnectionFailed != 0 {
+			if sm.logEvents&LogConnectionFailed != 0 {
 				lg.With(
 					zap.String("err", status.Convert(err).Message()),
-					zap.String("target", cm.handler.Target()),
+					zap.String("target", sm.handler.Target()),
 				).Warn(zapkc.Red.Add("Failed to connect"))
 			}
-			cm.waitBackoff()
+			sm.waitBackoff()
 		} else {
-			if e, ok := cm.handler.(OnConnectedEventHandler); ok {
+			if e, ok := sm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
-			if cm.logEvents&LogConnected != 0 {
-				lg.Infof(color.Add("Connected to %s"), cm.handler.Target())
+			if sm.logEvents&LogConnected != 0 {
+				lg.Infof(color.Add("Connected to %s"), sm.handler.Target())
 			}
-			err := cm.handler.HandleStream(stream)
+			err := sm.handler.HandleStream(stream)
 			if err := stream.CloseSend(); err != nil {
 				lg.With(zap.Error(err)).Error("Failed to close stream")
 			}
-			if e, ok := cm.handler.(OnLostConnectionEventHandler); ok {
+			if e, ok := sm.handler.(OnLostConnectionEventHandler); ok {
 				e.OnLostConnection()
 			}
 			if err != nil {
-				if cm.logEvents&LogConnectionLost != 0 {
+				if sm.logEvents&LogConnectionLost != 0 {
 					lg.With(
 						zap.Error(err),
-						zap.String("target", cm.handler.Target()),
+						zap.String("target", sm.handler.Target()),
 					).Error(zapkc.Red.Add("Connection lost, Attempting to reconnect"))
 				}
-				cm.waitBackoff()
+				sm.waitBackoff()
 			} else {
-				if cm.logEvents&LogStreamFinished != 0 {
+				if sm.logEvents&LogStreamFinished != 0 {
 					lg.Debug("Stream finished")
 				}
 				return

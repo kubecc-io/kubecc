@@ -143,7 +143,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
-		agent.WithToolchainRunners(testctrl.AddToStoreSim),
+		agent.WithToolchainRunners(testctrl.AddToStore),
 		agent.WithMonitorClient(e.NewMonitorClient(ctx)),
 		agent.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
@@ -325,7 +325,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 func DefaultConfig() config.KubeccSpec {
 	return config.KubeccSpec{
 		Global: config.GlobalSpec{
-			LogLevel: "debug",
+			LogLevel: "info",
 		},
 		Agent: config.AgentSpec{
 			UsageLimits: config.UsageLimitsSpec{
