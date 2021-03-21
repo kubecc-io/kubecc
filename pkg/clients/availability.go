@@ -51,28 +51,22 @@ func (rsm *AvailabilityChecker) EnsureAvailable() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		go func() {
+			defer cancel()
 			rsm.cond.L.Lock()
-			defer rsm.cond.L.Unlock()
-
-			for {
-				if rsm.status != Available {
-					cancel()
-					return
-				}
+			for rsm.status == Available {
 				rsm.cond.Wait()
 			}
+			rsm.cond.L.Unlock()
 		}()
 	}()
 
 	rsm.cond.L.Lock()
-	defer rsm.cond.L.Unlock()
-
-	for {
-		if rsm.status == Available {
-			return ctx
-		}
+	for rsm.status != Available {
 		rsm.cond.Wait()
 	}
+	rsm.cond.L.Unlock()
+
+	return ctx
 }
 
 func (rsm *AvailabilityChecker) OnComponentAvailable(
@@ -85,15 +79,15 @@ func (rsm *AvailabilityChecker) OnComponentAvailable(
 
 	rsm.cond.L.Lock()
 	rsm.status = Available
-	rsm.cond.Broadcast()
 	rsm.cond.L.Unlock()
+	rsm.cond.Broadcast()
 
 	<-ctx.Done()
 
 	rsm.cond.L.Lock()
 	rsm.status = Unavailable
-	rsm.cond.Broadcast()
 	rsm.cond.L.Unlock()
+	rsm.cond.Broadcast()
 }
 
 func WatchAvailability(

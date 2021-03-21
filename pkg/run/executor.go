@@ -14,7 +14,6 @@ type Executor interface {
 	metrics.UsageLimitsCompleter
 	metrics.TaskStatusCompleter
 	Exec(task Task) error
-	ExecAsync(task Task) <-chan error
 }
 
 type QueuedExecutor struct {
@@ -26,7 +25,7 @@ type QueuedExecutor struct {
 }
 
 type ExecutorOptions struct {
-	usageLimits *metrics.UsageLimits
+	UsageLimits *metrics.UsageLimits
 }
 type ExecutorOption func(*ExecutorOptions)
 
@@ -43,7 +42,7 @@ func (o *ExecutorOptions) Apply(opts ...ExecutorOption) {
 
 func WithUsageLimits(cfg *metrics.UsageLimits) ExecutorOption {
 	return func(o *ExecutorOptions) {
-		o.usageLimits = cfg
+		o.UsageLimits = cfg
 	}
 }
 
@@ -51,14 +50,14 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	options := ExecutorOptions{}
 	options.Apply(opts...)
 
-	if options.usageLimits == nil {
-		options.usageLimits = &metrics.UsageLimits{
+	if options.UsageLimits == nil {
+		options.UsageLimits = &metrics.UsageLimits{
 			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
 			QueuePressureMultiplier: 1,
 			QueueRejectMultiplier:   1,
 		}
-	} else if options.usageLimits.ConcurrentProcessLimit == -1 {
-		options.usageLimits.ConcurrentProcessLimit =
+	} else if options.UsageLimits.ConcurrentProcessLimit == -1 {
+		options.UsageLimits.ConcurrentProcessLimit =
 			host.AutoConcurrentProcessLimit()
 	}
 
@@ -70,7 +69,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 		numRunning:      atomic.NewInt32(0),
 		numQueued:       atomic.NewInt32(0),
 	}
-	s.workerPool.SetWorkerCount(int(s.usageLimits.ConcurrentProcessLimit))
+	s.workerPool.SetWorkerCount(int(s.UsageLimits.ConcurrentProcessLimit))
 	return s
 }
 
@@ -81,7 +80,7 @@ func NewDelegatingExecutor() *DelegatingExecutor {
 }
 
 func (x *QueuedExecutor) SetUsageLimits(cfg *metrics.UsageLimits) {
-	x.usageLimits = cfg
+	x.UsageLimits = cfg
 	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
 }
 
@@ -127,9 +126,9 @@ func (x *QueuedExecutor) ExecAsync(task Task) <-chan error {
 }
 
 func (x *QueuedExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {
-	stat.ConcurrentProcessLimit = x.usageLimits.ConcurrentProcessLimit
-	stat.QueuePressureMultiplier = x.usageLimits.QueuePressureMultiplier
-	stat.QueueRejectMultiplier = x.usageLimits.QueueRejectMultiplier
+	stat.ConcurrentProcessLimit = x.UsageLimits.ConcurrentProcessLimit
+	stat.QueuePressureMultiplier = x.UsageLimits.QueuePressureMultiplier
+	stat.QueueRejectMultiplier = x.UsageLimits.QueueRejectMultiplier
 }
 
 func (x *QueuedExecutor) CompleteTaskStatus(stat *metrics.TaskStatus) {

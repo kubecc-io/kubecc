@@ -2,12 +2,17 @@ package run
 
 import (
 	"context"
+	"errors"
 	"io"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
+)
+
+var (
+	ErrUnsupportedTask = errors.New("Task not supported")
 )
 
 // Task represents a single runnable action.
@@ -47,8 +52,8 @@ type Contexts struct {
 }
 
 // RequestManager represents an entity that is responsible for the entire
-// lifetime of a request (right now either a RunRequest or CompileRequest)
-// by creating tasks and dispatching them to Executors.
+// lifecycle of a request (right now either a RunRequest or CompileRequest)
+// by creating and running tasks.
 type RequestManager interface {
 	// Process consumes the request and blocks until it is complete, returning
 	// a matching response object and an error. Errors returned from this function
@@ -57,7 +62,7 @@ type RequestManager interface {
 	// could not be completed, either due to a network error, an internal error,
 	// or a similar issue. Responses should encode success or failure within
 	// the response type itself.
-	Process(ctx Contexts, x Executor, request interface{}) (response interface{}, err error)
+	Process(ctx Contexts, request interface{}) (response interface{}, err error)
 }
 
 // PackagedRequest is a runnable closure which can invoke a RequestManager's
@@ -86,12 +91,11 @@ func (pr *PackagedRequest) Response() chan interface{} {
 func PackageRequest(
 	rm RequestManager,
 	ctx Contexts,
-	x Executor,
 	request interface{},
 ) PackagedRequest {
 	return PackagedRequest{
 		f: func() (response interface{}, err error) {
-			return rm.Process(ctx, x, request)
+			return rm.Process(ctx, request)
 		},
 		c: make(chan interface{}, 1),
 	}

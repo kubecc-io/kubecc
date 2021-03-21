@@ -18,7 +18,6 @@ type localRunnerManager struct {
 
 func (m localRunnerManager) Process(
 	ctx run.Contexts,
-	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
 	tracer := meta.Tracer(ctx.ServerContext)
@@ -42,8 +41,9 @@ func (m localRunnerManager) Process(
 		run.WithUidGid(req.UID, req.GID),
 		run.WithWorkDir(req.WorkDir),
 	)
-	err := executor.Exec(task)
+	task.Run()
 
+	err := task.Err()
 	if err != nil && run.IsCompilerError(err) {
 		lg.With(zap.Error(err), zap.Object("args", m.ap)).Error("Compiler error")
 		errString := stderrBuf.String()
