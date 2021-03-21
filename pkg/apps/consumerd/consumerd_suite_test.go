@@ -229,6 +229,9 @@ func plotStatsLog() {
 			kind: consumerd.QueuedTasks,
 		},
 		{
+			kind: consumerd.RunningTasks,
+		},
+		{
 			loc:  consumerd.Local,
 			kind: consumerd.CompletedTasks,
 		},
@@ -253,7 +256,7 @@ func plotStatsLog() {
 
 	wg.Wait()
 
-	wg.Add(4)
+	wg.Add(5)
 	go func() {
 		wg.Done()
 		xys[0] = filtered[0].ToXYs()
@@ -264,19 +267,24 @@ func plotStatsLog() {
 	}()
 	go func() {
 		wg.Done()
-		xys[2] = filtered[2].Deltas().ToXYs()
+		xys[2] = filtered[2].ToXYs()
 	}()
 	go func() {
 		wg.Done()
 		xys[3] = filtered[3].Deltas().ToXYs()
+	}()
+	go func() {
+		wg.Done()
+		xys[4] = filtered[4].Deltas().ToXYs()
 	}()
 	wg.Wait()
 
 	if err := plotutil.AddLinePoints(p,
 		"Delegated", xys[0],
 		"Queued", xys[1],
-		"Local/Completed", xys[2],
-		"Remote/Completed", xys[3],
+		"Running", xys[2],
+		"Local/Completed", xys[3],
+		"Remote/Completed", xys[4],
 	); err != nil {
 		panic(err)
 	}
