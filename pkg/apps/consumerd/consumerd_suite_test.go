@@ -192,10 +192,11 @@ func plotStatsLog() {
 		xys[4] = filtered[4].Deltas().EWMA(collectionPeriod * 10).ToXYs()
 	}()
 	wg.Wait()
-
+	p.Legend.Left = true
+	p.Legend.Top = true
 	if err := plotutil.AddLinePoints(p,
 		"Delegated", xys[0],
-		"Queued", xys[1],
+		"Queued (scaled 0-10)", xys[1],
 		"Running", xys[2],
 		"Local/Completed EWMA", xys[3],
 		"Remote/Completed EWMA", xys[4],
