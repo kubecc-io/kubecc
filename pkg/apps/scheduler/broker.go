@@ -88,34 +88,52 @@ func (b *Broker) watchToolchains(uuid string) chan *metrics.Toolchains {
 	return ch
 }
 
+var ErrTokenImbalance = errors.New("Token imbalance")
+
 func (b *Broker) handleAgentStream(
-	srv types.Scheduler_StreamIncomingTasksServer,
+	stream types.Scheduler_StreamIncomingTasksServer,
 	filterOutput <-chan interface{},
 ) {
 	b.agentsMutex.RLock()
-	uuid := meta.UUID(srv.Context())
+	uuid := meta.UUID(stream.Context())
 	agent := b.agents[uuid]
 	b.agentsMutex.RUnlock()
+	availableTokens := make(chan struct{}, MaxTokens)
+	lockedTokens := make(chan struct{}, MaxTokens)
+	agent.Lock()
+	for i := 0; i < int(agent.UsageLimits.ConcurrentProcessLimit); i++ {
+		availableTokens <- struct{}{}
+	}
+	agent.Unlock()
 
 	go func() {
 		b.lg.Debug("Handling agent stream (send)")
 		defer b.lg.Debug("Agent stream done (send)")
 		for {
+			// Attempt to remove a token from the agent's token pool. This represents
+			// exclusive access to a share of the agent's resources. The token will
+			// be put back into the buffered channel once a response has been
+			// received. If there are no tokens left, this will block until one
+			// becomes available or the stream is done.
 			select {
-			case req, ok := <-filterOutput:
-				if !ok {
-					// Output closed
-					return
+			case token := <-availableTokens:
+				lockedTokens <- token
+			case <-stream.Context().Done():
+				return
+			}
+			req, ok := <-filterOutput
+			if !ok {
+				// Output closed
+				return
+			}
+			err := stream.Send(req.(*types.CompileRequest))
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					b.lg.Debug(err)
+				} else {
+					b.lg.Error(err)
 				}
-				err := srv.Send(req.(*types.CompileRequest))
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						b.lg.Debug(err)
-					} else {
-						b.lg.Error(err)
-					}
-					return
-				}
+				return
 			}
 		}
 	}()
@@ -124,7 +142,7 @@ func (b *Broker) handleAgentStream(
 		defer b.lg.Debug("Agent stream done (recv)")
 
 		for {
-			resp, err := srv.Recv()
+			resp, err := stream.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					b.lg.Debug(err)
@@ -134,6 +152,14 @@ func (b *Broker) handleAgentStream(
 				return
 			}
 
+			select {
+			case token := <-lockedTokens:
+				availableTokens <- token
+			default:
+				b.lg.With(
+					types.ShortID(agent.UUID),
+				).Error(ErrTokenImbalance)
+			}
 			agent.CompletedTasks.Inc()
 			b.responseQueue <- resp
 		}

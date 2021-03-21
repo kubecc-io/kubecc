@@ -26,6 +26,10 @@ type Consumerd struct {
 	Stream     types.Scheduler_StreamOutgoingTasksServer
 }
 
+// MaxTokens is an arbitrary upper limit on the number of concurrent tasks
+// an agent can run.
+const MaxTokens = 1000
+
 type Agent struct {
 	remoteInfo
 	*sync.RWMutex
