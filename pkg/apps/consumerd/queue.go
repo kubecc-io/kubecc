@@ -1,7 +1,9 @@
 package consumerd
 
 import (
+	"container/ring"
 	"context"
+	"time"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -63,32 +65,36 @@ type SplitQueue struct {
 	numRunning   *atomic.Int32
 	numQueued    *atomic.Int32
 	numDelegated *atomic.Int32
+	numCompleted *atomic.Int32
+	telemetry    Telemetry
 }
 
-type QueueAction int
-
-const (
-	Requeue QueueAction = iota
-	DoNotRequeue
-)
-
-func (sq *SplitQueue) localRunner(t run.Task) {
-	sq.numRunning.Inc()
-	defer sq.numRunning.Dec()
-	t.(*SplitTask).Local.Run()
+type SplitQueueOptions struct {
+	telemetryCfg TelemetryConfig
 }
 
-func (sq *SplitQueue) remoteRunner(t run.Task) {
-	sq.numDelegated.Inc()
-	defer sq.numDelegated.Dec()
-	t.(*SplitTask).Remote.Run()
+type SplitQueueOption func(*SplitQueueOptions)
+
+func (o *SplitQueueOptions) Apply(opts ...SplitQueueOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithTelemetryConfig(cfg TelemetryConfig) SplitQueueOption {
+	return func(o *SplitQueueOptions) {
+		o.telemetryCfg = cfg
+	}
 }
 
 func NewSplitQueue(
 	ctx context.Context,
 	monClient types.MonitorClient,
-	opts ...run.ExecutorOption,
+	opts ...SplitQueueOption,
 ) *SplitQueue {
+	options := SplitQueueOptions{}
+	options.Apply(opts...)
+
 	queue := make(chan run.Task)
 	sq := &SplitQueue{
 		PauseController: util.NewPauseController(),
@@ -101,6 +107,16 @@ func NewSplitQueue(
 		numRunning:   atomic.NewInt32(0),
 		numQueued:    atomic.NewInt32(0),
 		numDelegated: atomic.NewInt32(0),
+		numCompleted: atomic.NewInt32(0),
+		telemetry: Telemetry{
+			recording: atomic.NewBool(false),
+			history:   ring.New(int(options.telemetryCfg.HistoryLen)),
+			conf:      options.telemetryCfg,
+		},
+	}
+	if sq.telemetry.conf.Enabled {
+		sq.telemetry.history = ring.New(int(sq.telemetry.conf.HistoryLen))
+		sq.telemetry.StartRecording()
 	}
 	sq.localWorkers = run.NewWorkerPool(queue,
 		run.WithRunner(sq.localRunner),
@@ -118,13 +134,25 @@ func NewSplitQueue(
 	return sq
 }
 
+func (sq *SplitQueue) localRunner(t run.Task) {
+	sq.incRunning()
+	defer sq.decRunning()
+	t.(*SplitTask).Local.Run()
+}
+
+func (sq *SplitQueue) remoteRunner(t run.Task) {
+	sq.incDelegated()
+	defer sq.decDelegated()
+	t.(*SplitTask).Remote.Run()
+}
+
 func (sq *SplitQueue) Exec(task run.Task) error {
 	if _, ok := task.(*SplitTask); !ok {
 		return run.ErrUnsupportedTask
 	}
-	sq.numQueued.Inc()
+	sq.incQueued()
+	defer sq.decQueued()
 	sq.inputQueue <- task
-	sq.numQueued.Dec()
 	return nil
 }
 
@@ -150,4 +178,68 @@ func (sq *SplitQueue) CompleteTaskStatus(m *metrics.TaskStatus) {
 	m.NumQueued = sq.numQueued.Load()
 	m.NumRunning = sq.numRunning.Load()
 	m.NumDelegated = sq.numDelegated.Load()
+}
+
+func (sq *SplitQueue) incQueued() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numQueued.Inc()),
+		Kind: QueuedTasks,
+	})
+}
+
+func (sq *SplitQueue) decQueued() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numQueued.Dec()),
+		Kind: QueuedTasks,
+	})
+}
+
+func (sq *SplitQueue) incRunning() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numRunning.Inc()),
+		Kind: RunningTasks,
+	})
+}
+
+func (sq *SplitQueue) decRunning() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numRunning.Dec()),
+		Kind: RunningTasks,
+	})
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numCompleted.Inc()),
+		Kind: CompletedTasks,
+		Loc:  Local,
+	})
+}
+
+func (sq *SplitQueue) incDelegated() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numDelegated.Inc()),
+		Kind: DelegatedTasks,
+	})
+}
+
+func (sq *SplitQueue) decDelegated() {
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numDelegated.Dec()),
+		Kind: DelegatedTasks,
+	})
+	sq.telemetry.RecordEntry(Entry{
+		X:    time.Now(),
+		Y:    float64(sq.numCompleted.Inc()),
+		Kind: CompletedTasks,
+		Loc:  Remote,
+	})
+}
+
+func (sq *SplitQueue) Telemetry() *Telemetry {
+	return &sq.telemetry
 }
