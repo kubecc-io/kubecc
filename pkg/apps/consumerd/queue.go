@@ -87,8 +87,8 @@ func NewSplitQueue(
 ) *SplitQueue {
 	options := SplitQueueOptions{}
 	options.Apply(opts...)
-
-	queue := make(chan run.Task)
+	capacity := int64(1000) // todo
+	queue := make(chan run.Task, capacity)
 	sq := &SplitQueue{
 		PauseController: util.NewPauseController(),
 		ctx:             ctx,
@@ -98,7 +98,8 @@ func NewSplitQueue(
 			clients.ComponentFilter(types.Scheduler),
 		),
 		telemetry: Telemetry{
-			conf: options.telemetryCfg,
+			conf:          options.telemetryCfg,
+			queueCapacity: capacity,
 		},
 	}
 	sq.telemetry.init()
@@ -122,12 +123,14 @@ func NewSplitQueue(
 }
 
 func (sq *SplitQueue) localRunner(t run.Task) {
+	sq.telemetry.decQueued()
 	sq.telemetry.incRunning()
 	defer sq.telemetry.decRunning()
 	t.(*SplitTask).Local.Run()
 }
 
 func (sq *SplitQueue) remoteRunner(t run.Task) {
+	sq.telemetry.decQueued()
 	sq.telemetry.incDelegated()
 	defer sq.telemetry.decDelegated()
 	t.(*SplitTask).Remote.Run()
@@ -138,7 +141,6 @@ func (sq *SplitQueue) Exec(task run.Task) error {
 		return run.ErrUnsupportedTask
 	}
 	sq.telemetry.incQueued()
-	defer sq.telemetry.decQueued()
 	sq.inputQueue <- task
 	return nil
 }

@@ -237,7 +237,6 @@ func (b *Broker) HandleAgentTaskStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
 ) {
 	b.agentsMutex.Lock()
-	defer b.agentsMutex.Unlock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
 	tcChan := b.watchToolchains(id)
@@ -252,9 +251,12 @@ func (b *Broker) HandleAgentTaskStream(
 		Stream:     stream,
 		Toolchains: tcs,
 	}
+	agent.UsageLimits = &metrics.UsageLimits{
+		ConcurrentProcessLimit: agent.SystemInfo.CpuThreads,
+	}
 	b.agents[agent.UUID] = agent
+	b.agentsMutex.Unlock()
 
-	b.agents[agent.UUID] = agent
 	filterOutput := b.filter.AddReceiver(agent)
 	b.handleAgentStream(stream, filterOutput)
 
@@ -271,7 +273,6 @@ func (b *Broker) HandleConsumerdTaskStream(
 	stream types.Scheduler_StreamOutgoingTasksServer,
 ) {
 	b.consumerdsMutex.Lock()
-	defer b.consumerdsMutex.Unlock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
 	tcChan := b.watchToolchains(id)
@@ -287,8 +288,8 @@ func (b *Broker) HandleConsumerdTaskStream(
 		Toolchains: tcs,
 	}
 	b.consumerds[cd.UUID] = cd
+	b.consumerdsMutex.Unlock()
 
-	b.consumerds[cd.UUID] = cd
 	b.filter.AddSender(cd)
 	b.handleConsumerdStream(stream)
 

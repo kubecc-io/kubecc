@@ -32,7 +32,8 @@ type Telemetry struct {
 	numCompletedLocal  *atomic.Int32
 	numCompletedRemote *atomic.Int32
 
-	tickCancel context.CancelFunc
+	queueCapacity int64
+	tickCancel    context.CancelFunc
 }
 
 func (t *Telemetry) init() {
@@ -121,7 +122,7 @@ func (t *Telemetry) recordValues() {
 	})
 	t.RecordEntry(Entry{
 		Kind: QueuedTasks,
-		Y:    float64(t.numQueued.Load()),
+		Y:    float64(t.numQueued.Load()) / float64(t.queueCapacity) * 10.0,
 	})
 }
 
