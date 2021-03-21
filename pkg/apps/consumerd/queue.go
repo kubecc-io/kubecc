@@ -1,9 +1,7 @@
 package consumerd
 
 import (
-	"container/ring"
 	"context"
-	"time"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
@@ -11,7 +9,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )
 
@@ -62,11 +59,7 @@ type SplitQueue struct {
 	localWorkers  *run.WorkerPool
 	remoteWorkers *run.WorkerPool
 
-	numRunning   *atomic.Int32
-	numQueued    *atomic.Int32
-	numDelegated *atomic.Int32
-	numCompleted *atomic.Int32
-	telemetry    Telemetry
+	telemetry Telemetry
 }
 
 type SplitQueueOptions struct {
@@ -104,18 +97,12 @@ func NewSplitQueue(
 		avc: clients.NewAvailabilityChecker(
 			clients.ComponentFilter(types.Scheduler),
 		),
-		numRunning:   atomic.NewInt32(0),
-		numQueued:    atomic.NewInt32(0),
-		numDelegated: atomic.NewInt32(0),
-		numCompleted: atomic.NewInt32(0),
 		telemetry: Telemetry{
-			recording: atomic.NewBool(false),
-			history:   ring.New(int(options.telemetryCfg.HistoryLen)),
-			conf:      options.telemetryCfg,
+			conf: options.telemetryCfg,
 		},
 	}
+	sq.telemetry.init()
 	if sq.telemetry.conf.Enabled {
-		sq.telemetry.history = ring.New(int(sq.telemetry.conf.HistoryLen))
 		sq.telemetry.StartRecording()
 	}
 	sq.localWorkers = run.NewWorkerPool(queue,
@@ -135,14 +122,14 @@ func NewSplitQueue(
 }
 
 func (sq *SplitQueue) localRunner(t run.Task) {
-	sq.incRunning()
-	defer sq.decRunning()
+	sq.telemetry.incRunning()
+	defer sq.telemetry.decRunning()
 	t.(*SplitTask).Local.Run()
 }
 
 func (sq *SplitQueue) remoteRunner(t run.Task) {
-	sq.incDelegated()
-	defer sq.decDelegated()
+	sq.telemetry.incDelegated()
+	defer sq.telemetry.decDelegated()
 	t.(*SplitTask).Remote.Run()
 }
 
@@ -150,8 +137,8 @@ func (sq *SplitQueue) Exec(task run.Task) error {
 	if _, ok := task.(*SplitTask); !ok {
 		return run.ErrUnsupportedTask
 	}
-	sq.incQueued()
-	defer sq.decQueued()
+	sq.telemetry.incQueued()
+	defer sq.telemetry.decQueued()
 	sq.inputQueue <- task
 	return nil
 }
@@ -175,69 +162,9 @@ func (sq *SplitQueue) CompleteUsageLimits(m *metrics.UsageLimits) {
 }
 
 func (sq *SplitQueue) CompleteTaskStatus(m *metrics.TaskStatus) {
-	m.NumQueued = sq.numQueued.Load()
-	m.NumRunning = sq.numRunning.Load()
-	m.NumDelegated = sq.numDelegated.Load()
-}
-
-func (sq *SplitQueue) incQueued() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numQueued.Inc()),
-		Kind: QueuedTasks,
-	})
-}
-
-func (sq *SplitQueue) decQueued() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numQueued.Dec()),
-		Kind: QueuedTasks,
-	})
-}
-
-func (sq *SplitQueue) incRunning() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numRunning.Inc()),
-		Kind: RunningTasks,
-	})
-}
-
-func (sq *SplitQueue) decRunning() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numRunning.Dec()),
-		Kind: RunningTasks,
-	})
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numCompleted.Inc()),
-		Kind: CompletedTasks,
-		Loc:  Local,
-	})
-}
-
-func (sq *SplitQueue) incDelegated() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numDelegated.Inc()),
-		Kind: DelegatedTasks,
-	})
-}
-
-func (sq *SplitQueue) decDelegated() {
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numDelegated.Dec()),
-		Kind: DelegatedTasks,
-	})
-	sq.telemetry.RecordEntry(Entry{
-		X:    time.Now(),
-		Y:    float64(sq.numCompleted.Inc()),
-		Kind: CompletedTasks,
-		Loc:  Remote,
-	})
+	m.NumQueued = sq.telemetry.numQueued.Load()
+	m.NumRunning = sq.telemetry.numRunning.Load()
+	m.NumDelegated = sq.telemetry.numDelegated.Load()
 }
 
 func (sq *SplitQueue) Telemetry() *Telemetry {
