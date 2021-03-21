@@ -118,109 +118,25 @@ func makeInfiniteTaskPool() (chan *consumerd.SplitTask, context.CancelFunc) {
 	return taskPool, cancel
 }
 
-var collectionPeriod = 50 * time.Millisecond
-
-var start = time.Now()
-var statsTicker = time.NewTicker(collectionPeriod)
-
-// func collectStats() {
-// 	times := ring.New(15)
-// 	local := ring.New(15)
-// 	remote := ring.New(15)
-// 	for range statsTicker.C {
-// 		timestamp := time.Since(start)
-// 		localCompleted := localExec.completedTotal.Load()
-// 		remoteCompleted := remoteExec.completedTotal.Load()
-
-// 		times.Value = float64(timestamp.Milliseconds())
-// 		local.Value = float64(localCompleted)
-// 		remote.Value = float64(remoteCompleted)
-
-// 		localValues := []float64{}
-// 		remoteValues := []float64{}
-// 		timeValues := []float64{}
-// 		local.Do(func(i interface{}) {
-// 			if i == nil {
-// 				return
-// 			}
-// 			localValues = append(localValues, i.(float64))
-// 		})
-// 		remote.Do(func(i interface{}) {
-// 			if i == nil {
-// 				return
-// 			}
-// 			remoteValues = append(remoteValues, i.(float64))
-// 		})
-// 		times.Do(func(i interface{}) {
-// 			if i == nil {
-// 				return
-// 			}
-// 			timeValues = append(timeValues, i.(float64))
-// 		})
-// 		if len(timeValues) >= 2 {
-// 			_, localBeta := stat.LinearRegression(timeValues, localValues, nil, false)
-// 			_, remoteBeta := stat.LinearRegression(timeValues, remoteValues, nil, false)
-
-// 			localExec.stats = append(localExec.stats, plotter.XY{
-// 				X: times.Value.(float64),
-// 				Y: math.Max(localValues[len(localValues)-1]-localValues[len(localValues)-2], 0),
-// 			})
-// 			remoteExec.stats = append(remoteExec.stats, plotter.XY{
-// 				X: times.Value.(float64),
-// 				Y: remoteValues[len(remoteValues)-1] - remoteValues[len(remoteValues)-2],
-// 			})
-// 			localExec.stats2 = append(localExec.stats2, plotter.XY{
-// 				X: times.Value.(float64),
-// 				Y: localBeta,
-// 			})
-// 			remoteExec.stats2 = append(remoteExec.stats2, plotter.XY{
-// 				X: times.Value.(float64),
-// 				Y: remoteBeta,
-// 			})
-// 		}
-// 		times = times.Next()
-// 		local = local.Next()
-// 		remote = remote.Next()
-// 	}
-// }
-
-type trend int
-
-const (
-	increasing trend = iota
-	decreasing
-	steady
-)
-
-// func (x *testExecutor) Slope() float64 {
-// 	indexes := []float64{}
-// 	values := []float64{}
-// 	x.stats.Do(func(i interface{}) {
-// 		if i == nil {
-// 			return
-// 		}
-// 		indexes = append(indexes, float64(len(indexes)))
-// 		values = append(values, i.(float64))
-// 	})
-// 	_, slope := stat.LinearRegression(indexes, values, nil, false)
-// 	if math.IsNaN(slope) {
-// 		return 0
-// 	}
-// 	return slope
-// }
+var collectionPeriod = 25 * time.Millisecond
 
 type filter struct {
-	loc  consumerd.SplitTaskLocation
 	kind consumerd.EntryKind
 }
 
 func plotStatsLog() {
 	p := plot.New()
 	p.Title.Text = "Local/Remote Executor Usage"
-	p.X.Label.Text = "Time since test start (ms)"
-	p.Y.Label.Text = fmt.Sprintf("Tasks completed per period (%s)", collectionPeriod.String())
+	p.X.Label.Text = "Timestamp (ms)"
 
 	entries := queue.Telemetry().Entries()
+
+	// normalize time scale
+	startTime := entries[0].X
+	for i, v := range entries {
+		entries[i].X = time.Unix(0, v.X.UnixNano()-startTime.UnixNano())
+	}
+
 	filters := []filter{
 		{
 			kind: consumerd.DelegatedTasks,
@@ -232,12 +148,10 @@ func plotStatsLog() {
 			kind: consumerd.RunningTasks,
 		},
 		{
-			loc:  consumerd.Local,
-			kind: consumerd.CompletedTasks,
+			kind: consumerd.CompletedTasksLocal,
 		},
 		{
-			loc:  consumerd.Remote,
-			kind: consumerd.CompletedTasks,
+			kind: consumerd.CompletedTasksRemote,
 		},
 	}
 	filtered := make([]consumerd.Entries, len(filters))
@@ -249,7 +163,7 @@ func plotStatsLog() {
 		go func(i int, f filter) {
 			defer wg.Done()
 			filtered[i] = entries.Filter(func(e consumerd.Entry) bool {
-				return e.Loc == f.loc && e.Kind == f.kind
+				return e.Kind == f.kind
 			})
 		}(i, f)
 	}
@@ -258,24 +172,24 @@ func plotStatsLog() {
 
 	wg.Add(5)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		xys[0] = filtered[0].ToXYs()
 	}()
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		xys[1] = filtered[1].ToXYs()
 	}()
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		xys[2] = filtered[2].ToXYs()
 	}()
 	go func() {
-		wg.Done()
-		xys[3] = filtered[3].Deltas().ToXYs()
+		defer wg.Done()
+		xys[3] = filtered[3].Deltas().EWMA(collectionPeriod * 10).ToXYs()
 	}()
 	go func() {
-		wg.Done()
-		xys[4] = filtered[4].Deltas().ToXYs()
+		defer wg.Done()
+		xys[4] = filtered[4].Deltas().EWMA(collectionPeriod * 10).ToXYs()
 	}()
 	wg.Wait()
 
@@ -283,28 +197,12 @@ func plotStatsLog() {
 		"Delegated", xys[0],
 		"Queued", xys[1],
 		"Running", xys[2],
-		"Local/Completed", xys[3],
-		"Remote/Completed", xys[4],
+		"Local/Completed EWMA", xys[3],
+		"Remote/Completed EWMA", xys[4],
 	); err != nil {
 		panic(err)
 	}
 	if err := p.Save(16*vg.Inch, 8*vg.Inch, "stats.svg"); err != nil {
 		panic(err)
 	}
-
-	// p2 := plot.New()
-	// p2.Title.Text = "Local/Remote Executor Rate of Change"
-	// p2.X.Label.Text = "Time since test start (ms)"
-	// p2.Y.Label.Text = "dy/dt"
-
-	// if err := plotutil.AddLinePoints(p2,
-	// 	"Local", localExec.stats2,
-	// 	"Remote", remoteExec.stats2,
-	// ); err != nil {
-	// 	panic(err)
-	// }
-	// if err := p2.Save(16*vg.Inch, 8*vg.Inch, "stats2.svg"); err != nil {
-	// 	panic(err)
-	// }
-
 }
