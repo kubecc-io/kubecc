@@ -234,7 +234,7 @@ func (s *AgentServer) compile(
 	resp, err := runner.RecvRemote().Process(run.Contexts{
 		ServerContext: s.srvContext,
 		ClientContext: sctx,
-	}, s.executor, req)
+	}, req)
 	if err != nil {
 		return makeInternalErr(err.Error())
 	}

@@ -20,7 +20,6 @@ type recvRemoteRunnerManager struct {
 
 func (m *recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
 	req := request.(*types.CompileRequest)
@@ -38,7 +37,9 @@ func (m *recvRemoteRunnerManager) Process(
 		run.WithOutputStreams(io.Discard, stderrBuf),
 		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
-	err := executor.Exec(task)
+	task.Run()
+
+	err := task.Err()
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
 		return &types.CompileResponse{

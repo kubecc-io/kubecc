@@ -18,7 +18,6 @@ type sendRemoteRunnerManager struct {
 
 func (m sendRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
@@ -50,7 +49,6 @@ type sendRemoteRunnerManagerSim struct{}
 
 func (m sendRemoteRunnerManagerSim) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
@@ -61,10 +59,11 @@ func (m sendRemoteRunnerManagerSim) Process(
 		Args: req.Args,
 	}
 	ap.Parse()
-	err = x.Exec(&testutil.SleepTask{
+	t := &testutil.SleepTask{
 		Duration: ap.Duration,
-	})
-	if err != nil {
+	}
+	t.Run()
+	if err := t.Err(); err != nil {
 		panic(err)
 	}
 	return &types.RunResponse{

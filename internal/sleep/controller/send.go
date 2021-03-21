@@ -16,7 +16,6 @@ type sendRemoteRunnerManager struct {
 
 func (m sendRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)

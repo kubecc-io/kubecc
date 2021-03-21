@@ -3,21 +3,22 @@ package run
 import (
 	"sync"
 
+	"github.com/cobalt77/kubecc/pkg/util"
 	mapset "github.com/deckarep/golang-set"
 )
 
 type WorkerPool struct {
+	*util.PauseController
 	taskQueue  <-chan Task
 	stopQueue  chan struct{}
 	workers    mapset.Set // *worker
 	workerLock *sync.Mutex
 	runner     func(Task)
-	paused     bool
-	pause      *sync.Cond
 }
 
 type WorkerPoolOptions struct {
 	runner func(Task)
+	paused bool
 }
 
 type WorkerPoolOption func(*WorkerPoolOptions)
@@ -34,6 +35,12 @@ func WithRunner(f func(Task)) WorkerPoolOption {
 	}
 }
 
+func DefaultPaused() WorkerPoolOption {
+	return func(o *WorkerPoolOptions) {
+		o.paused = true
+	}
+}
+
 func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool {
 	options := WorkerPoolOptions{
 		runner: func(t Task) {
@@ -44,22 +51,18 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 
 	queue := make(chan Task)
 	wp := &WorkerPool{
-		taskQueue:  queue,
-		stopQueue:  make(chan struct{}),
-		runner:     options.runner,
-		workers:    mapset.NewSet(),
-		workerLock: &sync.Mutex{},
-		pause:      sync.NewCond(&sync.Mutex{}),
+		PauseController: util.NewPauseController(util.DefaultPaused(options.paused)),
+		taskQueue:       queue,
+		stopQueue:       make(chan struct{}),
+		runner:          options.runner,
+		workers:         mapset.NewSet(),
+		workerLock:      &sync.Mutex{},
 	}
 
 	go func() {
 		defer close(queue)
 		for {
-			wp.pause.L.Lock()
-			for wp.paused {
-				wp.pause.Wait()
-			}
-			wp.pause.L.Unlock()
+			wp.CheckPaused()
 			task, open := <-taskQueue
 			if !open {
 				return
@@ -69,19 +72,6 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	}()
 
 	return wp
-}
-
-func (wp *WorkerPool) Pause() {
-	wp.pause.L.Lock()
-	wp.paused = true
-	wp.pause.L.Unlock()
-}
-
-func (wp *WorkerPool) Resume() {
-	wp.pause.L.Lock()
-	wp.paused = false
-	wp.pause.L.Unlock()
-	wp.pause.Signal()
 }
 
 func (wp *WorkerPool) SetWorkerCount(count int) {

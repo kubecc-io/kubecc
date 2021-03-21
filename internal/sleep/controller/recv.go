@@ -11,17 +11,17 @@ type recvRemoteRunnerManager struct {
 
 func (m recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.CompileRequest)
-	err = x.Exec(&run.ExecCommandTask{
+	t := &run.ExecCommandTask{
 		Args: req.Args,
-	})
-	if err != nil {
+	}
+	t.Run()
+	if err := t.Err(); err != nil {
 		lg.Error(err)
 		return &types.CompileResponse{
 			CompileResult: types.CompileResponse_Fail,

@@ -11,7 +11,6 @@ type recvRemoteRunnerManager struct{}
 
 func (m recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
@@ -22,10 +21,11 @@ func (m recvRemoteRunnerManager) Process(
 		Args: req.Args,
 	}
 	ap.Parse()
-	err = x.Exec(&testutil.SleepTask{
+	t := &testutil.SleepTask{
 		Duration: ap.Duration,
-	})
-	if err != nil {
+	}
+	t.Run()
+	if err := t.Err(); err != nil {
 		panic(err)
 	}
 	lg.Info("=> Done.")
@@ -39,7 +39,6 @@ type recvRemoteRunnerManagerSim struct{}
 
 func (m recvRemoteRunnerManagerSim) Process(
 	ctx run.Contexts,
-	x run.Executor,
 	request interface{},
 ) (response interface{}, err error) {
 	panic("Unimplemented")

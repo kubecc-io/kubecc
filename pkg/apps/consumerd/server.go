@@ -35,8 +35,7 @@ type consumerdServer struct {
 	schedulerClient     types.SchedulerClient
 	monitorClient       types.MonitorClient
 	metricsProvider     metrics.Provider
-	localExecutor       run.Executor
-	remoteExecutor      run.Executor
+	executor            run.Executor
 	queue               *SplitQueue
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
@@ -112,8 +111,7 @@ func NewConsumerdServer(
 		lg:                  meta.Log(ctx),
 		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:          runStore,
-		localExecutor:       run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		remoteExecutor:      run.NewDelegatingExecutor(),
+		executor:            NewSplitQueue(ctx, options.monitorClient),
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
@@ -203,14 +201,13 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 
 func (s *consumerdServer) postUsageLimits() {
 	qp := &metrics.UsageLimits{}
-	s.localExecutor.CompleteUsageLimits(qp)
+	s.executor.CompleteUsageLimits(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *consumerdServer) postTaskStatus() {
 	ts := &metrics.TaskStatus{}
-	s.localExecutor.CompleteTaskStatus(ts)  // Complete Running and Queued
-	s.remoteExecutor.CompleteTaskStatus(ts) // Complete Delegated
+	s.executor.CompleteTaskStatus(ts)
 	s.metricsProvider.Post(ts)
 }
 
@@ -311,13 +308,16 @@ func (c *consumerdServer) Run(
 	}
 
 	st := &SplitTask{
-		Local: run.PackageRequest(
-			runner.RunLocal(ap), ctxs, c.localExecutor, req),
-		Remote: run.PackageRequest(
-			runner.SendRemote(ap, c.requestClient), ctxs, c.remoteExecutor, req),
+		Local:  run.PackageRequest(runner.RunLocal(ap), ctxs, req),
+		Remote: run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
 	}
-	c.queue.Put(st)
 
+	// Exec blocks only while the task is queued
+	if err := c.executor.Exec(st); err != nil {
+		panic(err)
+	}
+
+	// Wait will block until either the local or remote task completes
 	resp, err := st.Wait()
 
 	if err != nil {

@@ -108,7 +108,6 @@ func runPreprocessor(
 
 func (m sendRemoteRunnerManager) Process(
 	ctx run.Contexts,
-	executor run.Executor,
 	request interface{},
 ) (interface{}, error) {
 	tracer := meta.Tracer(ctx.ServerContext)
@@ -153,9 +152,9 @@ func (m sendRemoteRunnerManager) Process(
 		run.WithStdin(bytes.NewReader(preprocessedSource)),
 		run.WithOutputVar(resp),
 	)
-	err := executor.Exec(task)
+	task.Run()
 
-	if err != nil {
+	if err := task.Err(); err != nil {
 		lg.With(zap.Error(err)).Debug("Remote compile failed")
 		return nil, err
 	}
