@@ -10,7 +10,8 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
-	"github.com/cobalt77/kubecc/pkg/apps/monitor/test"
+	"github.com/cobalt77/kubecc/pkg/clients"
+	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -25,6 +26,23 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+type TestStoreCreator struct {
+	Count  *atomic.Int32
+	Stores sync.Map // map[string]monitor.KeyValueStore
+}
+
+func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
+	store := monitor.InMemoryStoreCreator.NewStore(ctx)
+	c.Stores.Store(ctx, store)
+	i := int32(0)
+	c.Stores.Range(func(key, value interface{}) bool {
+		i++
+		return true
+	})
+	c.Count.Store(i)
+	return store
+}
 
 func drain(c chan interface{}) {
 	for {
@@ -50,10 +68,10 @@ func recycle(c chan context.CancelFunc) {
 var _ = Describe("Monitor", func() {
 	var listener *bufconn.Listener
 	var monitorCtx context.Context
-	var storeCreator *test.TestStoreCreator
+	var storeCreator *TestStoreCreator
 
 	Specify("Monitor server setup", func() {
-		storeCreator = &test.TestStoreCreator{
+		storeCreator = &TestStoreCreator{
 			Stores: sync.Map{},
 			Count:  atomic.NewInt32(0),
 		}
@@ -65,13 +83,12 @@ var _ = Describe("Monitor", func() {
 				logkc.WithLogLevel(zapcore.WarnLevel)))),
 			meta.WithProvider(tracing.Tracer),
 		)
-		mon := monitor.NewMonitorServer(monitorCtx, storeCreator)
+		mon := monitor.NewMonitorServer(monitorCtx, config.MonitorSpec{}, storeCreator)
 		listener = bufconn.Listen(1024 * 1024)
 		srv := servers.NewServer(monitorCtx, servers.WithServerOpts(
 			grpc.NumStreamWorkers(12),
 		))
-		types.RegisterInternalMonitorServer(srv, mon)
-		types.RegisterExternalMonitorServer(srv, mon)
+		types.RegisterMonitorServer(srv, mon)
 		go func() {
 			Expect(srv.Serve(listener)).NotTo(HaveOccurred())
 		}()
@@ -113,17 +130,17 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewExternalMonitorClient(cc)
-			listener := metrics.NewListener(ctx, client)
+			mc := types.NewMonitorClient(cc)
+			listener := clients.NewListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				listenerEvents["providerAdded"] <- uuid
-				listener.OnValueChanged(uuid, func(k1 *test.TestKey1) {
+				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					listenerEvents["testKey1Changed"] <- k1.Counter
 				}).OrExpired(func() metrics.RetryOptions {
 					listenerEvents["testKey1Expired"] <- struct{}{}
 					return metrics.NoRetry
 				})
-				listener.OnValueChanged(uuid, func(k2 *test.TestKey2) {
+				listener.OnValueChanged(uuid, func(k2 *testutil.Test2) {
 					listenerEvents["testKey2Changed"] <- k2.Value
 				}).OrExpired(func() metrics.RetryOptions {
 					listenerEvents["testKey2Expired"] <- struct{}{}
@@ -157,8 +174,8 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewInternalMonitorClient(cc)
-			provider = metrics.NewMonitorProvider(cctx, client, metrics.Buffered|metrics.Block)
+			mc := types.NewMonitorClient(cc)
+			provider = clients.NewMonitorProvider(cctx, mc, clients.Buffered)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -176,12 +193,12 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider updates a key", func() {
 		It("should succeed", func() {
-			provider.Post(&test.TestKey1{
+			provider.Post(&testutil.Test1{
 				Counter: 1,
 			})
 		})
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["testKey1Changed"]).Should(Receive(Equal(1)))
+			Eventually(listenerEvents["testKey1Changed"]).Should(Receive(Equal(int32(1))))
 			Expect(listenerEvents["testKey2Changed"]).ShouldNot(Receive())
 			Consistently(listenerEvents["testKey1Changed"]).ShouldNot(Receive())
 		})
@@ -202,11 +219,11 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			Expect(err).NotTo(HaveOccurred())
-			client := types.NewExternalMonitorClient(cc)
-			listener := metrics.NewListener(ctx, client)
+			mc := types.NewMonitorClient(cc)
+			listener := clients.NewListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				lateJoinListenerEvents["providerAdded"] <- uuid
-				listener.OnValueChanged(uuid, func(k1 *test.TestKey1) {
+				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					lateJoinListenerEvents["testKey1Changed"] <- k1.Counter
 				}).OrExpired(func() metrics.RetryOptions {
 					lateJoinListenerEvents["testKey1Expired"] <- struct{}{}
@@ -216,12 +233,12 @@ var _ = Describe("Monitor", func() {
 				lateJoinListenerEvents["providerRemoved"] <- struct{}{}
 			})
 			Eventually(lateJoinListenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid)))
-			Eventually(lateJoinListenerEvents["testKey1Changed"]).Should(Receive(Equal(1)))
+			Eventually(lateJoinListenerEvents["testKey1Changed"]).Should(Receive(Equal(int32(1))))
 		})
 	})
 	When("The provider updates a different key", func() {
 		It("should succeed", func() {
-			provider.Post(&test.TestKey2{
+			provider.Post(&testutil.Test2{
 				Value: "test",
 			})
 		})
@@ -234,10 +251,10 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider posts a key with the same value", func() {
 		It("should succeed", func() {
-			provider.Post(&test.TestKey2{
+			provider.Post(&testutil.Test2{
 				Value: "test",
 			})
-			provider.Post(&test.TestKey1{
+			provider.Post(&testutil.Test1{
 				Counter: 1,
 			})
 		})
@@ -269,7 +286,7 @@ var _ = Describe("Monitor", func() {
 		numProviders := 2
 		numListenersPerKey := 10
 		numUpdatesPerKey := 1000
-		callbackTimeout := 10 * time.Second
+		callbackTimeout := 60 * time.Second
 		stressTestLoops := 5
 		if testutil.IsRaceDetectorEnabled() {
 			numListenersPerKey = 10
@@ -285,16 +302,16 @@ var _ = Describe("Monitor", func() {
 			atomic.NewInt32(0),
 		}
 		handlers := []interface{}{
-			func(k *test.TestKey1) {
+			func(k *testutil.Test1) {
 				totals[0].Inc()
 			},
-			func(k *test.TestKey2) {
+			func(k *testutil.Test2) {
 				totals[1].Inc()
 			},
-			func(k *test.TestKey3) {
+			func(k *testutil.Test3) {
 				totals[2].Inc()
 			},
-			func(k *test.TestKey4) {
+			func(k *testutil.Test4) {
 				totals[3].Inc()
 			},
 		}
@@ -315,8 +332,8 @@ var _ = Describe("Monitor", func() {
 							return listener.Dial()
 						}),
 				))
-				client := types.NewInternalMonitorClient(cc)
-				provider := metrics.NewMonitorProvider(ctx, client, metrics.Buffered)
+				mc := types.NewMonitorClient(cc)
+				provider := clients.NewMonitorProvider(ctx, mc, clients.Buffered)
 				providers[i] = provider
 			}
 		})
@@ -339,8 +356,8 @@ var _ = Describe("Monitor", func() {
 						return listener.Dial()
 					}),
 			))
-			client := types.NewExternalMonitorClient(cc)
-			l := metrics.NewListener(ctx, client)
+			mc := types.NewMonitorClient(cc)
+			l := clients.NewListener(ctx, mc)
 			listeners[sampleIdx] = l
 			handler := handlers[sampleIdx%4]
 			b.Time("Handling provider add callbacks", func() {
@@ -364,7 +381,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 1 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.TestKey1{Counter: i})
+						providers[i%len(providers)].Post(&testutil.Test1{Counter: int32(i)})
 					}
 				})
 			}()
@@ -372,7 +389,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 2 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.TestKey2{Value: fmt.Sprint(i)})
+						providers[i%len(providers)].Post(&testutil.Test2{Value: fmt.Sprint(i)})
 					}
 				})
 			}()
@@ -380,7 +397,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 3 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.TestKey3{Counter: i})
+						providers[i%len(providers)].Post(&testutil.Test3{Counter: int32(i)})
 					}
 				})
 			}()
@@ -388,7 +405,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 4 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.TestKey4{Value: fmt.Sprint(i)})
+						providers[i%len(providers)].Post(&testutil.Test4{Value: fmt.Sprint(i)})
 					}
 				})
 			}()

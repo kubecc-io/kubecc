@@ -19,6 +19,10 @@ spec:
 {{ end }}
       containers:
         - name: kubecc-monitor
+          command:
+            - /kubecc
+            - run
+            - monitor
           image: {{ .Spec.Image }}
           imagePullPolicy: {{ .Spec.ImagePullPolicy }}
 {{ if .Spec.Resources }}
@@ -42,3 +46,13 @@ spec:
             - name: grpc
               containerPort: 9090
               protocol: TCP
+          volumeMounts:
+            - name: config
+              mountPath: /etc/kubecc
+      volumes:
+        - name: config
+          configMap:
+            name: kubecc
+            items:
+              - key: config.yaml
+                path: config.yaml

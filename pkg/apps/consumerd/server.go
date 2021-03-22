@@ -5,10 +5,9 @@ import (
 	"io/fs"
 	"time"
 
-	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
@@ -20,9 +19,8 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 type consumerdServer struct {
@@ -35,39 +33,38 @@ type consumerdServer struct {
 	tcStore             *toolchains.Store
 	storeUpdateCh       chan struct{}
 	schedulerClient     types.SchedulerClient
+	monitorClient       types.MonitorClient
 	metricsProvider     metrics.Provider
-	connection          *grpc.ClientConn
-	localExecutor       run.Executor
-	remoteExecutor      run.Executor
-	remoteOnly          bool
+	executor            run.Executor
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
+	requestClient       *clients.CompileRequestClient
+	streamMgr           *servers.StreamManager
 }
 
 type ConsumerdServerOptions struct {
-	toolchainFinders    []toolchains.FinderWithOptions
-	toolchainRunners    []run.StoreAddFunc
-	schedulerClient     types.SchedulerClient
-	monitorClient       types.InternalMonitorClient
-	schedulerConnection *grpc.ClientConn
-	usageLimits         *types.UsageLimits
+	toolchainFinders []toolchains.FinderWithOptions
+	toolchainRunners []run.StoreAddFunc
+	schedulerClient  types.SchedulerClient
+	monitorClient    types.MonitorClient
+	usageLimits      *metrics.UsageLimits
 }
 
-type consumerdServerOption func(*ConsumerdServerOptions)
+type ConsumerdServerOption func(*ConsumerdServerOptions)
 
-func (o *ConsumerdServerOptions) Apply(opts ...consumerdServerOption) {
+func (o *ConsumerdServerOptions) Apply(opts ...ConsumerdServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithToolchainFinders(args ...toolchains.FinderWithOptions) consumerdServerOption {
+func WithToolchainFinders(args ...toolchains.FinderWithOptions) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.toolchainFinders = args
 	}
 }
 
-func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
+func WithToolchainRunners(args ...run.StoreAddFunc) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.toolchainRunners = args
 	}
@@ -75,25 +72,23 @@ func WithToolchainRunners(args ...run.StoreAddFunc) consumerdServerOption {
 
 func WithSchedulerClient(
 	client types.SchedulerClient,
-	cc *grpc.ClientConn,
-) consumerdServerOption {
+) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.schedulerClient = client
-		o.schedulerConnection = cc
 	}
 }
 
-// Note this accepts an InternalMonitorClient even though consumerd runs
+// Note this accepts an MonitorClient even though consumerd runs
 // outside the cluster.
 func WithMonitorClient(
-	client types.InternalMonitorClient,
-) consumerdServerOption {
+	client types.MonitorClient,
+) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.monitorClient = client
 	}
 }
 
-func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
+func WithUsageLimits(cpuConfig *metrics.UsageLimits) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
 		o.usageLimits = cpuConfig
 	}
@@ -101,7 +96,7 @@ func WithUsageLimits(cpuConfig *types.UsageLimits) consumerdServerOption {
 
 func NewConsumerdServer(
 	ctx context.Context,
-	opts ...consumerdServerOption,
+	opts ...ConsumerdServerOption,
 ) *consumerdServer {
 	options := ConsumerdServerOptions{}
 	options.Apply(opts...)
@@ -115,28 +110,39 @@ func NewConsumerdServer(
 		lg:                  meta.Log(ctx),
 		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:          runStore,
-		localExecutor:       run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
-		remoteExecutor:      run.NewDelegatingExecutor(),
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
+		executor:            NewSplitQueue(ctx, options.monitorClient),
+		schedulerClient:     options.schedulerClient,
+		monitorClient:       options.monitorClient,
+		requestClient:       clients.NewCompileRequestClient(ctx, nil),
 	}
-	if options.schedulerClient != nil {
-		srv.schedulerClient = options.schedulerClient
-		srv.connection = options.schedulerConnection
-	}
+	srv.streamMgr = servers.NewStreamManager(srv.srvContext, srv)
+
 	if options.monitorClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(ctx, options.monitorClient,
-			metrics.Buffered|metrics.Discard)
+		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
+			clients.Buffered|clients.Discard)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
+
+	go srv.runRequestClient()
+	go srv.streamMgr.Run()
 	return srv
 }
 
-func (c *consumerdServer) schedulerConnected() bool {
-	return c.schedulerClient != nil &&
-		c.connection.GetState() == connectivity.Ready
+func (c *consumerdServer) runRequestClient() {
+	av := clients.NewAvailabilityChecker(clients.ComponentFilter(types.Scheduler))
+	clients.WatchAvailability(c.srvContext, types.Scheduler, c.monitorClient, av)
+
+	for {
+		ctx := av.EnsureAvailable()
+		c.lg.Debug("Remote is now available: Trying to connect immediately")
+		// Try to connect to the scheduler immediately in case we are in a backoff
+		c.streamMgr.TryImmediately()
+		<-ctx.Done()
+	}
 }
 
 func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
@@ -192,44 +198,40 @@ func (c *consumerdServer) applyToolchainToReq(req *types.RunRequest) error {
 	return nil
 }
 
-func (s *consumerdServer) postAlive() {
-	s.metricsProvider.Post(&common.Alive{})
-}
-
-func (s *consumerdServer) postQueueParams() {
-	qp := &common.QueueParams{}
-	s.localExecutor.CompleteQueueParams(qp)
+func (s *consumerdServer) postUsageLimits() {
+	qp := &metrics.UsageLimits{}
+	s.executor.CompleteUsageLimits(qp)
 	s.metricsProvider.Post(qp)
 }
 
 func (s *consumerdServer) postTaskStatus() {
-	ts := &common.TaskStatus{}
-	s.localExecutor.CompleteTaskStatus(ts)  // Complete Running and Queued
-	s.remoteExecutor.CompleteTaskStatus(ts) // Complete Delegated
+	ts := &metrics.TaskStatus{}
+	s.executor.CompleteTaskStatus(ts)
 	s.metricsProvider.Post(ts)
 }
 
-func (s *consumerdServer) postQueueStatus() {
-	qs := &common.QueueStatus{}
-	s.localExecutor.CompleteQueueStatus(qs)
-	s.metricsProvider.Post(qs)
+func (s *consumerdServer) postTotals() {
+	s.metricsProvider.Post(&metrics.LocalTasksCompleted{
+		Total: s.localTasksCompleted.Load(),
+	})
 }
 
-func (s *consumerdServer) postTotals() {
-	s.metricsProvider.Post(&cdmetrics.LocalTasksCompleted{
-		Total: s.localTasksCompleted.Load(),
+func (s *consumerdServer) postToolchains() {
+	s.metricsProvider.Post(&metrics.Toolchains{
+		Items: s.tcStore.ItemsList(),
 	})
 }
 
 func (s *consumerdServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postQueueParams()
+	s.postUsageLimits()
+	s.postToolchains()
 
 	slowTimer := util.NewJitteredTimer(5*time.Second, 0.25)
 	go func() {
 		for {
 			<-slowTimer
-			s.postQueueParams()
+			s.postUsageLimits()
 			s.postTotals()
 		}
 	}()
@@ -239,7 +241,13 @@ func (s *consumerdServer) StartMetricsProvider() {
 		for {
 			<-fastTimer
 			s.postTaskStatus()
-			s.postQueueStatus()
+		}
+	}()
+
+	go func() {
+		for {
+			<-s.storeUpdateCh
+			s.postToolchains()
 		}
 	}()
 }
@@ -293,71 +301,44 @@ func (c *consumerdServer) Run(
 	ap := runner.NewArgParser(c.srvContext, req.Args)
 	ap.Parse()
 
-	canRunRemote := ap.CanRunRemote()
-	if !c.schedulerConnected() {
-		c.lg.Info("Running local, scheduler disconnected")
-		canRunRemote = false
-	}
-	if !c.remoteOnly && c.localExecutor.Status() == types.Available {
-		c.lg.Info("Running local, not at capacity yet")
-		canRunRemote = false
+	ctxs := run.Contexts{
+		ServerContext: c.srvContext,
+		ClientContext: ctx,
 	}
 
-	if !canRunRemote {
-		defer c.localTasksCompleted.Inc()
-		resp, err := runner.RunLocal(ap).Run(run.Contexts{
-			ServerContext: c.srvContext,
-			ClientContext: ctx,
-		}, c.localExecutor, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp.(*types.RunResponse), nil
-	} else {
-		resp, err := runner.SendRemote(ap, c.schedulerClient).Run(run.Contexts{
-			ServerContext: c.srvContext,
-			ClientContext: ctx,
-		}, c.remoteExecutor, req)
-		if err != nil {
-			return nil, err
-		}
-		return resp.(*types.RunResponse), nil
+	st := &SplitTask{
+		Local:  run.PackageRequest(runner.RunLocal(ap), ctxs, req),
+		Remote: run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
 	}
+
+	// Exec blocks only while the task is queued
+	if err := c.executor.Exec(st); err != nil {
+		panic(err)
+	}
+
+	// Wait will block until either the local or remote task completes
+	resp, err := st.Wait()
+
+	if err != nil {
+		return nil, err
+	}
+	return resp.(*types.RunResponse), nil
 }
 
 func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {
+	c.requestClient.LoadNewStream(
+		stream.(types.Scheduler_StreamOutgoingTasksClient))
 	select {
-	case c.storeUpdateCh <- struct{}{}:
-	default:
-	}
-	for {
-		select {
-		case <-c.storeUpdateCh:
-			copiedItems := []*types.Toolchain{}
-			for tc := range c.tcStore.Items() {
-				copiedItems = append(copiedItems, proto.Clone(tc).(*types.Toolchain))
-			}
-			err := stream.SendMsg(&types.Metadata{
-				Toolchains: &types.Toolchains{
-					Items: copiedItems,
-				},
-			})
-			if err != nil {
-				c.lg.With(
-					zap.Error(err),
-				).Error("Error sending updated toolchains to scheduler")
-				return err
-			}
-		case err := <-servers.EmptyServerStreamDone(c.srvContext, stream):
-			return err
-		case <-c.srvContext.Done():
-			return nil
-		}
+	case <-c.srvContext.Done():
+		return c.srvContext.Err()
+	case <-stream.Context().Done():
+		return stream.Context().Err()
 	}
 }
 
 func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
-	return c.schedulerClient.ConnectConsumerd(c.srvContext)
+	return c.schedulerClient.StreamOutgoingTasks(
+		c.srvContext, grpc.UseCompressor(gzip.Name))
 }
 
 func (c *consumerdServer) Target() string {

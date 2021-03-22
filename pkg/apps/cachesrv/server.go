@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	csrvmetrics "github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -27,26 +27,26 @@ type CacheServer struct {
 
 type CacheServerOptions struct {
 	storageProvider storage.StorageProvider
-	monitorClient   types.InternalMonitorClient
+	monitorClient   types.MonitorClient
 }
 
-type cacheServerOption func(*CacheServerOptions)
+type CacheServerOption func(*CacheServerOptions)
 
-func (o *CacheServerOptions) Apply(opts ...cacheServerOption) {
+func (o *CacheServerOptions) Apply(opts ...CacheServerOption) {
 	for _, op := range opts {
 		op(o)
 	}
 }
 
-func WithStorageProvider(sp storage.StorageProvider) cacheServerOption {
+func WithStorageProvider(sp storage.StorageProvider) CacheServerOption {
 	return func(o *CacheServerOptions) {
 		o.storageProvider = sp
 	}
 }
 
 func WithMonitorClient(
-	client types.InternalMonitorClient,
-) cacheServerOption {
+	client types.MonitorClient,
+) CacheServerOption {
 	return func(o *CacheServerOptions) {
 		o.monitorClient = client
 	}
@@ -54,7 +54,7 @@ func WithMonitorClient(
 func NewCacheServer(
 	ctx context.Context,
 	cfg config.CacheSpec,
-	opts ...cacheServerOption,
+	opts ...CacheServerOption,
 ) *CacheServer {
 	options := CacheServerOptions{}
 	options.Apply(opts...)
@@ -68,8 +68,8 @@ func NewCacheServer(
 	}
 	srv.storageProvider = options.storageProvider
 	if options.monitorClient != nil {
-		srv.metricsProvider = metrics.NewMonitorProvider(
-			ctx, options.monitorClient, metrics.Buffered|metrics.Block)
+		srv.metricsProvider = clients.NewMonitorProvider(
+			ctx, options.monitorClient, clients.Buffered|clients.Block)
 	} else {
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
@@ -110,12 +110,6 @@ func (s *CacheServer) Sync(*types.SyncRequest, types.Cache_SyncServer) error {
 	return status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
 
-func (s *CacheServer) postStorageProvider() {
-	s.metricsProvider.Post(&csrvmetrics.StorageProvider{
-		Kind: s.storageProvider.Location().String(),
-	})
-}
-
 func (s *CacheServer) postStorageInfo() {
 	s.metricsProvider.Post(s.storageProvider.UsageInfo())
 }
@@ -126,7 +120,6 @@ func (s *CacheServer) postCacheHits() {
 
 func (s *CacheServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postStorageProvider()
 
 	slowTimer := util.NewJitteredTimer(20*time.Second, 0.5)
 	go func() {
@@ -134,7 +127,6 @@ func (s *CacheServer) StartMetricsProvider() {
 			<-slowTimer
 			s.postStorageInfo()
 			s.postCacheHits()
-			s.postStorageProvider()
 		}
 	}()
 }

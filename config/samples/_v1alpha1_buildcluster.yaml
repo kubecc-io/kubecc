@@ -17,17 +17,13 @@ spec:
       resources:
         limits:
           memory: "16Gi"
-      image: gcr.io/kubecc/agent:latest
-      additionalLabels: {}
-      logLevel: debug
+      image: gcr.io/kubecc/kubecc:latest
       imagePullPolicy: Always
     scheduler:
-      image: gcr.io/kubecc/scheduler:latest
-      logLevel: debug
+      image: gcr.io/kubecc/kubecc:latest
       imagePullPolicy: Always
     monitor:
-      image: gcr.io/kubecc/monitor:latest
-      logLevel: debug
+      image: gcr.io/kubecc/kubecc:latest
       imagePullPolicy: Always
   tracing:
     jaeger:
@@ -36,4 +32,4 @@ spec:
         internalEndpoint: http://collector.observability.svc.cluster.local:14268/api/traces
       sampling:
         type: probabilistic
-        param: 0.2
+        param: "0.2"

@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -298,8 +298,8 @@ func (sp *s3StorageProvider) Query(
 	return results, nil
 }
 
-func (sp *s3StorageProvider) UsageInfo() *metrics.UsageInfo {
-	info := &metrics.UsageInfo{
+func (sp *s3StorageProvider) UsageInfo() *metrics.CacheUsage {
+	info := &metrics.CacheUsage{
 		ObjectCount: 0,
 		TotalSize:   0,
 	}

@@ -7,9 +7,6 @@ spec:
     app: kubecc-monitor
   type: ClusterIP
   ports:
-    - name: external-grpc
+    - name: grpc
       port: 9090
-      protocol: TCP
-    - name: internal-grpc
-      port: 9091
       protocol: TCP

@@ -8,11 +8,3 @@ configMapGenerator:
 - files:
   - controller_manager_config.yaml
   name: manager-config
-- files:
-  - templates/agent_daemonset.yaml
-  - templates/agent_service.yaml
-  - templates/monitor_deployment.yaml
-  - templates/monitor_service.yaml
-  - templates/scheduler_deployment.yaml
-  - templates/scheduler_service.yaml
-  name: templates

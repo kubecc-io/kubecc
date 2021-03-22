@@ -4,6 +4,7 @@ package types
 
 import (
 	context "context"
+	any "github.com/golang/protobuf/ptypes/any"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -31,7 +32,7 @@ func NewConsumerdClient(cc grpc.ClientConnInterface) ConsumerdClient {
 
 func (c *consumerdClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error) {
 	out := new(RunResponse)
-	err := c.cc.Invoke(ctx, "/Consumerd/Run", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Consumerd/Run", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func _Consumerd_Run_Handler(srv interface{}, ctx context.Context, dec func(inter
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Consumerd/Run",
+		FullMethod: "/types.Consumerd/Run",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ConsumerdServer).Run(ctx, req.(*RunRequest))
@@ -88,7 +89,7 @@ func _Consumerd_Run_Handler(srv interface{}, ctx context.Context, dec func(inter
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Consumerd_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Consumerd",
+	ServiceName: "types.Consumerd",
 	HandlerType: (*ConsumerdServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -97,129 +98,7 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/types.proto",
-}
-
-// AgentClient is the client API for Agent service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type AgentClient interface {
-	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error)
-}
-
-type agentClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewAgentClient(cc grpc.ClientConnInterface) AgentClient {
-	return &agentClient{cc}
-}
-
-func (c *agentClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error) {
-	out := new(CompileResponse)
-	err := c.cc.Invoke(ctx, "/Agent/Compile", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *agentClient) SetUsageLimits(ctx context.Context, in *UsageLimits, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Agent/SetUsageLimits", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// AgentServer is the server API for Agent service.
-// All implementations must embed UnimplementedAgentServer
-// for forward compatibility
-type AgentServer interface {
-	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	SetUsageLimits(context.Context, *UsageLimits) (*Empty, error)
-	mustEmbedUnimplementedAgentServer()
-}
-
-// UnimplementedAgentServer must be embedded to have forward compatible implementations.
-type UnimplementedAgentServer struct {
-}
-
-func (UnimplementedAgentServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
-}
-func (UnimplementedAgentServer) SetUsageLimits(context.Context, *UsageLimits) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetUsageLimits not implemented")
-}
-func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
-
-// UnsafeAgentServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to AgentServer will
-// result in compilation errors.
-type UnsafeAgentServer interface {
-	mustEmbedUnimplementedAgentServer()
-}
-
-func RegisterAgentServer(s grpc.ServiceRegistrar, srv AgentServer) {
-	s.RegisterService(&Agent_ServiceDesc, srv)
-}
-
-func _Agent_Compile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CompileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServer).Compile(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Agent/Compile",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).Compile(ctx, req.(*CompileRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Agent_SetUsageLimits_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UsageLimits)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AgentServer).SetUsageLimits(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/Agent/SetUsageLimits",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AgentServer).SetUsageLimits(ctx, req.(*UsageLimits))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var Agent_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Agent",
-	HandlerType: (*AgentServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Compile",
-			Handler:    _Agent_Compile_Handler,
-		},
-		{
-			MethodName: "SetUsageLimits",
-			Handler:    _Agent_SetUsageLimits_Handler,
-		},
-	},
-	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/types.proto",
+	Metadata: "pkg/types/types.proto",
 }
 
 // SchedulerClient is the client API for Scheduler service.
@@ -227,8 +106,8 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SchedulerClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
-	ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error)
-	ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error)
+	StreamIncomingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamIncomingTasksClient, error)
+	StreamOutgoingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamOutgoingTasksClient, error)
 }
 
 type schedulerClient struct {
@@ -241,69 +120,69 @@ func NewSchedulerClient(cc grpc.ClientConnInterface) SchedulerClient {
 
 func (c *schedulerClient) Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error) {
 	out := new(CompileResponse)
-	err := c.cc.Invoke(ctx, "/Scheduler/Compile", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Scheduler/Compile", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *schedulerClient) ConnectAgent(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectAgentClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/Scheduler/ConnectAgent", opts...)
+func (c *schedulerClient) StreamIncomingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamIncomingTasksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[0], "/types.Scheduler/StreamIncomingTasks", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectAgentClient{stream}
+	x := &schedulerStreamIncomingTasksClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectAgentClient interface {
-	Send(*Metadata) error
-	Recv() (*Empty, error)
+type Scheduler_StreamIncomingTasksClient interface {
+	Send(*CompileResponse) error
+	Recv() (*CompileRequest, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectAgentClient struct {
+type schedulerStreamIncomingTasksClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectAgentClient) Send(m *Metadata) error {
+func (x *schedulerStreamIncomingTasksClient) Send(m *CompileResponse) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectAgentClient) Recv() (*Empty, error) {
-	m := new(Empty)
+func (x *schedulerStreamIncomingTasksClient) Recv() (*CompileRequest, error) {
+	m := new(CompileRequest)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *schedulerClient) ConnectConsumerd(ctx context.Context, opts ...grpc.CallOption) (Scheduler_ConnectConsumerdClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[1], "/Scheduler/ConnectConsumerd", opts...)
+func (c *schedulerClient) StreamOutgoingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamOutgoingTasksClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Scheduler_ServiceDesc.Streams[1], "/types.Scheduler/StreamOutgoingTasks", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &schedulerConnectConsumerdClient{stream}
+	x := &schedulerStreamOutgoingTasksClient{stream}
 	return x, nil
 }
 
-type Scheduler_ConnectConsumerdClient interface {
-	Send(*Metadata) error
-	Recv() (*Empty, error)
+type Scheduler_StreamOutgoingTasksClient interface {
+	Send(*CompileRequest) error
+	Recv() (*CompileResponse, error)
 	grpc.ClientStream
 }
 
-type schedulerConnectConsumerdClient struct {
+type schedulerStreamOutgoingTasksClient struct {
 	grpc.ClientStream
 }
 
-func (x *schedulerConnectConsumerdClient) Send(m *Metadata) error {
+func (x *schedulerStreamOutgoingTasksClient) Send(m *CompileRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
-	m := new(Empty)
+func (x *schedulerStreamOutgoingTasksClient) Recv() (*CompileResponse, error) {
+	m := new(CompileResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -315,8 +194,8 @@ func (x *schedulerConnectConsumerdClient) Recv() (*Empty, error) {
 // for forward compatibility
 type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
-	ConnectAgent(Scheduler_ConnectAgentServer) error
-	ConnectConsumerd(Scheduler_ConnectConsumerdServer) error
+	StreamIncomingTasks(Scheduler_StreamIncomingTasksServer) error
+	StreamOutgoingTasks(Scheduler_StreamOutgoingTasksServer) error
 	mustEmbedUnimplementedSchedulerServer()
 }
 
@@ -327,11 +206,11 @@ type UnimplementedSchedulerServer struct {
 func (UnimplementedSchedulerServer) Compile(context.Context, *CompileRequest) (*CompileResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Compile not implemented")
 }
-func (UnimplementedSchedulerServer) ConnectAgent(Scheduler_ConnectAgentServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConnectAgent not implemented")
+func (UnimplementedSchedulerServer) StreamIncomingTasks(Scheduler_StreamIncomingTasksServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamIncomingTasks not implemented")
 }
-func (UnimplementedSchedulerServer) ConnectConsumerd(Scheduler_ConnectConsumerdServer) error {
-	return status.Errorf(codes.Unimplemented, "method ConnectConsumerd not implemented")
+func (UnimplementedSchedulerServer) StreamOutgoingTasks(Scheduler_StreamOutgoingTasksServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamOutgoingTasks not implemented")
 }
 func (UnimplementedSchedulerServer) mustEmbedUnimplementedSchedulerServer() {}
 
@@ -356,7 +235,7 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Scheduler/Compile",
+		FullMethod: "/types.Scheduler/Compile",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(SchedulerServer).Compile(ctx, req.(*CompileRequest))
@@ -364,52 +243,52 @@ func _Scheduler_Compile_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Scheduler_ConnectAgent_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).ConnectAgent(&schedulerConnectAgentServer{stream})
+func _Scheduler_StreamIncomingTasks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).StreamIncomingTasks(&schedulerStreamIncomingTasksServer{stream})
 }
 
-type Scheduler_ConnectAgentServer interface {
-	Send(*Empty) error
-	Recv() (*Metadata, error)
+type Scheduler_StreamIncomingTasksServer interface {
+	Send(*CompileRequest) error
+	Recv() (*CompileResponse, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectAgentServer struct {
+type schedulerStreamIncomingTasksServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectAgentServer) Send(m *Empty) error {
+func (x *schedulerStreamIncomingTasksServer) Send(m *CompileRequest) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectAgentServer) Recv() (*Metadata, error) {
-	m := new(Metadata)
+func (x *schedulerStreamIncomingTasksServer) Recv() (*CompileResponse, error) {
+	m := new(CompileResponse)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func _Scheduler_ConnectConsumerd_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(SchedulerServer).ConnectConsumerd(&schedulerConnectConsumerdServer{stream})
+func _Scheduler_StreamOutgoingTasks_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(SchedulerServer).StreamOutgoingTasks(&schedulerStreamOutgoingTasksServer{stream})
 }
 
-type Scheduler_ConnectConsumerdServer interface {
-	Send(*Empty) error
-	Recv() (*Metadata, error)
+type Scheduler_StreamOutgoingTasksServer interface {
+	Send(*CompileResponse) error
+	Recv() (*CompileRequest, error)
 	grpc.ServerStream
 }
 
-type schedulerConnectConsumerdServer struct {
+type schedulerStreamOutgoingTasksServer struct {
 	grpc.ServerStream
 }
 
-func (x *schedulerConnectConsumerdServer) Send(m *Empty) error {
+func (x *schedulerStreamOutgoingTasksServer) Send(m *CompileResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
-	m := new(Metadata)
+func (x *schedulerStreamOutgoingTasksServer) Recv() (*CompileRequest, error) {
+	m := new(CompileRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -420,7 +299,7 @@ func (x *schedulerConnectConsumerdServer) Recv() (*Metadata, error) {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Scheduler_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Scheduler",
+	ServiceName: "types.Scheduler",
 	HandlerType: (*SchedulerServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -430,60 +309,62 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "ConnectAgent",
-			Handler:       _Scheduler_ConnectAgent_Handler,
+			StreamName:    "StreamIncomingTasks",
+			Handler:       _Scheduler_StreamIncomingTasks_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
 		{
-			StreamName:    "ConnectConsumerd",
-			Handler:       _Scheduler_ConnectConsumerd_Handler,
+			StreamName:    "StreamOutgoingTasks",
+			Handler:       _Scheduler_StreamOutgoingTasks_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},
 	},
-	Metadata: "proto/types.proto",
+	Metadata: "pkg/types/types.proto",
 }
 
-// InternalMonitorClient is the client API for InternalMonitor service.
+// MonitorClient is the client API for Monitor service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type InternalMonitorClient interface {
-	Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error)
+type MonitorClient interface {
+	Stream(ctx context.Context, opts ...grpc.CallOption) (Monitor_StreamClient, error)
+	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_ListenClient, error)
+	Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error)
 }
 
-type internalMonitorClient struct {
+type monitorClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewInternalMonitorClient(cc grpc.ClientConnInterface) InternalMonitorClient {
-	return &internalMonitorClient{cc}
+func NewMonitorClient(cc grpc.ClientConnInterface) MonitorClient {
+	return &monitorClient{cc}
 }
 
-func (c *internalMonitorClient) Stream(ctx context.Context, opts ...grpc.CallOption) (InternalMonitor_StreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &InternalMonitor_ServiceDesc.Streams[0], "/InternalMonitor/Stream", opts...)
+func (c *monitorClient) Stream(ctx context.Context, opts ...grpc.CallOption) (Monitor_StreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[0], "/types.Monitor/Stream", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &internalMonitorStreamClient{stream}
+	x := &monitorStreamClient{stream}
 	return x, nil
 }
 
-type InternalMonitor_StreamClient interface {
+type Monitor_StreamClient interface {
 	Send(*Metric) error
 	Recv() (*Empty, error)
 	grpc.ClientStream
 }
 
-type internalMonitorStreamClient struct {
+type monitorStreamClient struct {
 	grpc.ClientStream
 }
 
-func (x *internalMonitorStreamClient) Send(m *Metric) error {
+func (x *monitorStreamClient) Send(m *Metric) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *internalMonitorStreamClient) Recv() (*Empty, error) {
+func (x *monitorStreamClient) Recv() (*Empty, error) {
 	m := new(Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -491,100 +372,12 @@ func (x *internalMonitorStreamClient) Recv() (*Empty, error) {
 	return m, nil
 }
 
-// InternalMonitorServer is the server API for InternalMonitor service.
-// All implementations must embed UnimplementedInternalMonitorServer
-// for forward compatibility
-type InternalMonitorServer interface {
-	Stream(InternalMonitor_StreamServer) error
-	mustEmbedUnimplementedInternalMonitorServer()
-}
-
-// UnimplementedInternalMonitorServer must be embedded to have forward compatible implementations.
-type UnimplementedInternalMonitorServer struct {
-}
-
-func (UnimplementedInternalMonitorServer) Stream(InternalMonitor_StreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
-}
-func (UnimplementedInternalMonitorServer) mustEmbedUnimplementedInternalMonitorServer() {}
-
-// UnsafeInternalMonitorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to InternalMonitorServer will
-// result in compilation errors.
-type UnsafeInternalMonitorServer interface {
-	mustEmbedUnimplementedInternalMonitorServer()
-}
-
-func RegisterInternalMonitorServer(s grpc.ServiceRegistrar, srv InternalMonitorServer) {
-	s.RegisterService(&InternalMonitor_ServiceDesc, srv)
-}
-
-func _InternalMonitor_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(InternalMonitorServer).Stream(&internalMonitorStreamServer{stream})
-}
-
-type InternalMonitor_StreamServer interface {
-	Send(*Empty) error
-	Recv() (*Metric, error)
-	grpc.ServerStream
-}
-
-type internalMonitorStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *internalMonitorStreamServer) Send(m *Empty) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *internalMonitorStreamServer) Recv() (*Metric, error) {
-	m := new(Metric)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// InternalMonitor_ServiceDesc is the grpc.ServiceDesc for InternalMonitor service.
-// It's only intended for direct use with grpc.RegisterService,
-// and not to be introspected or modified (even as a copy)
-var InternalMonitor_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "InternalMonitor",
-	HandlerType: (*InternalMonitorServer)(nil),
-	Methods:     []grpc.MethodDesc{},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "Stream",
-			Handler:       _InternalMonitor_Stream_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-	},
-	Metadata: "proto/types.proto",
-}
-
-// ExternalMonitorClient is the client API for ExternalMonitor service.
-//
-// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type ExternalMonitorClient interface {
-	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error)
-	Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error)
-}
-
-type externalMonitorClient struct {
-	cc grpc.ClientConnInterface
-}
-
-func NewExternalMonitorClient(cc grpc.ClientConnInterface) ExternalMonitorClient {
-	return &externalMonitorClient{cc}
-}
-
-func (c *externalMonitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (ExternalMonitor_ListenClient, error) {
-	stream, err := c.cc.NewStream(ctx, &ExternalMonitor_ServiceDesc.Streams[0], "/ExternalMonitor/Listen", opts...)
+func (c *monitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_ListenClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Monitor_ServiceDesc.Streams[1], "/types.Monitor/Listen", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &externalMonitorListenClient{stream}
+	x := &monitorListenClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -594,123 +387,159 @@ func (c *externalMonitorClient) Listen(ctx context.Context, in *Key, opts ...grp
 	return x, nil
 }
 
-type ExternalMonitor_ListenClient interface {
-	Recv() (*Value, error)
+type Monitor_ListenClient interface {
+	Recv() (*any.Any, error)
 	grpc.ClientStream
 }
 
-type externalMonitorListenClient struct {
+type monitorListenClient struct {
 	grpc.ClientStream
 }
 
-func (x *externalMonitorListenClient) Recv() (*Value, error) {
-	m := new(Value)
+func (x *monitorListenClient) Recv() (*any.Any, error) {
+	m := new(any.Any)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *externalMonitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error) {
+func (c *monitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error) {
 	out := new(WhoisResponse)
-	err := c.cc.Invoke(ctx, "/ExternalMonitor/Whois", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Monitor/Whois", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// ExternalMonitorServer is the server API for ExternalMonitor service.
-// All implementations must embed UnimplementedExternalMonitorServer
+// MonitorServer is the server API for Monitor service.
+// All implementations must embed UnimplementedMonitorServer
 // for forward compatibility
-type ExternalMonitorServer interface {
-	Listen(*Key, ExternalMonitor_ListenServer) error
+type MonitorServer interface {
+	Stream(Monitor_StreamServer) error
+	Listen(*Key, Monitor_ListenServer) error
 	Whois(context.Context, *WhoisRequest) (*WhoisResponse, error)
-	mustEmbedUnimplementedExternalMonitorServer()
+	mustEmbedUnimplementedMonitorServer()
 }
 
-// UnimplementedExternalMonitorServer must be embedded to have forward compatible implementations.
-type UnimplementedExternalMonitorServer struct {
+// UnimplementedMonitorServer must be embedded to have forward compatible implementations.
+type UnimplementedMonitorServer struct {
 }
 
-func (UnimplementedExternalMonitorServer) Listen(*Key, ExternalMonitor_ListenServer) error {
+func (UnimplementedMonitorServer) Stream(Monitor_StreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedMonitorServer) Listen(*Key, Monitor_ListenServer) error {
 	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
 }
-func (UnimplementedExternalMonitorServer) Whois(context.Context, *WhoisRequest) (*WhoisResponse, error) {
+func (UnimplementedMonitorServer) Whois(context.Context, *WhoisRequest) (*WhoisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Whois not implemented")
 }
-func (UnimplementedExternalMonitorServer) mustEmbedUnimplementedExternalMonitorServer() {}
+func (UnimplementedMonitorServer) mustEmbedUnimplementedMonitorServer() {}
 
-// UnsafeExternalMonitorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to ExternalMonitorServer will
+// UnsafeMonitorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MonitorServer will
 // result in compilation errors.
-type UnsafeExternalMonitorServer interface {
-	mustEmbedUnimplementedExternalMonitorServer()
+type UnsafeMonitorServer interface {
+	mustEmbedUnimplementedMonitorServer()
 }
 
-func RegisterExternalMonitorServer(s grpc.ServiceRegistrar, srv ExternalMonitorServer) {
-	s.RegisterService(&ExternalMonitor_ServiceDesc, srv)
+func RegisterMonitorServer(s grpc.ServiceRegistrar, srv MonitorServer) {
+	s.RegisterService(&Monitor_ServiceDesc, srv)
 }
 
-func _ExternalMonitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Monitor_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(MonitorServer).Stream(&monitorStreamServer{stream})
+}
+
+type Monitor_StreamServer interface {
+	Send(*Empty) error
+	Recv() (*Metric, error)
+	grpc.ServerStream
+}
+
+type monitorStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *monitorStreamServer) Send(m *Empty) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *monitorStreamServer) Recv() (*Metric, error) {
+	m := new(Metric)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _Monitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Key)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(ExternalMonitorServer).Listen(m, &externalMonitorListenServer{stream})
+	return srv.(MonitorServer).Listen(m, &monitorListenServer{stream})
 }
 
-type ExternalMonitor_ListenServer interface {
-	Send(*Value) error
+type Monitor_ListenServer interface {
+	Send(*any.Any) error
 	grpc.ServerStream
 }
 
-type externalMonitorListenServer struct {
+type monitorListenServer struct {
 	grpc.ServerStream
 }
 
-func (x *externalMonitorListenServer) Send(m *Value) error {
+func (x *monitorListenServer) Send(m *any.Any) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _ExternalMonitor_Whois_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Monitor_Whois_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(WhoisRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ExternalMonitorServer).Whois(ctx, in)
+		return srv.(MonitorServer).Whois(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/ExternalMonitor/Whois",
+		FullMethod: "/types.Monitor/Whois",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ExternalMonitorServer).Whois(ctx, req.(*WhoisRequest))
+		return srv.(MonitorServer).Whois(ctx, req.(*WhoisRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// ExternalMonitor_ServiceDesc is the grpc.ServiceDesc for ExternalMonitor service.
+// Monitor_ServiceDesc is the grpc.ServiceDesc for Monitor service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var ExternalMonitor_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ExternalMonitor",
-	HandlerType: (*ExternalMonitorServer)(nil),
+var Monitor_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "types.Monitor",
+	HandlerType: (*MonitorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Whois",
-			Handler:    _ExternalMonitor_Whois_Handler,
+			Handler:    _Monitor_Whois_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
+			StreamName:    "Stream",
+			Handler:       _Monitor_Stream_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+		{
 			StreamName:    "Listen",
-			Handler:       _ExternalMonitor_Listen_Handler,
+			Handler:       _Monitor_Listen_Handler,
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/types.proto",
+	Metadata: "pkg/types/types.proto",
 }
 
 // CacheClient is the client API for Cache service.
@@ -733,7 +562,7 @@ func NewCacheClient(cc grpc.ClientConnInterface) CacheClient {
 
 func (c *cacheClient) Push(ctx context.Context, in *PushRequest, opts ...grpc.CallOption) (*Empty, error) {
 	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/Cache/Push", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Cache/Push", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -742,7 +571,7 @@ func (c *cacheClient) Push(ctx context.Context, in *PushRequest, opts ...grpc.Ca
 
 func (c *cacheClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.CallOption) (*CacheObject, error) {
 	out := new(CacheObject)
-	err := c.cc.Invoke(ctx, "/Cache/Pull", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Cache/Pull", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -751,7 +580,7 @@ func (c *cacheClient) Pull(ctx context.Context, in *PullRequest, opts ...grpc.Ca
 
 func (c *cacheClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.CallOption) (*QueryResponse, error) {
 	out := new(QueryResponse)
-	err := c.cc.Invoke(ctx, "/Cache/Query", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/types.Cache/Query", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -759,7 +588,7 @@ func (c *cacheClient) Query(ctx context.Context, in *QueryRequest, opts ...grpc.
 }
 
 func (c *cacheClient) Sync(ctx context.Context, in *SyncRequest, opts ...grpc.CallOption) (Cache_SyncClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Cache_ServiceDesc.Streams[0], "/Cache/Sync", opts...)
+	stream, err := c.cc.NewStream(ctx, &Cache_ServiceDesc.Streams[0], "/types.Cache/Sync", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +669,7 @@ func _Cache_Push_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Cache/Push",
+		FullMethod: "/types.Cache/Push",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CacheServer).Push(ctx, req.(*PushRequest))
@@ -858,7 +687,7 @@ func _Cache_Pull_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Cache/Pull",
+		FullMethod: "/types.Cache/Pull",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CacheServer).Pull(ctx, req.(*PullRequest))
@@ -876,7 +705,7 @@ func _Cache_Query_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/Cache/Query",
+		FullMethod: "/types.Cache/Query",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CacheServer).Query(ctx, req.(*QueryRequest))
@@ -909,7 +738,7 @@ func (x *cacheSyncServer) Send(m *CacheObject) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Cache_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "Cache",
+	ServiceName: "types.Cache",
 	HandlerType: (*CacheServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -932,5 +761,5 @@ var Cache_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/types.proto",
+	Metadata: "pkg/types/types.proto",
 }

@@ -14,12 +14,7 @@ spec:
         - name: manager-config
           mountPath: /controller_manager_config.yaml
           subPath: controller_manager_config.yaml
-        - name: templates
-          mountPath: /templates
       volumes:
       - name: manager-config
         configMap:
           name: manager-config
-      - name: templates
-        configMap:
-          name: templates

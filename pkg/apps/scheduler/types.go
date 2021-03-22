@@ -4,8 +4,8 @@ import (
 	"context"
 	"sync"
 
-	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/atomic"
 )
@@ -13,23 +13,29 @@ import (
 type remoteInfo struct {
 	UUID           string
 	Context        context.Context
-	UsageLimits    *types.UsageLimits
+	UsageLimits    *metrics.UsageLimits
 	SystemInfo     *types.SystemInfo
-	Toolchains     []*types.Toolchain
 	CompletedTasks *atomic.Int64
 }
 
 type Consumerd struct {
 	remoteInfo
 	*sync.RWMutex
+
+	Toolchains *metrics.Toolchains
+	Stream     types.Scheduler_StreamOutgoingTasksServer
 }
+
+// MaxTokens is an arbitrary upper limit on the number of concurrent tasks
+// an agent can run.
+const MaxTokens = 1000
 
 type Agent struct {
 	remoteInfo
 	*sync.RWMutex
 
-	Client      types.AgentClient
-	QueueStatus types.QueueStatus
+	Toolchains *metrics.Toolchains
+	Stream     types.Scheduler_StreamIncomingTasksServer
 }
 
 func remoteInfoFromContext(ctx context.Context) remoteInfo {
@@ -41,36 +47,18 @@ func remoteInfoFromContext(ctx context.Context) remoteInfo {
 	}
 }
 
-func (a Agent) Weight() int32 {
-	if a.UsageLimits == nil {
-		// Use a default value of the number of cpu threads
-		// until the agent posts its own usage limits
-		return a.SystemInfo.CpuThreads
-	}
-	switch a.QueueStatus {
-	case types.Available, types.Queueing:
-		return a.UsageLimits.GetConcurrentProcessLimit()
-	case types.QueuePressure:
-		return a.UsageLimits.GetConcurrentProcessLimit() / 2
-	case types.QueueFull:
-		return 0
-	}
-	return 0
-}
-
 type agentStats struct {
 	agentCtx        context.Context
-	agentTasksTotal *scmetrics.AgentTasksTotal
-	agentWeight     *scmetrics.AgentWeight
+	agentTasksTotal *metrics.AgentTasksTotal
 }
 
 type consumerdStats struct {
 	consumerdCtx       context.Context
-	cdRemoteTasksTotal *scmetrics.CdTasksTotal
+	cdRemoteTasksTotal *metrics.ConsumerdTasksTotal
 }
 
 type taskStats struct {
-	completedTotal *scmetrics.TasksCompletedTotal
-	failedTotal    *scmetrics.TasksFailedTotal
-	requestsTotal  *scmetrics.SchedulingRequestsTotal
+	completedTotal *metrics.TasksCompletedTotal
+	failedTotal    *metrics.TasksFailedTotal
+	requestsTotal  *metrics.SchedulingRequestsTotal
 }
