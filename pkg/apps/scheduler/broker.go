@@ -6,7 +6,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -47,14 +46,14 @@ type Broker struct {
 	consumerds      map[string]*Consumerd
 	agentsMutex     *sync.RWMutex
 	consumerdsMutex *sync.RWMutex
-	filter          *ToolchainFilter
-	monClient       types.MonitorClient
+	filter          *Router
 	cacheClient     types.CacheClient
 	hashSrv         *util.HashServer
 	pendingRequests sync.Map // map[uuid string]*Consumerd
+	tcWatcher       ToolchainWatcher
 }
 
-func NewBroker(ctx context.Context, monClient types.MonitorClient) *Broker {
+func NewBroker(ctx context.Context, tcw ToolchainWatcher) *Broker {
 	return &Broker{
 		srvContext:      ctx,
 		lg:              meta.Log(ctx),
@@ -67,33 +66,17 @@ func NewBroker(ctx context.Context, monClient types.MonitorClient) *Broker {
 		consumerds:      make(map[string]*Consumerd),
 		agentsMutex:     &sync.RWMutex{},
 		consumerdsMutex: &sync.RWMutex{},
-		filter:          NewToolchainFilter(ctx),
+		filter:          NewRouter(ctx),
 		hashSrv:         util.NewHashServer(),
-		monClient:       monClient,
+		tcWatcher:       tcw,
 	}
-}
-
-func (b *Broker) watchToolchains(uuid string) chan *metrics.Toolchains {
-	ch := make(chan *metrics.Toolchains)
-	listener := clients.NewListener(b.srvContext, b.monClient)
-	listener.OnProviderAdded(func(ctx context.Context, id string) {
-		if id != uuid {
-			return
-		}
-		defer listener.Stop()
-		listener.OnValueChanged(id, func(tc *metrics.Toolchains) {
-			ch <- tc
-		})
-		<-ctx.Done()
-	})
-	return ch
 }
 
 var ErrTokenImbalance = errors.New("Token imbalance")
 
 func (b *Broker) handleAgentStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
-	filterOutput <-chan interface{},
+	filterOutput <-chan *types.CompileRequest,
 ) {
 	b.agentsMutex.RLock()
 	uuid := meta.UUID(stream.Context())
@@ -127,7 +110,7 @@ func (b *Broker) handleAgentStream(
 				// Output closed
 				return
 			}
-			err := stream.Send(req.(*types.CompileRequest))
+			err := stream.Send(req)
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					b.lg.Debug(err)
@@ -233,13 +216,13 @@ func (b *Broker) handleResponseQueue() {
 	}
 }
 
-func (b *Broker) HandleAgentTaskStream(
+func (b *Broker) NewAgentTaskStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
 ) {
 	b.agentsMutex.Lock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
-	tcChan := b.watchToolchains(id)
+	tcChan := b.tcWatcher.WatchToolchains(id)
 
 	b.lg.With(types.ShortID(id)).Info("Agent connected, waiting for toolchains")
 	tcs := <-tcChan
@@ -269,13 +252,13 @@ func (b *Broker) HandleAgentTaskStream(
 	}()
 }
 
-func (b *Broker) HandleConsumerdTaskStream(
+func (b *Broker) NewConsumerdTaskStream(
 	stream types.Scheduler_StreamOutgoingTasksServer,
 ) {
 	b.consumerdsMutex.Lock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
-	tcChan := b.watchToolchains(id)
+	tcChan := b.tcWatcher.WatchToolchains(id)
 
 	b.lg.With(types.ShortID(id)).Info("Consumerd connected, waiting for toolchains")
 	tcs := <-tcChan
@@ -310,8 +293,6 @@ func (b *Broker) HandleConsumerdTaskStream(
 		delete(b.agents, cd.UUID)
 	}()
 }
-
-var float64Epsilon = 1e-6
 
 func (b *Broker) CalcAgentStats() <-chan []agentStats {
 	stats := make(chan []agentStats)
@@ -382,7 +363,7 @@ func (b *Broker) TaskStats() taskStats {
 
 func (b *Broker) PreReceive(
 	ctx context.Context,
-	taskCh *taskChannel,
+	rt *route,
 	req *types.CompileRequest,
 ) (action HookAction) {
 	defer func() {

@@ -70,8 +70,11 @@ func NewSchedulerServer(
 		cacheClient:    options.cacheClient,
 		agentCount:     atomic.NewInt64(0),
 		consumerdCount: atomic.NewInt64(0),
-		broker:         NewBroker(ctx, options.monClient),
-		hashSrv:        util.NewHashServer(),
+		broker: NewBroker(ctx, ToolchainWatcher{
+			Context: ctx,
+			Client:  options.monClient,
+		}),
+		hashSrv: util.NewHashServer(),
 	}
 
 	if options.monClient != nil {
@@ -115,7 +118,7 @@ func (s *schedulerServer) StreamIncomingTasks(
 		return err
 	}
 
-	s.broker.HandleAgentTaskStream(srv)
+	s.broker.NewAgentTaskStream(srv)
 	s.agentCount.Inc()
 	defer s.agentCount.Dec()
 
@@ -137,7 +140,7 @@ func (s *schedulerServer) StreamOutgoingTasks(
 		return err
 	}
 
-	s.broker.HandleConsumerdTaskStream(srv)
+	s.broker.NewConsumerdTaskStream(srv)
 
 	s.metricsProvider.Post(&metrics.ConsumerdCount{
 		Count: s.consumerdCount.Inc(),
