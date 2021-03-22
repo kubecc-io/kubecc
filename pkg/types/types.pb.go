@@ -307,7 +307,7 @@ func (x CompileResponse_Result) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CompileResponse_Result.Descriptor instead.
 func (CompileResponse_Result) EnumDescriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{22, 0}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{25, 0}
 }
 
 type Empty struct {
@@ -1055,6 +1055,147 @@ func (x *Key) GetName() string {
 	return ""
 }
 
+type Bucket struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name string `protobuf:"bytes,1,opt,name=Name,proto3" json:"Name,omitempty"`
+}
+
+func (x *Bucket) Reset() {
+	*x = Bucket{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Bucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Bucket) ProtoMessage() {}
+
+func (x *Bucket) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Bucket.ProtoReflect.Descriptor instead.
+func (*Bucket) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Bucket) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type BucketList struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Buckets []*Bucket `protobuf:"bytes,1,rep,name=Buckets,proto3" json:"Buckets,omitempty"`
+}
+
+func (x *BucketList) Reset() {
+	*x = BucketList{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[15]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BucketList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BucketList) ProtoMessage() {}
+
+func (x *BucketList) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[15]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BucketList.ProtoReflect.Descriptor instead.
+func (*BucketList) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *BucketList) GetBuckets() []*Bucket {
+	if x != nil {
+		return x.Buckets
+	}
+	return nil
+}
+
+type KeyList struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Keys []*Key `protobuf:"bytes,1,rep,name=Keys,proto3" json:"Keys,omitempty"`
+}
+
+func (x *KeyList) Reset() {
+	*x = KeyList{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_types_types_proto_msgTypes[16]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *KeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyList) ProtoMessage() {}
+
+func (x *KeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_types_types_proto_msgTypes[16]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
+func (*KeyList) Descriptor() ([]byte, []int) {
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *KeyList) GetKeys() []*Key {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
 type Toolchain struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1071,7 +1212,7 @@ type Toolchain struct {
 func (x *Toolchain) Reset() {
 	*x = Toolchain{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[14]
+		mi := &file_pkg_types_types_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1084,7 +1225,7 @@ func (x *Toolchain) String() string {
 func (*Toolchain) ProtoMessage() {}
 
 func (x *Toolchain) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[14]
+	mi := &file_pkg_types_types_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1238,7 @@ func (x *Toolchain) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Toolchain.ProtoReflect.Descriptor instead.
 func (*Toolchain) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{14}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Toolchain) GetKind() ToolchainKind {
@@ -1155,7 +1296,7 @@ type AgentToolchainInfo struct {
 func (x *AgentToolchainInfo) Reset() {
 	*x = AgentToolchainInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[15]
+		mi := &file_pkg_types_types_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1168,7 +1309,7 @@ func (x *AgentToolchainInfo) String() string {
 func (*AgentToolchainInfo) ProtoMessage() {}
 
 func (x *AgentToolchainInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[15]
+	mi := &file_pkg_types_types_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1181,7 +1322,7 @@ func (x *AgentToolchainInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentToolchainInfo.ProtoReflect.Descriptor instead.
 func (*AgentToolchainInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{15}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AgentToolchainInfo) GetKind() string {
@@ -1216,7 +1357,7 @@ type AgentToolchainInfoList struct {
 func (x *AgentToolchainInfoList) Reset() {
 	*x = AgentToolchainInfoList{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[16]
+		mi := &file_pkg_types_types_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1229,7 +1370,7 @@ func (x *AgentToolchainInfoList) String() string {
 func (*AgentToolchainInfoList) ProtoMessage() {}
 
 func (x *AgentToolchainInfoList) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[16]
+	mi := &file_pkg_types_types_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1242,7 +1383,7 @@ func (x *AgentToolchainInfoList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentToolchainInfoList.ProtoReflect.Descriptor instead.
 func (*AgentToolchainInfoList) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{16}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AgentToolchainInfoList) GetInfo() []*AgentToolchainInfo {
@@ -1273,7 +1414,7 @@ type RunRequest struct {
 func (x *RunRequest) Reset() {
 	*x = RunRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[17]
+		mi := &file_pkg_types_types_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1286,7 +1427,7 @@ func (x *RunRequest) String() string {
 func (*RunRequest) ProtoMessage() {}
 
 func (x *RunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[17]
+	mi := &file_pkg_types_types_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1299,7 +1440,7 @@ func (x *RunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunRequest.ProtoReflect.Descriptor instead.
 func (*RunRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{17}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{20}
 }
 
 func (m *RunRequest) GetCompiler() isRunRequest_Compiler {
@@ -1395,7 +1536,7 @@ type RunResponse struct {
 func (x *RunResponse) Reset() {
 	*x = RunResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[18]
+		mi := &file_pkg_types_types_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1408,7 +1549,7 @@ func (x *RunResponse) String() string {
 func (*RunResponse) ProtoMessage() {}
 
 func (x *RunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[18]
+	mi := &file_pkg_types_types_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1421,7 +1562,7 @@ func (x *RunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunResponse.ProtoReflect.Descriptor instead.
 func (*RunResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{18}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *RunResponse) GetReturnCode() int32 {
@@ -1455,7 +1596,7 @@ type ScheduleRequest struct {
 func (x *ScheduleRequest) Reset() {
 	*x = ScheduleRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[19]
+		mi := &file_pkg_types_types_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1468,7 +1609,7 @@ func (x *ScheduleRequest) String() string {
 func (*ScheduleRequest) ProtoMessage() {}
 
 func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[19]
+	mi := &file_pkg_types_types_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1481,7 +1622,7 @@ func (x *ScheduleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleRequest.ProtoReflect.Descriptor instead.
 func (*ScheduleRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{19}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{22}
 }
 
 // scheduler -> consumerd
@@ -1494,7 +1635,7 @@ type ScheduleResponse struct {
 func (x *ScheduleResponse) Reset() {
 	*x = ScheduleResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[20]
+		mi := &file_pkg_types_types_proto_msgTypes[23]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1507,7 +1648,7 @@ func (x *ScheduleResponse) String() string {
 func (*ScheduleResponse) ProtoMessage() {}
 
 func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[20]
+	mi := &file_pkg_types_types_proto_msgTypes[23]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1520,7 +1661,7 @@ func (x *ScheduleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScheduleResponse.ProtoReflect.Descriptor instead.
 func (*ScheduleResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{20}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{23}
 }
 
 // consumerd -> scheduler -> agent
@@ -1538,7 +1679,7 @@ type CompileRequest struct {
 func (x *CompileRequest) Reset() {
 	*x = CompileRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[21]
+		mi := &file_pkg_types_types_proto_msgTypes[24]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1551,7 +1692,7 @@ func (x *CompileRequest) String() string {
 func (*CompileRequest) ProtoMessage() {}
 
 func (x *CompileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[21]
+	mi := &file_pkg_types_types_proto_msgTypes[24]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1564,7 +1705,7 @@ func (x *CompileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileRequest.ProtoReflect.Descriptor instead.
 func (*CompileRequest) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{21}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *CompileRequest) GetRequestID() string {
@@ -1613,7 +1754,7 @@ type CompileResponse struct {
 func (x *CompileResponse) Reset() {
 	*x = CompileResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[22]
+		mi := &file_pkg_types_types_proto_msgTypes[25]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1626,7 +1767,7 @@ func (x *CompileResponse) String() string {
 func (*CompileResponse) ProtoMessage() {}
 
 func (x *CompileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[22]
+	mi := &file_pkg_types_types_proto_msgTypes[25]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1639,7 +1780,7 @@ func (x *CompileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CompileResponse.ProtoReflect.Descriptor instead.
 func (*CompileResponse) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{22}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *CompileResponse) GetRequestID() string {
@@ -1714,7 +1855,7 @@ type SystemInfo struct {
 func (x *SystemInfo) Reset() {
 	*x = SystemInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_types_types_proto_msgTypes[23]
+		mi := &file_pkg_types_types_proto_msgTypes[26]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1727,7 +1868,7 @@ func (x *SystemInfo) String() string {
 func (*SystemInfo) ProtoMessage() {}
 
 func (x *SystemInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_types_types_proto_msgTypes[23]
+	mi := &file_pkg_types_types_proto_msgTypes[26]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1740,7 +1881,7 @@ func (x *SystemInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SystemInfo.ProtoReflect.Descriptor instead.
 func (*SystemInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_types_types_proto_rawDescGZIP(), []int{23}
+	return file_pkg_types_types_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *SystemInfo) GetArch() string {
@@ -1850,7 +1991,15 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x52, 0x05, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x31, 0x0a, 0x03, 0x4b, 0x65, 0x79, 0x12, 0x16,
 	0x0a, 0x06, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x06,
 	0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x02,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0xd9, 0x01, 0x0a, 0x09, 0x54,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x1c, 0x0a, 0x06, 0x42, 0x75,
+	0x63, 0x6b, 0x65, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x35, 0x0a, 0x0a, 0x42, 0x75, 0x63, 0x6b,
+	0x65, 0x74, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x27, 0x0a, 0x07, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74,
+	0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0d, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e,
+	0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x52, 0x07, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x73, 0x22,
+	0x29, 0x0a, 0x07, 0x4b, 0x65, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x1e, 0x0a, 0x04, 0x4b, 0x65,
+	0x79, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73,
+	0x2e, 0x4b, 0x65, 0x79, 0x52, 0x04, 0x4b, 0x65, 0x79, 0x73, 0x22, 0xd9, 0x01, 0x0a, 0x09, 0x54,
 	0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x12, 0x28, 0x0a, 0x04, 0x4b, 0x69, 0x6e, 0x64,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x14, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x54,
 	0x6f, 0x6f, 0x6c, 0x63, 0x68, 0x61, 0x69, 0x6e, 0x4b, 0x69, 0x6e, 0x64, 0x52, 0x04, 0x4b, 0x69,
@@ -1992,32 +2141,40 @@ var file_pkg_types_types_proto_rawDesc = []byte{
 	0x61, 0x73, 0x6b, 0x73, 0x12, 0x15, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x43, 0x6f, 0x6d,
 	0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x74, 0x79,
 	0x70, 0x65, 0x73, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x69, 0x6c, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x28, 0x01, 0x30, 0x01, 0x32, 0x96, 0x01, 0x0a, 0x07, 0x4d, 0x6f, 0x6e, 0x69,
+	0x6e, 0x73, 0x65, 0x28, 0x01, 0x30, 0x01, 0x32, 0x97, 0x02, 0x0a, 0x07, 0x4d, 0x6f, 0x6e, 0x69,
 	0x74, 0x6f, 0x72, 0x12, 0x29, 0x0a, 0x06, 0x53, 0x74, 0x72, 0x65, 0x61, 0x6d, 0x12, 0x0d, 0x2e,
 	0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x1a, 0x0c, 0x2e, 0x74,
-	0x79, 0x70, 0x65, 0x73, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x12, 0x2c,
-	0x0a, 0x06, 0x4c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x12, 0x0a, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73,
-	0x2e, 0x4b, 0x65, 0x79, 0x1a, 0x14, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x41, 0x6e, 0x79, 0x30, 0x01, 0x12, 0x32, 0x0a, 0x05,
-	0x57, 0x68, 0x6f, 0x69, 0x73, 0x12, 0x13, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x57, 0x68,
-	0x6f, 0x69, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x79, 0x70,
-	0x65, 0x73, 0x2e, 0x57, 0x68, 0x6f, 0x69, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
-	0x32, 0xc7, 0x01, 0x0a, 0x05, 0x43, 0x61, 0x63, 0x68, 0x65, 0x12, 0x28, 0x0a, 0x04, 0x50, 0x75,
-	0x73, 0x68, 0x12, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x50, 0x75, 0x73, 0x68, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x45,
-	0x6d, 0x70, 0x74, 0x79, 0x12, 0x2e, 0x0a, 0x04, 0x50, 0x75, 0x6c, 0x6c, 0x12, 0x12, 0x2e, 0x74,
-	0x79, 0x70, 0x65, 0x73, 0x2e, 0x50, 0x75, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x1a, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x43, 0x61, 0x63, 0x68, 0x65, 0x4f, 0x62,
-	0x6a, 0x65, 0x63, 0x74, 0x12, 0x32, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x13, 0x2e,
-	0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65,
-	0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x30, 0x0a, 0x04, 0x53, 0x79, 0x6e, 0x63,
-	0x12, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x53, 0x79, 0x6e, 0x63, 0x52, 0x65, 0x71,
-	0x75, 0x65, 0x73, 0x74, 0x1a, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x43, 0x61, 0x63,
-	0x68, 0x65, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x30, 0x01, 0x42, 0x26, 0x5a, 0x24, 0x67, 0x69,
-	0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x62, 0x61, 0x6c, 0x74, 0x37,
-	0x37, 0x2f, 0x6b, 0x75, 0x62, 0x65, 0x63, 0x63, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x74, 0x79, 0x70,
-	0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x79, 0x70, 0x65, 0x73, 0x2e, 0x45, 0x6d, 0x70, 0x74, 0x79, 0x28, 0x01, 0x30, 0x01, 0x12, 0x26,
+	0x0a, 0x09, 0x47, 0x65, 0x74, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x12, 0x0a, 0x2e, 0x74, 0x79,
+	0x70, 0x65, 0x73, 0x2e, 0x4b, 0x65, 0x79, 0x1a, 0x0d, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e,
+	0x4d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x12, 0x2d, 0x0a, 0x0a, 0x47, 0x65, 0x74, 0x42, 0x75, 0x63,
+	0x6b, 0x65, 0x74, 0x73, 0x12, 0x0c, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x45, 0x6d, 0x70,
+	0x74, 0x79, 0x1a, 0x11, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x42, 0x75, 0x63, 0x6b, 0x65,
+	0x74, 0x4c, 0x69, 0x73, 0x74, 0x12, 0x28, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x4b, 0x65, 0x79, 0x73,
+	0x12, 0x0d, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x42, 0x75, 0x63, 0x6b, 0x65, 0x74, 0x1a,
+	0x0e, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x4b, 0x65, 0x79, 0x4c, 0x69, 0x73, 0x74, 0x12,
+	0x2c, 0x0a, 0x06, 0x4c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x12, 0x0a, 0x2e, 0x74, 0x79, 0x70, 0x65,
+	0x73, 0x2e, 0x4b, 0x65, 0x79, 0x1a, 0x14, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x41, 0x6e, 0x79, 0x30, 0x01, 0x12, 0x32, 0x0a,
+	0x05, 0x57, 0x68, 0x6f, 0x69, 0x73, 0x12, 0x13, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x57,
+	0x68, 0x6f, 0x69, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x79,
+	0x70, 0x65, 0x73, 0x2e, 0x57, 0x68, 0x6f, 0x69, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
+	0x65, 0x32, 0xc7, 0x01, 0x0a, 0x05, 0x43, 0x61, 0x63, 0x68, 0x65, 0x12, 0x28, 0x0a, 0x04, 0x50,
+	0x75, 0x73, 0x68, 0x12, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x50, 0x75, 0x73, 0x68,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e,
+	0x45, 0x6d, 0x70, 0x74, 0x79, 0x12, 0x2e, 0x0a, 0x04, 0x50, 0x75, 0x6c, 0x6c, 0x12, 0x12, 0x2e,
+	0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x50, 0x75, 0x6c, 0x6c, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x43, 0x61, 0x63, 0x68, 0x65, 0x4f,
+	0x62, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x32, 0x0a, 0x05, 0x51, 0x75, 0x65, 0x72, 0x79, 0x12, 0x13,
+	0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x72, 0x79, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x72,
+	0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x30, 0x0a, 0x04, 0x53, 0x79, 0x6e,
+	0x63, 0x12, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x53, 0x79, 0x6e, 0x63, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x12, 0x2e, 0x74, 0x79, 0x70, 0x65, 0x73, 0x2e, 0x43, 0x61,
+	0x63, 0x68, 0x65, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x30, 0x01, 0x42, 0x26, 0x5a, 0x24, 0x67,
+	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x62, 0x61, 0x6c, 0x74,
+	0x37, 0x37, 0x2f, 0x6b, 0x75, 0x62, 0x65, 0x63, 0x63, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x74, 0x79,
+	0x70, 0x65, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -2033,7 +2190,7 @@ func file_pkg_types_types_proto_rawDescGZIP() []byte {
 }
 
 var file_pkg_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_pkg_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_pkg_types_types_proto_goTypes = []interface{}{
 	(StorageLocation)(0),           // 0: types.StorageLocation
 	(Component)(0),                 // 1: types.Component
@@ -2054,18 +2211,21 @@ var file_pkg_types_types_proto_goTypes = []interface{}{
 	(*WhoisResponse)(nil),          // 16: types.WhoisResponse
 	(*Metric)(nil),                 // 17: types.Metric
 	(*Key)(nil),                    // 18: types.Key
-	(*Toolchain)(nil),              // 19: types.Toolchain
-	(*AgentToolchainInfo)(nil),     // 20: types.AgentToolchainInfo
-	(*AgentToolchainInfoList)(nil), // 21: types.AgentToolchainInfoList
-	(*RunRequest)(nil),             // 22: types.RunRequest
-	(*RunResponse)(nil),            // 23: types.RunResponse
-	(*ScheduleRequest)(nil),        // 24: types.ScheduleRequest
-	(*ScheduleResponse)(nil),       // 25: types.ScheduleResponse
-	(*CompileRequest)(nil),         // 26: types.CompileRequest
-	(*CompileResponse)(nil),        // 27: types.CompileResponse
-	(*SystemInfo)(nil),             // 28: types.SystemInfo
-	nil,                            // 29: types.CacheObjectMeta.TagsEntry
-	(*any.Any)(nil),                // 30: google.protobuf.Any
+	(*Bucket)(nil),                 // 19: types.Bucket
+	(*BucketList)(nil),             // 20: types.BucketList
+	(*KeyList)(nil),                // 21: types.KeyList
+	(*Toolchain)(nil),              // 22: types.Toolchain
+	(*AgentToolchainInfo)(nil),     // 23: types.AgentToolchainInfo
+	(*AgentToolchainInfoList)(nil), // 24: types.AgentToolchainInfoList
+	(*RunRequest)(nil),             // 25: types.RunRequest
+	(*RunResponse)(nil),            // 26: types.RunResponse
+	(*ScheduleRequest)(nil),        // 27: types.ScheduleRequest
+	(*ScheduleResponse)(nil),       // 28: types.ScheduleResponse
+	(*CompileRequest)(nil),         // 29: types.CompileRequest
+	(*CompileResponse)(nil),        // 30: types.CompileResponse
+	(*SystemInfo)(nil),             // 31: types.SystemInfo
+	nil,                            // 32: types.CacheObjectMeta.TagsEntry
+	(*any.Any)(nil),                // 33: google.protobuf.Any
 }
 var file_pkg_types_types_proto_depIdxs = []int32{
 	11, // 0: types.PushRequest.Key:type_name -> types.CacheKey
@@ -2075,45 +2235,53 @@ var file_pkg_types_types_proto_depIdxs = []int32{
 	13, // 4: types.QueryResponse.Results:type_name -> types.CacheObjectMeta
 	11, // 5: types.SyncRequest.LocalCache:type_name -> types.CacheKey
 	13, // 6: types.CacheObject.Metadata:type_name -> types.CacheObjectMeta
-	29, // 7: types.CacheObjectMeta.Tags:type_name -> types.CacheObjectMeta.TagsEntry
+	32, // 7: types.CacheObjectMeta.Tags:type_name -> types.CacheObjectMeta.TagsEntry
 	14, // 8: types.CacheObjectMeta.ManagedFields:type_name -> types.CacheObjectManaged
 	0,  // 9: types.CacheObjectManaged.Location:type_name -> types.StorageLocation
 	1,  // 10: types.WhoisResponse.Component:type_name -> types.Component
 	18, // 11: types.Metric.Key:type_name -> types.Key
-	30, // 12: types.Metric.Value:type_name -> google.protobuf.Any
-	2,  // 13: types.Toolchain.Kind:type_name -> types.ToolchainKind
-	3,  // 14: types.Toolchain.Lang:type_name -> types.ToolchainLang
-	20, // 15: types.AgentToolchainInfoList.info:type_name -> types.AgentToolchainInfo
-	19, // 16: types.RunRequest.Toolchain:type_name -> types.Toolchain
-	19, // 17: types.CompileRequest.Toolchain:type_name -> types.Toolchain
-	4,  // 18: types.CompileResponse.CompileResult:type_name -> types.CompileResponse.Result
-	22, // 19: types.Consumerd.Run:input_type -> types.RunRequest
-	26, // 20: types.Scheduler.Compile:input_type -> types.CompileRequest
-	27, // 21: types.Scheduler.StreamIncomingTasks:input_type -> types.CompileResponse
-	26, // 22: types.Scheduler.StreamOutgoingTasks:input_type -> types.CompileRequest
-	17, // 23: types.Monitor.Stream:input_type -> types.Metric
-	18, // 24: types.Monitor.Listen:input_type -> types.Key
-	15, // 25: types.Monitor.Whois:input_type -> types.WhoisRequest
-	6,  // 26: types.Cache.Push:input_type -> types.PushRequest
-	7,  // 27: types.Cache.Pull:input_type -> types.PullRequest
-	8,  // 28: types.Cache.Query:input_type -> types.QueryRequest
-	10, // 29: types.Cache.Sync:input_type -> types.SyncRequest
-	23, // 30: types.Consumerd.Run:output_type -> types.RunResponse
-	27, // 31: types.Scheduler.Compile:output_type -> types.CompileResponse
-	26, // 32: types.Scheduler.StreamIncomingTasks:output_type -> types.CompileRequest
-	27, // 33: types.Scheduler.StreamOutgoingTasks:output_type -> types.CompileResponse
-	5,  // 34: types.Monitor.Stream:output_type -> types.Empty
-	30, // 35: types.Monitor.Listen:output_type -> google.protobuf.Any
-	16, // 36: types.Monitor.Whois:output_type -> types.WhoisResponse
-	5,  // 37: types.Cache.Push:output_type -> types.Empty
-	12, // 38: types.Cache.Pull:output_type -> types.CacheObject
-	9,  // 39: types.Cache.Query:output_type -> types.QueryResponse
-	12, // 40: types.Cache.Sync:output_type -> types.CacheObject
-	30, // [30:41] is the sub-list for method output_type
-	19, // [19:30] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	33, // 12: types.Metric.Value:type_name -> google.protobuf.Any
+	19, // 13: types.BucketList.Buckets:type_name -> types.Bucket
+	18, // 14: types.KeyList.Keys:type_name -> types.Key
+	2,  // 15: types.Toolchain.Kind:type_name -> types.ToolchainKind
+	3,  // 16: types.Toolchain.Lang:type_name -> types.ToolchainLang
+	23, // 17: types.AgentToolchainInfoList.info:type_name -> types.AgentToolchainInfo
+	22, // 18: types.RunRequest.Toolchain:type_name -> types.Toolchain
+	22, // 19: types.CompileRequest.Toolchain:type_name -> types.Toolchain
+	4,  // 20: types.CompileResponse.CompileResult:type_name -> types.CompileResponse.Result
+	25, // 21: types.Consumerd.Run:input_type -> types.RunRequest
+	29, // 22: types.Scheduler.Compile:input_type -> types.CompileRequest
+	30, // 23: types.Scheduler.StreamIncomingTasks:input_type -> types.CompileResponse
+	29, // 24: types.Scheduler.StreamOutgoingTasks:input_type -> types.CompileRequest
+	17, // 25: types.Monitor.Stream:input_type -> types.Metric
+	18, // 26: types.Monitor.GetMetric:input_type -> types.Key
+	5,  // 27: types.Monitor.GetBuckets:input_type -> types.Empty
+	19, // 28: types.Monitor.GetKeys:input_type -> types.Bucket
+	18, // 29: types.Monitor.Listen:input_type -> types.Key
+	15, // 30: types.Monitor.Whois:input_type -> types.WhoisRequest
+	6,  // 31: types.Cache.Push:input_type -> types.PushRequest
+	7,  // 32: types.Cache.Pull:input_type -> types.PullRequest
+	8,  // 33: types.Cache.Query:input_type -> types.QueryRequest
+	10, // 34: types.Cache.Sync:input_type -> types.SyncRequest
+	26, // 35: types.Consumerd.Run:output_type -> types.RunResponse
+	30, // 36: types.Scheduler.Compile:output_type -> types.CompileResponse
+	29, // 37: types.Scheduler.StreamIncomingTasks:output_type -> types.CompileRequest
+	30, // 38: types.Scheduler.StreamOutgoingTasks:output_type -> types.CompileResponse
+	5,  // 39: types.Monitor.Stream:output_type -> types.Empty
+	17, // 40: types.Monitor.GetMetric:output_type -> types.Metric
+	20, // 41: types.Monitor.GetBuckets:output_type -> types.BucketList
+	21, // 42: types.Monitor.GetKeys:output_type -> types.KeyList
+	33, // 43: types.Monitor.Listen:output_type -> google.protobuf.Any
+	16, // 44: types.Monitor.Whois:output_type -> types.WhoisResponse
+	5,  // 45: types.Cache.Push:output_type -> types.Empty
+	12, // 46: types.Cache.Pull:output_type -> types.CacheObject
+	9,  // 47: types.Cache.Query:output_type -> types.QueryResponse
+	12, // 48: types.Cache.Sync:output_type -> types.CacheObject
+	35, // [35:49] is the sub-list for method output_type
+	21, // [21:35] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_pkg_types_types_proto_init() }
@@ -2291,7 +2459,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Toolchain); i {
+			switch v := v.(*Bucket); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2303,7 +2471,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentToolchainInfo); i {
+			switch v := v.(*BucketList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2315,7 +2483,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*AgentToolchainInfoList); i {
+			switch v := v.(*KeyList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2327,7 +2495,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunRequest); i {
+			switch v := v.(*Toolchain); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2339,7 +2507,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RunResponse); i {
+			switch v := v.(*AgentToolchainInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2351,7 +2519,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ScheduleRequest); i {
+			switch v := v.(*AgentToolchainInfoList); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2363,7 +2531,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ScheduleResponse); i {
+			switch v := v.(*RunRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2375,7 +2543,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompileRequest); i {
+			switch v := v.(*RunResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2387,7 +2555,7 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CompileResponse); i {
+			switch v := v.(*ScheduleRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -2399,6 +2567,42 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 		file_pkg_types_types_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ScheduleResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[24].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CompileRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[25].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CompileResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_types_types_proto_msgTypes[26].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*SystemInfo); i {
 			case 0:
 				return &v.state
@@ -2411,11 +2615,11 @@ func file_pkg_types_types_proto_init() {
 			}
 		}
 	}
-	file_pkg_types_types_proto_msgTypes[17].OneofWrappers = []interface{}{
+	file_pkg_types_types_proto_msgTypes[20].OneofWrappers = []interface{}{
 		(*RunRequest_Path)(nil),
 		(*RunRequest_Toolchain)(nil),
 	}
-	file_pkg_types_types_proto_msgTypes[22].OneofWrappers = []interface{}{
+	file_pkg_types_types_proto_msgTypes[25].OneofWrappers = []interface{}{
 		(*CompileResponse_Error)(nil),
 		(*CompileResponse_CompiledSource)(nil),
 	}
@@ -2425,7 +2629,7 @@ func file_pkg_types_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_types_types_proto_rawDesc,
 			NumEnums:      5,
-			NumMessages:   25,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

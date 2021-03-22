@@ -1,6 +1,9 @@
 package types
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/cobalt77/kubecc/pkg/util"
 	md5simd "github.com/minio/md5-simd"
 )
@@ -41,4 +44,19 @@ func (req *CompileRequest) Hash(hasher md5simd.Hasher) {
 	for _, arg := range req.Args {
 		util.Must(hasher.Write([]byte(arg)))
 	}
+}
+
+var (
+	ErrInvalidFormat = errors.New("Invalid key format, should be of the form bucket.name")
+)
+
+func ParseKey(canonical string) (*Key, error) {
+	split := strings.SplitN(canonical, ".", 2)
+	if len(split) != 2 {
+		return nil, ErrInvalidFormat
+	}
+	return &Key{
+		Bucket: split[0],
+		Name:   split[1],
+	}, nil
 }

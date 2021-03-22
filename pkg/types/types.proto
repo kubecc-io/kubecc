@@ -18,6 +18,9 @@ service Scheduler {
 
 service Monitor {
   rpc Stream(stream Metric) returns (stream Empty);
+  rpc GetMetric(Key) returns (Metric);
+  rpc GetBuckets(Empty) returns (BucketList);
+  rpc GetKeys(Bucket) returns (KeyList);
   rpc Listen(Key) returns (stream google.protobuf.Any);
   rpc Whois(WhoisRequest) returns (WhoisResponse);
 }
@@ -98,6 +101,18 @@ message Metric {
 message Key {
   string Bucket = 1;
   string Name = 2;
+}
+
+message Bucket {
+  string Name = 1;
+}
+
+message BucketList {
+  repeated Bucket Buckets = 1;
+}
+
+message KeyList {
+  repeated Key Keys = 1;
 }
 
 enum Component {
