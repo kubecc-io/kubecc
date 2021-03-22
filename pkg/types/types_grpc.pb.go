@@ -329,6 +329,9 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MonitorClient interface {
 	Stream(ctx context.Context, opts ...grpc.CallOption) (Monitor_StreamClient, error)
+	GetMetric(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Metric, error)
+	GetBuckets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*BucketList, error)
+	GetKeys(ctx context.Context, in *Bucket, opts ...grpc.CallOption) (*KeyList, error)
 	Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_ListenClient, error)
 	Whois(ctx context.Context, in *WhoisRequest, opts ...grpc.CallOption) (*WhoisResponse, error)
 }
@@ -370,6 +373,33 @@ func (x *monitorStreamClient) Recv() (*Empty, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *monitorClient) GetMetric(ctx context.Context, in *Key, opts ...grpc.CallOption) (*Metric, error) {
+	out := new(Metric)
+	err := c.cc.Invoke(ctx, "/types.Monitor/GetMetric", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *monitorClient) GetBuckets(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*BucketList, error) {
+	out := new(BucketList)
+	err := c.cc.Invoke(ctx, "/types.Monitor/GetBuckets", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *monitorClient) GetKeys(ctx context.Context, in *Bucket, opts ...grpc.CallOption) (*KeyList, error) {
+	out := new(KeyList)
+	err := c.cc.Invoke(ctx, "/types.Monitor/GetKeys", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *monitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOption) (Monitor_ListenClient, error) {
@@ -418,6 +448,9 @@ func (c *monitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grp
 // for forward compatibility
 type MonitorServer interface {
 	Stream(Monitor_StreamServer) error
+	GetMetric(context.Context, *Key) (*Metric, error)
+	GetBuckets(context.Context, *Empty) (*BucketList, error)
+	GetKeys(context.Context, *Bucket) (*KeyList, error)
 	Listen(*Key, Monitor_ListenServer) error
 	Whois(context.Context, *WhoisRequest) (*WhoisResponse, error)
 	mustEmbedUnimplementedMonitorServer()
@@ -429,6 +462,15 @@ type UnimplementedMonitorServer struct {
 
 func (UnimplementedMonitorServer) Stream(Monitor_StreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+}
+func (UnimplementedMonitorServer) GetMetric(context.Context, *Key) (*Metric, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMetric not implemented")
+}
+func (UnimplementedMonitorServer) GetBuckets(context.Context, *Empty) (*BucketList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBuckets not implemented")
+}
+func (UnimplementedMonitorServer) GetKeys(context.Context, *Bucket) (*KeyList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetKeys not implemented")
 }
 func (UnimplementedMonitorServer) Listen(*Key, Monitor_ListenServer) error {
 	return status.Errorf(codes.Unimplemented, "method Listen not implemented")
@@ -473,6 +515,60 @@ func (x *monitorStreamServer) Recv() (*Metric, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func _Monitor_GetMetric_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Key)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MonitorServer).GetMetric(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.Monitor/GetMetric",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MonitorServer).GetMetric(ctx, req.(*Key))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Monitor_GetBuckets_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MonitorServer).GetBuckets(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.Monitor/GetBuckets",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MonitorServer).GetBuckets(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Monitor_GetKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Bucket)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MonitorServer).GetKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.Monitor/GetKeys",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MonitorServer).GetKeys(ctx, req.(*Bucket))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Monitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -521,6 +617,18 @@ var Monitor_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "types.Monitor",
 	HandlerType: (*MonitorServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetMetric",
+			Handler:    _Monitor_GetMetric_Handler,
+		},
+		{
+			MethodName: "GetBuckets",
+			Handler:    _Monitor_GetBuckets_Handler,
+		},
+		{
+			MethodName: "GetKeys",
+			Handler:    _Monitor_GetKeys_Handler,
+		},
 		{
 			MethodName: "Whois",
 			Handler:    _Monitor_Whois_Handler,

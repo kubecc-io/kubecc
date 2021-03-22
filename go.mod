@@ -10,6 +10,7 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
+	github.com/cli/cli v1.7.0 // indirect
 	github.com/cloudflare/golibs v0.0.0-20201113145655-eb7a42c5e0be
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1

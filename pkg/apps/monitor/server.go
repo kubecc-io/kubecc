@@ -228,7 +228,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	storeContentsKey = any.GetTypeUrl()
+	storeContentsKey = (&types.Key{
+		Bucket: metrics.MetaBucket,
+		Name:   any.GetTypeUrl(),
+	}).Canonical()
 }
 
 func (m *MonitorServer) notifyStoreMeta() {
@@ -383,4 +386,68 @@ func (m *MonitorServer) Whois(
 	}
 	return nil, status.Error(codes.NotFound,
 		"The requested provider was not found.")
+}
+
+func (m *MonitorServer) GetMetric(_ context.Context, key *types.Key) (*types.Metric, error) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+
+	if bucket, ok := m.buckets[key.Bucket]; ok {
+		msg, exists := bucket.Get(key.Name)
+		if !exists {
+			return nil, status.Error(codes.NotFound, "No such key")
+		}
+		any, err := anypb.New(msg)
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return &types.Metric{
+			Key:   key,
+			Value: any,
+		}, nil
+	}
+
+	return nil, status.Error(codes.NotFound, "No such bucket")
+}
+
+func (m *MonitorServer) GetBuckets(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.BucketList, error) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+
+	list := &types.BucketList{
+		Buckets: make([]*types.Bucket, 0, len(m.buckets)),
+	}
+	for k := range m.buckets {
+		list.Buckets = append(list.Buckets, &types.Bucket{
+			Name: k,
+		})
+	}
+
+	return list, nil
+}
+func (m *MonitorServer) GetKeys(
+	ctx context.Context,
+	bucket *types.Bucket,
+) (*types.KeyList, error) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
+
+	if b, ok := m.buckets[bucket.GetName()]; ok {
+		keys := b.Keys()
+		list := &types.KeyList{
+			Keys: make([]*types.Key, len(keys)),
+		}
+		for i, k := range keys {
+			list.Keys[i] = &types.Key{
+				Bucket: bucket.GetName(),
+				Name:   k,
+			}
+		}
+		return list, nil
+	}
+
+	return nil, status.Error(codes.NotFound, "No such bucket")
 }
