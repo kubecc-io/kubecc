@@ -33,7 +33,7 @@ var _ = Describe("Integration test", func() {
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(500)+500)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(25)*50)},
 			UID:      1000,
 			GID:      1000,
 		}

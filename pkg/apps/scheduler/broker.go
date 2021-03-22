@@ -38,7 +38,32 @@ type Broker struct {
 	tcWatcher       ToolchainWatcher
 }
 
-func NewBroker(ctx context.Context, tcw ToolchainWatcher) *Broker {
+type BrokerOptions struct {
+	cacheClient types.CacheClient
+}
+
+type BrokerOption func(*BrokerOptions)
+
+func (o *BrokerOptions) Apply(opts ...BrokerOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func CacheClient(client types.CacheClient) BrokerOption {
+	return func(o *BrokerOptions) {
+		o.cacheClient = client
+	}
+}
+
+func NewBroker(
+	ctx context.Context,
+	tcw ToolchainWatcher,
+	opts ...BrokerOption,
+) *Broker {
+	options := BrokerOptions{}
+	options.Apply(opts...)
+
 	b := &Broker{
 		srvContext:      ctx,
 		lg:              meta.Log(ctx),
@@ -51,10 +76,19 @@ func NewBroker(ctx context.Context, tcw ToolchainWatcher) *Broker {
 		consumerds:      make(map[string]*Consumerd),
 		agentsMutex:     &sync.RWMutex{},
 		consumerdsMutex: &sync.RWMutex{},
-		router:          NewRouter(ctx),
 		hashSrv:         util.NewHashServer(),
 		tcWatcher:       tcw,
+		cacheHitCount:   atomic.NewInt64(0),
+		cacheMissCount:  atomic.NewInt64(0),
+		cacheClient:     options.cacheClient,
 	}
+
+	routerOptions := []RouterOption{}
+	if options.cacheClient != nil {
+		routerOptions = append(routerOptions, WithHooks(b))
+	}
+	b.router = NewRouter(ctx, routerOptions...)
+
 	go b.handleResponseQueue()
 	return b
 }
@@ -162,14 +196,14 @@ func (b *Broker) handleConsumerdStream(
 		}
 		b.requestCount.Inc()
 		b.pendingRequests.Store(req.RequestID, cd)
-		if err := b.router.Send(srv.Context(), req); err != nil {
+		if err := b.router.Route(srv.Context(), req); err != nil {
 			b.lg.With(
 				zap.Error(err),
 			).Error("Encountered an error while routing compile request")
 			b.pendingRequests.Delete(req.RequestID)
 			b.requestCount.Dec()
 			b.responseQueue <- &types.CompileResponse{
-				RequestID:     req.RequestID,
+				RequestID:     req.GetRequestID(),
 				CompileResult: types.CompileResponse_InternalError,
 				Data: &types.CompileResponse_Error{
 					Error: err.Error(),
@@ -358,25 +392,26 @@ func (b *Broker) TaskStats() taskStats {
 }
 
 func (b *Broker) PreReceive(
-	ctx context.Context,
 	rt *route,
 	req *types.CompileRequest,
 ) (action HookAction) {
-	defer func() {
+	defer func(a *HookAction) {
 		switch action {
 		case ProcessRequestNormally:
+			b.lg.Debug("Cache Miss")
 			b.cacheMissCount.Inc()
 		case RequestIntercepted:
+			b.lg.Info("Cache Hit")
 			b.cacheHitCount.Inc()
 		}
-	}()
+	}(&action)
 
 	if b.cacheClient == nil {
 		action = ProcessRequestNormally
 		return
 	}
 	reqHash := b.hashSrv.Hash(req)
-	obj, err := b.cacheClient.Pull(ctx, &types.PullRequest{
+	obj, err := b.cacheClient.Pull(b.srvContext, &types.PullRequest{
 		Key: &types.CacheKey{
 			Hash: reqHash,
 		},
@@ -384,12 +419,12 @@ func (b *Broker) PreReceive(
 	switch status.Code(err) {
 	case codes.OK:
 		b.responseQueue <- &types.CompileResponse{
+			RequestID:     req.GetRequestID(),
 			CompileResult: types.CompileResponse_Success,
 			Data: &types.CompileResponse_CompiledSource{
 				CompiledSource: obj.GetData(),
 			},
 		}
-
 		action = RequestIntercepted
 		return
 	case codes.NotFound:

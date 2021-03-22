@@ -39,6 +39,7 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
 	}
+	lg.With("addr", listener.Addr().String()).Info("Server listening")
 
 	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
 	lg.With("address", monitorCC.Target()).Info("Dialing monitor")

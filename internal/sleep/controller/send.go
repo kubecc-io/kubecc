@@ -7,6 +7,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
 )
 
@@ -28,6 +29,7 @@ func (m sendRemoteRunnerManager) Process(
 	req := request.(*types.RunRequest)
 
 	_, err = m.client.Compile(&types.CompileRequest{
+		RequestID: uuid.NewString(),
 		Toolchain: req.GetToolchain(),
 		Args:      req.Args,
 	})

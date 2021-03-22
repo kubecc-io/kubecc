@@ -28,9 +28,8 @@ func (m sendRemoteRunnerManager) Process(
 		ctx.ClientContext, tracer, "run-send")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	id := uuid.NewString()
 	_, err = m.client.Compile(&types.CompileRequest{
-		RequestID: id,
+		RequestID: uuid.NewString(),
 		Toolchain: req.GetToolchain(),
 		Args:      req.Args,
 	})
