@@ -3,6 +3,7 @@ package commands
 import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/sleep"
+	sleepctrl "github.com/cobalt77/kubecc/internal/sleep/controller"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	ccctrl "github.com/cobalt77/kubecc/pkg/cc/controller"
@@ -65,7 +66,7 @@ func run(cmd *cobra.Command, args []string) {
 				Finder: sleep.SleepToolchainFinder{},
 			},
 		),
-		agent.WithToolchainRunners(ccctrl.AddToStore, ccctrl.AddToStore),
+		agent.WithToolchainRunners(ccctrl.AddToStore, sleepctrl.AddToStore),
 		agent.WithSchedulerClient(schedulerClient),
 		agent.WithMonitorClient(monitorClient),
 	)

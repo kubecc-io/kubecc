@@ -56,6 +56,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
 	monitorClient := types.NewMonitorClient(monitorCC)
+	srv := servers.NewServer(ctx)
 
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithUsageLimits(&metrics.UsageLimits{
@@ -75,10 +76,8 @@ func run(cmd *cobra.Command, args []string) {
 		consumerd.WithSchedulerClient(schedulerClient),
 		consumerd.WithMonitorClient(monitorClient),
 	)
-
-	// mgr := servers.NewStreamManager(ctx, d)
-	// go d.StartMetricsProvider()
-	// go mgr.Run()
+	types.RegisterConsumerdServer(srv, d)
+	go d.StartMetricsProvider()
 
 	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
@@ -92,8 +91,6 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatal("Could not start consumerd")
 	}
 
-	srv := servers.NewServer(ctx)
-	types.RegisterConsumerdServer(srv, d)
 	err = srv.Serve(listener)
 	if err != nil {
 		lg.Error(err.Error())

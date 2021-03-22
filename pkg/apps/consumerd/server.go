@@ -36,7 +36,6 @@ type consumerdServer struct {
 	monitorClient       types.MonitorClient
 	metricsProvider     metrics.Provider
 	executor            run.Executor
-	queue               *SplitQueue
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
 	requestClient       *clients.CompileRequestClient
@@ -111,11 +110,10 @@ func NewConsumerdServer(
 		lg:                  meta.Log(ctx),
 		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
 		tcRunStore:          runStore,
-		executor:            NewSplitQueue(ctx, options.monitorClient),
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
-		queue:               NewSplitQueue(ctx, options.monitorClient),
+		executor:            NewSplitQueue(ctx, options.monitorClient),
 		schedulerClient:     options.schedulerClient,
 		monitorClient:       options.monitorClient,
 		requestClient:       clients.NewCompileRequestClient(ctx, nil),
