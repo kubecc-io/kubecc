@@ -17,14 +17,13 @@ func (m localRunnerManager) Process(
 	lg := meta.Log(ctx.ServerContext)
 	lg.Info("=> Running local")
 	req := request.(*types.RunRequest)
-	t := &run.ExecCommandTask{
-		Toolchain: req.GetToolchain(),
-		Args:      req.Args,
-		Env:       req.Env,
-		WorkDir:   req.WorkDir,
-		Stdout:    os.Stdout,
-		Stderr:    os.Stderr,
-	}
+	t := run.NewExecCommandTask(req.GetToolchain(),
+		run.WithArgs(req.Args),
+		run.WithEnv(req.Env),
+		run.WithWorkDir(req.WorkDir),
+		run.WithOutputStreams(os.Stdout, os.Stderr),
+		run.WithContext(ctx.ClientContext),
+	)
 	t.Run()
 	if err := t.Err(); err != nil {
 		lg.Error(err)

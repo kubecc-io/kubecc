@@ -17,9 +17,10 @@ func (m recvRemoteRunnerManager) Process(
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.CompileRequest)
-	t := &run.ExecCommandTask{
-		Args: req.Args,
-	}
+	t := run.NewExecCommandTask(req.GetToolchain(),
+		run.WithArgs(req.Args),
+		run.WithContext(ctx.ClientContext),
+	)
 	t.Run()
 	if err := t.Err(); err != nil {
 		lg.Error(err)

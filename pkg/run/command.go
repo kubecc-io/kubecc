@@ -1,7 +1,6 @@
 package run
 
 import (
-	"io"
 	"os/exec"
 
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -11,17 +10,19 @@ import (
 type ExecCommandTask struct {
 	TaskOptions
 	util.NullableError
-	Toolchain *types.Toolchain
-	Args      []string
-	Env       []string
-	WorkDir   string
-	Stdout    io.Writer
-	Stderr    io.Writer
-	Stdin     io.Reader
+	tc *types.Toolchain
+}
+
+func NewExecCommandTask(tc *types.Toolchain, opts ...TaskOption) Task {
+	r := &ExecCommandTask{
+		tc: tc,
+	}
+	r.Apply(opts...)
+	return r
 }
 
 func (t *ExecCommandTask) Run() {
-	cmd := exec.CommandContext(t.Context, t.Toolchain.Executable, t.Args...)
+	cmd := exec.CommandContext(t.Context, t.tc.Executable, t.Args...)
 	cmd.Env = t.Env
 	cmd.Dir = t.WorkDir
 	cmd.Stdout = t.Stdout
