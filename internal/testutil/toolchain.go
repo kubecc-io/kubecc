@@ -7,6 +7,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 )
 
 var TestToolchainExecutable = "/path/to/test-toolchain"
@@ -48,27 +49,34 @@ func (f TestToolchainFinder) FindToolchains(
 	return store
 }
 
-// SleepRunner will sleep for (probably slightly more than) the given duration.
+// SleepTask will sleep for (probably slightly more than) the given duration.
 // This runner will "pause time" to a granularity of 1/100th the total duration
 // while its goroutine is paused (i.e. while debugging at a breakpoint) by
 // chaining multiple small timers in sequence instead of using one timer.
-type SleepRunner struct {
+type SleepTask struct {
+	util.NullableError
 	Duration time.Duration
 }
 
-func (r *SleepRunner) Run(_ context.Context, _ *types.Toolchain) error {
+func (t *SleepTask) Run() {
 	for i := 0; i < 100; i++ {
-		time.Sleep(r.Duration / 100)
+		time.Sleep(t.Duration / 100)
 	}
+	t.SetErr(nil)
+}
+
+type NoopRunner struct{}
+
+func (*NoopRunner) Run() error {
 	return nil
 }
 
-type TestArgParser struct {
+type SleepArgParser struct {
 	Args     []string
 	Duration time.Duration
 }
 
-func (ap *TestArgParser) Parse() {
+func (ap *SleepArgParser) Parse() {
 	var duration string
 	set := flag.NewFlagSet("test", flag.PanicOnError)
 	set.StringVar(&duration, "duration", "1s", "")
@@ -83,6 +91,14 @@ func (ap *TestArgParser) Parse() {
 	ap.Duration = d
 }
 
-func (TestArgParser) CanRunRemote() bool {
+func (SleepArgParser) CanRunRemote() bool {
+	return true
+}
+
+type NoopArgParser struct{}
+
+func (*NoopArgParser) Parse() {}
+
+func (NoopArgParser) CanRunRemote() bool {
 	return true
 }

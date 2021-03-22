@@ -10,7 +10,8 @@ RUN make kubecc
 
 # Use distroless as minimal base image to package the binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+#FROM gcr.io/distroless/static:nonroot
+FROM busybox:latest
 WORKDIR /
 COPY --from=builder /workspace/build/bin/kubecc .
 USER 65532:65532

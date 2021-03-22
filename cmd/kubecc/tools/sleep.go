@@ -37,7 +37,6 @@ Sleep is a special command that Kubecc is aware of and can treat as a compiler
 toolchain. This can be used to test if a Kubecc cluster is working. It is 
 primarily used as a debugging and development tool.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		rand.Seed(uint64(time.Now().UTC().UnixNano()))
 		time.Sleep(time.Duration(rand.Int63n(int64(max-min)) + int64(min)).
 			Round(granularity))
 	},

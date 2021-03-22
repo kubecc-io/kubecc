@@ -1,18 +1,17 @@
 package commands
 
 import (
-	"net"
-
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/sleep"
-	sleeptoolchain "github.com/cobalt77/kubecc/internal/sleep/toolchain"
+	sleepctrl "github.com/cobalt77/kubecc/internal/sleep/controller"
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
+	ccctrl "github.com/cobalt77/kubecc/pkg/cc/controller"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -38,12 +37,6 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	srv := servers.NewServer(ctx)
-	listener, err := net.Listen("tcp", conf.ListenAddress)
-	if err != nil {
-		lg.With(zap.Error(err)).Fatalw("Error listening on socket")
-	}
-
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress)
 	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 	if err != nil {
@@ -57,10 +50,10 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
-	monitorClient := types.NewInternalMonitorClient(monitorCC)
+	monitorClient := types.NewMonitorClient(monitorCC)
 
 	a := agent.NewAgentServer(ctx,
-		agent.WithUsageLimits(&types.UsageLimits{
+		agent.WithUsageLimits(&metrics.UsageLimits{
 			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
 			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
 			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
@@ -73,19 +66,14 @@ func run(cmd *cobra.Command, args []string) {
 				Finder: sleep.SleepToolchainFinder{},
 			},
 		),
-		agent.WithToolchainRunners(cctoolchain.AddToStore, sleeptoolchain.AddToStore),
+		agent.WithToolchainRunners(ccctrl.AddToStore, sleepctrl.AddToStore),
 		agent.WithSchedulerClient(schedulerClient),
 		agent.WithMonitorClient(monitorClient),
 	)
-	types.RegisterAgentServer(srv, a)
+	go a.StartMetricsProvider()
 
 	mgr := servers.NewStreamManager(ctx, a)
-	go mgr.Run()
-	go a.StartMetricsProvider()
-	err = srv.Serve(listener)
-	if err != nil {
-		lg.With(zap.Error(err)).Error("GRPC error")
-	}
+	mgr.Run()
 }
 
 var Command = &cobra.Command{

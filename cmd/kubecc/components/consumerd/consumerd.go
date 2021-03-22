@@ -5,14 +5,15 @@ import (
 
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/internal/sleep"
-	sleeptoolchain "github.com/cobalt77/kubecc/internal/sleep/toolchain"
+	sleepctrl "github.com/cobalt77/kubecc/internal/sleep/controller"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/cc"
-	cctoolchain "github.com/cobalt77/kubecc/pkg/cc/toolchain"
+	ccctrl "github.com/cobalt77/kubecc/pkg/cc/controller"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -46,17 +47,19 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatal("Error dialing scheduler")
 	}
 
-	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress)
+	monitorCC, err := servers.Dial(ctx, conf.MonitorAddress,
+		servers.WithTLS(!conf.DisableTLS))
 	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 	if err != nil {
 		lg.With(zap.Error(err)).Fatal("Error dialing monitor")
 	}
 
 	schedulerClient := types.NewSchedulerClient(schedulerCC)
-	monitorClient := types.NewInternalMonitorClient(monitorCC)
+	monitorClient := types.NewMonitorClient(monitorCC)
+	srv := servers.NewServer(ctx)
 
 	d := consumerd.NewConsumerdServer(ctx,
-		consumerd.WithUsageLimits(&types.UsageLimits{
+		consumerd.WithUsageLimits(&metrics.UsageLimits{
 			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
 			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
 			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
@@ -69,14 +72,12 @@ func run(cmd *cobra.Command, args []string) {
 				Finder: sleep.SleepToolchainFinder{},
 			},
 		),
-		consumerd.WithToolchainRunners(cctoolchain.AddToStore, sleeptoolchain.AddToStore),
-		consumerd.WithSchedulerClient(schedulerClient, schedulerCC),
+		consumerd.WithToolchainRunners(ccctrl.AddToStore, sleepctrl.AddToStore),
+		consumerd.WithSchedulerClient(schedulerClient),
 		consumerd.WithMonitorClient(monitorClient),
 	)
-
-	mgr := servers.NewStreamManager(ctx, d)
+	types.RegisterConsumerdServer(srv, d)
 	go d.StartMetricsProvider()
-	go mgr.Run()
 
 	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
@@ -90,8 +91,6 @@ func run(cmd *cobra.Command, args []string) {
 		lg.With(zap.Error(err)).Fatal("Could not start consumerd")
 	}
 
-	srv := servers.NewServer(ctx)
-	types.RegisterConsumerdServer(srv, d)
 	err = srv.Serve(listener)
 	if err != nil {
 		lg.Error(err.Error())

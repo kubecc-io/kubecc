@@ -50,7 +50,6 @@ type AgentSpec struct {
 	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
 	SchedulerAddress string          `json:"schedulerAddress"`
 	MonitorAddress   string          `json:"monitorAddress"`
-	ListenAddress    string          `json:"listenAddress"`
 }
 
 type ConsumerSpec struct {
@@ -76,7 +75,8 @@ type SchedulerSpec struct {
 
 type MonitorSpec struct {
 	GlobalSpec
-	ListenAddress MonitorListenAddressSpec `json:"listenAddress"`
+	ListenAddress          string `json:"listenAddress"`
+	ServePrometheusMetrics bool   `json:"servePrometheusMetrics"`
 }
 
 type CacheSpec struct {
@@ -106,11 +106,6 @@ type RemoteStorageSpec struct {
 type StorageLimitsSpec struct {
 	Memory string `json:"memory"`
 	Disk   string `json:"disk"`
-}
-
-type MonitorListenAddressSpec struct {
-	Internal string `json:"internal"`
-	External string `json:"external"`
 }
 
 type KcctlSpec struct {

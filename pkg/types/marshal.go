@@ -22,13 +22,6 @@ func NewStringSliceEncoder(slice []string) stringSliceEncoder {
 	}
 }
 
-func (a *AgentInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	enc.AddString("node", a.GetNode())
-	enc.AddString("pod", a.GetPod())
-	enc.AddString("ns", a.GetNamespace())
-	return nil
-}
-
 func (r *RunRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("dir", r.GetWorkDir())
 	enc.AddUint32("uid", r.GetUID())

@@ -6,7 +6,7 @@ import (
 	"log"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
@@ -14,10 +14,9 @@ import (
 
 type agent struct {
 	ctx         context.Context
-	uuid        string
-	queueParams *common.QueueParams
-	taskStatus  *common.TaskStatus
-	queueStatus *common.QueueStatus
+	info        *types.WhoisResponse
+	usageLimits *metrics.UsageLimits
+	taskStatus  *metrics.TaskStatus
 }
 
 type StatusDisplay struct {
@@ -38,28 +37,26 @@ func (s *StatusDisplay) makeRows() [][]string {
 	defer s.mutex.RUnlock()
 
 	rows := make([][]string, 0)
-	header := []string{"ID", "Running Tasks", "Queued Tasks", "Queue Status"}
+	header := []string{"ID", "Running Tasks", "Queued Tasks"}
 	rows = append(rows, header)
 	for _, agent := range s.agents {
 		row := []string{
-			agent.uuid,
-			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.queueParams.ConcurrentProcessLimit),
+			fmt.Sprintf("[%s] %s", agent.info.Component.Name(), agent.info.Address),
+			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.usageLimits.ConcurrentProcessLimit),
 			fmt.Sprint(agent.taskStatus.NumQueued),
-			types.QueueStatus(agent.queueStatus.QueueStatus).String(),
 		}
 		rows = append(rows, row)
 	}
 	return rows
 }
 
-func (s *StatusDisplay) AddAgent(ctx context.Context, uuid string) {
+func (s *StatusDisplay) AddAgent(ctx context.Context, info *types.WhoisResponse) {
 	s.mutex.Lock()
 	s.agents = append(s.agents, &agent{
 		ctx:         ctx,
-		uuid:        uuid,
-		queueParams: &common.QueueParams{},
-		taskStatus:  &common.TaskStatus{},
-		queueStatus: &common.QueueStatus{},
+		info:        info,
+		usageLimits: &metrics.UsageLimits{},
+		taskStatus:  &metrics.TaskStatus{},
 	})
 	s.mutex.Unlock()
 	s.redraw()
@@ -68,7 +65,7 @@ func (s *StatusDisplay) AddAgent(ctx context.Context, uuid string) {
 		<-ctx.Done()
 		s.mutex.Lock()
 		for i, a := range s.agents {
-			if a.uuid == uuid {
+			if a.info.UUID == info.UUID {
 				s.agents = append(s.agents[:i], s.agents[i+1:]...)
 			}
 		}
@@ -81,17 +78,15 @@ func (s *StatusDisplay) Update(uuid string, params interface{}) {
 	s.mutex.Lock()
 	var index int
 	for i, a := range s.agents {
-		if a.uuid == uuid {
+		if a.info.UUID == uuid {
 			index = i
 		}
 	}
 	switch p := params.(type) {
-	case *common.QueueParams:
-		s.agents[index].queueParams = p
-	case *common.TaskStatus:
+	case *metrics.UsageLimits:
+		s.agents[index].usageLimits = p
+	case *metrics.TaskStatus:
 		s.agents[index].taskStatus = p
-	case *common.QueueStatus:
-		s.agents[index].queueStatus = p
 	}
 	s.mutex.Unlock()
 	s.redraw()

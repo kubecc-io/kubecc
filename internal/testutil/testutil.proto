@@ -1,0 +1,30 @@
+syntax = "proto3";
+option go_package = "github.com/cobalt77/kubecc/internal/testutil";
+
+package testutil;
+
+message Baz {}
+
+service Foo {
+  rpc Foo(Baz) returns (Baz);
+}
+
+service Bar {
+  rpc Bar(stream Baz) returns (stream Baz);
+}
+
+message Test1 {
+  int32 Counter = 1;
+}
+
+message Test2 {
+  string Value = 1;
+}
+
+message Test3 {
+  int32 counter = 1;
+}
+
+message Test4 {
+  string Value = 1;
+}

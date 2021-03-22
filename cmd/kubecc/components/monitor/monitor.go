@@ -30,31 +30,17 @@ func run(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
-	extListener, err := net.Listen("tcp", conf.ListenAddress.External)
+	listener, err := net.Listen("tcp", conf.ListenAddress)
 	if err != nil {
 		panic(err.Error())
 	}
-	lg.With("addr", extListener.Addr().String()).Info("External API listening")
+	lg.With("addr", listener.Addr().String()).Info("Metrics API listening")
 
-	intListener, err := net.Listen("tcp", conf.ListenAddress.Internal)
-	if err != nil {
-		panic(err.Error())
-	}
-	lg.With("addr", intListener.Addr().String()).Info("Internal API listening")
+	srv := servers.NewServer(ctx)
+	monitorServer := monitor.NewMonitorServer(ctx, conf, monitor.InMemoryStoreCreator)
+	types.RegisterMonitorServer(srv, monitorServer)
 
-	internal := servers.NewServer(ctx)
-	external := servers.NewServer(ctx)
-	srv := monitor.NewMonitorServer(ctx, monitor.InMemoryStoreCreator)
-	types.RegisterInternalMonitorServer(internal, srv)
-	types.RegisterExternalMonitorServer(external, srv)
-
-	go func() {
-		err = external.Serve(extListener)
-		if err != nil {
-			lg.Error(err)
-		}
-	}()
-	err = internal.Serve(intListener)
+	err = srv.Serve(listener)
 	if err != nil {
 		lg.Error(err)
 	}

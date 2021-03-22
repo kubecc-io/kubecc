@@ -12,13 +12,14 @@ import (
 	ctrlcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/controller"
 	moncmd "github.com/cobalt77/kubecc/cmd/kubecc/components/monitor"
 	schedcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/scheduler"
+	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/cluster"
 )
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
-	Use:   "kubecc",
-	Short: "kubecc",
+	Use:  "kubecc",
+	Long: logkc.BigAsciiTextColored,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

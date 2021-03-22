@@ -46,7 +46,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 
-	monitorClient := types.NewInternalMonitorClient(monitorCC)
+	monitorClient := types.NewMonitorClient(monitorCC)
 
 	sc := scheduler.NewSchedulerServer(ctx,
 		scheduler.WithMonitorClient(monitorClient),
