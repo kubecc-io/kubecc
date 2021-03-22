@@ -37,47 +37,45 @@ type route struct {
 	cancel     context.CancelFunc
 }
 
-func (c *route) CanSend() bool {
-	return c.rxRefCount.Load() > 0
+func (rt *route) CanSend() bool {
+	return rt.rxRefCount.Load() > 0
 }
 
-func (c *route) incRxRefCount() {
-	c.rxRefCount.Inc()
+func (rt *route) incRxRefCount() {
+	rt.rxRefCount.Inc()
 }
 
-func (c *route) decRxRefCount() {
-	if c.rxRefCount.Dec() <= 0 {
-		if c.txRefCount.Load() <= 0 {
-			c.cancel()
+func (rt *route) decRxRefCount() {
+	if rt.rxRefCount.Dec() <= 0 {
+		if rt.txRefCount.Load() <= 0 {
+			rt.cancel()
 		}
 	}
 }
 
-func (c *route) incTxRefCount() {
-	c.txRefCount.Inc()
+func (rt *route) incTxRefCount() {
+	rt.txRefCount.Inc()
 }
 
-func (c *route) decTxRefCount() {
-	if c.txRefCount.Dec() <= 0 {
-		if c.rxRefCount.Load() <= 0 {
-			c.cancel()
+func (rt *route) decTxRefCount() {
+	if rt.txRefCount.Dec() <= 0 {
+		if rt.rxRefCount.Load() <= 0 {
+			rt.cancel()
 		}
 	}
 }
 
-func (c *route) attachSender(s *sender) {
-	c.incTxRefCount()
-	defer c.decTxRefCount()
+func (rt *route) attachSender(s *sender) {
+	defer rt.decTxRefCount()
 	<-s.cd.Context.Done()
 }
 
-func (c *route) attachReceiver(r *receiver) {
-	c.incRxRefCount()
-	defer c.decRxRefCount()
+func (rt *route) attachReceiver(r *receiver) {
+	defer rt.decRxRefCount()
 
 	for {
 		select {
-		case i, open := <-c.C:
+		case i, open := <-rt.C:
 			if !open {
 				// Channel closed
 				return
@@ -176,6 +174,7 @@ func (f *Router) AddSender(cd *Consumerd) {
 	f.senders[cd.UUID] = sender
 	for _, tc := range cd.Toolchains.GetItems() {
 		rt := f.routeForToolchain(tc)
+		rt.incTxRefCount()
 		go rt.attachSender(sender)
 	}
 }
@@ -191,6 +190,7 @@ func (f *Router) AddReceiver(agent *Agent) <-chan request {
 	f.receivers[agent.UUID] = receiver
 	for _, tc := range agent.Toolchains.GetItems() {
 		rt := f.routeForToolchain(tc)
+		rt.incRxRefCount() // Important to increment ref count in this goroutine
 		go rt.attachReceiver(receiver)
 	}
 	return output
@@ -261,8 +261,6 @@ func (f *Router) Send(ctx context.Context, req request) error {
 	case rt.C <- req:
 		return nil
 	case <-ctx.Done():
-		return context.Canceled
-	default:
-		return ErrStreamClosed
+		return ctx.Err()
 	}
 }
