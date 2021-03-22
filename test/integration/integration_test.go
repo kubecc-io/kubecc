@@ -17,7 +17,6 @@ import (
 )
 
 var _ = Describe("Integration test", func() {
-
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
@@ -41,6 +40,7 @@ var _ = Describe("Integration test", func() {
 	}
 
 	Specify("Starting components", func() {
+
 		testEnv = test.NewDefaultEnvironment()
 
 		testEnv.SpawnMonitor()
@@ -81,6 +81,8 @@ var _ = Describe("Integration test", func() {
 	})
 
 	Measure("Run test", func(b Benchmarker) {
+		testutil.SkipInGithubWorkflow()
+
 		cd := testEnv.NewConsumerdClient(ctx)
 		wg := sync.WaitGroup{}
 		wg.Add(localJobs)
