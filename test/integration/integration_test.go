@@ -28,13 +28,13 @@ var _ = Describe("Integration test", func() {
 	)
 	lg := meta.Log(ctx)
 
-	numTasks := 400
+	numTasks := 200
 	localJobs := 50
 	taskPool := make(chan *types.RunRequest, numTasks)
 	for i := 0; i < numTasks; i++ {
 		taskPool <- &types.RunRequest{
 			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(100)*80)},
+			Args:     []string{"-duration", fmt.Sprintf("%dms", rand.Intn(500)+500)},
 			UID:      1000,
 			GID:      1000,
 		}
