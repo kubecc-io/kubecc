@@ -12,22 +12,6 @@ import (
 )
 
 var (
-	clang_c = &types.Toolchain{
-		Kind:       types.Clang,
-		Lang:       types.C,
-		Executable: "clang-c",
-		TargetArch: "amd64",
-		Version:    "1.0",
-		PicDefault: true,
-	}
-	gnu_c = &types.Toolchain{
-		Kind:       types.Gnu,
-		Lang:       types.C,
-		Executable: "gnu-c",
-		TargetArch: "amd64",
-		Version:    "1.0",
-		PicDefault: true,
-	}
 	testCd1 = &Consumerd{
 		remoteInfo: remoteInfo{
 			Context: context.Background(),
@@ -73,18 +57,6 @@ var (
 				gnu_c,
 			},
 		},
-	}
-	sample_req1 = &types.CompileRequest{
-		RequestID:          uuid.NewString(),
-		Toolchain:          clang_c,
-		Args:               []string{},
-		PreprocessedSource: []byte("test"),
-	}
-	sample_req2 = &types.CompileRequest{
-		RequestID:          uuid.NewString(),
-		Toolchain:          gnu_c,
-		Args:               []string{},
-		PreprocessedSource: []byte("test"),
 	}
 )
 

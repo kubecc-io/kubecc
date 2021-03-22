@@ -20,7 +20,7 @@ func Start(ctx context.Context, component types.Component) (opentracing.Tracer, 
 	lg := meta.Log(ctx)
 	collector, ok := os.LookupEnv("JAEGER_ENDPOINT")
 	if !ok {
-		lg.Warn("JAEGER_ENDPOINT not defined, tracing disabled")
+		lg.Info("JAEGER_ENDPOINT not defined, tracing disabled")
 		return opentracing.NoopTracer{}, io.NopCloser(nil)
 	}
 	cfg := jaegercfg.Configuration{

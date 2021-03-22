@@ -10,27 +10,12 @@ import (
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/onsi/ginkgo"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-type worker struct {
-	agent     *Agent
-	taskQueue <-chan *types.CompileRequest
-}
-
-func (w *worker) stream() {
-	for {
-		select {
-		case req := <-w.taskQueue:
-			w.agent.Stream.Send(req)
-		case <-w.agent.Context.Done():
-			return
-		}
-	}
-}
 
 type Broker struct {
 	srvContext      context.Context
@@ -46,7 +31,7 @@ type Broker struct {
 	consumerds      map[string]*Consumerd
 	agentsMutex     *sync.RWMutex
 	consumerdsMutex *sync.RWMutex
-	filter          *Router
+	router          *Router
 	cacheClient     types.CacheClient
 	hashSrv         *util.HashServer
 	pendingRequests sync.Map // map[uuid string]*Consumerd
@@ -54,7 +39,7 @@ type Broker struct {
 }
 
 func NewBroker(ctx context.Context, tcw ToolchainWatcher) *Broker {
-	return &Broker{
+	b := &Broker{
 		srvContext:      ctx,
 		lg:              meta.Log(ctx),
 		completedTasks:  atomic.NewInt64(0),
@@ -66,10 +51,12 @@ func NewBroker(ctx context.Context, tcw ToolchainWatcher) *Broker {
 		consumerds:      make(map[string]*Consumerd),
 		agentsMutex:     &sync.RWMutex{},
 		consumerdsMutex: &sync.RWMutex{},
-		filter:          NewRouter(ctx),
+		router:          NewRouter(ctx),
 		hashSrv:         util.NewHashServer(),
 		tcWatcher:       tcw,
 	}
+	go b.handleResponseQueue()
+	return b
 }
 
 var ErrTokenImbalance = errors.New("Token imbalance")
@@ -91,6 +78,7 @@ func (b *Broker) handleAgentStream(
 	agent.Unlock()
 
 	go func() {
+		defer ginkgo.GinkgoRecover()
 		b.lg.Debug("Handling agent stream (send)")
 		defer b.lg.Debug("Agent stream done (send)")
 		for {
@@ -122,6 +110,7 @@ func (b *Broker) handleAgentStream(
 		}
 	}()
 	go func() {
+		defer ginkgo.GinkgoRecover()
 		b.lg.Debug("Handling agent stream (recv)")
 		defer b.lg.Debug("Agent stream done (recv)")
 
@@ -173,8 +162,12 @@ func (b *Broker) handleConsumerdStream(
 		}
 		b.requestCount.Inc()
 		b.pendingRequests.Store(req.RequestID, cd)
-		if err := b.filter.Send(srv.Context(), req); err != nil {
+		if err := b.router.Send(srv.Context(), req); err != nil {
+			b.lg.With(
+				zap.Error(err),
+			).Error("Encountered an error while routing compile request")
 			b.pendingRequests.Delete(req.RequestID)
+			b.requestCount.Dec()
 			b.responseQueue <- &types.CompileResponse{
 				RequestID:     req.RequestID,
 				CompileResult: types.CompileResponse_InternalError,
@@ -194,6 +187,9 @@ func (b *Broker) handleResponseQueue() {
 			return
 		}
 		if value, ok := b.pendingRequests.LoadAndDelete(resp.RequestID); ok {
+			b.lg.With(
+				zap.String("request", resp.RequestID),
+			).Debug("Sending response to consumerd")
 			consumerd := value.(*Consumerd)
 			consumerd.CompletedTasks.Inc()
 			switch resp.CompileResult {
@@ -240,7 +236,7 @@ func (b *Broker) NewAgentTaskStream(
 	b.agents[agent.UUID] = agent
 	b.agentsMutex.Unlock()
 
-	filterOutput := b.filter.AddReceiver(agent)
+	filterOutput := b.router.AddReceiver(agent)
 	b.handleAgentStream(stream, filterOutput)
 
 	go func() {
@@ -273,13 +269,13 @@ func (b *Broker) NewConsumerdTaskStream(
 	b.consumerds[cd.UUID] = cd
 	b.consumerdsMutex.Unlock()
 
-	b.filter.AddSender(cd)
+	b.router.AddSender(cd)
 	b.handleConsumerdStream(stream)
 
 	go func() {
 		select {
 		case tcs := <-tcChan:
-			b.filter.UpdateSenderToolchains(cd.UUID, tcs)
+			b.router.UpdateSenderToolchains(cd.UUID, tcs)
 		case <-streamCtx.Done():
 			return
 		}
@@ -379,8 +375,7 @@ func (b *Broker) PreReceive(
 		action = ProcessRequestNormally
 		return
 	}
-	var reqHash string
-	reqHash = b.hashSrv.Hash(req)
+	reqHash := b.hashSrv.Hash(req)
 	obj, err := b.cacheClient.Pull(ctx, &types.PullRequest{
 		Key: &types.CacheKey{
 			Hash: reqHash,
