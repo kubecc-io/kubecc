@@ -12,39 +12,40 @@ import (
 )
 
 var (
-	ErrNoAgents        = errors.New("No available agents can run this task")
-	ErrStreamClosed    = errors.New("Task stream closed")
-	ErrRequestRejected = errors.New("The task has been rejected by the server")
+	ErrNoAgents         = errors.New("No available agents can run this task")
+	ErrStreamClosed     = errors.New("Task stream closed")
+	ErrRequestRejected  = errors.New("The task has been rejected by the server")
+	ErrInvalidToolchain = errors.New("Invalid or nil toolchain")
 )
 
+type request = *types.CompileRequest
+
 type sender struct {
-	cd              *Consumerd
-	unfilteredInput <-chan interface{}
+	cd *Consumerd
 }
 
 type receiver struct {
 	agent          *Agent
-	filteredOutput chan<- interface{}
+	filteredOutput chan<- request
 }
 
-type taskChannel struct {
+type route struct {
 	hash       string
-	C          chan interface{}
+	C          chan request
 	rxRefCount *atomic.Int32
 	txRefCount *atomic.Int32
-	channelCtx context.Context
 	cancel     context.CancelFunc
 }
 
-func (c *taskChannel) CanSend() bool {
+func (c *route) CanSend() bool {
 	return c.rxRefCount.Load() > 0
 }
 
-func (c *taskChannel) incRxRefCount() {
+func (c *route) incRxRefCount() {
 	c.rxRefCount.Inc()
 }
 
-func (c *taskChannel) decRxRefCount() {
+func (c *route) decRxRefCount() {
 	if c.rxRefCount.Dec() <= 0 {
 		if c.txRefCount.Load() <= 0 {
 			c.cancel()
@@ -52,11 +53,11 @@ func (c *taskChannel) decRxRefCount() {
 	}
 }
 
-func (c *taskChannel) incTxRefCount() {
+func (c *route) incTxRefCount() {
 	c.txRefCount.Inc()
 }
 
-func (c *taskChannel) decTxRefCount() {
+func (c *route) decTxRefCount() {
 	if c.txRefCount.Dec() <= 0 {
 		if c.rxRefCount.Load() <= 0 {
 			c.cancel()
@@ -64,26 +65,13 @@ func (c *taskChannel) decTxRefCount() {
 	}
 }
 
-func (c *taskChannel) AttachSender(s *sender) {
+func (c *route) attachSender(s *sender) {
 	c.incTxRefCount()
 	defer c.decTxRefCount()
-
-	for {
-		select {
-		case i := <-s.unfilteredInput:
-			select {
-			case c.C <- i:
-			default:
-				// Channel closed
-				return
-			}
-		case <-s.cd.Context.Done():
-			return
-		}
-	}
+	<-s.cd.Context.Done()
 }
 
-func (c *taskChannel) AttachReceiver(r *receiver) {
+func (c *route) attachReceiver(r *receiver) {
 	c.incRxRefCount()
 	defer c.decRxRefCount()
 
@@ -109,28 +97,28 @@ const (
 	RequestIntercepted
 )
 
-type FilterHook interface {
-	PreReceive(*taskChannel, *types.CompileRequest) HookAction
+type RouterHook interface {
+	PreReceive(*route, request) HookAction
 }
 
-type ToolchainFilter struct {
+type Router struct {
 	ctx            context.Context
-	senders        map[string]*sender      // key = uuid
-	receivers      map[string]*receiver    // key = uuid
-	channels       map[string]*taskChannel // key = toolchain hash
-	channelsMutex  *sync.RWMutex
+	senders        map[string]*sender   // key = uuid
+	receivers      map[string]*receiver // key = uuid
+	routes         map[string]*route    // key = toolchain hash
+	routesMutex    *sync.RWMutex
 	sendersMutex   *sync.RWMutex
 	receiversMutex *sync.RWMutex
-	hooks          []FilterHook
+	hooks          []RouterHook
 }
 
-func NewToolchainFilter(ctx context.Context) *ToolchainFilter {
-	return &ToolchainFilter{
+func NewRouter(ctx context.Context) *Router {
+	return &Router{
 		ctx:            ctx,
 		senders:        make(map[string]*sender),
 		receivers:      make(map[string]*receiver),
-		channels:       make(map[string]*taskChannel),
-		channelsMutex:  &sync.RWMutex{},
+		routes:         make(map[string]*route),
+		routesMutex:    &sync.RWMutex{},
 		sendersMutex:   &sync.RWMutex{},
 		receiversMutex: &sync.RWMutex{},
 	}
@@ -141,14 +129,15 @@ func tcHash(tc *types.Toolchain) string {
 	defer hasher.Close()
 	tc.Hash(hasher)
 	sum := hasher.Sum(nil)
+
 	return string(sum)
 }
 
-func (f *ToolchainFilter) newTaskChannel(hash string) *taskChannel {
+func (f *Router) newRoute(hash string) *route {
 	ctx, cancel := context.WithCancel(f.ctx)
-	taskCh := &taskChannel{
+	rt := &route{
 		hash:       hash,
-		C:          make(chan interface{}),
+		C:          make(chan request),
 		rxRefCount: atomic.NewInt32(0),
 		txRefCount: atomic.NewInt32(0),
 		cancel:     cancel,
@@ -156,60 +145,58 @@ func (f *ToolchainFilter) newTaskChannel(hash string) *taskChannel {
 	go func() {
 		<-ctx.Done()
 		// Ref count hit 0, clean up the channel to avoid a resource leak
-		f.channelsMutex.Lock()
-		defer f.channelsMutex.Unlock()
-		close(taskCh.C)
-		delete(f.channels, hash)
+		f.routesMutex.Lock()
+		defer f.routesMutex.Unlock()
+		close(rt.C)
+		delete(f.routes, hash)
 	}()
-	return taskCh
+	return rt
 }
 
-func (f *ToolchainFilter) taskChannelForToolchain(tc *types.Toolchain) *taskChannel {
-	f.channelsMutex.Lock()
-	defer f.channelsMutex.Unlock()
+func (f *Router) routeForToolchain(tc *types.Toolchain) *route {
+	f.routesMutex.Lock()
+	defer f.routesMutex.Unlock()
 	hash := tcHash(tc)
-	var taskCh *taskChannel
-	if c, ok := f.channels[hash]; !ok || c == nil {
-		f.channels[hash] = f.newTaskChannel(hash)
-		taskCh = f.channels[hash]
+	var rt *route
+	if c, ok := f.routes[hash]; !ok || c == nil {
+		f.routes[hash] = f.newRoute(hash)
+		rt = f.routes[hash]
 	} else {
-		taskCh = c
+		rt = c
 	}
-	return taskCh
+	return rt
 }
 
-func (f *ToolchainFilter) AddSender(cd *Consumerd) {
+func (f *Router) AddSender(cd *Consumerd) {
 	f.sendersMutex.Lock()
 	defer f.sendersMutex.Unlock()
-	input := make(chan interface{})
 	sender := &sender{
-		cd:              cd,
-		unfilteredInput: input,
+		cd: cd,
 	}
 	f.senders[cd.UUID] = sender
 	for _, tc := range cd.Toolchains.GetItems() {
-		taskCh := f.taskChannelForToolchain(tc)
-		go taskCh.AttachSender(sender)
+		rt := f.routeForToolchain(tc)
+		go rt.attachSender(sender)
 	}
 }
 
-func (f *ToolchainFilter) AddReceiver(agent *Agent) <-chan interface{} {
+func (f *Router) AddReceiver(agent *Agent) <-chan request {
 	f.receiversMutex.Lock()
 	defer f.receiversMutex.Unlock()
-	output := make(chan interface{})
+	output := make(chan request)
 	receiver := &receiver{
 		agent:          agent,
 		filteredOutput: output,
 	}
 	f.receivers[agent.UUID] = receiver
 	for _, tc := range agent.Toolchains.GetItems() {
-		taskCh := f.taskChannelForToolchain(tc)
-		go taskCh.AttachReceiver(receiver)
+		rt := f.routeForToolchain(tc)
+		go rt.attachReceiver(receiver)
 	}
 	return output
 }
 
-func (f *ToolchainFilter) UpdateSenderToolchains(
+func (f *Router) UpdateSenderToolchains(
 	uuid string,
 	tcs *metrics.Toolchains,
 ) {
@@ -231,7 +218,7 @@ func (f *ToolchainFilter) UpdateSenderToolchains(
 			}
 		}
 		if !stillExists {
-			f.taskChannelForToolchain(oldTc).cancel()
+			f.routeForToolchain(oldTc).cancel()
 		}
 	}
 	for _, newTc := range newToolchains.GetItems() {
@@ -244,7 +231,7 @@ func (f *ToolchainFilter) UpdateSenderToolchains(
 		}
 		if isNew {
 			defer func() {
-				f.taskChannelForToolchain(newTc).AttachSender(sender)
+				f.routeForToolchain(newTc).attachSender(sender)
 			}()
 		}
 	}
@@ -252,10 +239,14 @@ func (f *ToolchainFilter) UpdateSenderToolchains(
 	sender.cd.Toolchains = newToolchains
 }
 
-func (f *ToolchainFilter) Send(ctx context.Context, req *types.CompileRequest) error {
-	taskCh := f.taskChannelForToolchain(req.GetToolchain())
+func (f *Router) Send(ctx context.Context, req request) error {
+	tc := req.GetToolchain()
+	if tc == nil {
+		return ErrInvalidToolchain
+	}
+	rt := f.routeForToolchain(tc)
 	for _, hook := range f.hooks {
-		switch hook.PreReceive(taskCh, req) {
+		switch hook.PreReceive(rt, req) {
 		case ProcessRequestNormally:
 		case RejectRequest:
 			return ErrRequestRejected
@@ -263,11 +254,11 @@ func (f *ToolchainFilter) Send(ctx context.Context, req *types.CompileRequest) e
 			return nil
 		}
 	}
-	if taskCh.rxRefCount.Load() == 0 {
+	if rt.rxRefCount.Load() == 0 {
 		return ErrNoAgents
 	}
 	select {
-	case taskCh.C <- req:
+	case rt.C <- req:
 		return nil
 	case <-ctx.Done():
 		return context.Canceled
