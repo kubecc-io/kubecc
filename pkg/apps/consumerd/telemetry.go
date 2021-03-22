@@ -156,7 +156,9 @@ type Entries []Entry
 
 // Entries returns a slice of all the entries currently in the history buffer.
 func (t *Telemetry) Entries() (entries Entries) {
-	return t.history
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append(Entries{}, t.history...)
 }
 
 type TelemetryConfig struct {
