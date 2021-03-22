@@ -43,6 +43,7 @@ func (m *recvRemoteRunnerManager) Process(
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
 		return &types.CompileResponse{
+			RequestID:     req.GetRequestID(),
 			CompileResult: types.CompileResponse_Fail,
 			Data: &types.CompileResponse_Error{
 				Error: stderrBuf.String(),
@@ -62,6 +63,7 @@ func (m *recvRemoteRunnerManager) Process(
 	}
 	lg.With(zap.Error(err)).Info("Sending results")
 	return &types.CompileResponse{
+		RequestID:     req.GetRequestID(),
 		CompileResult: types.CompileResponse_Success,
 		Data: &types.CompileResponse_CompiledSource{
 			CompiledSource: data,

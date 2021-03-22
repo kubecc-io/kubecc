@@ -87,13 +87,13 @@ var _ = Describe("Router", func() {
 			})
 			It("should not be able to send on that channel", func() {
 				Expect(rt.CanSend()).To(BeFalse())
-				err := router.Send(context.Background(), sample_req1)
+				err := router.Route(context.Background(), sample_req1)
 				Expect(err).To(MatchError(ErrNoAgents))
 			})
 		})
 		When("sending an invalid request", func() {
 			It("should return the correct errors", func() {
-				err := router.Send(context.Background(), &types.CompileRequest{})
+				err := router.Route(context.Background(), &types.CompileRequest{})
 				Expect(err).To(MatchError(ErrInvalidToolchain))
 			})
 		})
@@ -108,7 +108,7 @@ var _ = Describe("Router", func() {
 			It("should be able to send on that channel", func() {
 				rt := router.routeForToolchain(clang_c)
 				Eventually(rt.CanSend).Should(BeTrue())
-				Expect(router.Send(context.Background(), sample_req1)).To(Succeed())
+				Expect(router.Route(context.Background(), sample_req1)).To(Succeed())
 				Eventually(rx).Should(Receive(Equal(sample_req1)))
 			})
 		})
@@ -122,7 +122,7 @@ var _ = Describe("Router", func() {
 			It("should not be able to send", func() {
 				rt := router.routeForToolchain(gnu_c)
 				Expect(rt.CanSend()).To(BeFalse())
-				err := router.Send(context.Background(), sample_req2)
+				err := router.Route(context.Background(), sample_req2)
 				Expect(err).To(MatchError(ErrNoAgents))
 			})
 		})
@@ -137,7 +137,7 @@ var _ = Describe("Router", func() {
 			It("should be able to send on that channel", func() {
 				rt := router.routeForToolchain(gnu_c)
 				Eventually(rt.CanSend).Should(BeTrue())
-				Expect(router.Send(context.Background(), sample_req2)).To(Succeed())
+				Expect(router.Route(context.Background(), sample_req2)).To(Succeed())
 				Eventually(rx).Should(Receive(Equal(sample_req2)))
 			})
 		})

@@ -99,6 +99,24 @@ type RouterHook interface {
 	PreReceive(*route, request) HookAction
 }
 
+type RouterOptions struct {
+	hooks []RouterHook
+}
+
+type RouterOption func(*RouterOptions)
+
+func (o *RouterOptions) Apply(opts ...RouterOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func WithHooks(hooks ...RouterHook) RouterOption {
+	return func(o *RouterOptions) {
+		o.hooks = hooks
+	}
+}
+
 type Router struct {
 	ctx            context.Context
 	senders        map[string]*sender   // key = uuid
@@ -110,7 +128,12 @@ type Router struct {
 	hooks          []RouterHook
 }
 
-func NewRouter(ctx context.Context) *Router {
+func NewRouter(ctx context.Context, opts ...RouterOption) *Router {
+	options := RouterOptions{
+		hooks: []RouterHook{},
+	}
+	options.Apply(opts...)
+
 	return &Router{
 		ctx:            ctx,
 		senders:        make(map[string]*sender),
@@ -119,6 +142,7 @@ func NewRouter(ctx context.Context) *Router {
 		routesMutex:    &sync.RWMutex{},
 		sendersMutex:   &sync.RWMutex{},
 		receiversMutex: &sync.RWMutex{},
+		hooks:          options.hooks,
 	}
 }
 
@@ -239,7 +263,7 @@ func (f *Router) UpdateSenderToolchains(
 	sender.cd.Toolchains = newToolchains
 }
 
-func (f *Router) Send(ctx context.Context, req request) error {
+func (f *Router) Route(ctx context.Context, req request) error {
 	tc := req.GetToolchain()
 	if tc == nil {
 		return ErrInvalidToolchain

@@ -25,6 +25,7 @@ func (m recvRemoteRunnerManager) Process(
 	if err := t.Err(); err != nil {
 		lg.Error(err)
 		return &types.CompileResponse{
+			RequestID:     req.RequestID,
 			CompileResult: types.CompileResponse_Fail,
 			Data: &types.CompileResponse_Error{
 				Error: err.Error(),
@@ -33,6 +34,7 @@ func (m recvRemoteRunnerManager) Process(
 	}
 	lg.Info("=> Done.")
 	return &types.CompileResponse{
+		RequestID:     req.RequestID,
 		CompileResult: types.CompileResponse_Success,
 		Data: &types.CompileResponse_CompiledSource{
 			CompiledSource: []byte{},

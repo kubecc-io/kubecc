@@ -70,8 +70,11 @@ func NewSchedulerServer(
 		cacheClient:    options.cacheClient,
 		agentCount:     atomic.NewInt64(0),
 		consumerdCount: atomic.NewInt64(0),
-		broker:         NewBroker(ctx, NewDefaultToolchainWatcher(ctx, options.monClient)),
-		hashSrv:        util.NewHashServer(),
+		broker: NewBroker(ctx,
+			NewDefaultToolchainWatcher(ctx, options.monClient),
+			CacheClient(options.cacheClient),
+		),
+		hashSrv: util.NewHashServer(),
 	}
 
 	if options.monClient != nil {

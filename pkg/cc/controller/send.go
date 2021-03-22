@@ -14,6 +14,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/google/uuid"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -48,6 +49,7 @@ func (m *remoteCompileTask) Run() {
 		return
 	}
 	resp, err := m.client.Compile(&types.CompileRequest{
+		RequestID:          uuid.NewString(),
 		Toolchain:          m.tc,
 		Args:               m.Args,
 		PreprocessedSource: preprocessedSource,
