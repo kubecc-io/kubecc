@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"net"
@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runMonitor(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load().Monitor
 
 	ctx := meta.NewContext(
@@ -46,8 +46,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-var Command = &cobra.Command{
+var MonitorCmd = &cobra.Command{
 	Use:   "monitor",
-	Short: "Run the monitor service",
-	Run:   run,
+	Short: "Run the monitor server",
+	Run:   runMonitor,
 }

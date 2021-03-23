@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"net"
@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runConsumerd(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load().Consumerd
 
 	ctx := meta.NewContext(
@@ -97,8 +97,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-var Command = &cobra.Command{
+var ConsumerdCmd = &cobra.Command{
 	Use:   "consumerd",
-	Short: "Run the consumerd service",
-	Run:   run,
+	Short: "Run the consumerd server",
+	Run:   runConsumerd,
 }

@@ -6,11 +6,11 @@ require (
 	cloud.google.com/go v0.79.0 // indirect
 	github.com/Azure/go-autorest/autorest v0.11.18 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
+	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
-	github.com/cli/cli v1.7.0 // indirect
 	github.com/cloudflare/golibs v0.0.0-20201113145655-eb7a42c5e0be
 	github.com/cobalt77/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
 	github.com/deckarep/golang-set v1.7.1
@@ -60,6 +60,7 @@ require (
 	k8s.io/client-go v0.20.5
 	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210305164622-f622666832c1 // indirect
+	k8s.io/kubectl v0.20.5
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/yaml v1.2.0
 )

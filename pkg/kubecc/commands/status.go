@@ -6,6 +6,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/identity"
+	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -15,21 +16,15 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// statusCmd represents the status command.
-var statusCmd = &cobra.Command{
+// StatusCmd represents the status command.
+var StatusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Show overall cluster status",
 	Run: func(cmd *cobra.Command, args []string) {
-		cc, err := servers.Dial(cliContext, cliConfig.MonitorAddress,
-			servers.WithTLS(!cliConfig.DisableTLS))
+		cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
+			servers.WithTLS(!CLIConfig.DisableTLS))
 		if err != nil {
-			cliLog.Fatal(err)
+			CLILog.Fatal(err)
 		}
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
@@ -66,8 +61,4 @@ to quickly create a Cobra application.`,
 
 		display.Run()
 	},
-}
-
-func init() {
-	rootCmd.AddCommand(statusCmd)
 }

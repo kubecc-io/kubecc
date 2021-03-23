@@ -1,15 +1,9 @@
-package main
+package components
 
 import (
 	"errors"
 	"fmt"
 
-	agentcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/agent"
-	cachecmd "github.com/cobalt77/kubecc/cmd/kubecc/components/cachesrv"
-	cdcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/consumerd"
-	ctrlcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/controller"
-	moncmd "github.com/cobalt77/kubecc/cmd/kubecc/components/monitor"
-	schedcmd "github.com/cobalt77/kubecc/cmd/kubecc/components/scheduler"
 	mapset "github.com/deckarep/golang-set"
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,26 +11,26 @@ import (
 
 var (
 	components = map[string]*cobra.Command{
-		agentcmd.Command.Name(): agentcmd.Command,
-		cdcmd.Command.Name():    cdcmd.Command,
-		moncmd.Command.Name():   moncmd.Command,
-		schedcmd.Command.Name(): schedcmd.Command,
-		ctrlcmd.Command.Name():  ctrlcmd.Command,
-		cachecmd.Command.Name(): cachecmd.Command,
+		AgentCmd.Name():      AgentCmd,
+		ConsumerdCmd.Name():  ConsumerdCmd,
+		MonitorCmd.Name():    MonitorCmd,
+		SchedulerCmd.Name():  SchedulerCmd,
+		ControllerCmd.Name(): ControllerCmd,
+		CacheCmd.Name():      CacheCmd,
 		"all": {
 			Run: func(cmd *cobra.Command, args []string) {
-				go agentcmd.Command.Run(agentcmd.Command, args)
-				go cdcmd.Command.Run(agentcmd.Command, args)
-				go moncmd.Command.Run(agentcmd.Command, args)
-				go schedcmd.Command.Run(agentcmd.Command, args)
-				go cachecmd.Command.Run(agentcmd.Command, args)
+				go AgentCmd.Run(AgentCmd, args)
+				go ConsumerdCmd.Run(ConsumerdCmd, args)
+				go MonitorCmd.Run(MonitorCmd, args)
+				go SchedulerCmd.Run(SchedulerCmd, args)
+				go CacheCmd.Run(CacheCmd, args)
 			},
 		},
 		"servers": {
 			Run: func(cmd *cobra.Command, args []string) {
-				go moncmd.Command.Run(agentcmd.Command, args)
-				go schedcmd.Command.Run(agentcmd.Command, args)
-				go cachecmd.Command.Run(agentcmd.Command, args)
+				go MonitorCmd.Run(MonitorCmd, args)
+				go SchedulerCmd.Run(SchedulerCmd, args)
+				go CacheCmd.Run(CacheCmd, args)
 			},
 		},
 	}
@@ -51,7 +45,7 @@ func init() {
 	}
 }
 
-var runCmd = &cobra.Command{
+var RunCmd = &cobra.Command{
 	Use:       "run component...",
 	Short:     "Run one or more kubecc components.",
 	ValidArgs: append(componentNames, "all"),
