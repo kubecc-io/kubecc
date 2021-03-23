@@ -237,58 +237,6 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	}
 }
 
-var storeContentsKey string
-
-func init() {
-	sc := &metrics.StoreContents{}
-	any, err := anypb.New(sc)
-	if err != nil {
-		panic(err)
-	}
-	storeContentsKey = (&types.Key{
-		Bucket: metrics.MetaBucket,
-		Name:   any.GetTypeUrl(),
-	}).Canonical()
-}
-
-func (m *MonitorServer) notifyStoreMeta() {
-	m.listenerMutex.RLock()
-	defer m.listenerMutex.RUnlock()
-
-	if listeners, ok := m.listeners[storeContentsKey]; ok {
-		contents := &metrics.StoreContents{
-			Buckets: []*metrics.BucketSpec{},
-		}
-		for k, v := range m.buckets {
-			copied := map[string]*anypb.Any{}
-			for _, key := range v.Keys() {
-				if value, ok := v.Get(key); ok {
-					any, err := anypb.New(value)
-					if err != nil {
-						m.lg.Error(err)
-						continue
-					}
-					copied[key] = any
-				}
-			}
-			contents.Buckets = append(contents.Buckets, &metrics.BucketSpec{
-				Name: k,
-				Data: copied,
-			})
-		}
-		for _, v := range listeners {
-			any, err := anypb.New(contents)
-			if err != nil {
-				panic(err)
-			}
-			err = v.Send(any)
-			if err != nil {
-				m.lg.With(zap.Error(err)).Error("Error sending data to listener")
-			}
-		}
-	}
-}
-
 func (m *MonitorServer) post(metric *types.Metric) error {
 	m.providerMutex.RLock()
 	defer m.providerMutex.RUnlock()
@@ -309,7 +257,6 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			metricsPostedTotal.Inc()
 			defer func() {
 				m.notify(metric)
-				m.notifyStoreMeta()
 			}()
 		}
 	} else {
@@ -364,7 +311,6 @@ func (m *MonitorServer) Listen(
 			m.lg.With(zap.Error(err)).Error("Error sending data to listener")
 		}
 	}
-	m.notifyStoreMeta()
 
 	m.providerMutex.RUnlock()
 

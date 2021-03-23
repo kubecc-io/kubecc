@@ -20,22 +20,13 @@ package commands
 import (
 	"fmt"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
 	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/encoding/prototext"
 )
-
-func onValueChanged(tb *ui.TextBox) func(*metrics.StoreContents) {
-	return func(contents *metrics.StoreContents) {
-		tb.SetText(prototext.Format(contents))
-	}
-}
 
 func client() types.MonitorClient {
 	cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
@@ -49,17 +40,6 @@ func client() types.MonitorClient {
 var GetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get information from the monitor's key-value store",
-	Run: func(cmd *cobra.Command, args []string) {
-		tb := &ui.TextBox{}
-		listener := clients.NewListener(CLIContext, client())
-
-		listener.OnValueChanged(metrics.MetaBucket, onValueChanged(tb)).
-			OrExpired(func() metrics.RetryOptions {
-				tb.SetText("-- KEY EXPIRED -- \n\n" + tb.Paragraph.Text)
-				return metrics.NoRetry
-			})
-		tb.Run()
-	},
 }
 
 var outputKind string

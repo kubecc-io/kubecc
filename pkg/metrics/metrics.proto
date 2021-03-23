@@ -86,10 +86,6 @@ message Providers {
   map<string, ProviderInfo> Items = 1;
 }
 
-message StoreContents {
-  repeated BucketSpec Buckets = 1;
-}
-
 message BucketSpec {
   string Name = 1;
   map<string, google.protobuf.Any> Data = 2;
