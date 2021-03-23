@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"net"
@@ -16,7 +16,7 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runScheduler(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load().Scheduler
 
 	ctx := meta.NewContext(
@@ -60,8 +60,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-var Command = &cobra.Command{
+var SchedulerCmd = &cobra.Command{
 	Use:   "scheduler",
-	Short: "Run the scheduler service",
-	Run:   run,
+	Short: "Run the scheduler server",
+	Run:   runAgent,
 }

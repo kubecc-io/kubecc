@@ -17,7 +17,7 @@ GO ?= go
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
 .PHONY: all setup
-all: generate manifests fmt vet bin
+all: generate manifests fmt vet kubecc
 setup:
 	$(GO) get github.com/operator-framework/operator-sdk/cmd/operator-sdk
 	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
@@ -86,21 +86,9 @@ generate:
 
 
 # Build binaries
-.PHONY: bin kubecc kcctl consumer make
-bin: kubecc kcctl consumer make
-
-kubecc:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/kubecc ./cmd/kubecc
-
-kcctl:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/kcctl ./cmd/kcctl
-
-consumer:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumer ./cmd/consumer
-
-make:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/make ./cmd/make
-
+.PHONY: kubecc 
+kubecc: vet
+	CGO_ENABLED=0 $(GO) build -ldflags '-w -s' -o ./bin/kubecc ./cmd/kubecc
 
 # Build container images
 .PHONY: docker-manager docker-kubecc docker-environment docker

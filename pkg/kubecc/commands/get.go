@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
+	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -13,13 +14,6 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 )
 
-// monitorCmd represents the monitor command.
-var monitorCmd = &cobra.Command{
-	Use:     "monitor",
-	Aliases: []string{"mon"},
-	Short:   "Commands to interact with the monitor",
-}
-
 func onValueChanged(tb *ui.TextBox) func(*metrics.StoreContents) {
 	return func(contents *metrics.StoreContents) {
 		tb.SetText(prototext.Format(contents))
@@ -27,20 +21,20 @@ func onValueChanged(tb *ui.TextBox) func(*metrics.StoreContents) {
 }
 
 func client() types.MonitorClient {
-	cc, err := servers.Dial(cliContext, cliConfig.MonitorAddress,
-		servers.WithTLS(!cliConfig.DisableTLS))
+	cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
+		servers.WithTLS(!CLIConfig.DisableTLS))
 	if err != nil {
-		cliLog.Fatal(err)
+		CLILog.Fatal(err)
 	}
 	return types.NewMonitorClient(cc)
 }
 
-var getCmd = &cobra.Command{
+var GetCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get information from the monitor's key-value store",
 	Run: func(cmd *cobra.Command, args []string) {
 		tb := &ui.TextBox{}
-		listener := clients.NewListener(cliContext, client())
+		listener := clients.NewListener(CLIContext, client())
 
 		listener.OnValueChanged(metrics.MetaBucket, onValueChanged(tb)).
 			OrExpired(func() metrics.RetryOptions {
@@ -64,15 +58,15 @@ var getMetricCmd = &cobra.Command{
 		for _, arg := range args {
 			k, err := types.ParseKey(arg)
 			if err != nil {
-				cliLog.With("key", arg).Error(err)
+				CLILog.With("key", arg).Error(err)
 				return
 			}
 			keys = append(keys, k)
 		}
 		for _, key := range keys {
-			metric, err := c.GetMetric(cliContext, key)
+			metric, err := c.GetMetric(CLIContext, key)
 			if err != nil {
-				cliLog.With("key", key.Canonical()).Error(err)
+				CLILog.With("key", key.Canonical()).Error(err)
 				continue
 			}
 			switch outputKind {
@@ -81,16 +75,14 @@ var getMetricCmd = &cobra.Command{
 			case "json":
 				data, err := protojson.Marshal(metric.GetValue())
 				if err != nil {
-					cliLog.With("key").Error(err)
+					CLILog.With("key").Error(err)
 					continue
 				}
 				fmt.Println(string(data))
 			case "jsonfmt":
 				fmt.Println(protojson.Format(metric.GetValue()))
 			}
-
 		}
-
 	},
 }
 
@@ -100,9 +92,9 @@ var getBucketsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		c := client()
-		buckets, err := c.GetBuckets(cliContext, &types.Empty{})
+		buckets, err := c.GetBuckets(CLIContext, &types.Empty{})
 		if err != nil {
-			cliLog.Error(err)
+			CLILog.Error(err)
 			return
 		}
 		for _, bucket := range buckets.GetBuckets() {
@@ -117,11 +109,11 @@ var getKeysCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		c := client()
-		keys, err := c.GetKeys(cliContext, &types.Bucket{
+		keys, err := c.GetKeys(CLIContext, &types.Bucket{
 			Name: args[0],
 		})
 		if err != nil {
-			cliLog.Error(err)
+			CLILog.Error(err)
 			return
 		}
 		for _, key := range keys.GetKeys() {
@@ -131,11 +123,9 @@ var getKeysCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(monitorCmd)
-	monitorCmd.AddCommand(getCmd)
-	getCmd.AddCommand(getBucketsCmd)
-	getCmd.AddCommand(getMetricCmd)
-	getCmd.AddCommand(getKeysCmd)
+	GetCmd.AddCommand(getBucketsCmd)
+	GetCmd.AddCommand(getMetricCmd)
+	GetCmd.AddCommand(getKeysCmd)
 
 	getMetricCmd.Flags().StringVarP(&outputKind, "output", "o", "text",
 		"Output format. One of [text, json, jsonfmt]")

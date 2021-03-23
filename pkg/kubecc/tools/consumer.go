@@ -1,6 +1,10 @@
-package main
+package tools
 
 import (
+	"fmt"
+	"os"
+	"strings"
+
 	"github.com/cobalt77/kubecc/internal/logkc"
 	"github.com/cobalt77/kubecc/pkg/apps/consumer"
 	"github.com/cobalt77/kubecc/pkg/config"
@@ -9,10 +13,19 @@ import (
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
-func main() {
+var ConsumerNames = []string{
+	"gcc",
+	"g++",
+	"clang",
+	"clang++",
+	"cc",
+}
+
+func run() {
 	conf := (&config.ConfigMapProvider{}).Load().Consumer
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
@@ -33,4 +46,20 @@ func main() {
 		lg.With(zap.Error(err)).Fatal("Error connecting to consumerd")
 	}
 	consumer.DispatchAndWait(ctx, cc)
+}
+
+var ConsumerCmd = &cobra.Command{
+	Use:   "consumer",
+	Short: "A compiler shim used as an entrypoint into kubecc",
+	Long: fmt.Sprintf(`This tool will send the executable name and arguments to the running consumerd,
+to be invoked either locally or remotely. This will automatically be run if the
+kubecc executable name is one of the following:
+%s`, strings.Join(ConsumerNames, "\n")),
+	PreRun: func(_ *cobra.Command, args []string) {
+		// when run from cobra
+		os.Args = append([]string{os.Args[0]}, args...)
+	},
+	Run: func(_ *cobra.Command, args []string) {
+		run()
+	},
 }

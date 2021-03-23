@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"github.com/cobalt77/kubecc/internal/logkc"
@@ -21,7 +21,7 @@ import (
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runAgent(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load().Agent
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
@@ -76,8 +76,8 @@ func run(cmd *cobra.Command, args []string) {
 	mgr.Run()
 }
 
-var Command = &cobra.Command{
+var AgentCmd = &cobra.Command{
 	Use:   "agent",
-	Short: "Run the agent service",
-	Run:   run,
+	Short: "Run the agent server",
+	Run:   runAgent,
 }

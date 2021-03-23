@@ -29,7 +29,7 @@ var numTasks int64
 
 var SleepCmd = &cobra.Command{
 	Use:   "sleep",
-	Short: "Run `kubecc help tool sleep` for more info.",
+	Short: "Run `kubecc help sleep` for more info.",
 	Long: `The sleep tool will sleep for the given duration bounded by the provided 
 min and max, then exit with a 0 status code (unless given invalid arguments).
 
@@ -108,7 +108,7 @@ var MakeSleepCmd = &cobra.Command{
 		}
 		return nil
 	},
-	Short: "Run `kubecc help tool makesleep` for more info.",
+	Short: "Run `kubecc help makesleep` for more info.",
 	Long: `The makesleep tool is a command that will simulate a make operation using the 
 builtin sleep toolchain. It will spawn consumers which will interact with the 
 running Kubecc cluster. This can be used to test if a Kubecc cluster is working. 

@@ -13,7 +13,7 @@ RUN make kubecc
 #FROM gcr.io/distroless/static:nonroot
 FROM busybox:latest
 WORKDIR /
-COPY --from=builder /workspace/build/bin/kubecc .
+COPY --from=builder /workspace/bin/kubecc .
 USER 65532:65532
 
 ENTRYPOINT ["/kubecc"]

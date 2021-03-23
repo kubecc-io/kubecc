@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"net"
@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runCache(cmd *cobra.Command, args []string) {
 	conf := (&config.ConfigMapProvider{}).Load().Cache
 
 	ctx := meta.NewContext(
@@ -71,8 +71,8 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-var Command = &cobra.Command{
+var CacheCmd = &cobra.Command{
 	Use:   "cache",
-	Short: "Run the cache service",
-	Run:   run,
+	Short: "Run the cache server",
+	Run:   runCache,
 }

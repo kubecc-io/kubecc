@@ -1,4 +1,4 @@
-package commands
+package components
 
 import (
 	"flag"
@@ -30,10 +30,9 @@ var (
 	scheme     = runtime.NewScheme()
 	lg         *zap.SugaredLogger
 	configFile string
-	tmplPrefix string
 )
 
-func run(cmd *cobra.Command, args []string) {
+func runController(cmd *cobra.Command, args []string) {
 	mctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
 		meta.WithProvider(identity.UUID),
@@ -87,21 +86,20 @@ func run(cmd *cobra.Command, args []string) {
 	}
 }
 
-var Command = &cobra.Command{
+var ControllerCmd = &cobra.Command{
 	Use:   "controller",
 	Short: "Run the Kubernetes operator (controller)",
-	Run:   run,
+	PreRun: func(cmd *cobra.Command, args []string) {
+		utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+		utilruntime.Must(v1alpha1.AddToScheme(scheme))
+		// +kubebuilder:scaffold:scheme
+	},
+	Run: runController,
 }
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
-	// +kubebuilder:scaffold:scheme
-
-	Command.Flags().StringVar(&configFile, "config", "",
+	AgentCmd.Flags().StringVar(&configFile, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
-	Command.Flags().StringVar(&tmplPrefix, "templates-path", "/templates",
-		"Path prefix for resource templates")
 }
