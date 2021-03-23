@@ -1,6 +1,24 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package toolchains
 
 import (
+	"fmt"
 	"io/fs"
 	"path/filepath"
 	"sync"
@@ -149,8 +167,7 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 
 	data := s.toolchains[tc.Executable]
 	timestamp, err := data.querier.ModTime(tc.Executable)
-	var pathError *fs.PathError
-	if errors.Is(err, pathError) {
+	if _, ok := err.(*fs.PathError); ok {
 		// Executable no longer exists; remove toolchain
 		delete(s.toolchains, tc.Executable)
 		return err, true
@@ -162,6 +179,7 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 			// Toolchain became invalid
 			return err, true
 		}
+		data.modTime = timestamp
 		// Updated successfully
 		return nil, true
 	}
@@ -194,4 +212,20 @@ func (s *Store) Intersection(other *Store) []*types.Toolchain {
 		}
 	}
 	return tcList
+}
+
+func (s *Store) Len() int {
+	s.tcMutex.RLock()
+	defer s.tcMutex.RUnlock()
+
+	return len(s.toolchains)
+}
+
+func (s *Store) TryMatch(other *types.Toolchain) (*types.Toolchain, error) {
+	for tc := range s.Items() {
+		if tc.EquivalentTo(other) {
+			return tc, nil
+		}
+	}
+	return nil, fmt.Errorf("No local toolchain matches remote")
 }

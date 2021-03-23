@@ -1,61 +1,82 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package cc
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os/exec"
 	"syscall"
 
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 )
 
-type preprocessRunner struct {
-	run.RunnerOptions
+type preprocessTask struct {
+	util.NullableError
+	run.TaskOptions
 
-	info *ArgParser
+	tc *types.Toolchain
+	ap *ArgParser
 }
 
-func NewPreprocessRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
-	r := &preprocessRunner{
-		info: info,
+func NewPreprocessTask(tc *types.Toolchain, ap *ArgParser, opts ...run.TaskOption) run.Task {
+	r := &preprocessTask{
+		tc: tc,
+		ap: ap,
 	}
 	r.Apply(opts...)
 	return r
 }
 
-func (r *preprocessRunner) Run(ctx context.Context, tc *types.Toolchain) error {
-	info := r.info
+func (t *preprocessTask) Run() {
+	info := t.ap
 	if info.OutputArgIndex != -1 {
-		r.Log.Debug("Replacing output path with '-'")
+		t.Log.Debug("Replacing output path with '-'")
 		old := info.Args[info.OutputArgIndex]
 		info.ReplaceOutputPath("-")
 		defer info.ReplaceOutputPath(old)
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...)
-	cmd.Env = r.Env
-	cmd.Dir = r.WorkDir
-	cmd.Stdout = r.OutputWriter
-	cmd.Stderr = io.MultiWriter(r.Stderr, stderrBuf)
+	cmd := exec.CommandContext(t.Context, t.tc.Executable, info.Args...)
+	cmd.Env = t.Env
+	cmd.Dir = t.WorkDir
+	cmd.Stdout = t.OutputWriter
+	cmd.Stderr = io.MultiWriter(t.Stderr, stderrBuf)
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Credential: &syscall.Credential{
-			Uid:         r.UID,
-			Gid:         r.GID,
+			Uid:         t.UID,
+			Gid:         t.GID,
 			NoSetGroups: true,
 		},
 	}
 	err := cmd.Start()
 	if err != nil {
-		return err
+		t.SetErr(err)
+		return
 	}
 	ch := make(chan struct{})
 	defer close(ch)
 	go func() {
 		select {
-		case <-r.Context.Done():
+		case <-t.Context.Done():
 			if !cmd.ProcessState.Exited() {
 				if err := cmd.Process.Kill(); err != nil {
 					info.lg.With(zap.Error(err)).
@@ -67,8 +88,10 @@ func (r *preprocessRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 	}()
 	err = cmd.Wait()
 	if err != nil {
-		r.Log.With(zap.Error(err)).Error("Compiler error")
-		return run.NewCompilerError(stderrBuf.String())
+		t.Log.With(zap.Error(err)).Error("Compiler error")
+		t.SetErr(run.NewCompilerError(stderrBuf.String()))
+		return
 	}
-	return nil
+	t.SetErr(nil)
+	return
 }

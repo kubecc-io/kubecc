@@ -1,3 +1,20 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package storage
 
 import (
@@ -9,9 +26,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/apps/cachesrv/metrics"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -21,6 +38,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"k8s.io/apimachinery/pkg/util/clock"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var S3StorageError = errors.New("S3 Storage Error")
@@ -72,15 +91,18 @@ func (sp *s3StorageProvider) createBucketIfNotExists() error {
 			return fmt.Errorf("%w: Could not create bucket: %s",
 				S3StorageError, err.Error())
 		}
-		err = sp.client.SetBucketLifecycle(sp.ctx, sp.bucket, &lifecycle.Configuration{
-			Rules: []lifecycle.Rule{
-				{
-					Expiration: lifecycle.Expiration{
-						Days: lifecycle.ExpirationDays(sp.cfg.ExpirationDays),
-					},
+		lc, err := sp.client.GetBucketLifecycle(sp.ctx, sp.bucket)
+		if err != nil {
+			return err
+		}
+		lc.Rules = append(lc.Rules,
+			lifecycle.Rule{
+				Expiration: lifecycle.Expiration{
+					Days: lifecycle.ExpirationDays(sp.cfg.ExpirationDays),
 				},
 			},
-		})
+		)
+		err = sp.client.SetBucketLifecycle(sp.ctx, sp.bucket, lc)
 		if err != nil {
 			return fmt.Errorf("%w: Could not configure bucket: %s",
 				S3StorageError, err.Error())
@@ -92,8 +114,8 @@ func (sp *s3StorageProvider) createBucketIfNotExists() error {
 	return nil
 }
 
-func (sp *s3StorageProvider) Configure() error {
-	client, err := minio.New(sp.cfg.Endpoint, &minio.Options{
+func (sp *s3StorageProvider) Configure() (err error) {
+	sp.client, err = minio.New(sp.cfg.Endpoint, &minio.Options{
 		Secure:       sp.cfg.TLS,
 		Creds:        credentials.NewStaticV4(sp.cfg.AccessKey, sp.cfg.SecretKey, ""),
 		Region:       sp.cfg.Region,
@@ -104,18 +126,34 @@ func (sp *s3StorageProvider) Configure() error {
 		sp.lg.With(
 			zap.Error(err),
 			zap.String("endpoint", sp.cfg.Endpoint),
-		).Info("Could not connect to S3 storage provider")
-		return err
+		).Info("Error configuring S3 storage provider")
+		return
 	}
-	sp.client = client
-	err = sp.createBucketIfNotExists()
-	if err != nil {
-		return err
-	}
-	sp.lg.With(
-		zap.String("endpoint", client.EndpointURL().String()),
-	).Info("S3 storage provider configured")
-	return nil
+	go func() {
+		backoff := wait.NewExponentialBackoffManager(
+			2*time.Second,  // Initial
+			16*time.Second, // Max
+			30*time.Second, // Reset (not used here)
+			2.0,            // Factor
+			0.1,            // Jitter
+			clock.RealClock{},
+		)
+		for {
+			err = sp.createBucketIfNotExists()
+			if err != nil {
+				sp.lg.With(
+					zap.Error(err),
+				).Error("Error querying S3 storage")
+				<-backoff.Backoff().C()
+				continue
+			}
+			sp.lg.With(
+				zap.String("endpoint", sp.client.EndpointURL().String()),
+			).Info("S3 storage provider configured")
+			return
+		}
+	}()
+	return
 }
 
 func (sp *s3StorageProvider) Put(
@@ -277,8 +315,8 @@ func (sp *s3StorageProvider) Query(
 	return results, nil
 }
 
-func (sp *s3StorageProvider) UsageInfo() *metrics.UsageInfo {
-	info := &metrics.UsageInfo{
+func (sp *s3StorageProvider) UsageInfo() *metrics.CacheUsage {
+	info := &metrics.CacheUsage{
 		ObjectCount: 0,
 		TotalSize:   0,
 	}

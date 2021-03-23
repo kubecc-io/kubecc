@@ -1,4 +1,19 @@
-// +build operator
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 package controllers
 
@@ -22,15 +37,12 @@ import (
 
 	"github.com/cobalt77/kubecc/api/v1alpha1"
 	"github.com/cobalt77/kubecc/internal/logkc"
+	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/templates"
 	"github.com/cobalt77/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
 )
-
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var cfg *rest.Config
 var k8sClient client.Client
@@ -39,6 +51,9 @@ var testEnv *envtest.Environment
 var useExistingCluster = false
 
 func TestAPIs(t *testing.T) {
+	if testutil.InGithubWorkflow() {
+		t.SkipNow()
+	}
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
@@ -55,8 +70,6 @@ var _ = BeforeSuite(func(done Done) {
 	lg := meta.Log(ctx)
 
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	templates.SetPathPrefix("../config/manager/templates")
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{

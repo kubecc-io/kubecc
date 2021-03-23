@@ -1,3 +1,20 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 // +kubebuilder:validation:Required
 package v1alpha1
 
@@ -16,6 +33,7 @@ type ComponentsSpec struct {
 	Agent     AgentSpec     `json:"agent"`
 	Scheduler SchedulerSpec `json:"scheduler,omitempty"` // +optional
 	Monitor   MonitorSpec   `json:"monitor,omitempty"`   // +optional
+	Cache     CacheSpec     `json:"cache,omitempty"`     // +optional
 }
 
 type IngressSpec struct {
@@ -52,8 +70,6 @@ type AgentSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/agent:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
@@ -64,8 +80,6 @@ type SchedulerSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/scheduler:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }
@@ -76,8 +90,16 @@ type MonitorSpec struct {
 	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
 	Image            string            `json:"image"`                      // +optional
 	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=debug
-	LogLevel string `json:"logLevel"` // +optional
+	// +kubebuilder:default:=Always
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+}
+
+type CacheSpec struct {
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
+	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
+	Image            string            `json:"image"`                      // +optional
+	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
 	// +kubebuilder:default:=Always
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
 }

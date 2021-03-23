@@ -1,0 +1,90 @@
+Function Options:
+  prefix: options
+  body: |-
+    type $1Options struct {
+      $0
+    }
+
+    type $1Option func(*$1Options)
+
+    func (o *$1Options) Apply(opts ...$1Option) {
+      for _, op := range opts {
+        op(o)
+      }
+    }
+
+    func With() $1Option {
+      return func(o *$1Options) {
+        // TODO
+      }
+    }
+With Option:
+  prefix: with
+  body: |-
+    func With() $1Option {
+      return func(o *$1Options) {
+        // TODO
+      }
+    }
+New Meta Context:
+  prefix: newctx
+  body: |-
+    ctx := meta.NewContext(
+      meta.WithProvider(identity.Component, meta.WithValue(types.$1)),
+      meta.WithProvider(identity.UUID),
+      meta.WithProvider(logkc.Logger),
+      meta.WithProvider(tracing.Tracer),
+      meta.WithProvider(host.SystemInfo),
+    )
+When:
+  prefix: when
+  body: |-
+    When("$1", func() {
+      $0
+    })
+Measure:
+  prefix: measure
+  body: |-
+    Measure("$1", func(b Benchmarker) {
+      $0
+      b.Time("TODO", func() {
+          "",
+      })
+    })
+It:
+  prefix: it
+  body: |-
+    It("$1", func() {
+      $0
+    })
+Specify:
+  prefix: specify
+  body: |-
+    Specify("$1", func() {
+      $0
+    })
+Expect ... To Equal:
+  prefix: ete
+  body: Expect($1).To(Equal($2))
+Expect ... To Receive:
+  prefix: etr
+  body: Expect($1).To(Receive())
+Expect Error Not To Have Occurred:
+  prefix: eent
+  body: Expect(err).NotTo(HaveOccurred())
+Consistently Should Not Receive:
+  prefix: csnr
+  body: Consistently($1).ShouldNot(Receive()
+Eventually Bool:
+  prefix: evb
+  body: |-
+    Eventually(func() bool {
+      $0
+    }).Should(BeTrue())
+Eventually Int:
+  prefix: evi
+  body: |-
+    Eventually(func() int {
+      $1
+    }).Should(BeEquivalentTo($2))
+        

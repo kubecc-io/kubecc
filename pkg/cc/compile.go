@@ -1,8 +1,24 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package cc
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,33 +27,37 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
 )
 
-type compileRunner struct {
-	run.RunnerOptions
+type compileTask struct {
+	util.NullableError
+	run.TaskOptions
 
-	info *ArgParser
+	tc *types.Toolchain
+	ap *ArgParser
 }
 
-func NewCompileRunner(info *ArgParser, opts ...run.RunOption) run.Runner {
-	r := &compileRunner{
-		info: info,
+func NewCompileTask(tc *types.Toolchain, ap *ArgParser, opts ...run.TaskOption) run.Task {
+	r := &compileTask{
+		tc: tc,
+		ap: ap,
 	}
 	r.Apply(opts...)
 	return r
 }
 
 // Run the compiler with the current args.
-func (r *compileRunner) Run(ctx context.Context, tc *types.Toolchain) error {
-	info := r.info
-	r.Log.With(
-		zap.String("compiler", tc.Executable),
+func (t *compileTask) Run() {
+	info := t.ap
+	t.Log.With(
+		zap.String("compiler", t.tc.Executable),
 		zap.Object("info", info),
 	).Debug("Received run request")
 
 	var tmpFileName string
-	if info.OutputArgIndex != -1 && !r.NoTempFile {
+	if info.OutputArgIndex != -1 && !t.NoTempFile {
 		// Important! the temp file's extension must match the original
 		ext := filepath.Ext(info.Args[info.OutputArgIndex])
 		if ext == "" && info.Args[info.OutputArgIndex] == "-" {
@@ -46,39 +66,43 @@ func (r *compileRunner) Run(ctx context.Context, tc *types.Toolchain) error {
 		tmp, err := os.CreateTemp(
 			"", fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
-			r.Log.With(zap.Error(err)).Fatal("Can't create temporary files")
+			t.Log.With(zap.Error(err)).Fatal("Can't create temporary files")
 		}
 		tmpFileName = tmp.Name()
-		r.Log.With(
+		t.Log.With(
 			zap.String("old", info.Args[info.OutputArgIndex]),
 			zap.String("new", tmp.Name()),
 		).Info("Replacing output path")
 		err = info.ReplaceOutputPath(tmp.Name())
 		if err != nil {
-			r.Log.With(zap.Error(err)).Error("Error replacing output path")
-			return err
+			t.Log.With(zap.Error(err)).Error("Error replacing output path")
+			t.SetErr(err)
+			return
 		}
 	}
 	stderrBuf := new(bytes.Buffer)
-	cmd := exec.CommandContext(ctx, tc.Executable, info.Args...)
-	cmd.Env = r.Env
-	cmd.Dir = r.WorkDir
-	cmd.Stdout = r.Stdout
-	cmd.Stderr = io.MultiWriter(r.Stderr, stderrBuf)
-	cmd.Stdin = r.Stdin
+	cmd := exec.CommandContext(t.Context, t.tc.Executable, info.Args...)
+	cmd.Env = t.Env
+	cmd.Dir = t.WorkDir
+	cmd.Stdout = t.Stdout
+	cmd.Stderr = io.MultiWriter(t.Stderr, stderrBuf)
+	cmd.Stdin = t.Stdin
 
-	r.Log.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
+	t.Log.With(zap.Array("args", types.NewStringSliceEncoder(cmd.Args))).Info("Running compiler")
 	if err := cmd.Start(); err != nil {
-		return err
+		t.SetErr(err)
+		return
 	}
 	err := cmd.Wait()
 	if err != nil {
-		r.Log.With(zap.Error(err)).Error("Compiler error")
-		return run.NewCompilerError(stderrBuf.String())
+		t.Log.With(zap.Error(err)).Error("Compiler error")
+		t.SetErr(run.NewCompilerError(stderrBuf.String()))
+		return
 	}
-	if r.OutputWriter != nil && !r.NoTempFile {
-		_, err = r.OutputWriter.Write([]byte(tmpFileName))
-		return err
+	if t.OutputWriter != nil && !t.NoTempFile {
+		_, err = t.OutputWriter.Write([]byte(tmpFileName))
+		t.SetErr(err)
+		return
 	}
-	return nil
+	t.SetErr(nil)
 }

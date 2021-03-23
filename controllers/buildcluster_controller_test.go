@@ -1,4 +1,19 @@
-// +build operator
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 package controllers
 
@@ -79,6 +94,11 @@ var _ = Describe("BuildCluster Controller", func() {
 							Image:           "gcr.io/kubecc/monitor:latest",
 							ImagePullPolicy: "Always",
 						},
+						Cache: v1alpha1.CacheSpec{
+							Resources:       resources,
+							Image:           "gcr.io/kubecc/cache:latest",
+							ImagePullPolicy: "Always",
+						},
 					},
 				},
 			}
@@ -108,6 +128,36 @@ var _ = Describe("BuildCluster Controller", func() {
 				agents := &appsv1.DaemonSet{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "kubecc-agent",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a monitor deployment", func() {
+			Eventually(func() bool {
+				agents := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc-monitor",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a cache server deployment", func() {
+			Eventually(func() bool {
+				agents := &appsv1.Deployment{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc-cache",
+					Namespace: Namespace,
+				}, agents)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should create a configmap", func() {
+			Eventually(func() bool {
+				agents := &v1.ConfigMap{}
+				err := k8sClient.Get(ctx, types.NamespacedName{
+					Name:      "kubecc",
 					Namespace: Namespace,
 				}, agents)
 				return err == nil

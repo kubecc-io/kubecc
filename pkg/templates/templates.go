@@ -1,8 +1,26 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package templates
 
 import (
 	"bytes"
-	"path"
+	"io/fs"
+	"path/filepath"
 	"text/template"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,15 +32,9 @@ type wrapper struct {
 	Spec interface{}
 }
 
-var pathPrefix = "/templates"
-
-func SetPathPrefix(prefix string) {
-	pathPrefix = prefix
-}
-
-func Load(name string, spec interface{}) ([]byte, error) {
-	tmpl := template.New(name).Funcs(Funcs())
-	tmpl, err := tmpl.ParseFiles(path.Join(pathPrefix, name))
+func Load(fsys fs.FS, name string, spec interface{}) ([]byte, error) {
+	tmpl := template.New(filepath.Base(name)).Funcs(Funcs())
+	tmpl, err := tmpl.ParseFS(fsys, name)
 	if err != nil {
 		return nil, err
 	}

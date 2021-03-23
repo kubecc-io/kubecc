@@ -1,3 +1,20 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package monitor
 
 /*
@@ -36,11 +53,10 @@ import (
 	"net/http"
 	"sync"
 
-	cdmetrics "github.com/cobalt77/kubecc/pkg/apps/consumerd/metrics"
-	scmetrics "github.com/cobalt77/kubecc/pkg/apps/scheduler/metrics"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/metrics/common"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -201,11 +217,13 @@ func serveMetricsEndpoint(ctx context.Context, address string) {
 
 func servePrometheusMetrics(
 	srvContext context.Context,
-	client types.ExternalMonitorClient,
+	client types.MonitorClient,
 ) {
 	go serveMetricsEndpoint(srvContext, ":2112")
 	lg := meta.Log(srvContext)
-	listener := metrics.NewListener(srvContext, client)
+	listener := clients.NewListener(srvContext, client,
+		servers.WithLogEvents(servers.LogNone),
+	)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
 		info, err := client.Whois(srvContext, &types.WhoisRequest{UUID: uuid})
 		if err != nil {
@@ -243,12 +261,12 @@ func watchAgentKeys(
 	labels := prometheus.Labels{
 		"agent": info.Address,
 	}
-	listener.OnValueChanged(info.UUID, func(value *common.TaskStatus) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.TaskStatus) {
 		agentTasksActive.With(labels).Set(float64(value.NumRunning))
 		agentTasksActive.With(labels).Set(float64(value.NumRunning))
 		agentTasksQueued.With(labels).Set(float64(value.NumQueued))
 	})
-	listener.OnValueChanged(info.UUID, func(value *common.QueueParams) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.UsageLimits) {
 		agentTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
 	})
 }
@@ -257,10 +275,10 @@ func watchSchedulerKeys(
 	listener metrics.Listener,
 	info *types.WhoisResponse,
 ) {
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentCount) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.AgentCount) {
 		agentCount.Set(float64(value.Count))
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentTasksTotal) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.AgentTasksTotal) {
 		infoMutex.RLock()
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
@@ -268,18 +286,10 @@ func watchSchedulerKeys(
 				Set(float64(value.Total))
 		}
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.AgentWeight) {
-		infoMutex.RLock()
-		defer infoMutex.RUnlock()
-		if info, ok := providerInfo[value.UUID]; ok {
-			agentWeight.WithLabelValues(info.Address).
-				Set(value.Value)
-		}
-	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.CdCount) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.ConsumerdCount) {
 		cdCount.Set(float64(value.Count))
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.CdTasksTotal) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.ConsumerdTasksTotal) {
 		infoMutex.RLock()
 		defer infoMutex.RUnlock()
 		if info, ok := providerInfo[value.UUID]; ok {
@@ -287,13 +297,13 @@ func watchSchedulerKeys(
 				Set(float64(value.Total))
 		}
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.SchedulingRequestsTotal) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.SchedulingRequestsTotal) {
 		schedulingRequestsTotal.Set(float64(value.Total))
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.TasksCompletedTotal) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.TasksCompletedTotal) {
 		tasksCompletedTotal.Set(float64(value.Total))
 	})
-	listener.OnValueChanged(info.UUID, func(value *scmetrics.TasksFailedTotal) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.TasksFailedTotal) {
 		tasksFailedTotal.Set(float64(value.Total))
 	})
 }
@@ -305,15 +315,15 @@ func watchConsumerdKeys(
 	labels := prometheus.Labels{
 		"consumerd": info.Address,
 	}
-	listener.OnValueChanged(info.UUID, func(value *common.TaskStatus) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.TaskStatus) {
 		cdLocalTasksActive.With(labels).Set(float64(value.NumRunning))
 		cdRemoteTasksActive.With(labels).Set(float64(value.NumDelegated))
 		cdLocalTasksQueued.With(labels).Set(float64(value.NumQueued))
 	})
-	listener.OnValueChanged(info.UUID, func(value *common.QueueParams) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.UsageLimits) {
 		cdTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
 	})
-	listener.OnValueChanged(info.UUID, func(value *cdmetrics.LocalTasksCompleted) {
+	listener.OnValueChanged(info.UUID, func(value *metrics.LocalTasksCompleted) {
 		cdLocalTasksTotal.With(labels).Set(float64(value.Total))
 	})
 }

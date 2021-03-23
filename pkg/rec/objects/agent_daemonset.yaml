@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubecc-agent
+spec:
+  selector:
+    matchLabels:
+      app: kubecc-agent
+  template:
+    metadata:
+      labels:
+        app: kubecc-agent
+    spec:
+{{ if .Spec.NodeAffinity }}
+      affinity:
+        nodeAffinity:
+{{ .Spec.NodeAffinity | toYaml | indent 10 }}
+{{ end }}
+      initContainers:
+        - name: copy-binaries
+          image: gcr.io/kubecc/kubecc
+          command:
+            - sh
+            - -c
+            - "cp /kubecc /tmp/kubecc-bin"
+          volumeMounts:
+            - name: kubecc-binary
+              mountPath: /tmp/kubecc-bin
+      containers:
+        - name: kubecc-agent
+          command:
+            - /usr/bin/kubecc
+            - run
+            - agent
+          image: {{ .Spec.Image }}
+          imagePullPolicy: {{ .Spec.ImagePullPolicy }}
+{{ if .Spec.Resources }}
+          resources:
+{{ .Spec.Resources | toYaml | indent 12 }}
+{{ end }}
+          env:
+            - name: KUBECC_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBECC_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBECC_NODE
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - name: grpc
+              containerPort: 9090
+              protocol: TCP
+          volumeMounts:
+            - name: kubecc-binary
+              mountPath: /usr/bin/kubecc
+              subPath: kubecc
+            - name: config
+              mountPath: /etc/kubecc
+      volumes:
+        - name: kubecc-binary
+          emptyDir: {}
+        - name: config
+          configMap:
+            name: kubecc
+            items:
+              - key: config.yaml
+                path: config.yaml

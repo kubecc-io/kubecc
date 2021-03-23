@@ -17,13 +17,13 @@ GO ?= go
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 CACHE ?= --cache-from type=local,src=/tmp/buildx-cache --cache-to type=local,dest=/tmp/buildx-cache
 .PHONY: all setup
-all: generate manifests fmt vet bin
+all: generate manifests fmt vet kubecc
 setup:
 	$(GO) get github.com/operator-framework/operator-sdk/cmd/operator-sdk
 	$(GO) get sigs.k8s.io/controller-tools/cmd/controller-gen
 
 # Tests
-.PHONY: test-operator test-integration test-e2e test-unit
+.PHONY: test-operator test-integration test-e2e test-unit test gtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-operator: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -31,15 +31,17 @@ test-operator: generate fmt vet manifests
 	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO) test -v ./... -coverprofile cover.out -tags operator
 
 test-integration:
-	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -race -tags integration -v -count=1
+	@KUBECC_LOG_COLOR=1 $(GO) test ./test/integration -tags integration -v -count=1
 
 test-e2e:
 	$(GO) build -tags integration -coverprofile cover.out -o bin/test-e2e ./test/e2e
 	bin/test-e2e
 
-test-unit:
-	$(GO) test ./... -race -coverprofile cover.out
+test:
+	$(GO) test -race -coverprofile cover.out ./...
 
+gtest:
+	ginkgo -coverprofile cover.out -race -skipPackage cmd ./...
 
 # Installation and deployment
 .PHONY: install uninstall deploy undeploy manifests
@@ -59,11 +61,14 @@ manifests:
 	GOROOT=$(shell $(GO) env GOROOT) controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 
+module_opt = module=github.com/cobalt77/kubecc
+
 # Protobuf code generators
 .PHONY: proto
 proto:
-	protoc proto/types.proto --go_out=. --go-grpc_out=.
-	protoc proto/testpb.proto --go_out=. --go-grpc_out=.
+	protoc pkg/types/types.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
+	protoc internal/testutil/testutil.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
+	protoc pkg/metrics/metrics.proto -I. --go_out=. --go_opt=$(module_opt)
 
 # Code generating, formatting, vetting
 .PHONY: fmt vet generate
@@ -81,21 +86,9 @@ generate:
 
 
 # Build binaries
-.PHONY: bin kubecc kcctl consumer make
-bin: kubecc kcctl consumer make
-
-kubecc:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/kubecc ./cmd/kubecc
-
-kcctl:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/kcctl ./cmd/kcctl
-
-consumer:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/consumer ./cmd/consumer
-
-make:
-	CGO_ENABLED=0 $(GO) build -o ./build/bin/make ./cmd/make
-
+.PHONY: kubecc 
+kubecc: vet
+	CGO_ENABLED=0 $(GO) build -ldflags '-w -s' -o ./bin/kubecc ./cmd/kubecc
 
 # Build container images
 .PHONY: docker-manager docker-kubecc docker-environment docker

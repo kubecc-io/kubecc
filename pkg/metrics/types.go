@@ -1,62 +1,54 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package metrics
 
 import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/tinylib/msgp/msgp"
+	"google.golang.org/protobuf/proto"
 )
 
-type KeyedMetric interface {
-	msgp.Decodable
-	msgp.Encodable
-	Key() string
-}
+const MetaBucket = "meta"
+
+type RetryOptions uint32
+
+const (
+	NoRetry RetryOptions = iota
+	Retry
+)
 
 type ContextMetric interface {
 	Context() context.Context
 }
 
 type Provider interface {
-	Post(metric KeyedMetric)
+	Post(metric proto.Message)
+	PostContext(metric proto.Message, ctx context.Context)
 }
 
 type Listener interface {
 	OnValueChanged(bucket string, handler interface{}) ChangeListener
 	OnProviderAdded(func(context.Context, string))
+	Stop()
 }
 
 type ChangeListener interface {
 	servers.StreamHandler
 	OrExpired(handler func() RetryOptions)
-}
-
-type contextMetric struct {
-	KeyedMetric
-	ctx context.Context
-}
-
-func (cm *contextMetric) Context() context.Context {
-	return cm.ctx
-}
-
-func WithContext(m KeyedMetric, ctx context.Context) KeyedMetric {
-	return &contextMetric{
-		KeyedMetric: m,
-		ctx:         ctx,
-	}
-}
-
-type deleter struct {
-	msgp.Decodable
-	msgp.Encodable
-	key string
-}
-
-func (d deleter) Key() string {
-	return d.key
-}
-
-func (deleter) Context() context.Context {
-	return nil
 }

@@ -1,13 +1,32 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package types
 
 import (
-	"sort"
+	"errors"
+	"strings"
 
+	"github.com/cobalt77/kubecc/pkg/util"
 	md5simd "github.com/minio/md5-simd"
 )
 
-// EquivalentTo Compares all fields except executable
-// The binaries can live in different locations.
+// EquivalentTo Compares all fields except executable, because
+// the binaries can live in different locations on different systems.
 func (tc *Toolchain) EquivalentTo(other *Toolchain) bool {
 	return tc.GetKind() == other.GetKind() &&
 		tc.GetLang() == other.GetLang() &&
@@ -25,23 +44,36 @@ func (k *Key) ShortID() string {
 }
 
 func (tc *Toolchain) Hash(hasher md5simd.Hasher) {
-	hasher.Write([]byte(tc.TargetArch))
-	hasher.Write([]byte(ToolchainKind_name[int32(tc.Kind)]))
-	hasher.Write([]byte(ToolchainLang_name[int32(tc.Kind)]))
-	hasher.Write([]byte(tc.Version))
+	util.Must(hasher.Write([]byte(tc.TargetArch)))
+	util.Must(hasher.Write([]byte(ToolchainKind_name[int32(tc.Kind)])))
+	util.Must(hasher.Write([]byte(ToolchainLang_name[int32(tc.Kind)])))
+	util.Must(hasher.Write([]byte(tc.Version)))
 	if tc.PicDefault {
-		hasher.Write([]byte{1})
+		util.Must(hasher.Write([]byte{1}))
 	} else {
-		hasher.Write([]byte{0})
+		util.Must(hasher.Write([]byte{0}))
 	}
 }
 
 func (req *CompileRequest) Hash(hasher md5simd.Hasher) {
 	req.Toolchain.Hash(hasher)
-	hasher.Write(req.PreprocessedSource)
-	sortedArgs := append([]string{}, req.Args...)
-	sort.Sort(sort.StringSlice(sortedArgs))
-	for _, arg := range sortedArgs {
-		hasher.Write([]byte(arg))
+	util.Must(hasher.Write(req.PreprocessedSource))
+	for _, arg := range req.Args {
+		util.Must(hasher.Write([]byte(arg)))
 	}
+}
+
+var (
+	ErrInvalidFormat = errors.New("Invalid key format, should be of the form bucket.name")
+)
+
+func ParseKey(canonical string) (*Key, error) {
+	split := strings.SplitN(canonical, ".", 2)
+	if len(split) != 2 {
+		return nil, ErrInvalidFormat
+	}
+	return &Key{
+		Bucket: split[0],
+		Name:   split[1],
+	}, nil
 }

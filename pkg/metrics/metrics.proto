@@ -1,0 +1,112 @@
+syntax = "proto3";
+option go_package = "github.com/cobalt77/kubecc/pkg/metrics";
+import "pkg/types/types.proto";
+import "google/protobuf/any.proto";
+
+package metrics;
+
+message TaskStatus {
+  int32 NumRunning = 1;
+  int32 NumQueued = 2;
+  int32 NumDelegated = 3;
+}
+
+message Toolchains {
+  repeated types.Toolchain Items = 1;
+}
+
+message UsageLimits {
+  int32 ConcurrentProcessLimit = 1;
+  double QueuePressureMultiplier = 2;
+  double QueueRejectMultiplier = 3;
+}
+
+message AgentInfo {
+  string Node = 4;
+  string Pod = 5;
+  string Namespace = 6;
+}
+
+message Deleter {
+  string Key = 1;
+}
+
+// Scheduler
+
+message TasksCompletedTotal {
+  int64 Total = 1;
+}
+
+message TasksFailedTotal {
+  int64 Total = 1;
+}
+
+message SchedulingRequestsTotal {
+  int64 Total = 1;
+}
+
+message AgentCount {
+  int64 Count = 1;
+}
+
+message ConsumerdCount {
+  int64 Count = 1;
+}
+
+message Identifier {
+  string UUID = 1;
+}
+
+message AgentTasksTotal {
+  string UUID = 1;
+  int64 Total = 2;
+}
+message ConsumerdTasksTotal {
+  string UUID = 1;
+  int64 Total = 2;
+}
+
+// Monitor
+
+message MetricsPostedTotal {
+  int64 Total = 1;
+}
+
+message ListenerCount {
+  int32 Count = 1;
+}
+
+message ProviderInfo {
+  string UUID = 1;
+  types.Component Component = 2;
+  string Address = 3;
+}
+
+message Providers {
+  map<string, ProviderInfo> Items = 1;
+}
+
+message BucketSpec {
+  string Name = 1;
+  map<string, google.protobuf.Any> Data = 2;
+}
+
+// Consumerd
+
+message LocalTasksCompleted {
+  int64 Total = 1;
+}
+
+// Cache Server
+
+message CacheUsage {
+  int64 ObjectCount = 1;
+  int64 TotalSize = 2;
+  double UsagePercent = 3;
+}
+
+message CacheHits {
+  int64 CacheHitsTotal = 1;
+  int64 CacheMissesTotal = 2;
+  double CacheHitPercent = 3;
+}

@@ -1,6 +1,24 @@
+/*
+Copyright 2021 The Kubecc Authors.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 package templates_test
 
 import (
+	"embed"
 	"os"
 	"strings"
 	"testing"
@@ -17,6 +35,9 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
+
+//go:embed test
+var testFS embed.FS
 
 var one = int32(1)
 var sampleDeployment = &appsv1.Deployment{
@@ -78,15 +99,11 @@ func TestTemplates(t *testing.T) {
 		[]Reporter{printer.NewlineReporter{}})
 }
 
-var _ = BeforeSuite(func() {
-	templates.SetPathPrefix("./test")
-})
-
 var _ = Describe("Template Parser", func() {
 	Context("when parsing a template", func() {
 		Context("and the file does not exist", func() {
 			It("should error", func() {
-				_, err := templates.Load("does_not_exist.yaml", struct{}{})
+				_, err := templates.Load(testFS, "does_not_exist.yaml", struct{}{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -94,10 +111,10 @@ var _ = Describe("Template Parser", func() {
 			It("should load the exact file contents", func() {
 				data, err := os.ReadFile("./test/deployment_nospec.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load("deployment_nospec.yaml", struct{}{})).To(Equal(data))
+				Expect(templates.Load(testFS, "test/deployment_nospec.yaml", struct{}{})).To(Equal(data))
 			})
 			It("should unmarshal fields into Kubernetes objects", func() {
-				data, err := templates.Load("deployment_nospec.yaml", struct{}{})
+				data, err := templates.Load(testFS, "test/deployment_nospec.yaml", struct{}{})
 				Expect(err).NotTo(HaveOccurred())
 				d, err := templates.Unmarshal(data, clientgoscheme.Scheme)
 				Expect(err).NotTo(HaveOccurred())
@@ -119,7 +136,7 @@ var _ = Describe("Template Parser", func() {
 				}
 				data, err := os.ReadFile("./test/simple_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load("simple.yaml", spec)).
+				Expect(templates.Load(testFS, "test/simple.yaml", spec)).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 			})
 			It("should substitute multiline strings", func() {
@@ -145,10 +162,10 @@ line 3`,
 				}
 				data, err := os.ReadFile("./test/multiline_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load("multiline_manual.yaml", spec)).
+				Expect(templates.Load(testFS, "test/multiline_manual.yaml", spec)).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 				By("using the indent function")
-				Expect(templates.Load("multiline_indent.yaml", spec)).
+				Expect(templates.Load(testFS, "test/multiline_indent.yaml", spec)).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 			})
 			It("should convert spec fields to YAML", func() {
@@ -178,14 +195,14 @@ line 3`, "test"},
 				var expected, actual structField
 				Expect(yaml.Unmarshal(data, &expected)).To(Succeed())
 				Expect(expected).To(Equal(spec))
-				tmplData, err := templates.Load("toyaml.yaml", spec)
+				tmplData, err := templates.Load(testFS, "test/toyaml.yaml", spec)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(yaml.Unmarshal(tmplData, &actual)).To(Succeed())
 				Expect(actual).To(Equal(spec))
 			})
 		})
 		It("should unmarshal fields into Kubernetes objects", func() {
-			data, err := templates.Load("deployment_spec.yaml", struct {
+			data, err := templates.Load(testFS, "test/deployment_spec.yaml", struct {
 				Name       string
 				Labels     map[string]string
 				PullPolicy v1.PullPolicy
