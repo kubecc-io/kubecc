@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"runtime"
 	"strconv"
@@ -37,7 +38,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"golang.org/x/exp/rand"
 	"google.golang.org/grpc"
 )
 
@@ -95,7 +95,7 @@ func worker(
 			Compiler: &types.RunRequest_Path{
 				Path: executable,
 			},
-			Args:    append([]string{"tool", "sleep"}, strings.Split(sleepArgs, " ")...),
+			Args:    append([]string{"sleep"}, strings.Split(sleepArgs, " ")...),
 			Env:     []string{},
 			UID:     uint32(os.Getuid()),
 			GID:     uint32(os.Getgid()),

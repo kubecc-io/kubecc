@@ -48,11 +48,12 @@ func applyGlobals(cfg *KubeccSpec) {
 		}
 		for j := 0; j < component.NumField(); j++ {
 			if f := component.Field(j); f.Type() == reflect.TypeOf(cfg.Global) {
-				f.Interface().(GlobalSpec).LoadIfUnset(cfg.Global)
+				override := f.Interface().(GlobalSpec)
+				override.LoadIfUnset(cfg.Global)
+				f.Set(reflect.ValueOf(override))
 			}
 		}
 	}
-	cfg.Agent.GlobalSpec.LoadIfUnset(cfg.Global)
 }
 
 func loadConfigOrDie(path string) *KubeccSpec {

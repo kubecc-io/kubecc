@@ -171,7 +171,9 @@ func New(component types.Component, ops ...logOption) *zap.SugaredLogger {
 	if options.name != "" {
 		s = s.Named(options.name)
 	}
-	s.Infof(color.Add("Starting %s"), component.Name())
+	s.With(
+		"logLevel", options.logLevel,
+	).Infof(color.Add("Starting %s"), component.Name())
 	return s
 }
 
