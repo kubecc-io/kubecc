@@ -196,6 +196,11 @@ message CompileRequest {
   Toolchain Toolchain = 2;
   repeated string Args = 3;
   bytes PreprocessedSource = 4;
+  CompileRequestManaged ManagedFields = 5;
+}
+
+message CompileRequestManaged {
+  string ComputedHash = 1;
 }
 
 // agent -> scheduler -> consumerd
