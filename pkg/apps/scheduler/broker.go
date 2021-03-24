@@ -22,6 +22,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -51,8 +52,13 @@ type Broker struct {
 	router          *Router
 	cacheClient     types.CacheClient
 	hashSrv         *util.HashServer
-	pendingRequests sync.Map // map[uuid string]*Consumerd
+	pendingRequests sync.Map // map[uuid string]pendingRequest
 	tcWatcher       ToolchainWatcher
+}
+
+type pendingRequest struct {
+	request   *types.CompileRequest
+	requester *Consumerd
 }
 
 type BrokerOptions struct {
@@ -104,7 +110,7 @@ func NewBroker(
 	if options.cacheClient != nil {
 		routerOptions = append(routerOptions, WithHooks(b))
 	} else {
-		b.lg.Warn("Cache server not configured")
+		b.lg.Debug("Cache server not configured")
 	}
 	b.router = NewRouter(ctx, routerOptions...)
 
@@ -214,7 +220,10 @@ func (b *Broker) handleConsumerdStream(
 			return
 		}
 		b.requestCount.Inc()
-		b.pendingRequests.Store(req.RequestID, cd)
+		b.pendingRequests.Store(req.RequestID, pendingRequest{
+			request:   req,
+			requester: cd,
+		})
 		if err := b.router.Route(srv.Context(), req); err != nil {
 			b.lg.With(
 				zap.Error(err),
@@ -243,13 +252,18 @@ func (b *Broker) handleResponseQueue() {
 			b.lg.With(
 				zap.String("request", resp.RequestID),
 			).Debug("Sending response to consumerd")
-			consumerd := value.(*Consumerd)
+			pr := value.(pendingRequest)
+			consumerd := pr.requester
+			request := pr.request
 			consumerd.CompletedTasks.Inc()
 			switch resp.CompileResult {
 			case types.CompileResponse_Fail, types.CompileResponse_InternalError:
 				b.failedTasks.Inc()
 			case types.CompileResponse_Success:
 				b.completedTasks.Inc()
+				if managed := request.GetManagedFields(); managed != nil {
+					go b.cacheTransaction(managed.GetComputedHash(), resp)
+				}
 			}
 			err := consumerd.Stream.Send(resp)
 			if err != nil {
@@ -447,6 +461,10 @@ func (b *Broker) PreReceive(
 		action = RequestIntercepted
 		return
 	case codes.NotFound:
+		b.lg.Debug("Cache entry not found")
+		req.ManagedFields = &types.CompileRequestManaged{
+			ComputedHash: reqHash,
+		}
 	default:
 		b.lg.With(
 			zap.Error(err),
@@ -454,4 +472,33 @@ func (b *Broker) PreReceive(
 	}
 	action = ProcessRequestNormally
 	return
+}
+
+func (b *Broker) cacheTransaction(
+	requestHash string,
+	resp *types.CompileResponse,
+) {
+	if requestHash == "" {
+		b.lg.Warn("Tried to cache transaction with empty request hash")
+		return
+	}
+	b.lg.With(
+		"hash", types.FormatShortID(requestHash, 6, types.ElideCenter),
+	).Info("Sending successful result to cache server")
+	_, err := b.cacheClient.Push(b.srvContext, &types.PushRequest{
+		Key: &types.CacheKey{
+			Hash: requestHash,
+		},
+		Object: &types.CacheObject{
+			Data: resp.GetCompiledSource(),
+			Metadata: &types.CacheObjectMeta{
+				ExpirationDate: time.Now().Add(1 * time.Hour).UnixNano(),
+			},
+		},
+	})
+	if err != nil && status.Code(err) != codes.AlreadyExists {
+		b.lg.With(
+			zap.Error(err),
+		).Error("Error sending data to the cache server")
+	}
 }
