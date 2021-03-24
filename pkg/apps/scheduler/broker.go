@@ -103,6 +103,8 @@ func NewBroker(
 	routerOptions := []RouterOption{}
 	if options.cacheClient != nil {
 		routerOptions = append(routerOptions, WithHooks(b))
+	} else {
+		b.lg.Warn("Cache server not configured")
 	}
 	b.router = NewRouter(ctx, routerOptions...)
 

@@ -63,10 +63,18 @@ func runScheduler(cmd *cobra.Command, args []string) {
 	}
 	lg.With("address", monitorCC.Target()).Info("Dialing monitor")
 
+	cacheCC, err := servers.Dial(ctx, conf.CacheAddress)
+	if err != nil {
+		lg.With(zap.Error(err)).Fatal("Error dialing cache server")
+	}
+	lg.With("address", cacheCC.Target()).Info("Dialing cache server")
+
 	monitorClient := types.NewMonitorClient(monitorCC)
+	cacheClient := types.NewCacheClient(cacheCC)
 
 	sc := scheduler.NewSchedulerServer(ctx,
 		scheduler.WithMonitorClient(monitorClient),
+		scheduler.WithCacheClient(cacheClient),
 	)
 	types.RegisterSchedulerServer(srv, sc)
 	go sc.StartMetricsProvider()

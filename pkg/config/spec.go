@@ -19,8 +19,8 @@ package config
 
 import (
 	"fmt"
-	"reflect"
 
+	"github.com/imdario/mergo"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -41,13 +41,9 @@ type GlobalSpec struct {
 // LoadIfUnset will load fields from the global GlobalSpec into
 // a component's optional GlobalSpec if a field has not been
 // specifically overridden by the component.
-func (override GlobalSpec) LoadIfUnset(global GlobalSpec) {
-	overrideValue := reflect.ValueOf(override)
-	globalValue := reflect.ValueOf(global)
-	for i := 0; i < overrideValue.NumField(); i++ {
-		if field := overrideValue.Field(i); !field.IsValid() {
-			globalValue.Field(i).Set(field)
-		}
+func (override *GlobalSpec) LoadIfUnset(global GlobalSpec) {
+	if err := mergo.Merge(override, global); err != nil {
+		panic(err)
 	}
 }
 
