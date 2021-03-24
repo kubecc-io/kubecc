@@ -24,12 +24,15 @@ import (
 	"io"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/cobalt77/kubecc/pkg/util"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -48,14 +51,15 @@ type MonitorServer struct {
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
+	uuid       string
 
 	buckets       map[string]KeyValueStore
 	listeners     map[string]map[string]Receiver
 	providerMutex *sync.RWMutex
 	listenerMutex *sync.RWMutex
-
-	storeCreator StoreCreator
-	providers    *metrics.Providers
+	metricsTotal  *atomic.Int64
+	storeCreator  StoreCreator
+	providers     *metrics.Providers
 }
 
 func NewMonitorServer(
@@ -63,25 +67,78 @@ func NewMonitorServer(
 	conf config.MonitorSpec,
 	storeCreator StoreCreator,
 ) *MonitorServer {
+	uuid := meta.UUID(ctx)
 	srv := &MonitorServer{
-		srvContext:    ctx,
-		lg:            meta.Log(ctx),
-		buckets:       make(map[string]KeyValueStore),
+		srvContext: ctx,
+		lg:         meta.Log(ctx),
+		uuid:       uuid,
+		buckets: map[string]KeyValueStore{
+			uuid: storeCreator.NewStore(ctx),
+		},
 		listeners:     make(map[string]map[string]Receiver),
 		providerMutex: &sync.RWMutex{},
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
+		metricsTotal:  atomic.NewInt64(0),
 		providers: &metrics.Providers{
-			Items: make(map[string]*metrics.ProviderInfo),
+			Items: map[string]*metrics.ProviderInfo{
+				uuid: {
+					UUID:      uuid,
+					Component: types.Monitor,
+					Address:   "0.0.0.0",
+				},
+			},
 		},
 	}
+	providerCount.Inc()
 	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 
 	if conf.ServePrometheusMetrics {
 		go srv.runPrometheusListener()
 	}
+
+	srv.startMetricsProvider()
+
 	return srv
+}
+
+var (
+	postedTotal       = &metrics.MetricsPostedTotal{}
+	postedTotalKey    *types.Key
+	postedTotalMetric *types.Metric
+)
+
+func (m *MonitorServer) postTotals() {
+	any, err := anypb.New(postedTotal)
+	if err != nil {
+		panic(err)
+	}
+	if postedTotalKey == nil || postedTotalMetric == nil {
+		postedTotalKey = &types.Key{
+			Bucket: m.uuid,
+			Name:   any.TypeUrl,
+		}
+		postedTotalMetric = &types.Metric{
+			Key: postedTotalKey,
+		}
+	}
+	postedTotal.Total = m.metricsTotal.Load()
+	postedTotalMetric.Value = any
+	err = m.post(postedTotalMetric)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (m *MonitorServer) startMetricsProvider() {
+	slowTimer := util.NewJitteredTimer(10*time.Second, 0.5)
+	go func() {
+		for {
+			<-slowTimer
+			m.postTotals()
+		}
+	}()
 }
 
 func (m *MonitorServer) runPrometheusListener() {
@@ -114,6 +171,11 @@ func (m *MonitorServer) runPrometheusListener() {
 	client := types.NewMonitorClient(cc)
 
 	servePrometheusMetrics(m.srvContext, client)
+}
+
+func (m *MonitorServer) incMetricsPostedTotal() {
+	m.metricsTotal.Inc()
+	metricsPostedTotal.Inc()
 }
 
 // bucketMutex must not be held by the same thread when calling this function.
@@ -175,9 +237,6 @@ func (m *MonitorServer) Stream(
 	bucketCtx, bucketCancel := context.WithCancel(context.Background())
 	store := m.storeCreator.NewStore(bucketCtx)
 	m.buckets[uuid] = store
-	if m.providers.Items == nil {
-		m.providers.Items = make(map[string]*metrics.ProviderInfo)
-	}
 	m.providers.Items[uuid] = &metrics.ProviderInfo{
 		UUID:      uuid,
 		Component: component,
@@ -254,7 +313,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			m.lg.With(
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")
-			metricsPostedTotal.Inc()
+			m.incMetricsPostedTotal()
 			defer func() {
 				m.notify(metric)
 			}()

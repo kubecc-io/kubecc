@@ -77,6 +77,7 @@ func runCache(cmd *cobra.Command, args []string) {
 		cachesrv.WithStorageProvider(
 			storage.NewChainStorageProvider(ctx, providers...),
 		),
+		cachesrv.WithMonitorClient(types.NewMonitorClient(monitorCC)),
 	)
 	types.RegisterCacheServer(srv, cacheSrv)
 

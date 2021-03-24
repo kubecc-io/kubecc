@@ -80,5 +80,5 @@ func runScheduler(cmd *cobra.Command, args []string) {
 var SchedulerCmd = &cobra.Command{
 	Use:   "scheduler",
 	Short: "Run the scheduler server",
-	Run:   runAgent,
+	Run:   runScheduler,
 }
