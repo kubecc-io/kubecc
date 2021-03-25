@@ -27,7 +27,7 @@ type ReadDirStatFS interface {
 	fs.ReadDirFS
 }
 
-// OSFS represents the host operating system's FS
+// OSFS represents the host operating system's FS.
 var OSFS = osfs{}
 
 type osfs struct {

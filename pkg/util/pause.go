@@ -19,6 +19,8 @@ package util
 
 import "sync"
 
+// PauseController is an embeddable helper struct that allows an object to
+// provide a means to "pause" and "resume" itself.
 type PauseController struct {
 	paused bool
 	pause  *sync.Cond
@@ -36,12 +38,15 @@ func (o *PauseControllerOptions) Apply(opts ...PauseControllerOption) {
 	}
 }
 
+// DefaultPaused starts the controller paused. This should be used place of
+// simply calling Pause right away to prevent race conditions.
 func DefaultPaused(paused bool) PauseControllerOption {
 	return func(o *PauseControllerOptions) {
 		o.defaultPaused = paused
 	}
 }
 
+// NewPauseController creates and initializes a new pause controller.
 func NewPauseController(opts ...PauseControllerOption) *PauseController {
 	options := PauseControllerOptions{}
 	options.Apply(opts...)
@@ -52,19 +57,28 @@ func NewPauseController(opts ...PauseControllerOption) *PauseController {
 	}
 }
 
+// Pause triggers an implementation-defined state where the object should
+// cease its normal operations until unpaused.
 func (p *PauseController) Pause() {
 	p.pause.L.Lock()
 	p.paused = true
 	p.pause.L.Unlock()
 }
 
+// Resume removes the paused state and unblocks any blocked calls to
+// CheckPaused.
 func (p *PauseController) Resume() {
 	p.pause.L.Lock()
 	p.paused = false
 	p.pause.L.Unlock()
-	p.pause.Signal()
+	p.pause.Broadcast()
 }
 
+// CheckPaused blocks while the paused state is active. The implementation
+// should call CheckPaused before and/or after a "pausable" section of code
+// to enable the pause functionality. When paused, all calls to CheckPaused
+// will block until Resume is called, after which CheckPaused will not block
+// until Pause is called again.
 func (p *PauseController) CheckPaused() {
 	p.pause.L.Lock()
 	for p.paused {

@@ -159,6 +159,7 @@ func (a *ArgParser) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 
 // Parse will parse the arguments in argsInfo.Args and store indexes of
 // several flags and values.
+// Most of this logic is borrowed from distcc, with some adjustments.
 func (ap *ArgParser) Parse() {
 	ap.InputArgIndex = -1
 	ap.OutputArgIndex = -1
@@ -477,6 +478,8 @@ func (ap *ArgParser) RemoveLocalArgs() {
 	ap.Parse()
 }
 
+// PrependLanguageFlag adds the necessary -x <lang> argument. Used when
+// replacing the input argument with '-'
 func (ap *ArgParser) PrependLanguageFlag(input string) error {
 	lang, err := SourceFileLanguage(input)
 	if err != nil {

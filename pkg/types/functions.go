@@ -35,6 +35,7 @@ func (tc *Toolchain) EquivalentTo(other *Toolchain) bool {
 		tc.GetVersion() == other.GetVersion()
 }
 
+// Canonical returns a string identifying the key with the associated bucket.
 func (k *Key) Canonical() string {
 	return k.Bucket + "." + k.Name
 }

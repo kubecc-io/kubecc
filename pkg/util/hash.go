@@ -23,20 +23,25 @@ import (
 	md5simd "github.com/minio/md5-simd"
 )
 
+// Hashable represents an object which can be hashed using a md5simd.Hasher.
 type Hashable interface {
 	Hash(md5simd.Hasher)
 }
 
+// HashServer uses the md5-simd library to allow highly concurrent hashing.
 type HashServer struct {
 	srv md5simd.Server
 }
 
+// NewHashServer creates a new hash server.
 func NewHashServer() *HashServer {
 	return &HashServer{
 		srv: md5simd.NewServer(),
 	}
 }
 
+// Hash hashes the given object using the hash server. This can and should
+// be called simultaneously from multiple goroutines for maximum performance.
 func (hs *HashServer) Hash(obj Hashable) string {
 	hasher := hs.srv.NewHash()
 	defer hasher.Close()
