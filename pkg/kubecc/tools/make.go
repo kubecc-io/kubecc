@@ -23,6 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
+	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -43,6 +44,7 @@ var MakeCmd = &cobra.Command{
 	Short: "A wrapper around make",
 	Long: `A wrapper around make that will allow all sub-processes to be grouped for tracing purposes.
 This tool will automatically be run if the kubecc binary is invoked with the name 'make'.`,
+	PersistentPreRun: InitCLI,
 	Run: func(_ *cobra.Command, args []string) {
 		cmd := exec.Command(pathToMake(), args...)
 		cmd.Stdout = os.Stdout

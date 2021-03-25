@@ -31,8 +31,9 @@ import (
 
 // StatusCmd represents the status command.
 var StatusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "Show overall cluster status",
+	Use:              "status",
+	Short:            "Show overall cluster status",
+	PersistentPreRun: InitCLI,
 	Run: func(cmd *cobra.Command, args []string) {
 		cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
 			servers.WithTLS(!CLIConfig.DisableTLS))

@@ -29,7 +29,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/term"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/encoding/gzip"
 )
 
 func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
@@ -69,7 +68,7 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 		GID:     uint32(os.Getgid()),
 		Stdin:   stdin.Bytes(),
 		WorkDir: wd,
-	}, grpc.WaitForReady(true), grpc.UseCompressor(gzip.Name))
+	}, grpc.WaitForReady(true))
 	if err != nil {
 		lg.With(zap.Error(err)).Error("Dispatch error")
 		os.Exit(1)
