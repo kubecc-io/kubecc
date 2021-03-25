@@ -45,6 +45,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 )
 
+// Environment is an in-process simulated kubecc cluster environment used
+// in tests.
 type Environment struct {
 	defaultConfig  config.KubeccSpec
 	envContext     context.Context
@@ -72,6 +74,8 @@ func (o *SpawnOptions) Apply(opts ...SpawnOption) {
 	}
 }
 
+// WithConfig is used to override specific config values when spawning a component.
+// Any values provided here will be merged with the defaults.
 func WithConfig(cfg interface{}) SpawnOption {
 	return func(o *SpawnOptions) {
 		switch conf := cfg.(type) {
@@ -91,6 +95,9 @@ func WithConfig(cfg interface{}) SpawnOption {
 	}
 }
 
+// WithName provides a component name. Each component has a default name of
+// "default" which can be used to dial that component when creating the
+// in-memory connection.
 func WithName(name string) SpawnOption {
 	return func(o *SpawnOptions) {
 		o.name = name
@@ -122,6 +129,8 @@ func (e *Environment) serve(ctx context.Context, server interface{}, name string
 	}()
 }
 
+// SpawnAgent adds a new agent to the environment. If the returned context
+// is canceled, the agent will be stopped.
 func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
@@ -173,6 +182,8 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 	return ctx, cancel
 }
 
+// SpawnScheduler adds a new scheduler to the environment. If the returned context
+// is canceled, the scheduler will be stopped.
 func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
@@ -208,6 +219,8 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 	return ctx, cancel
 }
 
+// SpawnConsumerd adds a new consumerd to the environment. If the returned context
+// is canceled, the consumerd will be stopped.
 func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
@@ -260,6 +273,8 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 	return ctx, cancel
 }
 
+// SpawnMonitor adds a new monitor to the environment. If the returned context
+// is canceled, the monitor will be stopped.
 func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
@@ -290,6 +305,8 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 	return ctx, cancel
 }
 
+// SpawnCache adds a new cache server  to the environment. If the returned context
+// is canceled, the cache server will be stopped.
 func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so := SpawnOptions{
 		config: e.defaultConfig,
@@ -339,6 +356,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 	return ctx, cancel
 }
 
+// DefaultConfig returns a reasonable set of default values for testing.
 func DefaultConfig() config.KubeccSpec {
 	return config.KubeccSpec{
 		Global: config.GlobalSpec{
@@ -370,6 +388,8 @@ func DefaultConfig() config.KubeccSpec {
 	}
 }
 
+// NewEnvironment creates a new environment with no components added. Use the
+// SpawnX methods to add components to the environment.
 func NewEnvironment(cfg config.KubeccSpec) *Environment {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
@@ -399,10 +419,13 @@ func NewEnvironment(cfg config.KubeccSpec) *Environment {
 	return env
 }
 
+// NewDefaultEnvironment creates a new environment with the default configuration.
 func NewDefaultEnvironment() *Environment {
 	return NewEnvironment(DefaultConfig())
 }
 
+// Dial creates a grpc client connection to the component named by the component
+// type and an optional name which defaults to "default" if not provided.
 func (e *Environment) Dial(ctx context.Context, c types.Component, name ...string) *grpc.ClientConn {
 	srvName := "default"
 	if len(name) > 0 {
@@ -423,6 +446,8 @@ func (e *Environment) Dial(ctx context.Context, c types.Component, name ...strin
 	return cc
 }
 
+// NewMonitorClient creates a new MonitorClient to the component with the given
+// name, which defaults to "default" if not provided.
 func (e *Environment) NewMonitorClient(ctx context.Context, name ...string) types.MonitorClient {
 	srvName := "default"
 	if len(name) > 0 {
@@ -431,6 +456,8 @@ func (e *Environment) NewMonitorClient(ctx context.Context, name ...string) type
 	return types.NewMonitorClient(e.Dial(ctx, types.Monitor, srvName))
 }
 
+// NewSchedulerClient creates a new SchedulerClient to the component with the given
+// name, which defaults to "default" if not provided.
 func (e *Environment) NewSchedulerClient(ctx context.Context, name ...string) types.SchedulerClient {
 	srvName := "default"
 	if len(name) > 0 {
@@ -439,6 +466,8 @@ func (e *Environment) NewSchedulerClient(ctx context.Context, name ...string) ty
 	return types.NewSchedulerClient(e.Dial(ctx, types.Scheduler, srvName))
 }
 
+// NewCacheClient creates a new CacheClient to the component with the given
+// name, which defaults to "default" if not provided.
 func (e *Environment) NewCacheClient(ctx context.Context, name ...string) types.CacheClient {
 	srvName := "default"
 	if len(name) > 0 {
@@ -447,6 +476,8 @@ func (e *Environment) NewCacheClient(ctx context.Context, name ...string) types.
 	return types.NewCacheClient(e.Dial(ctx, types.Cache, srvName))
 }
 
+// NewConsumerdClient creates a new ConsumerdClient to the component with the given
+// name, which defaults to "default" if not provided.
 func (e *Environment) NewConsumerdClient(ctx context.Context, name ...string) types.ConsumerdClient {
 	srvName := "default"
 	if len(name) > 0 {
@@ -455,6 +486,8 @@ func (e *Environment) NewConsumerdClient(ctx context.Context, name ...string) ty
 	return types.NewConsumerdClient(e.Dial(ctx, types.Consumerd, srvName))
 }
 
+// Shutdown terminates all components running in the environment by canceling
+// the top-level parent context.
 func (e *Environment) Shutdown() {
 	e.envCancel()
 }

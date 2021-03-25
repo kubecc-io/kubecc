@@ -21,6 +21,7 @@ import (
 	"github.com/cobalt77/kubecc/internal/zapkc"
 )
 
+// Name returns the title-case component name.
 func (c Component) Name() string {
 	switch c {
 	case Agent:
@@ -49,6 +50,7 @@ func (c Component) Name() string {
 	return "Unknown"
 }
 
+// ShortName returns a lowercase, truncated name suitable for logging.
 func (c Component) ShortName() string {
 	switch c {
 	case Agent:
@@ -78,6 +80,7 @@ func (c Component) ShortName() string {
 	return "<unk>"
 }
 
+// Color returns a color for the component, suitable for logging.
 func (c Component) Color() zapkc.Color {
 	switch c {
 	case Agent:

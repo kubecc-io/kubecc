@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// ZapfLogShim implements the logr.Logger interface.
 type ZapfLogShim struct {
 	ZapLogger *zap.SugaredLogger
 }

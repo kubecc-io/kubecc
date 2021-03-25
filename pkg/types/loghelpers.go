@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// ShortID returns a zap field for a UUID.
 func ShortID(uuid string) zapcore.Field {
 	return zapcore.Field{
 		Key:    "id",
@@ -38,6 +39,8 @@ const (
 	ElideRight
 )
 
+// FormatShortID formats the given UUID to a specified length with added
+// text elision ('..') in the desired location.
 func FormatShortID(id string, length int, elide ElideLocation) string {
 	if _, err := uuid.Parse(id); err != nil {
 		// Not a UUID

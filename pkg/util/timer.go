@@ -23,6 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// NewJitteredTimer returns a channel which will be written to on every tick
+// of a jittered timer.
 func NewJitteredTimer(duration time.Duration, factor float64) <-chan struct{} {
 	ch := make(chan struct{})
 	go wait.JitterUntil(func() {
