@@ -51,6 +51,7 @@ with a 0 status code (unless given invalid arguments).
 Sleep is a special command that Kubecc is aware of and can treat as a compiler 
 toolchain. This can be used to test if a Kubecc cluster is working. It is 
 primarily used as a debugging and development tool.`,
+	PersistentPreRun: InitCLI,
 	Run: func(cmd *cobra.Command, args []string) {
 		d, err := time.ParseDuration(args[0])
 		if err != nil {

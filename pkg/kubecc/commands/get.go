@@ -41,8 +41,9 @@ func client() types.MonitorClient {
 }
 
 var GetCmd = &cobra.Command{
-	Use:   "get kind [args...]",
-	Short: "Get information about a Kubecc cluster",
+	Use:              "get kind [args...]",
+	Short:            "Get information about a Kubecc cluster",
+	PersistentPreRun: InitCLI,
 }
 
 func init() {

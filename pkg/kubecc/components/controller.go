@@ -115,7 +115,7 @@ var ControllerCmd = &cobra.Command{
 }
 
 func init() {
-	AgentCmd.Flags().StringVar(&configFile, "config", "",
+	ControllerCmd.Flags().StringVar(&configFile, "config", "",
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")

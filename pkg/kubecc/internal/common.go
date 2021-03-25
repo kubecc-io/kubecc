@@ -26,6 +26,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
 
@@ -35,7 +36,7 @@ var (
 	CLIConfig  config.KcctlSpec
 )
 
-func init() {
+func InitCLI(_ *cobra.Command, _ []string) {
 	CLIConfig = (&config.ConfigMapProvider{}).Load().Kcctl
 
 	ctx := meta.NewContext(
