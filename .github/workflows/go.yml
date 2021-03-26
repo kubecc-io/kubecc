@@ -27,7 +27,7 @@ jobs:
           go-version: "1.16.0"
 
       - name: Build
-        run: make setup && make -j $(nproc)
+        run: make kubecc
 
       - name: Test
         run: make test
