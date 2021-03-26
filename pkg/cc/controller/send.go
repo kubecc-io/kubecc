@@ -26,7 +26,6 @@ import (
 	"path/filepath"
 
 	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -43,11 +42,11 @@ type remoteCompileTask struct {
 	run.TaskOptions
 
 	tc     *types.Toolchain
-	client *clients.CompileRequestClient
+	client run.SchedulerClientStream
 }
 
 func makeRemoteCompileTask(
-	client *clients.CompileRequestClient,
+	client run.SchedulerClientStream,
 	tc *types.Toolchain,
 	opts ...run.TaskOption,
 ) run.Task {
@@ -71,6 +70,10 @@ func (m *remoteCompileTask) Run() {
 		Args:               m.Args,
 		PreprocessedSource: preprocessedSource,
 	})
+	if err != nil {
+		m.SetErr(err)
+		return
+	}
 	if m.OutputVar != nil {
 		m.OutputVar = resp
 	}
@@ -79,7 +82,7 @@ func (m *remoteCompileTask) Run() {
 
 type sendRemoteRunnerManager struct {
 	tc        *types.Toolchain
-	reqClient *clients.CompileRequestClient
+	reqClient run.SchedulerClientStream
 	ap        *cc.ArgParser
 }
 

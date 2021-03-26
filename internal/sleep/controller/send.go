@@ -29,7 +29,7 @@ import (
 )
 
 type sendRemoteRunnerManager struct {
-	client *clients.CompileRequestClient
+	client run.SchedulerClientStream
 }
 
 func (m sendRemoteRunnerManager) Process(

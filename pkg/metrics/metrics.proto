@@ -61,9 +61,14 @@ message AgentTasksTotal {
   string UUID = 1;
   int64 Total = 2;
 }
+
 message ConsumerdTasksTotal {
   string UUID = 1;
   int64 Total = 2;
+}
+
+message PreferredUsageLimits {
+  int64 ConcurrentProcessLimit = 1;
 }
 
 // Monitor

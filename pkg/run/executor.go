@@ -87,7 +87,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 		numRunning:      atomic.NewInt32(0),
 		numQueued:       atomic.NewInt32(0),
 	}
-	s.workerPool.SetWorkerCount(int(s.UsageLimits.ConcurrentProcessLimit))
+	s.workerPool.Resize(int64(s.UsageLimits.ConcurrentProcessLimit))
 	return s
 }
 
@@ -99,7 +99,7 @@ func NewDelegatingExecutor() *DelegatingExecutor {
 
 func (x *QueuedExecutor) SetUsageLimits(cfg *metrics.UsageLimits) {
 	x.UsageLimits = cfg
-	go x.workerPool.SetWorkerCount(int(cfg.GetConcurrentProcessLimit()))
+	go x.workerPool.Resize(int64(cfg.GetConcurrentProcessLimit()))
 }
 
 func (x *QueuedExecutor) Exec(task Task) error {

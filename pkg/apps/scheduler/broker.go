@@ -537,3 +537,12 @@ func (b *Broker) cacheTransaction(
 		).Error("Error sending data to the cache server")
 	}
 }
+
+func (b *Broker) calcPreferredUsageLimits() (total int64) {
+	b.agentsMutex.RLock()
+	defer b.agentsMutex.RUnlock()
+	for _, a := range b.agents {
+		total += int64(a.remoteInfo.UsageLimits.ConcurrentProcessLimit)
+	}
+	return
+}

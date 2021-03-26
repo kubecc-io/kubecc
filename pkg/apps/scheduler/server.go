@@ -116,6 +116,9 @@ func (s *schedulerServer) StreamIncomingTasks(
 	s.agentCount.Inc()
 	defer s.agentCount.Dec()
 
+	s.postPreferredUsageLimits()
+	defer s.postPreferredUsageLimits()
+
 	select {
 	case <-srv.Context().Done():
 	case <-s.srvContext.Done():
@@ -181,8 +184,15 @@ func (s *schedulerServer) postConsumerdStats() {
 	}
 }
 
+func (s *schedulerServer) postPreferredUsageLimits() {
+	s.metricsProvider.Post(&metrics.PreferredUsageLimits{
+		ConcurrentProcessLimit: s.broker.calcPreferredUsageLimits(),
+	})
+}
+
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
+	s.postPreferredUsageLimits()
 
 	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5) // 5-7.5 sec
 	go func() {

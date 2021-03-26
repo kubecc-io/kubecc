@@ -101,17 +101,16 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	return wp
 }
 
-// SetWorkerCount sets the target number of workers that should be running
+// Resize sets the target number of workers that should be running
 // in the pool. When decreasing the number of workers, only workers which
 // are not currently running a task will be stopped. If all workers are busy,
 // the pool will stop the next available workers when they have finished
 // their current task.
-// This function blocks until the pool contains the desired number of workers.
-func (wp *WorkerPool) SetWorkerCount(count int) {
+func (wp *WorkerPool) Resize(count int64) {
 	wp.workerLock.Lock()
 	defer wp.workerLock.Unlock()
-	if numWorkers := wp.workers.Cardinality(); count > numWorkers {
-		for wp.workers.Cardinality() != count {
+	if numWorkers := wp.workers.Cardinality(); int(count) > numWorkers {
+		for int64(wp.workers.Cardinality()) != count {
 			w := &worker{
 				taskQueue: wp.taskQueue,
 				stopQueue: wp.stopQueue,
@@ -123,8 +122,8 @@ func (wp *WorkerPool) SetWorkerCount(count int) {
 				wp.workers.Remove(w)
 			}()
 		}
-	} else if count < numWorkers && count >= 0 {
-		for i := 0; i < numWorkers-count; i++ {
+	} else if int(count) < numWorkers && count >= 0 {
+		for i := 0; i < numWorkers-int(count); i++ {
 			wp.stopQueue <- struct{}{}
 		}
 	}

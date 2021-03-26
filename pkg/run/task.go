@@ -24,7 +24,6 @@ import (
 	"errors"
 	"io"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/zap"
@@ -140,6 +139,11 @@ type Controller interface {
 	With(*types.Toolchain) ToolchainController
 }
 
+type SchedulerClientStream interface {
+	LoadNewStream(types.Scheduler_StreamOutgoingTasksClient)
+	Compile(*types.CompileRequest) (*types.CompileResponse, error)
+}
+
 // A ToolchainController is an object capable of managing the entire lifecycle
 // of requests for a given toolchain.
 type ToolchainController interface {
@@ -150,7 +154,7 @@ type ToolchainController interface {
 	// its tasks to be processed by a remote agent. This RequestManager is
 	// only responsible for local tasks associated with the request (if any),
 	// and sending/waiting on tasks using the provided client.
-	SendRemote(ArgParser, *clients.CompileRequestClient) RequestManager
+	SendRemote(ArgParser, SchedulerClientStream) RequestManager
 	// RecvRemote returns a RequestManager which will run its tasks locally
 	// under the assumption that it is running them on behalf of a consumer
 	// somewhere else on the network.

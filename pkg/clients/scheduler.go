@@ -22,7 +22,12 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/cobalt77/kubecc/pkg/run"
+	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"go.uber.org/zap"
 )
 
 var ErrStreamNotReady = errors.New("Stream is not ready yet")
@@ -40,7 +45,7 @@ type CompileRequestClient struct {
 func NewCompileRequestClient(
 	ctx context.Context,
 	stream types.Scheduler_StreamOutgoingTasksClient,
-) *CompileRequestClient {
+) run.SchedulerClientStream {
 	lock := &sync.Mutex{}
 	c := &CompileRequestClient{
 		ctx:          ctx,
@@ -79,7 +84,7 @@ type response struct {
 
 func (rc *CompileRequestClient) Compile(
 	request *types.CompileRequest,
-) (interface{}, error) {
+) (*types.CompileResponse, error) {
 	rc.streamLock.Lock()
 	if rc.stream == nil {
 		rc.streamLock.Unlock()
@@ -131,4 +136,50 @@ func (rc *CompileRequestClient) recvWorker() {
 		rc.stream = nil
 		rc.streamLock.Unlock()
 	}
+}
+
+type RemoteUsageMonitor struct {
+	ctx     context.Context
+	resizer run.Resizer
+	client  types.MonitorClient
+}
+
+func WatchRemoteUsage(
+	ctx context.Context,
+	client types.MonitorClient,
+	resizer run.Resizer,
+) {
+	mon := &RemoteUsageMonitor{
+		ctx:     ctx,
+		resizer: resizer,
+		client:  client,
+	}
+	mon.watchUsage()
+}
+
+func (m *RemoteUsageMonitor) watchUsage() {
+	l := NewListener(m.ctx, m.client, servers.WithLogEvents(
+		servers.LogConnectionFailed,
+	))
+	lg := meta.Log(m.ctx)
+	l.OnProviderAdded(func(ctx context.Context, uuid string) {
+		whois, err := m.client.Whois(m.ctx, &types.WhoisRequest{
+			UUID: uuid,
+		})
+		if err != nil {
+			lg.With(
+				zap.Error(err),
+			).Error("Error listening for remote resource usage")
+			return
+		}
+		if whois.Component != types.Scheduler {
+			return
+		}
+		l.OnValueChanged(uuid, func(u *metrics.PreferredUsageLimits) {
+			lg.With(
+				"limit", u.GetConcurrentProcessLimit(),
+			).Info("Received new remote concurrent process limit")
+			m.resizer.Resize(u.GetConcurrentProcessLimit())
+		})
+	})
 }

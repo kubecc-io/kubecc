@@ -702,6 +702,53 @@ func (x *ConsumerdTasksTotal) GetTotal() int64 {
 	return 0
 }
 
+type PreferredUsageLimits struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	ConcurrentProcessLimit int64 `protobuf:"varint,1,opt,name=ConcurrentProcessLimit,proto3" json:"ConcurrentProcessLimit,omitempty"`
+}
+
+func (x *PreferredUsageLimits) Reset() {
+	*x = PreferredUsageLimits{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PreferredUsageLimits) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreferredUsageLimits) ProtoMessage() {}
+
+func (x *PreferredUsageLimits) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreferredUsageLimits.ProtoReflect.Descriptor instead.
+func (*PreferredUsageLimits) Descriptor() ([]byte, []int) {
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *PreferredUsageLimits) GetConcurrentProcessLimit() int64 {
+	if x != nil {
+		return x.ConcurrentProcessLimit
+	}
+	return 0
+}
+
 type MetricsPostedTotal struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -713,7 +760,7 @@ type MetricsPostedTotal struct {
 func (x *MetricsPostedTotal) Reset() {
 	*x = MetricsPostedTotal{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[13]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -726,7 +773,7 @@ func (x *MetricsPostedTotal) String() string {
 func (*MetricsPostedTotal) ProtoMessage() {}
 
 func (x *MetricsPostedTotal) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[13]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -739,7 +786,7 @@ func (x *MetricsPostedTotal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MetricsPostedTotal.ProtoReflect.Descriptor instead.
 func (*MetricsPostedTotal) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{13}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MetricsPostedTotal) GetTotal() int64 {
@@ -760,7 +807,7 @@ type ListenerCount struct {
 func (x *ListenerCount) Reset() {
 	*x = ListenerCount{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[14]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -773,7 +820,7 @@ func (x *ListenerCount) String() string {
 func (*ListenerCount) ProtoMessage() {}
 
 func (x *ListenerCount) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[14]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -786,7 +833,7 @@ func (x *ListenerCount) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListenerCount.ProtoReflect.Descriptor instead.
 func (*ListenerCount) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{14}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListenerCount) GetCount() int32 {
@@ -809,7 +856,7 @@ type ProviderInfo struct {
 func (x *ProviderInfo) Reset() {
 	*x = ProviderInfo{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[15]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -822,7 +869,7 @@ func (x *ProviderInfo) String() string {
 func (*ProviderInfo) ProtoMessage() {}
 
 func (x *ProviderInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[15]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -835,7 +882,7 @@ func (x *ProviderInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProviderInfo.ProtoReflect.Descriptor instead.
 func (*ProviderInfo) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{15}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ProviderInfo) GetUUID() string {
@@ -870,7 +917,7 @@ type Providers struct {
 func (x *Providers) Reset() {
 	*x = Providers{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[16]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[17]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -883,7 +930,7 @@ func (x *Providers) String() string {
 func (*Providers) ProtoMessage() {}
 
 func (x *Providers) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[16]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[17]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +943,7 @@ func (x *Providers) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Providers.ProtoReflect.Descriptor instead.
 func (*Providers) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{16}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Providers) GetItems() map[string]*ProviderInfo {
@@ -918,7 +965,7 @@ type BucketSpec struct {
 func (x *BucketSpec) Reset() {
 	*x = BucketSpec{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[17]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -931,7 +978,7 @@ func (x *BucketSpec) String() string {
 func (*BucketSpec) ProtoMessage() {}
 
 func (x *BucketSpec) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[17]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -944,7 +991,7 @@ func (x *BucketSpec) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BucketSpec.ProtoReflect.Descriptor instead.
 func (*BucketSpec) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{17}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *BucketSpec) GetName() string {
@@ -972,7 +1019,7 @@ type LocalTasksCompleted struct {
 func (x *LocalTasksCompleted) Reset() {
 	*x = LocalTasksCompleted{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[18]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -985,7 +1032,7 @@ func (x *LocalTasksCompleted) String() string {
 func (*LocalTasksCompleted) ProtoMessage() {}
 
 func (x *LocalTasksCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[18]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -998,7 +1045,7 @@ func (x *LocalTasksCompleted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalTasksCompleted.ProtoReflect.Descriptor instead.
 func (*LocalTasksCompleted) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{18}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *LocalTasksCompleted) GetTotal() int64 {
@@ -1021,7 +1068,7 @@ type CacheUsage struct {
 func (x *CacheUsage) Reset() {
 	*x = CacheUsage{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[19]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1034,7 +1081,7 @@ func (x *CacheUsage) String() string {
 func (*CacheUsage) ProtoMessage() {}
 
 func (x *CacheUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[19]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1047,7 +1094,7 @@ func (x *CacheUsage) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheUsage.ProtoReflect.Descriptor instead.
 func (*CacheUsage) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{19}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CacheUsage) GetObjectCount() int64 {
@@ -1084,7 +1131,7 @@ type CacheHits struct {
 func (x *CacheHits) Reset() {
 	*x = CacheHits{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pkg_metrics_metrics_proto_msgTypes[20]
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[21]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1097,7 +1144,7 @@ func (x *CacheHits) String() string {
 func (*CacheHits) ProtoMessage() {}
 
 func (x *CacheHits) ProtoReflect() protoreflect.Message {
-	mi := &file_pkg_metrics_metrics_proto_msgTypes[20]
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[21]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1110,7 +1157,7 @@ func (x *CacheHits) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheHits.ProtoReflect.Descriptor instead.
 func (*CacheHits) Descriptor() ([]byte, []int) {
-	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{20}
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CacheHits) GetCacheHitsTotal() int64 {
@@ -1194,7 +1241,12 @@ var file_pkg_metrics_metrics_proto_rawDesc = []byte{
 	0x72, 0x64, 0x54, 0x61, 0x73, 0x6b, 0x73, 0x54, 0x6f, 0x74, 0x61, 0x6c, 0x12, 0x12, 0x0a, 0x04,
 	0x55, 0x55, 0x49, 0x44, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x55, 0x55, 0x49, 0x44,
 	0x12, 0x14, 0x0a, 0x05, 0x54, 0x6f, 0x74, 0x61, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x03, 0x52,
-	0x05, 0x54, 0x6f, 0x74, 0x61, 0x6c, 0x22, 0x2a, 0x0a, 0x12, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63,
+	0x05, 0x54, 0x6f, 0x74, 0x61, 0x6c, 0x22, 0x4e, 0x0a, 0x14, 0x50, 0x72, 0x65, 0x66, 0x65, 0x72,
+	0x72, 0x65, 0x64, 0x55, 0x73, 0x61, 0x67, 0x65, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x73, 0x12, 0x36,
+	0x0a, 0x16, 0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63,
+	0x65, 0x73, 0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x16,
+	0x43, 0x6f, 0x6e, 0x63, 0x75, 0x72, 0x72, 0x65, 0x6e, 0x74, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73,
+	0x73, 0x4c, 0x69, 0x6d, 0x69, 0x74, 0x22, 0x2a, 0x0a, 0x12, 0x4d, 0x65, 0x74, 0x72, 0x69, 0x63,
 	0x73, 0x50, 0x6f, 0x73, 0x74, 0x65, 0x64, 0x54, 0x6f, 0x74, 0x61, 0x6c, 0x12, 0x14, 0x0a, 0x05,
 	0x54, 0x6f, 0x74, 0x61, 0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x03, 0x52, 0x05, 0x54, 0x6f, 0x74,
 	0x61, 0x6c, 0x22, 0x25, 0x0a, 0x0d, 0x4c, 0x69, 0x73, 0x74, 0x65, 0x6e, 0x65, 0x72, 0x43, 0x6f,
@@ -1262,7 +1314,7 @@ func file_pkg_metrics_metrics_proto_rawDescGZIP() []byte {
 	return file_pkg_metrics_metrics_proto_rawDescData
 }
 
-var file_pkg_metrics_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_pkg_metrics_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_pkg_metrics_metrics_proto_goTypes = []interface{}{
 	(*TaskStatus)(nil),              // 0: metrics.TaskStatus
 	(*Toolchains)(nil),              // 1: metrics.Toolchains
@@ -1277,27 +1329,28 @@ var file_pkg_metrics_metrics_proto_goTypes = []interface{}{
 	(*Identifier)(nil),              // 10: metrics.Identifier
 	(*AgentTasksTotal)(nil),         // 11: metrics.AgentTasksTotal
 	(*ConsumerdTasksTotal)(nil),     // 12: metrics.ConsumerdTasksTotal
-	(*MetricsPostedTotal)(nil),      // 13: metrics.MetricsPostedTotal
-	(*ListenerCount)(nil),           // 14: metrics.ListenerCount
-	(*ProviderInfo)(nil),            // 15: metrics.ProviderInfo
-	(*Providers)(nil),               // 16: metrics.Providers
-	(*BucketSpec)(nil),              // 17: metrics.BucketSpec
-	(*LocalTasksCompleted)(nil),     // 18: metrics.LocalTasksCompleted
-	(*CacheUsage)(nil),              // 19: metrics.CacheUsage
-	(*CacheHits)(nil),               // 20: metrics.CacheHits
-	nil,                             // 21: metrics.Providers.ItemsEntry
-	nil,                             // 22: metrics.BucketSpec.DataEntry
-	(*types.Toolchain)(nil),         // 23: types.Toolchain
-	(types.Component)(0),            // 24: types.Component
-	(*any.Any)(nil),                 // 25: google.protobuf.Any
+	(*PreferredUsageLimits)(nil),    // 13: metrics.PreferredUsageLimits
+	(*MetricsPostedTotal)(nil),      // 14: metrics.MetricsPostedTotal
+	(*ListenerCount)(nil),           // 15: metrics.ListenerCount
+	(*ProviderInfo)(nil),            // 16: metrics.ProviderInfo
+	(*Providers)(nil),               // 17: metrics.Providers
+	(*BucketSpec)(nil),              // 18: metrics.BucketSpec
+	(*LocalTasksCompleted)(nil),     // 19: metrics.LocalTasksCompleted
+	(*CacheUsage)(nil),              // 20: metrics.CacheUsage
+	(*CacheHits)(nil),               // 21: metrics.CacheHits
+	nil,                             // 22: metrics.Providers.ItemsEntry
+	nil,                             // 23: metrics.BucketSpec.DataEntry
+	(*types.Toolchain)(nil),         // 24: types.Toolchain
+	(types.Component)(0),            // 25: types.Component
+	(*any.Any)(nil),                 // 26: google.protobuf.Any
 }
 var file_pkg_metrics_metrics_proto_depIdxs = []int32{
-	23, // 0: metrics.Toolchains.Items:type_name -> types.Toolchain
-	24, // 1: metrics.ProviderInfo.Component:type_name -> types.Component
-	21, // 2: metrics.Providers.Items:type_name -> metrics.Providers.ItemsEntry
-	22, // 3: metrics.BucketSpec.Data:type_name -> metrics.BucketSpec.DataEntry
-	15, // 4: metrics.Providers.ItemsEntry.value:type_name -> metrics.ProviderInfo
-	25, // 5: metrics.BucketSpec.DataEntry.value:type_name -> google.protobuf.Any
+	24, // 0: metrics.Toolchains.Items:type_name -> types.Toolchain
+	25, // 1: metrics.ProviderInfo.Component:type_name -> types.Component
+	22, // 2: metrics.Providers.Items:type_name -> metrics.Providers.ItemsEntry
+	23, // 3: metrics.BucketSpec.Data:type_name -> metrics.BucketSpec.DataEntry
+	16, // 4: metrics.Providers.ItemsEntry.value:type_name -> metrics.ProviderInfo
+	26, // 5: metrics.BucketSpec.DataEntry.value:type_name -> google.protobuf.Any
 	6,  // [6:6] is the sub-list for method output_type
 	6,  // [6:6] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name
@@ -1468,7 +1521,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MetricsPostedTotal); i {
+			switch v := v.(*PreferredUsageLimits); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1480,7 +1533,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListenerCount); i {
+			switch v := v.(*MetricsPostedTotal); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1492,7 +1545,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ProviderInfo); i {
+			switch v := v.(*ListenerCount); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1504,7 +1557,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Providers); i {
+			switch v := v.(*ProviderInfo); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1516,7 +1569,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BucketSpec); i {
+			switch v := v.(*Providers); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1528,7 +1581,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*LocalTasksCompleted); i {
+			switch v := v.(*BucketSpec); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1540,7 +1593,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CacheUsage); i {
+			switch v := v.(*LocalTasksCompleted); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1552,6 +1605,18 @@ func file_pkg_metrics_metrics_proto_init() {
 			}
 		}
 		file_pkg_metrics_metrics_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*CacheUsage); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pkg_metrics_metrics_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*CacheHits); i {
 			case 0:
 				return &v.state
@@ -1570,7 +1635,7 @@ func file_pkg_metrics_metrics_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_metrics_metrics_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

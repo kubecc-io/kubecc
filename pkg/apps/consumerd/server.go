@@ -55,7 +55,7 @@ type consumerdServer struct {
 	executor            run.Executor
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
-	requestClient       *clients.CompileRequestClient
+	requestClient       run.SchedulerClientStream
 	streamMgr           *servers.StreamManager
 }
 
