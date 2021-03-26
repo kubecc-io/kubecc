@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -41,6 +42,7 @@ type Store struct {
 	tcMutex    *sync.RWMutex
 }
 
+// NewStore creates a new toolchain store.
 func NewStore() *Store {
 	return &Store{
 		toolchains: make(map[string]*toolchainData),
@@ -48,6 +50,8 @@ func NewStore() *Store {
 	}
 }
 
+// Contains checks whether the given executable is contained in the
+// store. It checks the full path given, and does not modify it.
 func (s *Store) Contains(executable string) bool {
 	s.tcMutex.RLock()
 	defer s.tcMutex.RUnlock()
@@ -57,25 +61,30 @@ func (s *Store) Contains(executable string) bool {
 	return ok
 }
 
+// Items returns an iteratable channel which will contain all toolchains
+// in the store. This function is thread safe and the toolchains returned
+// will be copies.
 func (s *Store) Items() chan *types.Toolchain {
 	s.tcMutex.RLock()
 	defer s.tcMutex.RUnlock()
 
 	ch := make(chan *types.Toolchain, len(s.toolchains))
 	for _, data := range s.toolchains {
-		ch <- data.toolchain
+		ch <- proto.Clone(data.toolchain).(*types.Toolchain)
 	}
 	close(ch)
 	return ch
 }
 
+// Items returns a slice containing all toolchains in the store.
+// This function is thread safe and the toolchains returned will be copies.
 func (s *Store) ItemsList() []*types.Toolchain {
 	s.tcMutex.RLock()
 	defer s.tcMutex.RUnlock()
 
 	l := []*types.Toolchain{}
 	for _, data := range s.toolchains {
-		l = append(l, data.toolchain)
+		l = append(l, proto.Clone(data.toolchain).(*types.Toolchain))
 	}
 	return l
 }
@@ -105,6 +114,8 @@ func fillInfo(tc *types.Toolchain, q Querier) error {
 	return nil
 }
 
+// Add adds a toolchain to the store. The executable given will be queried
+// for details using the given Querier.
 func (s *Store) Add(executable string, q Querier) (*types.Toolchain, error) {
 	executable = evalPath(executable)
 	if s.Contains(executable) {
@@ -141,6 +152,8 @@ func evalPath(executable string) string {
 	return resolved
 }
 
+// Find returns a toolchain matching the given executable if it is contained
+// in the store. If the path is a symlink, it will be dereferenced.
 func (s Store) Find(executable string) (*types.Toolchain, error) {
 	s.tcMutex.RLock()
 	defer s.tcMutex.RUnlock()
@@ -154,6 +167,7 @@ func (s Store) Find(executable string) (*types.Toolchain, error) {
 	return nil, errors.New("Toolchain not found")
 }
 
+// Remove removes a toolchain from the store.
 func (s *Store) Remove(tc *types.Toolchain) {
 	s.tcMutex.Lock()
 	defer s.tcMutex.Unlock()
@@ -161,6 +175,11 @@ func (s *Store) Remove(tc *types.Toolchain) {
 	delete(s.toolchains, tc.Executable)
 }
 
+// UpdateIfNeeded will reload a toolchain's details be querying the
+// executable using the original Querier. If the toolchain or store was
+// updated as a result of this operation, the second return value will
+// be true, otherwise it will be false. If the toolchain is no longer valid,
+// the first return value will contain an error describing why.
 func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 	s.tcMutex.Lock()
 	defer s.tcMutex.Unlock()
@@ -187,6 +206,7 @@ func (s *Store) UpdateIfNeeded(tc *types.Toolchain) (error, bool) {
 	return nil, false
 }
 
+// Merge adds toolchains from another store into this one, if they do not exist.
 func (s *Store) Merge(other *Store) {
 	other.tcMutex.RLock()
 	defer other.tcMutex.RUnlock()
@@ -199,6 +219,8 @@ func (s *Store) Merge(other *Store) {
 	}
 }
 
+// Intersection returns the toolchains that both this store and the other
+// store have in common.
 func (s *Store) Intersection(other *Store) []*types.Toolchain {
 	other.tcMutex.RLock()
 	defer other.tcMutex.RUnlock()
@@ -214,6 +236,7 @@ func (s *Store) Intersection(other *Store) []*types.Toolchain {
 	return tcList
 }
 
+// Len returns the number of toolchains in the store.
 func (s *Store) Len() int {
 	s.tcMutex.RLock()
 	defer s.tcMutex.RUnlock()
@@ -221,6 +244,9 @@ func (s *Store) Len() int {
 	return len(s.toolchains)
 }
 
+// TryMatch will attempt to find a toolchain in this store that matches
+// the provided toolchain, assuming the other toolchain may have come from
+// a different store where the executable name might not match exactly.
 func (s *Store) TryMatch(other *types.Toolchain) (*types.Toolchain, error) {
 	for tc := range s.Items() {
 		if tc.EquivalentTo(other) {

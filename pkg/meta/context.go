@@ -198,10 +198,14 @@ func WithProvider(kp Provider, opts ...withProviderOption) providerInitInfo {
 	}
 }
 
+// NewContext creates a new context containing data from the given metadata
+// providers.
 func NewContext(providers ...providerInitInfo) context.Context {
 	return NewContextWithParent(context.Background(), providers...)
 }
 
+// NewContextWithParent creates a new context parented to the given context,
+// and containing data from metadata providers.
 func NewContextWithParent(
 	parentCtx context.Context,
 	providers ...providerInitInfo,
@@ -221,6 +225,8 @@ func NewContextWithParent(
 	return context.WithValue(ctx, metaContextKey, ctx)
 }
 
+// CheckContext returns an error if the given context does not contain at least
+// a component and UUID.
 func CheckContext(ctx context.Context) error {
 	if ctx.Value(mdkeys.ComponentKey) == nil || ctx.Value(mdkeys.UUIDKey) == nil {
 		return status.Error(codes.InvalidArgument,

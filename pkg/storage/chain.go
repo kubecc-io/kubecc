@@ -29,12 +29,19 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// ChainStorageProvider is a chained/layered storage provider which queries
+// one or more other storage providers as to increase performance when
+// available. It is assumed that the provider list is sorted in order
+// from fastest to slowest.
 type ChainStorageProvider struct {
 	ctx       context.Context
 	lg        *zap.SugaredLogger
 	providers []StorageProvider
 }
 
+// NewChainStorageProvider creates a new ChainStorageProvider with the
+// given storage providers, which should be sorted in order from fastest
+// to slowest.
 func NewChainStorageProvider(
 	ctx context.Context,
 	providers ...StorageProvider,

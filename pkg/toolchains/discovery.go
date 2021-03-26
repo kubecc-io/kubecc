@@ -24,6 +24,8 @@ type FinderWithOptions struct {
 	Opts []FindOption
 }
 
+// Aggregate will run all provided finders and merge their results into a
+// single toolchain store.
 func Aggregate(
 	ctx context.Context,
 	finders ...FinderWithOptions,

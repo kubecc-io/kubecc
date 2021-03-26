@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+// Package run contains machinery for working with runnable tasks and objects
+// which control tasks.
 package run
 
 import (
@@ -138,7 +140,7 @@ type Controller interface {
 	With(*types.Toolchain) ToolchainController
 }
 
-// ToolchainController is an object capable of managing the entire lifecycle
+// A ToolchainController is an object capable of managing the entire lifecycle
 // of requests for a given toolchain.
 type ToolchainController interface {
 	// RunLocal returns a RequestManager which can handle a request locally
