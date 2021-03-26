@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
+	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/run"
@@ -81,6 +82,7 @@ type SplitQueue struct {
 
 type SplitQueueOptions struct {
 	telemetryCfg TelemetryConfig
+	usageLimits  *metrics.UsageLimits
 }
 
 type SplitQueueOption func(*SplitQueueOptions)
@@ -97,12 +99,22 @@ func WithTelemetryConfig(cfg TelemetryConfig) SplitQueueOption {
 	}
 }
 
+func UsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
+	return func(o *SplitQueueOptions) {
+		o.usageLimits = limits
+	}
+}
+
 func NewSplitQueue(
 	ctx context.Context,
 	monClient types.MonitorClient,
 	opts ...SplitQueueOption,
 ) *SplitQueue {
-	options := SplitQueueOptions{}
+	options := SplitQueueOptions{
+		usageLimits: &metrics.UsageLimits{
+			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
+		},
+	}
 	options.Apply(opts...)
 	capacity := int64(1000) // todo
 	queue := make(chan run.Task, capacity)
@@ -131,8 +143,10 @@ func NewSplitQueue(
 		run.DefaultPaused(),
 	)
 
-	sq.localWorkers.SetWorkerCount(35)  // todo
-	sq.remoteWorkers.SetWorkerCount(50) // todo
+	sq.localWorkers.Resize(int64(options.usageLimits.ConcurrentProcessLimit))
+
+	sq.remoteWorkers.Resize(0)
+	clients.WatchRemoteUsage(ctx, monClient, sq.remoteWorkers)
 	clients.WatchAvailability(ctx, monClient, sq.avc)
 
 	go sq.handleAvailabilityChanged()

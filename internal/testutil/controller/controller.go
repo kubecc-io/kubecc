@@ -21,7 +21,6 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -32,7 +31,7 @@ func (r *TestToolchainCtrl) RunLocal(run.ArgParser) run.RequestManager {
 	return &localRunnerManager{}
 }
 
-func (r *TestToolchainCtrl) SendRemote(_ run.ArgParser, client *clients.CompileRequestClient) run.RequestManager {
+func (r *TestToolchainCtrl) SendRemote(_ run.ArgParser, client run.SchedulerClientStream) run.RequestManager {
 	return &sendRemoteRunnerManager{
 		client: client,
 	}
@@ -61,7 +60,7 @@ func (r *TestToolchainCtrlLocal) RunLocal(run.ArgParser) run.RequestManager {
 	return &localRunnerManager{}
 }
 
-func (r *TestToolchainCtrlLocal) SendRemote(run.ArgParser, *clients.CompileRequestClient) run.RequestManager {
+func (r *TestToolchainCtrlLocal) SendRemote(run.ArgParser, run.SchedulerClientStream) run.RequestManager {
 	return &sendRemoteRunnerManagerSim{}
 }
 

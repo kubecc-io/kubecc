@@ -133,7 +133,10 @@ func NewStreamManager(
 func (sm *StreamManager) TryImmediately() {
 	sm.immLock.Lock()
 	defer sm.immLock.Unlock()
-	close(sm.immediate)
+	if sm.immediate != nil {
+		close(sm.immediate)
+	}
+	sm.immediate = nil
 }
 
 // this must only be called by Run() which should be running in a separate
@@ -143,11 +146,15 @@ func (sm *StreamManager) waitBackoff() {
 	lg.Debug("Backing off")
 	sm.immLock.Lock()
 	sm.immediate = make(chan struct{})
+	sm.immLock.Unlock()
 
 	defer func() {
 		sm.immLock.Lock()
 		defer sm.immLock.Unlock()
-		close(sm.immediate)
+		if sm.immediate != nil {
+			close(sm.immediate)
+		}
+		sm.immediate = nil
 	}()
 
 	select {

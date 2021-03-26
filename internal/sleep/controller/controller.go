@@ -20,7 +20,6 @@ package controller
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/types"
 )
@@ -31,7 +30,7 @@ func (r *SleepToolchainCtrl) RunLocal(run.ArgParser) run.RequestManager {
 	return &localRunnerManager{}
 }
 
-func (r *SleepToolchainCtrl) SendRemote(_ run.ArgParser, client *clients.CompileRequestClient) run.RequestManager {
+func (r *SleepToolchainCtrl) SendRemote(_ run.ArgParser, client run.SchedulerClientStream) run.RequestManager {
 	return &sendRemoteRunnerManager{
 		client: client,
 	}
