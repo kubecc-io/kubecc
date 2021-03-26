@@ -22,6 +22,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/clients"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/test"
 	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
@@ -87,6 +88,14 @@ var _ = Describe("Split Queue", func() {
 				RecordInterval: collectionPeriod,
 				HistoryLen:     1e4,
 			}),
+			consumerd.LocalUsageLimits(&metrics.UsageLimits{
+				ConcurrentProcessLimit: 35,
+			}),
+			consumerd.DefaultRemoteUsageLimits(&metrics.UsageLimits{
+				ConcurrentProcessLimit: 50,
+			}),
+			// No agents for this test, enabling this would set the usage limits to 0
+			consumerd.EnableDynamicRemoteUsageLimits(false),
 		)
 		testEnv.SpawnMonitor()
 	})
@@ -124,8 +133,10 @@ var _ = Describe("Split Queue", func() {
 					clients.ComponentFilter(types.Scheduler),
 				)
 				clients.WatchAvailability(testCtx, monClient, avc)
+				By("Waiting for scheduler")
 				avc.EnsureAvailable()
 
+				By("Running tasks")
 				local, remote := runAllTasks(taskPool)
 				Expect(local + remote).To(BeEquivalentTo(numTasks))
 				Expect(local).To(BeNumerically(">", 0))
@@ -136,6 +147,7 @@ var _ = Describe("Split Queue", func() {
 			}, iterations)
 		})
 		Specify("Analyzing telemetry", func() {
+			Expect(len(eventTimestamps)).To(Equal(iterations*2 + 2))
 			// Analyze portions of the complete EWMA graph to check that the slope
 			// is positive or negative in certain places. At times when there should
 			// be activity on the queue, the slope should be positive. When the queue
