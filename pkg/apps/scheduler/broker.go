@@ -127,7 +127,9 @@ func NewBroker(
 	b.router = NewRouter(ctx, routerOptions...)
 
 	go b.handleResponseQueue()
-	go b.watchCacheAvailability()
+	if b.monClient != nil {
+		go b.watchCacheAvailability()
+	}
 	return b
 }
 
@@ -341,8 +343,8 @@ func (b *Broker) NewAgentTaskStream(
 	go func() {
 		<-streamCtx.Done()
 
-		b.agentsMutex.RLock()
-		defer b.agentsMutex.RUnlock()
+		b.agentsMutex.Lock()
+		defer b.agentsMutex.Unlock()
 		delete(b.agents, agent.UUID)
 	}()
 }
@@ -383,8 +385,8 @@ func (b *Broker) NewConsumerdTaskStream(
 	go func() {
 		<-streamCtx.Done()
 
-		b.agentsMutex.RLock()
-		defer b.agentsMutex.RUnlock()
+		b.agentsMutex.Lock()
+		defer b.agentsMutex.Unlock()
 		delete(b.agents, cd.UUID)
 	}()
 }

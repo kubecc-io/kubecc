@@ -20,6 +20,7 @@ package servers
 import (
 	"context"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
@@ -58,6 +59,7 @@ type StreamManager struct {
 	handler    StreamHandler
 	backoffMgr wait.BackoffManager
 	immediate  chan struct{}
+	immLock    *sync.Mutex
 }
 
 type EventKind uint
@@ -118,6 +120,7 @@ func NewStreamManager(
 		handler:              handler,
 		backoffMgr:           makeBackoffMgr(),
 		immediate:            make(chan struct{}),
+		immLock:              &sync.Mutex{},
 	}
 }
 
@@ -128,6 +131,8 @@ func NewStreamManager(
 // defaults, but only if a backoff timer is currently active. If the
 // backoff timer is not currently active, this function will do nothing.
 func (sm *StreamManager) TryImmediately() {
+	sm.immLock.Lock()
+	defer sm.immLock.Unlock()
 	close(sm.immediate)
 }
 
@@ -136,11 +141,18 @@ func (sm *StreamManager) TryImmediately() {
 func (sm *StreamManager) waitBackoff() {
 	lg := meta.Log(sm.ctx)
 	lg.Debug("Backing off")
+	sm.immLock.Lock()
 	sm.immediate = make(chan struct{})
+
+	defer func() {
+		sm.immLock.Lock()
+		defer sm.immLock.Unlock()
+		close(sm.immediate)
+	}()
+
 	select {
 	case <-sm.backoffMgr.Backoff().C():
 		lg.Debug("Backoff timer completed")
-		close(sm.immediate)
 	case <-sm.immediate:
 		lg.Debug(zapkc.Yellow.Add("Requested to try connecting immediately"))
 		// We need to reset the backoff manager since its timer is most likely
