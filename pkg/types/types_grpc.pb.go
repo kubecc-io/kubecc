@@ -108,6 +108,7 @@ type SchedulerClient interface {
 	Compile(ctx context.Context, in *CompileRequest, opts ...grpc.CallOption) (*CompileResponse, error)
 	StreamIncomingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamIncomingTasksClient, error)
 	StreamOutgoingTasks(ctx context.Context, opts ...grpc.CallOption) (Scheduler_StreamOutgoingTasksClient, error)
+	GetRoutes(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RouteList, error)
 }
 
 type schedulerClient struct {
@@ -189,6 +190,15 @@ func (x *schedulerStreamOutgoingTasksClient) Recv() (*CompileResponse, error) {
 	return m, nil
 }
 
+func (c *schedulerClient) GetRoutes(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*RouteList, error) {
+	out := new(RouteList)
+	err := c.cc.Invoke(ctx, "/types.Scheduler/GetRoutes", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SchedulerServer is the server API for Scheduler service.
 // All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
@@ -196,6 +206,7 @@ type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	StreamIncomingTasks(Scheduler_StreamIncomingTasksServer) error
 	StreamOutgoingTasks(Scheduler_StreamOutgoingTasksServer) error
+	GetRoutes(context.Context, *Empty) (*RouteList, error)
 	mustEmbedUnimplementedSchedulerServer()
 }
 
@@ -211,6 +222,9 @@ func (UnimplementedSchedulerServer) StreamIncomingTasks(Scheduler_StreamIncoming
 }
 func (UnimplementedSchedulerServer) StreamOutgoingTasks(Scheduler_StreamOutgoingTasksServer) error {
 	return status.Errorf(codes.Unimplemented, "method StreamOutgoingTasks not implemented")
+}
+func (UnimplementedSchedulerServer) GetRoutes(context.Context, *Empty) (*RouteList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRoutes not implemented")
 }
 func (UnimplementedSchedulerServer) mustEmbedUnimplementedSchedulerServer() {}
 
@@ -295,6 +309,24 @@ func (x *schedulerStreamOutgoingTasksServer) Recv() (*CompileRequest, error) {
 	return m, nil
 }
 
+func _Scheduler_GetRoutes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SchedulerServer).GetRoutes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.Scheduler/GetRoutes",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SchedulerServer).GetRoutes(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Scheduler_ServiceDesc is the grpc.ServiceDesc for Scheduler service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -305,6 +337,10 @@ var Scheduler_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Compile",
 			Handler:    _Scheduler_Compile_Handler,
+		},
+		{
+			MethodName: "GetRoutes",
+			Handler:    _Scheduler_GetRoutes_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

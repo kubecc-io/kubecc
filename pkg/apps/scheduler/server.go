@@ -28,8 +28,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 type schedulerServer struct {
@@ -101,28 +99,6 @@ func NewSchedulerServer(
 		srv.metricsProvider = metrics.NewNoopProvider()
 	}
 	return srv
-}
-
-func (s *schedulerServer) cacheTransaction(
-	requestHash string,
-	resp *types.CompileResponse,
-) {
-	_, err := s.cacheClient.Push(s.srvContext, &types.PushRequest{
-		Key: &types.CacheKey{
-			Hash: requestHash,
-		},
-		Object: &types.CacheObject{
-			Data: resp.GetCompiledSource(),
-			Metadata: &types.CacheObjectMeta{
-				ExpirationDate: time.Now().Add(1 * time.Hour).UnixNano(),
-			},
-		},
-	})
-	if err != nil && status.Code(err) != codes.AlreadyExists {
-		s.lg.With(
-			zap.Error(err),
-		).Error("Error sending data to the cache server")
-	}
 }
 
 // agent <-> scheduler
@@ -217,4 +193,11 @@ func (s *schedulerServer) StartMetricsProvider() {
 			s.postConsumerdStats()
 		}
 	}()
+}
+
+func (s *schedulerServer) GetRoutes(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.RouteList, error) {
+	return s.broker.router.GetRoutes(), nil
 }

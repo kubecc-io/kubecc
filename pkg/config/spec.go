@@ -123,8 +123,9 @@ type StorageLimitsSpec struct {
 
 type KcctlSpec struct {
 	GlobalSpec
-	MonitorAddress string `json:"monitorAddress"`
-	DisableTLS     bool   `json:"disableTLS"`
+	MonitorAddress   string `json:"monitorAddress"`
+	SchedulerAddress string `json:"schedulerAddress"`
+	DisableTLS       bool   `json:"disableTLS"`
 }
 
 type UsageLimitsSpec struct {
