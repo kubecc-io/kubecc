@@ -26,6 +26,16 @@ import (
 	mapset "github.com/deckarep/golang-set"
 )
 
+// An AvailabilityListener allows asserting that a component is available
+// (i.e. it is streaming metadata to the monitor) during a section of code.
+// The default concrete implementaion of this interface is the
+// AvailabilityChecker. This interface is intended to be used with
+// the function WatchAvailability.
+//
+// Example:
+// avc := clients.NewAvailabilityChecker(clients.ComponentFilter(types.Cache))
+// clients.WatchAvailability(testCtx, monClient, avc)
+// avc.EnsureAvailable()
 type AvailabilityListener interface {
 	OnComponentAvailable(context.Context, *types.WhoisResponse)
 }
@@ -45,6 +55,8 @@ type AvailabilityChecker struct {
 
 type AvailabilityFilter = func(*types.WhoisResponse) bool
 
+// ComponentFilter is an AvailabilityFilter which allows only a subset of
+// all components to trigger the availability callback.
 func ComponentFilter(c ...types.Component) AvailabilityFilter {
 	set := mapset.NewSet()
 	for _, item := range c {
@@ -64,6 +76,9 @@ func NewAvailabilityChecker(filter AvailabilityFilter) *AvailabilityChecker {
 	return rsm
 }
 
+// EnsureAvailable blocks until the AvailabilityChecker reports that the
+// component is available, then returns a context which will be canceled
+// when the component becomes unavailable again.
 func (rsm *AvailabilityChecker) EnsureAvailable() context.Context {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
@@ -107,9 +122,11 @@ func (rsm *AvailabilityChecker) OnComponentAvailable(
 	rsm.cond.Broadcast()
 }
 
+// WatchAvailability hooks an AvailabilityListener into a monitor listener
+// which will call OnComponentAvailable when the component begins
+// streaming metrics to the monitor.
 func WatchAvailability(
 	ctx context.Context,
-	component types.Component,
 	monClient types.MonitorClient,
 	al AvailabilityListener,
 ) {
@@ -121,8 +138,6 @@ func WatchAvailability(
 		if err != nil {
 			return
 		}
-		if info.Component == component {
-			al.OnComponentAvailable(ctx, info)
-		}
+		al.OnComponentAvailable(ctx, info)
 	})
 }

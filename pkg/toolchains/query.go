@@ -29,6 +29,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 )
 
+// A Querier can query a compiler to determine its characteristics.
 type Querier interface {
 	Version(compiler string) (string, error)
 	TargetArch(compiler string) (string, error)

@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+// Package servers contains helper functions and types for dealing with
+// gRPC servers and streams.
 package servers
 
 import (

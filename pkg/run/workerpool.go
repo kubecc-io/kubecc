@@ -24,6 +24,10 @@ import (
 	mapset "github.com/deckarep/golang-set"
 )
 
+// WorkerPool is a dynamic pool of worker goroutines which run on a shared
+// task queue. The number of workers can be changed at any time, and the
+// stream itself can be paused and unpaused, which can be used to temporarily
+// stop/start all workers.
 type WorkerPool struct {
 	*util.PauseController
 	taskQueue  <-chan Task
@@ -46,18 +50,24 @@ func (o *WorkerPoolOptions) Apply(opts ...WorkerPoolOption) {
 	}
 }
 
+// WithRunner sets the function that will be run by a worker when processing
+// a task.
 func WithRunner(f func(Task)) WorkerPoolOption {
 	return func(o *WorkerPoolOptions) {
 		o.runner = f
 	}
 }
 
+// DefaultPaused indicates the worker pool should start in the paused state.
+// This should be used instead of starting the pool and immediately pausing
+// it to avoid race conditions.
 func DefaultPaused() WorkerPoolOption {
 	return func(o *WorkerPoolOptions) {
 		o.paused = true
 	}
 }
 
+// NewWorkerPool creates a new WorkerPool with the provided task queue.
 func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool {
 	options := WorkerPoolOptions{
 		runner: func(t Task) {
@@ -70,7 +80,7 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	wp := &WorkerPool{
 		PauseController: util.NewPauseController(util.DefaultPaused(options.paused)),
 		taskQueue:       queue,
-		stopQueue:       make(chan struct{}),
+		stopQueue:       make(chan struct{}), // Note the stop queue is not buffered
 		runner:          options.runner,
 		workers:         mapset.NewSet(),
 		workerLock:      &sync.Mutex{},
@@ -91,6 +101,12 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	return wp
 }
 
+// SetWorkerCount sets the target number of workers that should be running
+// in the pool. When decreasing the number of workers, only workers which
+// are not currently running a task will be stopped. If all workers are busy,
+// the pool will stop the next available workers when they have finished
+// their current task.
+// This function blocks until the pool contains the desired number of workers.
 func (wp *WorkerPool) SetWorkerCount(count int) {
 	wp.workerLock.Lock()
 	defer wp.workerLock.Unlock()

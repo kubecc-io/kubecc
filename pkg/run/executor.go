@@ -27,6 +27,7 @@ import (
 
 type ExecutorStatus int
 
+// An Executor is an object which runs tasks.
 type Executor interface {
 	metrics.UsageLimitsCompleter
 	metrics.TaskStatusCompleter

@@ -49,6 +49,9 @@ type OnConnectFailedEventHandler interface {
 	OnConnectFailed()
 }
 
+// StreamManager is used to manage automatic reconnect and backoff logic
+// for gRPC streams, as well as providing a means to handle connection
+// events.
 type StreamManager struct {
 	StreamManagerOptions
 	ctx        context.Context

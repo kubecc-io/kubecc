@@ -15,6 +15,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+// Package templates contains functions to load Kubernetes resources from
+// YAML templates, similar to those used in Helm charts.
 package templates
 
 import (
@@ -32,6 +34,9 @@ type wrapper struct {
 	Spec interface{}
 }
 
+// Load parses a template file and returns the processed text. The file is
+// searched for in the given filesystem. A spec can be passed to the template
+// loader which will be applied when processing the template.
 func Load(fsys fs.FS, name string, spec interface{}) ([]byte, error) {
 	tmpl := template.New(filepath.Base(name)).Funcs(Funcs())
 	tmpl, err := tmpl.ParseFS(fsys, name)
@@ -46,6 +51,7 @@ func Load(fsys fs.FS, name string, spec interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Unmarshal decodes text data (JSON/YAML) into a Kubernetes object.
 func Unmarshal(data []byte, scheme *runtime.Scheme) (client.Object, error) {
 	ds := serializer.NewCodecFactory(scheme).UniversalDeserializer()
 	out, _, err := ds.Decode(data, nil, nil)

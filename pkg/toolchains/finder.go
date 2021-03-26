@@ -23,6 +23,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/util"
 )
 
+// A Finder can locate toolchains in a filesystem.
 type Finder interface {
 	FindToolchains(ctx context.Context, opts ...FindOption) *Store
 }
