@@ -314,9 +314,7 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 				zap.String("key", metric.Key.ShortID()),
 			).Debug("Metric updated")
 			m.incMetricsPostedTotal()
-			defer func() {
-				m.notify(metric)
-			}()
+			m.notify(metric)
 		}
 	} else {
 		return status.Error(codes.InvalidArgument,

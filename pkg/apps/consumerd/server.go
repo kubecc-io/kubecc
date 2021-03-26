@@ -151,7 +151,7 @@ func NewConsumerdServer(
 
 func (c *consumerdServer) runRequestClient() {
 	av := clients.NewAvailabilityChecker(clients.ComponentFilter(types.Scheduler))
-	clients.WatchAvailability(c.srvContext, types.Scheduler, c.monitorClient, av)
+	clients.WatchAvailability(c.srvContext, c.monitorClient, av)
 
 	for {
 		ctx := av.EnsureAvailable()

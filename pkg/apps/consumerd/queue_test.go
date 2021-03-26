@@ -123,7 +123,7 @@ var _ = Describe("Split Queue", func() {
 				avc := clients.NewAvailabilityChecker(
 					clients.ComponentFilter(types.Scheduler),
 				)
-				clients.WatchAvailability(testCtx, types.Scheduler, monClient, avc)
+				clients.WatchAvailability(testCtx, monClient, avc)
 				avc.EnsureAvailable()
 
 				local, remote := runAllTasks(taskPool)

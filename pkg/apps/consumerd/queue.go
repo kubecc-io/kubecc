@@ -133,7 +133,7 @@ func NewSplitQueue(
 
 	sq.localWorkers.SetWorkerCount(35)  // todo
 	sq.remoteWorkers.SetWorkerCount(50) // todo
-	clients.WatchAvailability(ctx, types.Scheduler, monClient, sq.avc)
+	clients.WatchAvailability(ctx, monClient, sq.avc)
 
 	go sq.handleAvailabilityChanged()
 	return sq
