@@ -85,11 +85,11 @@ func (rc *CompileRequestClient) Compile(
 		rc.streamLock.Unlock()
 		return nil, ErrStreamNotReady
 	}
-	rc.streamLock.Unlock()
 
 	wait := make(chan response)
 	defer close(wait)
 	err := rc.stream.Send(request)
+	rc.streamLock.Unlock()
 	if err != nil {
 		return nil, err
 	}

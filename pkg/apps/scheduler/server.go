@@ -88,6 +88,7 @@ func NewSchedulerServer(
 		broker: NewBroker(ctx,
 			NewDefaultToolchainWatcher(ctx, options.monClient),
 			CacheClient(options.cacheClient),
+			MonitorClient(options.monClient),
 		),
 		hashSrv: util.NewHashServer(),
 	}

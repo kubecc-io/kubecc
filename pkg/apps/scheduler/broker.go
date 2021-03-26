@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -51,9 +52,11 @@ type Broker struct {
 	consumerdsMutex *sync.RWMutex
 	router          *Router
 	cacheClient     types.CacheClient
+	monClient       types.MonitorClient
 	hashSrv         *util.HashServer
 	pendingRequests sync.Map // map[uuid string]pendingRequest
 	tcWatcher       ToolchainWatcher
+	cacheAvailable  *atomic.Bool
 }
 
 type pendingRequest struct {
@@ -63,6 +66,7 @@ type pendingRequest struct {
 
 type BrokerOptions struct {
 	cacheClient types.CacheClient
+	monClient   types.MonitorClient
 }
 
 type BrokerOption func(*BrokerOptions)
@@ -76,6 +80,12 @@ func (o *BrokerOptions) Apply(opts ...BrokerOption) {
 func CacheClient(client types.CacheClient) BrokerOption {
 	return func(o *BrokerOptions) {
 		o.cacheClient = client
+	}
+}
+
+func MonitorClient(client types.MonitorClient) BrokerOption {
+	return func(o *BrokerOptions) {
+		o.monClient = client
 	}
 }
 
@@ -104,6 +114,8 @@ func NewBroker(
 		cacheHitCount:   atomic.NewInt64(0),
 		cacheMissCount:  atomic.NewInt64(0),
 		cacheClient:     options.cacheClient,
+		monClient:       options.monClient,
+		cacheAvailable:  atomic.NewBool(false),
 	}
 
 	routerOptions := []RouterOption{}
@@ -115,10 +127,32 @@ func NewBroker(
 	b.router = NewRouter(ctx, routerOptions...)
 
 	go b.handleResponseQueue()
+	if b.monClient != nil {
+		go b.watchCacheAvailability()
+	}
 	return b
 }
 
 var ErrTokenImbalance = errors.New("Token imbalance")
+
+// this function is not *necessarily* needed, but it allows the cache to be
+// unavailable while testing using bufconn. It also speeds things up a tiny
+// bit because it doesn't have to repeatedly fail trying to make calls to the
+// cache server when it's down.
+func (b *Broker) watchCacheAvailability() {
+	avc := clients.NewAvailabilityChecker(
+		clients.ComponentFilter(types.Cache),
+	)
+	clients.WatchAvailability(b.srvContext, b.monClient, avc)
+	go func() {
+		for {
+			ctx := avc.EnsureAvailable()
+			b.cacheAvailable.Store(true)
+			<-ctx.Done()
+			b.cacheAvailable.Store(false)
+		}
+	}()
+}
 
 func (b *Broker) handleAgentStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
@@ -309,8 +343,8 @@ func (b *Broker) NewAgentTaskStream(
 	go func() {
 		<-streamCtx.Done()
 
-		b.agentsMutex.RLock()
-		defer b.agentsMutex.RUnlock()
+		b.agentsMutex.Lock()
+		defer b.agentsMutex.Unlock()
 		delete(b.agents, agent.UUID)
 	}()
 }
@@ -351,8 +385,8 @@ func (b *Broker) NewConsumerdTaskStream(
 	go func() {
 		<-streamCtx.Done()
 
-		b.agentsMutex.RLock()
-		defer b.agentsMutex.RUnlock()
+		b.agentsMutex.Lock()
+		defer b.agentsMutex.Unlock()
 		delete(b.agents, cd.UUID)
 	}()
 }
@@ -428,6 +462,11 @@ func (b *Broker) PreReceive(
 	rt *route,
 	req *types.CompileRequest,
 ) (action HookAction) {
+	if b.cacheClient == nil || !b.cacheAvailable.Load() {
+		action = ProcessRequestNormally
+		return
+	}
+
 	defer func(a *HookAction) {
 		switch action {
 		case ProcessRequestNormally:
@@ -439,10 +478,6 @@ func (b *Broker) PreReceive(
 		}
 	}(&action)
 
-	if b.cacheClient == nil {
-		action = ProcessRequestNormally
-		return
-	}
 	reqHash := b.hashSrv.Hash(req)
 	obj, err := b.cacheClient.Pull(b.srvContext, &types.PullRequest{
 		Key: &types.CacheKey{
