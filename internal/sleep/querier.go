@@ -44,7 +44,7 @@ func (q SleepQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 }
 
 func (q SleepQuerier) Lang(compiler string) (types.ToolchainLang, error) {
-	return types.CXX, nil
+	return types.ToolchainLang_ToolchainLang_Unknown, nil
 }
 
 func (q SleepQuerier) ModTime(compiler string) (time.Time, error) {

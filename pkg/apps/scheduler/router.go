@@ -24,6 +24,7 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
+	mapset "github.com/deckarep/golang-set"
 	md5simd "github.com/minio/md5-simd"
 	"go.uber.org/atomic"
 )
@@ -47,16 +48,21 @@ type receiver struct {
 }
 
 type route struct {
+	tc         *types.Toolchain
 	hash       string
 	C          chan request
 	rxRefCount *atomic.Int32
 	txRefCount *atomic.Int32
+	senders    mapset.Set
+	receivers  mapset.Set
 	cancel     context.CancelFunc
 }
 
 func (rt *route) CanSend() bool {
 	return rt.rxRefCount.Load() > 0
 }
+
+// todo: unsure if we still need the ref counting here
 
 func (rt *route) incRxRefCount() {
 	rt.rxRefCount.Inc()
@@ -83,25 +89,36 @@ func (rt *route) decTxRefCount() {
 }
 
 func (rt *route) attachSender(s *sender) {
-	defer rt.decTxRefCount()
-	<-s.cd.Context.Done()
+	uuid := s.cd.UUID
+	rt.senders.Add(uuid)
+	rt.incTxRefCount()
+	go func(uuid string) {
+		defer rt.senders.Remove(uuid)
+		defer rt.decTxRefCount()
+		<-s.cd.Context.Done()
+	}(uuid)
 }
 
 func (rt *route) attachReceiver(r *receiver) {
-	defer rt.decRxRefCount()
-
-	for {
-		select {
-		case i, open := <-rt.C:
-			if !open {
-				// Channel closed
+	uuid := r.agent.UUID
+	rt.receivers.Add(uuid)
+	rt.incRxRefCount()
+	go func(uuid string) {
+		defer rt.receivers.Remove(uuid)
+		defer rt.decRxRefCount()
+		for {
+			select {
+			case i, open := <-rt.C:
+				if !open {
+					// Channel closed
+					return
+				}
+				r.filteredOutput <- i
+			case <-r.agent.Context.Done():
 				return
 			}
-			r.filteredOutput <- i
-		case <-r.agent.Context.Done():
-			return
 		}
-	}
+	}(uuid)
 }
 
 type HookAction int
@@ -172,78 +189,79 @@ func tcHash(tc *types.Toolchain) string {
 	return string(sum)
 }
 
-func (f *Router) newRoute(hash string) *route {
-	ctx, cancel := context.WithCancel(f.ctx)
+func (r *Router) newRoute(tc *types.Toolchain, hash string) *route {
+	ctx, cancel := context.WithCancel(r.ctx)
 	rt := &route{
+		tc:         tc,
 		hash:       hash,
 		C:          make(chan request),
 		rxRefCount: atomic.NewInt32(0),
 		txRefCount: atomic.NewInt32(0),
+		senders:    mapset.NewSet(),
+		receivers:  mapset.NewSet(),
 		cancel:     cancel,
 	}
 	go func() {
 		<-ctx.Done()
 		// Ref count hit 0, clean up the channel to avoid a resource leak
-		f.routesMutex.Lock()
-		defer f.routesMutex.Unlock()
+		r.routesMutex.Lock()
+		defer r.routesMutex.Unlock()
 		close(rt.C)
-		delete(f.routes, hash)
+		delete(r.routes, hash)
 	}()
 	return rt
 }
 
-func (f *Router) routeForToolchain(tc *types.Toolchain) *route {
-	f.routesMutex.Lock()
-	defer f.routesMutex.Unlock()
+func (r *Router) routeForToolchain(tc *types.Toolchain) *route {
+	r.routesMutex.Lock()
+	defer r.routesMutex.Unlock()
 	hash := tcHash(tc)
 	var rt *route
-	if c, ok := f.routes[hash]; !ok || c == nil {
-		f.routes[hash] = f.newRoute(hash)
-		rt = f.routes[hash]
+	if c, ok := r.routes[hash]; !ok || c == nil {
+		r.routes[hash] = r.newRoute(tc, hash)
+		rt = r.routes[hash]
 	} else {
 		rt = c
 	}
 	return rt
 }
 
-func (f *Router) AddSender(cd *Consumerd) {
-	f.sendersMutex.Lock()
-	defer f.sendersMutex.Unlock()
+func (r *Router) AddSender(cd *Consumerd) {
+	r.sendersMutex.Lock()
+	defer r.sendersMutex.Unlock()
 	sender := &sender{
 		cd: cd,
 	}
-	f.senders[cd.UUID] = sender
+	r.senders[cd.UUID] = sender
 	for _, tc := range cd.Toolchains.GetItems() {
-		rt := f.routeForToolchain(tc)
-		rt.incTxRefCount()
-		go rt.attachSender(sender)
+		rt := r.routeForToolchain(tc)
+		rt.attachSender(sender)
 	}
 }
 
-func (f *Router) AddReceiver(agent *Agent) <-chan request {
-	f.receiversMutex.Lock()
-	defer f.receiversMutex.Unlock()
+func (r *Router) AddReceiver(agent *Agent) <-chan request {
+	r.receiversMutex.Lock()
+	defer r.receiversMutex.Unlock()
 	output := make(chan request)
 	receiver := &receiver{
 		agent:          agent,
 		filteredOutput: output,
 	}
-	f.receivers[agent.UUID] = receiver
+	r.receivers[agent.UUID] = receiver
 	for _, tc := range agent.Toolchains.GetItems() {
-		rt := f.routeForToolchain(tc)
-		rt.incRxRefCount() // Important to increment ref count in this goroutine
-		go rt.attachReceiver(receiver)
+		rt := r.routeForToolchain(tc)
+		rt.attachReceiver(receiver)
 	}
 	return output
 }
 
-func (f *Router) UpdateSenderToolchains(
+func (r *Router) UpdateSenderToolchains(
 	uuid string,
 	tcs *metrics.Toolchains,
 ) {
-	f.sendersMutex.Lock()
-	defer f.sendersMutex.Unlock()
-	sender, ok := f.senders[uuid]
+	r.sendersMutex.Lock()
+	defer r.sendersMutex.Unlock()
+	sender, ok := r.senders[uuid]
 	if !ok {
 		return
 	}
@@ -259,7 +277,7 @@ func (f *Router) UpdateSenderToolchains(
 			}
 		}
 		if !stillExists {
-			f.routeForToolchain(oldTc).cancel()
+			r.routeForToolchain(oldTc).cancel()
 		}
 	}
 	for _, newTc := range newToolchains.GetItems() {
@@ -272,7 +290,7 @@ func (f *Router) UpdateSenderToolchains(
 		}
 		if isNew {
 			defer func() {
-				f.routeForToolchain(newTc).attachSender(sender)
+				r.routeForToolchain(newTc).attachSender(sender)
 			}()
 		}
 	}
@@ -280,13 +298,13 @@ func (f *Router) UpdateSenderToolchains(
 	sender.cd.Toolchains = newToolchains
 }
 
-func (f *Router) Route(ctx context.Context, req request) error {
+func (r *Router) Route(ctx context.Context, req request) error {
 	tc := req.GetToolchain()
 	if tc == nil {
 		return ErrInvalidToolchain
 	}
-	rt := f.routeForToolchain(tc)
-	for _, hook := range f.hooks {
+	rt := r.routeForToolchain(tc)
+	for _, hook := range r.hooks {
 		switch hook.PreReceive(rt, req) {
 		case ProcessRequestNormally:
 		case RejectRequest:
@@ -304,4 +322,28 @@ func (f *Router) Route(ctx context.Context, req request) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+func stringSlice(interfaces []interface{}) []string {
+	s := make([]string, len(interfaces))
+	for i, v := range interfaces {
+		s[i] = v.(string)
+	}
+	return s
+}
+
+func (r *Router) GetRoutes() *types.RouteList {
+	list := &types.RouteList{
+		Routes: []*types.Route{},
+	}
+	r.routesMutex.RLock()
+	defer r.routesMutex.RUnlock()
+	for _, v := range r.routes {
+		list.Routes = append(list.Routes, &types.Route{
+			Toolchain:  v.tc,
+			Consumerds: stringSlice(v.receivers.ToSlice()),
+			Agents:     stringSlice(v.senders.ToSlice()),
+		})
+	}
+	return list
 }

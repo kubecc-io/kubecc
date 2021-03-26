@@ -14,6 +14,7 @@ service Scheduler {
   rpc Compile(CompileRequest) returns (CompileResponse);
   rpc StreamIncomingTasks(stream CompileResponse) returns (stream CompileRequest);
   rpc StreamOutgoingTasks(stream CompileRequest) returns (stream CompileResponse);
+  rpc GetRoutes(Empty) returns (RouteList);
 }
 
 service Monitor {
@@ -113,6 +114,16 @@ message BucketList {
 
 message KeyList {
   repeated Key Keys = 1;
+}
+
+message RouteList {
+  repeated Route Routes = 1;
+}
+
+message Route {
+  Toolchain Toolchain = 1;
+  repeated string Consumerds = 2;
+  repeated string Agents = 3;
 }
 
 enum Component {

@@ -31,13 +31,22 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func client() types.MonitorClient {
+func monitorClient() types.MonitorClient {
 	cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
 		servers.WithTLS(!CLIConfig.DisableTLS))
 	if err != nil {
 		CLILog.Fatal(err)
 	}
 	return types.NewMonitorClient(cc)
+}
+
+func schedulerClient() types.SchedulerClient {
+	cc, err := servers.Dial(CLIContext, CLIConfig.SchedulerAddress,
+		servers.WithTLS(!CLIConfig.DisableTLS))
+	if err != nil {
+		CLILog.Fatal(err)
+	}
+	return types.NewSchedulerClient(cc)
 }
 
 var GetCmd = &cobra.Command{
@@ -57,13 +66,14 @@ func init() {
 	GetCmd.AddCommand(getBuckets)
 	GetCmd.AddCommand(getKeys)
 	GetCmd.AddCommand(getMetrics)
+	GetCmd.AddCommand(getRoutes)
 
-	getMetrics.Flags().StringVarP(&outputKind, "output", "o", "text",
+	GetCmd.PersistentFlags().StringVarP(&outputKind, "output", "o", "text",
 		"Output format. One of [text, json, jsonfmt]")
 }
 
 func getProviders() (*metrics.Providers, error) {
-	c := client()
+	c := monitorClient()
 	m, err := c.GetMetric(CLIContext, &types.Key{
 		Bucket: metrics.MetaBucket,
 		Name:   "type.googleapis.com/metrics.Providers",
@@ -85,7 +95,7 @@ func filterProviders(providers *metrics.Providers, c types.Component) []*metrics
 	return info
 }
 
-func writeOutput(msgs interface{}) {
+func formatOutput(msgs interface{}) {
 	if typ := reflect.TypeOf(msgs); typ.Kind() != reflect.Slice {
 		panic("msgs must be a slice")
 	}
@@ -120,7 +130,7 @@ var getAgents = &cobra.Command{
 		}
 		all := filterProviders(providers, types.Agent)
 		if len(args) == 0 {
-			writeOutput(all)
+			formatOutput(all)
 		}
 	},
 }
@@ -136,7 +146,7 @@ var getConsumerds = &cobra.Command{
 		}
 		all := filterProviders(providers, types.Consumerd)
 		if len(args) == 0 {
-			writeOutput(all)
+			formatOutput(all)
 		}
 	},
 }
@@ -152,7 +162,7 @@ var getSchedulers = &cobra.Command{
 		}
 		all := filterProviders(providers, types.Scheduler)
 		if len(args) == 0 {
-			writeOutput(all)
+			formatOutput(all)
 		}
 	},
 }
@@ -168,7 +178,7 @@ var getMonitors = &cobra.Command{
 		}
 		all := filterProviders(providers, types.Monitor)
 		if len(args) == 0 {
-			writeOutput(all)
+			formatOutput(all)
 		}
 	},
 }
@@ -184,7 +194,7 @@ var getCaches = &cobra.Command{
 		}
 		all := filterProviders(providers, types.Cache)
 		if len(args) == 0 {
-			writeOutput(all)
+			formatOutput(all)
 		}
 	},
 }
@@ -212,7 +222,7 @@ var getComponents = &cobra.Command{
 			infos = append(infos, p)
 		}
 		if len(args) == 0 {
-			writeOutput(infos)
+			formatOutput(infos)
 		}
 	},
 }
@@ -224,7 +234,7 @@ var getMetrics = &cobra.Command{
 	Long:    "Print the contents of one or more metrics in the monitor's key-value store",
 	Args:    cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		c := client()
+		c := monitorClient()
 		keys := []*types.Key{}
 
 		for _, arg := range args {
@@ -241,19 +251,7 @@ var getMetrics = &cobra.Command{
 				CLILog.With("key", key.Canonical()).Error(err)
 				continue
 			}
-			switch outputKind {
-			case "text":
-				fmt.Println(prototext.Format(metric.GetValue()))
-			case "json":
-				data, err := protojson.Marshal(metric.GetValue())
-				if err != nil {
-					CLILog.With("key").Error(err)
-					continue
-				}
-				fmt.Println(string(data))
-			case "jsonfmt":
-				fmt.Println(protojson.Format(metric.GetValue()))
-			}
+			formatOutput([]proto.Message{metric})
 		}
 	},
 }
@@ -263,7 +261,7 @@ var getBuckets = &cobra.Command{
 	Long: "Print a list of all buckets in the monitor's key-value store",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		c := client()
+		c := monitorClient()
 		buckets, err := c.GetBuckets(CLIContext, &types.Empty{})
 		if err != nil {
 			CLILog.Error(err)
@@ -280,7 +278,7 @@ var getKeys = &cobra.Command{
 	Long: "Print a list of all keys in a given bucket",
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		c := client()
+		c := monitorClient()
 		keys, err := c.GetKeys(CLIContext, &types.Bucket{
 			Name: args[0],
 		})
@@ -291,5 +289,20 @@ var getKeys = &cobra.Command{
 		for _, key := range keys.GetKeys() {
 			fmt.Println(key.Canonical())
 		}
+	},
+}
+
+var getRoutes = &cobra.Command{
+	Use:  "routes",
+	Long: "Print the scheduler's route list",
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		c := schedulerClient()
+		keys, err := c.GetRoutes(CLIContext, &types.Empty{})
+		if err != nil {
+			CLILog.Error(err)
+			return
+		}
+		formatOutput([]proto.Message{keys})
 	},
 }

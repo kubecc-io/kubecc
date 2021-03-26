@@ -39,6 +39,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
@@ -180,7 +181,9 @@ func (m *MonitorServer) incMetricsPostedTotal() {
 
 // bucketMutex must not be held by the same thread when calling this function.
 func (m *MonitorServer) providersUpdated() {
-	any, err := anypb.New(m.providers)
+	m.providerMutex.RLock()
+	any, err := anypb.New(proto.Clone(m.providers))
+	m.providerMutex.RUnlock()
 	if err != nil {
 		panic(err)
 	}
