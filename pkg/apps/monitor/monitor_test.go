@@ -71,17 +71,6 @@ func drain(c chan interface{}) {
 	}
 }
 
-func recycle(c chan context.CancelFunc) {
-	for {
-		select {
-		case f := <-c:
-			f()
-		default:
-			return
-		}
-	}
-}
-
 var _ = Describe("Monitor", func() {
 	var listener *bufconn.Listener
 	var monitorCtx context.Context
@@ -103,7 +92,7 @@ var _ = Describe("Monitor", func() {
 		mon := monitor.NewMonitorServer(monitorCtx, config.MonitorSpec{}, storeCreator)
 		listener = bufconn.Listen(1024 * 1024)
 		srv := servers.NewServer(monitorCtx, servers.WithServerOpts(
-			grpc.NumStreamWorkers(12),
+			grpc.NumStreamWorkers(24),
 		))
 		types.RegisterMonitorServer(srv, mon)
 		go func() {
@@ -150,6 +139,9 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+				if uuid == meta.UUID(monitorCtx) {
+					return
+				}
 				listenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					listenerEvents["testKey1Changed"] <- k1.Counter
@@ -239,6 +231,9 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
+				if uuid == meta.UUID(monitorCtx) {
+					return
+				}
 				lateJoinListenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					lateJoinListenerEvents["testKey1Changed"] <- k1.Counter
@@ -303,7 +298,7 @@ var _ = Describe("Monitor", func() {
 		numProviders := 2
 		numListenersPerKey := 10
 		numUpdatesPerKey := 1000
-		callbackTimeout := 60 * time.Second
+		callbackTimeout := 10 * time.Second
 		stressTestLoops := 5
 		if testutil.IsRaceDetectorEnabled() {
 			numListenersPerKey = 10
@@ -380,6 +375,9 @@ var _ = Describe("Monitor", func() {
 			b.Time("Handling provider add callbacks", func() {
 				testCh := make(chan struct{}, len(providers))
 				l.OnProviderAdded(func(ctx context.Context, uuid string) {
+					if uuid == meta.UUID(monitorCtx) {
+						return
+					}
 					testCh <- struct{}{}
 					l.OnValueChanged(uuid, handler)
 					<-ctx.Done()
@@ -430,12 +428,12 @@ var _ = Describe("Monitor", func() {
 			var wg sync.WaitGroup
 			wg.Add(4)
 			for i := 0; i < 4; i++ {
-				go func(j int) {
+				go func(i int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					b.Time(fmt.Sprintf("%d key %d callbacks", total, j+1), func() {
+					b.Time(fmt.Sprintf("%d key %d callbacks", total, i+1), func() {
 						timeout := time.NewTimer(callbackTimeout)
-						for totals[j].Load() < total {
+						for totals[i].Load() < total {
 							select {
 							case <-timeout.C:
 								return

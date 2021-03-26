@@ -26,9 +26,40 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
+	gtypes "github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 var executable = "/path/to/executable"
+
+type toolchainMatcher struct {
+	tc *types.Toolchain
+}
+
+func (m toolchainMatcher) Match(actual interface{}) (success bool, err error) {
+	return m.tc.EquivalentTo(actual.(*types.Toolchain)), nil
+}
+
+func (m toolchainMatcher) FailureMessage(actual interface{}) (message string) {
+	actualTc := actual.(*types.Toolchain)
+	a, _ := prototext.Marshal(m.tc)
+	b, _ := prototext.Marshal(actualTc)
+	return format.Message(a, "to be equivalent to", b)
+}
+
+func (m toolchainMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	actualTc := actual.(*types.Toolchain)
+	a, _ := prototext.Marshal(m.tc)
+	b, _ := prototext.Marshal(actualTc)
+	return format.Message(a, "not to be equivalent to", b)
+}
+
+func matchTC(tc interface{}) gtypes.GomegaMatcher {
+	return toolchainMatcher{
+		tc: tc.(*types.Toolchain),
+	}
+}
 
 type querier struct {
 	version    string
@@ -175,14 +206,14 @@ var _ = Describe("Store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		tc5, err := store2.Add("test4", q)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(store1.ItemsList()).To(ContainElements(tc1, tc3))
-		Expect(store2.ItemsList()).To(ContainElements(tc2, tc4, tc5))
+		Expect(store1.ItemsList()).To(ContainElements(matchTC(tc1), matchTC(tc3)))
+		Expect(store2.ItemsList()).To(ContainElements(matchTC(tc2), matchTC(tc4), matchTC(tc5)))
 		store1.Merge(store2)
-		Expect(store1.ItemsList()).To(ContainElements(tc1, tc2, tc3, tc5))
-		Expect(store2.ItemsList()).To(ContainElements(tc2, tc4, tc5))
+		Expect(store1.ItemsList()).To(ContainElements(matchTC(tc1), matchTC(tc2), matchTC(tc3), matchTC(tc5)))
+		Expect(store2.ItemsList()).To(ContainElements(matchTC(tc2), matchTC(tc4), matchTC(tc5)))
 		store2.Merge(store1)
-		Expect(store1.ItemsList()).To(ContainElements(tc1, tc2, tc3, tc5))
-		Expect(store2.ItemsList()).To(ContainElements(tc1, tc2, tc4, tc5))
+		Expect(store1.ItemsList()).To(ContainElements(matchTC(tc1), matchTC(tc2), matchTC(tc3), matchTC(tc5)))
+		Expect(store2.ItemsList()).To(ContainElements(matchTC(tc1), matchTC(tc2), matchTC(tc4), matchTC(tc5)))
 	})
 	It("should compute intersections", func() {
 		q := defaultQuerier()
@@ -199,10 +230,10 @@ var _ = Describe("Store", func() {
 		tc5, err := store2.Add("test4", q)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(store1.Intersection(store2)).To(ContainElements(tc3, tc4))
+		Expect(store1.Intersection(store2)).To(ContainElements(matchTC(tc3), matchTC(tc4)))
 		store1.Merge(store2)
-		Expect(store1.Intersection(store2)).To(ContainElements(tc2, tc3, tc4, tc5))
+		Expect(store1.Intersection(store2)).To(ContainElements(matchTC(tc2), matchTC(tc3), matchTC(tc4), matchTC(tc5)))
 		store2.Merge(store1)
-		Expect(store1.Intersection(store2)).To(ContainElements(tc1, tc2, tc3, tc4, tc5))
+		Expect(store1.Intersection(store2)).To(ContainElements(matchTC(tc1), matchTC(tc2), matchTC(tc3), matchTC(tc4), matchTC(tc5)))
 	})
 })
