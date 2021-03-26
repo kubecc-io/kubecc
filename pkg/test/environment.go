@@ -148,6 +148,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Agent,
 				logkc.WithName(string('a'+e.agentCount.Load())),
+				logkc.WithLogLevel(cfg.Agent.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
@@ -175,8 +176,6 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 	}
 
 	agentSrv := agent.NewAgentServer(ctx, options...)
-	mgr := servers.NewStreamManager(ctx, agentSrv)
-	go mgr.Run()
 	go agentSrv.StartMetricsProvider()
 
 	return ctx, cancel
@@ -201,6 +200,7 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Scheduler,
 				logkc.WithName("a"),
+				logkc.WithLogLevel(cfg.Scheduler.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
@@ -213,7 +213,6 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 	}
 
 	sc := scheduler.NewSchedulerServer(ctx, options...)
-	types.RegisterSchedulerServer(e.server, sc)
 	go sc.StartMetricsProvider()
 	e.serve(ctx, sc, so.name)
 	return ctx, cancel
@@ -238,6 +237,7 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Consumerd,
 				logkc.WithName(string('a'+e.consumerdCount.Load())),
+				logkc.WithLogLevel(cfg.Consumerd.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
@@ -265,7 +265,6 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 	}
 
 	cd := consumerd.NewConsumerdServer(ctx, options...)
-	types.RegisterConsumerdServer(e.server, cd)
 
 	go cd.StartMetricsProvider()
 	e.serve(ctx, cd, so.name)
@@ -292,6 +291,7 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Monitor,
 				logkc.WithName("a"),
+				logkc.WithLogLevel(cfg.Monitor.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
@@ -299,7 +299,6 @@ func (e *Environment) SpawnMonitor(opts ...SpawnOption) (context.Context, contex
 	ctx, cancel := context.WithCancel(ctx)
 
 	mon := monitor.NewMonitorServer(ctx, cfg.Monitor, monitor.InMemoryStoreCreator)
-	types.RegisterMonitorServer(e.server, mon)
 	e.serve(ctx, mon, so.name)
 
 	return ctx, cancel
@@ -324,6 +323,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Cache,
 				logkc.WithName("a"),
+				logkc.WithLogLevel(cfg.Cache.LogLevel.Level()),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),
@@ -349,7 +349,6 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 
 	cacheSrv := cachesrv.NewCacheServer(ctx, cfg.Cache, options...)
 
-	types.RegisterCacheServer(e.server, cacheSrv)
 	go cacheSrv.StartMetricsProvider()
 	e.serve(ctx, cacheSrv, so.name)
 
@@ -398,6 +397,8 @@ func NewEnvironment(cfg config.KubeccSpec) *Environment {
 		meta.WithProvider(tracing.Tracer),
 	)
 	ctx, cancel := context.WithCancel(ctx)
+
+	config.ApplyGlobals(&cfg)
 
 	env := &Environment{
 		defaultConfig:  cfg,

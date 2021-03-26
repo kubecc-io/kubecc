@@ -38,10 +38,10 @@ type GlobalSpec struct {
 	LogFile  string         `json:"logFile"`
 }
 
-// LoadIfUnset will load fields from the global GlobalSpec into
+// Merge will load fields from the global GlobalSpec into
 // a component's optional GlobalSpec if a field has not been
 // specifically overridden by the component.
-func (override *GlobalSpec) LoadIfUnset(global GlobalSpec) {
+func (override *GlobalSpec) Merge(global GlobalSpec) {
 	if err := mergo.Merge(override, global); err != nil {
 		panic(err)
 	}
