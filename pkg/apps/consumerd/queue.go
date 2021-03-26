@@ -81,8 +81,10 @@ type SplitQueue struct {
 }
 
 type SplitQueueOptions struct {
-	telemetryCfg TelemetryConfig
-	usageLimits  *metrics.UsageLimits
+	telemetryCfg                   TelemetryConfig
+	usageLimits                    *metrics.UsageLimits
+	defaultRemoteUsageLimits       *metrics.UsageLimits
+	enableDynamicRemoteUsageLimits bool
 }
 
 type SplitQueueOption func(*SplitQueueOptions)
@@ -99,9 +101,21 @@ func WithTelemetryConfig(cfg TelemetryConfig) SplitQueueOption {
 	}
 }
 
-func UsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
+func LocalUsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
 	return func(o *SplitQueueOptions) {
 		o.usageLimits = limits
+	}
+}
+
+func DefaultRemoteUsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
+	return func(o *SplitQueueOptions) {
+		o.defaultRemoteUsageLimits = limits
+	}
+}
+
+func EnableDynamicRemoteUsageLimits(enable bool) SplitQueueOption {
+	return func(o *SplitQueueOptions) {
+		o.enableDynamicRemoteUsageLimits = enable
 	}
 }
 
@@ -114,6 +128,10 @@ func NewSplitQueue(
 		usageLimits: &metrics.UsageLimits{
 			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
 		},
+		defaultRemoteUsageLimits: &metrics.UsageLimits{
+			ConcurrentProcessLimit: 0,
+		},
+		enableDynamicRemoteUsageLimits: true,
 	}
 	options.Apply(opts...)
 	capacity := int64(1000) // todo
@@ -145,8 +163,10 @@ func NewSplitQueue(
 
 	sq.localWorkers.Resize(int64(options.usageLimits.ConcurrentProcessLimit))
 
-	sq.remoteWorkers.Resize(0)
-	clients.WatchRemoteUsage(ctx, monClient, sq.remoteWorkers)
+	sq.remoteWorkers.Resize(int64(options.defaultRemoteUsageLimits.ConcurrentProcessLimit))
+	if options.enableDynamicRemoteUsageLimits {
+		clients.WatchRemoteUsage(ctx, monClient, sq.remoteWorkers)
+	}
 	clients.WatchAvailability(ctx, monClient, sq.avc)
 
 	go sq.handleAvailabilityChanged()
