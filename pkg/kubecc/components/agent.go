@@ -88,9 +88,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 		agent.WithMonitorClient(monitorClient),
 	)
 	go a.StartMetricsProvider()
-
-	mgr := servers.NewStreamManager(ctx, a)
-	mgr.Run()
+	<-ctx.Done()
 }
 
 var AgentCmd = &cobra.Command{

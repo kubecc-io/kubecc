@@ -36,10 +36,10 @@ type ConfigProvider interface {
 
 type ConfigMapProvider struct{}
 
-// applyGlobals walks the config structure of KubeccSpec (depth 1), finds any
+// ApplyGlobals walks the config structure of KubeccSpec (depth 1), finds any
 // structs that contain a *GlobalSpec field, and syncs non-overridden global
 // fields from the top level KubeccSpec globals.
-func applyGlobals(cfg *KubeccSpec) {
+func ApplyGlobals(cfg *KubeccSpec) {
 	cfgValue := reflect.ValueOf(cfg).Elem()
 	for i := 0; i < cfgValue.NumField(); i++ {
 		component := cfgValue.Field(i)
@@ -49,7 +49,7 @@ func applyGlobals(cfg *KubeccSpec) {
 		for j := 0; j < component.NumField(); j++ {
 			if f := component.Field(j); f.Type() == reflect.TypeOf(cfg.Global) {
 				override := f.Interface().(GlobalSpec)
-				override.LoadIfUnset(cfg.Global)
+				override.Merge(cfg.Global)
 				f.Set(reflect.ValueOf(override))
 			}
 		}
@@ -70,7 +70,7 @@ func loadConfigOrDie(path string) *KubeccSpec {
 	if err != nil {
 		panic(fmt.Sprintf("Error parsing config file %s: %s", path, err.Error()))
 	}
-	applyGlobals(cfg)
+	ApplyGlobals(cfg)
 	return cfg
 }
 
