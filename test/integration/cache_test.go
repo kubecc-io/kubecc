@@ -26,16 +26,16 @@ import (
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
-	// . "github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("Cache test", func() {
+var _ = Describe("Cache test", func() {
 	var testEnv *test.Environment
 	localJobs := 20
 
 	Specify("setup", func() {
 		cfg := test.DefaultConfig()
-		cfg.Global.LogLevel = "info"
+		cfg.Global.LogLevel = "warn"
 		testEnv = test.NewEnvironment(cfg)
 
 		testEnv.SpawnMonitor()
@@ -72,7 +72,7 @@ var _ = FDescribe("Cache test", func() {
 		}), 5*time.Second)
 		duration2 := time.Since(start2)
 		b.RecordValueWithPrecision("With cached results", float64(duration2.Milliseconds()), "ms", 2)
-		// Expect(duration2.Milliseconds()).To(BeNumerically("<", 150))
+		Expect(duration2.Milliseconds()).To(BeNumerically("<", duration1.Milliseconds()))
 	}, 1)
 
 })
