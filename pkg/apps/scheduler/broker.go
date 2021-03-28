@@ -122,12 +122,13 @@ func NewBroker(
 	if options.cacheClient != nil {
 		routerOptions = append(routerOptions, WithHooks(b))
 	} else {
-		b.lg.Debug("Cache server not configured")
+		b.lg.Warn("Cache server not configured")
 	}
 	b.router = NewRouter(ctx, routerOptions...)
 
 	go b.handleResponseQueue()
 	if b.monClient != nil {
+		b.lg.Info("Watching cache server availability")
 		go b.watchCacheAvailability()
 	}
 	return b
@@ -147,8 +148,10 @@ func (b *Broker) watchCacheAvailability() {
 	go func() {
 		for {
 			ctx := avc.EnsureAvailable()
+			b.lg.Info("Cache server now available")
 			b.cacheAvailable.Store(true)
 			<-ctx.Done()
+			b.lg.Info("Cache server no longer available")
 			b.cacheAvailable.Store(false)
 		}
 	}()
@@ -517,9 +520,6 @@ func (b *Broker) cacheTransaction(
 		b.lg.Warn("Tried to cache transaction with empty request hash")
 		return
 	}
-	b.lg.With(
-		"hash", types.FormatShortID(requestHash, 6, types.ElideCenter),
-	).Info("Sending successful result to cache server")
 	_, err := b.cacheClient.Push(b.srvContext, &types.PushRequest{
 		Key: &types.CacheKey{
 			Hash: requestHash,
@@ -531,6 +531,15 @@ func (b *Broker) cacheTransaction(
 			},
 		},
 	})
+	if err == nil {
+		b.lg.With(
+			"hash", types.FormatShortID(requestHash, 6, types.ElideCenter),
+		).Info("Stored successful result in cache")
+	} else if status.Code(err) == codes.AlreadyExists {
+		b.lg.With(
+			"hash", types.FormatShortID(requestHash, 6, types.ElideCenter),
+		).Debug("Cache entry already exists")
+	}
 	if err != nil && status.Code(err) != codes.AlreadyExists {
 		b.lg.With(
 			zap.Error(err),

@@ -128,7 +128,7 @@ func (m *MonitorServer) postTotals() {
 	postedTotalMetric.Value = any
 	err = m.post(postedTotalMetric)
 	if err != nil {
-		panic(err)
+		m.lg.Error(err)
 	}
 }
 

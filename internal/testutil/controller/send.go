@@ -45,7 +45,7 @@ func (m sendRemoteRunnerManager) Process(
 		ctx.ClientContext, tracer, "run-send")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	_, err = m.client.Compile(&types.CompileRequest{
+	resp, err := m.client.Compile(&types.CompileRequest{
 		RequestID: uuid.NewString(),
 		Toolchain: req.GetToolchain(),
 		Args:      req.Args,
@@ -56,9 +56,20 @@ func (m sendRemoteRunnerManager) Process(
 		}
 		panic(err)
 	}
-	return &types.RunResponse{
-		ReturnCode: 0,
-	}, nil
+	switch data := resp.Data.(type) {
+	case *types.CompileResponse_CompiledSource:
+		return &types.RunResponse{
+			ReturnCode: 0,
+			Stdout:     data.CompiledSource,
+		}, nil
+	case *types.CompileResponse_Error:
+		return &types.RunResponse{
+			ReturnCode: 0,
+			Stderr:     []byte(data.Error),
+		}, nil
+	default:
+		panic("Invalid test")
+	}
 }
 
 type sendRemoteRunnerManagerSim struct{}
@@ -71,18 +82,19 @@ func (m sendRemoteRunnerManagerSim) Process(
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.RunRequest)
-	ap := testutil.SleepArgParser{
+	ap := testutil.TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
-	t := &testutil.SleepTask{
-		Duration: ap.Duration,
-	}
-	t.Run()
-	if err := t.Err(); err != nil {
-		panic(err)
+	out, err := doTestAction(&ap)
+	if err != nil {
+		return &types.RunResponse{
+			ReturnCode: 1,
+			Stderr:     []byte(err.Error()),
+		}, nil
 	}
 	return &types.RunResponse{
 		ReturnCode: 0,
+		Stdout:     out,
 	}, nil
 }

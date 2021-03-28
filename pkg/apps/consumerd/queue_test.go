@@ -18,25 +18,80 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package consumerd_test
 
 import (
+	"context"
 	"time"
 
+	"github.com/cobalt77/kubecc/internal/testutil"
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/test"
 	"github.com/cobalt77/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
 )
 
-func runAllTasks(taskPool chan *consumerd.SplitTask) (local, remote int64) {
-	pending := make(chan *consumerd.SplitTask, cap(taskPool))
+func runTasksInf(
+	taskPool chan *consumerd.SplitTask,
+	queue *consumerd.SplitQueue,
+	requestCounts chan struct{},
+) chan counts {
+	local := atomic.NewInt32(0)
+	remote := atomic.NewInt32(0)
+	c := make(chan counts)
+	go func() {
+		for task := range taskPool {
+			if err := queue.Exec(task); err != nil {
+				panic(err)
+			}
+			go func(task *consumerd.SplitTask) {
+				_, err := task.Wait()
+				if err != nil {
+					panic(err)
+				}
+				switch task.Which() {
+				case consumerd.Local:
+					local.Inc()
+				case consumerd.Remote:
+					remote.Inc()
+				case consumerd.Unknown:
+					panic("consumerd.Unknown")
+				}
+			}(task)
+		}
+	}()
+	go func() {
+		for {
+			<-requestCounts
+			c <- counts{
+				local:  int64(local.Swap(0)),
+				remote: int64(remote.Swap(0)),
+			}
+		}
+	}()
+	return c
+}
+
+func runAllTasks(
+	taskPool chan *consumerd.SplitTask,
+	queue *consumerd.SplitQueue,
+) (local, remote int64) {
+	pending := []*consumerd.SplitTask{}
+	// Block until the first task has been received
+	task := <-taskPool
+	if err := queue.Exec(task); err != nil {
+		panic(err)
+	}
+	pending = append(pending, task)
+
+	// Read tasks from the channel until there are none left
 	for {
 		select {
 		case task := <-taskPool:
-			err := queue.Exec(task)
-			Expect(err).NotTo(HaveOccurred())
-			pending <- task
+			if err := queue.Exec(task); err != nil {
+				panic(err)
+			}
+			pending = append(pending, task)
 		default:
 			goto wait
 		}
@@ -44,26 +99,24 @@ func runAllTasks(taskPool chan *consumerd.SplitTask) (local, remote int64) {
 	// This is to avoid spawning thousands of goroutines which will break
 	// the race detector.
 wait:
-	for {
-		select {
-		case task := <-pending:
-			_, err := task.Wait()
-			Expect(err).NotTo(HaveOccurred())
-			switch task.Which() {
-			case consumerd.Local:
-				local++
-			case consumerd.Remote:
-				remote++
-			case consumerd.Unknown:
-				panic("consumerd.Unknown")
-			}
-		default:
-			return
+	for _, task := range pending {
+		_, err := task.Wait()
+		if err != nil {
+			panic(err)
+		}
+		switch task.Which() {
+		case consumerd.Local:
+			local++
+		case consumerd.Remote:
+			remote++
+		case consumerd.Unknown:
+			panic("consumerd.Unknown")
 		}
 	}
+	return
 }
 
-func ewma(kind consumerd.EntryKind) consumerd.Entries {
+func ewma(queue *consumerd.SplitQueue, kind consumerd.EntryKind) consumerd.Entries {
 	e := queue.Telemetry().Entries()
 	if len(e) < 2 {
 		return consumerd.Entries{}
@@ -78,7 +131,8 @@ func linReg(e consumerd.Entries, start, end time.Time) float64 {
 	return beta
 }
 
-var _ = Describe("Split Queue", func() {
+var _ = Describe("Basic Functionality", func() {
+	var queue *consumerd.SplitQueue
 	Specify("setup", func() {
 		testEnv = test.NewDefaultEnvironment()
 		queue = consumerd.NewSplitQueue(testCtx,
@@ -88,14 +142,8 @@ var _ = Describe("Split Queue", func() {
 				RecordInterval: collectionPeriod,
 				HistoryLen:     1e4,
 			}),
-			consumerd.LocalUsageLimits(&metrics.UsageLimits{
-				ConcurrentProcessLimit: 35,
-			}),
-			consumerd.DefaultRemoteUsageLimits(&metrics.UsageLimits{
-				ConcurrentProcessLimit: 50,
-			}),
-			// No agents for this test, enabling this would set the usage limits to 0
-			consumerd.EnableDynamicRemoteUsageLimits(false),
+			consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(35)),
+			consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(50)),
 		)
 		testEnv.SpawnMonitor()
 	})
@@ -112,7 +160,7 @@ var _ = Describe("Split Queue", func() {
 		When("when no scheduler is available", func() {
 			Specify("the queue should run all tasks locally", func() {
 				taskPool := makeTaskPool(numTasks)
-				local, remote := runAllTasks(taskPool)
+				local, remote := runAllTasks(taskPool, queue)
 
 				Expect(local).To(BeEquivalentTo(numTasks))
 				Expect(remote).To(BeEquivalentTo(0))
@@ -137,7 +185,7 @@ var _ = Describe("Split Queue", func() {
 				avc.EnsureAvailable()
 
 				By("Running tasks")
-				local, remote := runAllTasks(taskPool)
+				local, remote := runAllTasks(taskPool, queue)
 				Expect(local + remote).To(BeEquivalentTo(numTasks))
 				Expect(local).To(BeNumerically(">", 0))
 				Expect(remote).To(BeNumerically(">", 0))
@@ -152,8 +200,8 @@ var _ = Describe("Split Queue", func() {
 			// is positive or negative in certain places. At times when there should
 			// be activity on the queue, the slope should be positive. When the queue
 			// is not in use, the slope should turn negative.
-			ewmaLocal := ewma(consumerd.CompletedTasksLocal)
-			ewmaRemote := ewma(consumerd.CompletedTasksRemote)
+			ewmaLocal := ewma(queue, consumerd.CompletedTasksLocal)
+			ewmaRemote := ewma(queue, consumerd.CompletedTasksRemote)
 			Expect(linReg(ewmaLocal, eventTimestamps[0], eventTimestamps[1])).To(BeNumerically(">", 0))
 			Expect(linReg(ewmaLocal, eventTimestamps[1], eventTimestamps[2])).To(BeNumerically("<", 0))
 			for i := 1; i <= iterations; i++ {
@@ -165,34 +213,94 @@ var _ = Describe("Split Queue", func() {
 				}
 			}
 		})
+		Specify("Saving telemetry graph", func() {
+			testutil.SkipInGithubWorkflow()
+			plotStatsLog(queue)
+		})
 	})
+	Specify("Shutdown", func() {
+		testEnv.Shutdown()
+	})
+})
 
-	// PDescribe("Redirecting tasks when state changes", func() {
-	// 	var cancelPool context.CancelFunc
-	// 	Specify("startup", func() {
-	// 		testEnv = test.NewDefaultEnvironment()
-	// 		testEnv.SpawnMonitor()
-	// 		taskPool, cancel := makeInfiniteTaskPool()
-	// 		cancelPool = cancel
-	// 		sq := consumerd.NewSplitQueue(testCtx, testEnv.NewMonitorClient(testCtx))
-	// 		processTasks(taskPool, sq)
-	// 	})
-	// 	When("no remote is available yet", func() {
-	// 		Specify("all tasks should be executed locally", func() {
-	// 			for i := 0; i < 100; i++ {
-	// 				outLog.Info(localExec.Slope(), remoteExec.Slope())
-	// 			}
-	// 		})
-	// 	})
-	// 	When("the remote becomes available", func() {
+type counts struct {
+	local, remote int64
+}
 
-	// 	})
-	// 	When("the remote becomes unavailable", func() {
-
-	// 	})
-	// 	Specify("shutdown", func() {
-	// 		cancelPool()
-	// 		testEnv.Shutdown()
-	// 	})
-	// })
+var _ = Describe("Task Redirection", func() {
+	// These tasks will keep the queue at max capacity, since they will be
+	// added much faster than they can be completed
+	taskPool := makeInfiniteTaskPool([]string{"-sleep", "10ms"})
+	var queue *consumerd.SplitQueue
+	var countsCh chan counts
+	requestCounts := make(chan struct{})
+	Specify("setup", func() {
+		testEnv = test.NewDefaultEnvironment()
+		queue = consumerd.NewSplitQueue(testCtx,
+			testEnv.NewMonitorClient(testCtx),
+			consumerd.WithTelemetryConfig(consumerd.TelemetryConfig{
+				Enabled: false,
+			}),
+			consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(10)),
+			consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(10)),
+		)
+		testEnv.SpawnMonitor()
+		countsCh = runTasksInf(taskPool.C, queue, requestCounts)
+	})
+	When("no remote is available yet", func() {
+		It("should run all tasks locally", func() {
+			By("Waiting 100ms")
+			time.Sleep(200 * time.Millisecond)
+			By("Checking counts")
+			requestCounts <- struct{}{}
+			counts := <-countsCh
+			// At this point in time the queue should be near-full and about 200 tasks
+			// should have been completed locally
+			Expect(counts.local).To(BeNumerically(">", 175))
+			Expect(counts.remote).To(BeEquivalentTo(0))
+		})
+	})
+	When("the remote becomes available", func() {
+		var cancel context.CancelFunc
+		Specify("starting scheduler", func() {
+			_, cancel = testEnv.SpawnScheduler()
+		})
+		It("should split tasks between local and remote", func() {
+			By("Waiting 100ms")
+			requestCounts <- struct{}{} // set the counts back to 0
+			<-countsCh
+			time.Sleep(200 * time.Millisecond)
+			By("Checking counts")
+			requestCounts <- struct{}{}
+			counts := <-countsCh
+			// At this point in time the queue should be near-full and about 200 tasks
+			// should have been completed on both local and remote
+			Expect(counts.local).To(BeNumerically(">", 175))
+			Expect(counts.remote).To(BeNumerically(">", 175))
+		})
+		Specify("stopping scheduler", func() {
+			cancel()
+			// wait for any active remote tasks to be completed/canceled
+			time.Sleep(50 * time.Millisecond)
+		})
+	})
+	When("the remote becomes unavailable", func() {
+		It("should run all tasks locally", func() {
+			By("Waiting 100ms")
+			requestCounts <- struct{}{} // set the counts back to 0
+			<-countsCh
+			time.Sleep(200 * time.Millisecond)
+			By("Checking counts")
+			requestCounts <- struct{}{}
+			counts := <-countsCh
+			// At this point in time the queue should be near-full and about 200 tasks
+			// should have been completed locally
+			Expect(counts.local).To(BeNumerically(">", 175))
+			Expect(counts.remote).To(BeEquivalentTo(0))
+		})
+	})
+	Specify("shutdown", func() {
+		taskPool.Cancel()
+		testEnv.Shutdown()
+	})
 })

@@ -100,7 +100,6 @@ func (s *CacheServer) Push(
 	ctx context.Context,
 	req *types.PushRequest,
 ) (*types.Empty, error) {
-	s.lg.Debug("Handling push request")
 	return &types.Empty{}, s.storageProvider.Put(ctx, req.Key, req.Object)
 }
 

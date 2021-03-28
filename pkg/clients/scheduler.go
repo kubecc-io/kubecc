@@ -139,25 +139,21 @@ func (rc *CompileRequestClient) recvWorker() {
 }
 
 type RemoteUsageMonitor struct {
-	ctx     context.Context
-	resizer run.Resizer
-	client  types.MonitorClient
+	ctx    context.Context
+	client types.MonitorClient
 }
 
-func WatchRemoteUsage(
+func NewRemoteUsageManager(
 	ctx context.Context,
 	client types.MonitorClient,
-	resizer run.Resizer,
-) {
-	mon := &RemoteUsageMonitor{
-		ctx:     ctx,
-		resizer: resizer,
-		client:  client,
+) run.ResizerManager {
+	return &RemoteUsageMonitor{
+		ctx:    ctx,
+		client: client,
 	}
-	mon.watchUsage()
 }
 
-func (m *RemoteUsageMonitor) watchUsage() {
+func (m *RemoteUsageMonitor) Manage(resizer run.Resizer) {
 	l := NewListener(m.ctx, m.client, servers.WithLogEvents(
 		servers.LogConnectionFailed,
 	))
@@ -179,7 +175,7 @@ func (m *RemoteUsageMonitor) watchUsage() {
 			lg.With(
 				"limit", u.GetConcurrentProcessLimit(),
 			).Info("Received new remote concurrent process limit")
-			m.resizer.Resize(u.GetConcurrentProcessLimit())
+			resizer.Resize(u.GetConcurrentProcessLimit())
 		})
 	})
 }
