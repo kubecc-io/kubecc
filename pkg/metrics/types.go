@@ -17,38 +17,28 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package metrics
 
-import (
-	"context"
-
-	"github.com/cobalt77/kubecc/pkg/servers"
-	"google.golang.org/protobuf/proto"
-)
-
-const MetaBucket = "meta"
-
-type RetryOptions uint32
-
-const (
-	NoRetry RetryOptions = iota
-	Retry
-)
-
-type ContextMetric interface {
-	Context() context.Context
+func (sc StatusConditions) FormatAll(msgs ...string) []string {
+	formatted := make([]string, len(msgs))
+	for i, msg := range msgs {
+		formatted[i] = sc.Format(msg)
+	}
+	return formatted
 }
 
-type Provider interface {
-	Post(metric proto.Message)
-	PostContext(metric proto.Message, ctx context.Context)
-}
-
-type Listener interface {
-	OnValueChanged(bucket string, handler interface{}) ChangeListener
-	OnProviderAdded(func(context.Context, string))
-	Stop()
-}
-
-type ChangeListener interface {
-	servers.StreamHandler
-	OrExpired(handler func() RetryOptions)
+func (sc StatusConditions) Format(msg string) string {
+	switch sc {
+	case StatusConditions_NoConditions:
+		return msg
+	case StatusConditions_Pending:
+		return "[Pending] " + msg
+	case StatusConditions_MissingOptionalComponent:
+		return "[Missing Optional] " + msg
+	case StatusConditions_MissingCriticalComponent:
+		return "[Missing Critical] " + msg
+	case StatusConditions_InvalidConfiguration:
+		return "[Invalid Config] " + msg
+	case StatusConditions_InternalError:
+		return "[Internal Error] " + msg
+	}
+	return msg
 }

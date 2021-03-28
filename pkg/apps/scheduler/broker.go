@@ -246,36 +246,38 @@ func (b *Broker) handleConsumerdStream(
 	b.lg.Debug("Handling consumerd stream (recv)")
 	defer b.lg.Debug("Consumerd stream done (recv)")
 
-	for {
-		req, err := srv.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				b.lg.Debug(err)
-			} else {
-				b.lg.Error(err)
+	go func() {
+		for {
+			req, err := srv.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					b.lg.Debug(err)
+				} else {
+					b.lg.Error(err)
+				}
+				return
 			}
-			return
-		}
-		b.requestCount.Inc()
-		b.pendingRequests.Store(req.RequestID, pendingRequest{
-			request:   req,
-			requester: cd,
-		})
-		if err := b.router.Route(srv.Context(), req); err != nil {
-			b.lg.With(
-				zap.Error(err),
-			).Error("Encountered an error while routing compile request")
-			b.pendingRequests.Delete(req.RequestID)
-			b.requestCount.Dec()
-			b.responseQueue <- &types.CompileResponse{
-				RequestID:     req.GetRequestID(),
-				CompileResult: types.CompileResponse_InternalError,
-				Data: &types.CompileResponse_Error{
-					Error: err.Error(),
-				},
+			b.requestCount.Inc()
+			b.pendingRequests.Store(req.RequestID, pendingRequest{
+				request:   req,
+				requester: cd,
+			})
+			if err := b.router.Route(srv.Context(), req); err != nil {
+				b.lg.With(
+					zap.Error(err),
+				).Error("Encountered an error while routing compile request")
+				b.pendingRequests.Delete(req.RequestID)
+				b.requestCount.Dec()
+				b.responseQueue <- &types.CompileResponse{
+					RequestID:     req.GetRequestID(),
+					CompileResult: types.CompileResponse_InternalError,
+					Data: &types.CompileResponse_Error{
+						Error: err.Error(),
+					},
+				}
 			}
 		}
-	}
+	}()
 }
 
 func (b *Broker) handleResponseQueue() {

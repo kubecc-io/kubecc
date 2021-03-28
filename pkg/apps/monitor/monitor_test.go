@@ -31,7 +31,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
@@ -145,15 +144,15 @@ var _ = Describe("Monitor", func() {
 				listenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					listenerEvents["testKey1Changed"] <- k1.Counter
-				}).OrExpired(func() metrics.RetryOptions {
+				}).OrExpired(func() clients.RetryOptions {
 					listenerEvents["testKey1Expired"] <- struct{}{}
-					return metrics.NoRetry
+					return clients.NoRetry
 				})
 				listener.OnValueChanged(uuid, func(k2 *testutil.Test2) {
 					listenerEvents["testKey2Changed"] <- k2.Value
-				}).OrExpired(func() metrics.RetryOptions {
+				}).OrExpired(func() clients.RetryOptions {
 					listenerEvents["testKey2Expired"] <- struct{}{}
-					return metrics.NoRetry
+					return clients.NoRetry
 				})
 				<-pctx.Done()
 				listenerEvents["providerRemoved"] <- uuid
@@ -161,7 +160,7 @@ var _ = Describe("Monitor", func() {
 		})
 	})
 
-	var provider metrics.Provider
+	var provider clients.MetricsProvider
 	var providerCancel context.CancelFunc
 	var providerUuid string
 	When("A provider connects", func() {
@@ -184,7 +183,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			mc := types.NewMonitorClient(cc)
-			provider = clients.NewMonitorProvider(cctx, mc, clients.Buffered)
+			provider = clients.NewMetricsProvider(cctx, mc, clients.Buffered)
 			Expect(provider).NotTo(BeNil())
 		})
 		It("should create a store", func() {
@@ -237,9 +236,9 @@ var _ = Describe("Monitor", func() {
 				lateJoinListenerEvents["providerAdded"] <- uuid
 				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
 					lateJoinListenerEvents["testKey1Changed"] <- k1.Counter
-				}).OrExpired(func() metrics.RetryOptions {
+				}).OrExpired(func() clients.RetryOptions {
 					lateJoinListenerEvents["testKey1Expired"] <- struct{}{}
-					return metrics.NoRetry
+					return clients.NoRetry
 				})
 				<-pctx.Done()
 				lateJoinListenerEvents["providerRemoved"] <- struct{}{}
@@ -305,8 +304,8 @@ var _ = Describe("Monitor", func() {
 			numUpdatesPerKey = 100
 			stressTestLoops = 3
 		}
-		providers := make([]metrics.Provider, numProviders)
-		listeners := make([]metrics.Listener, numListenersPerKey*4)
+		providers := make([]clients.MetricsProvider, numProviders)
+		listeners := make([]clients.MetricsListener, numListenersPerKey*4)
 		totals := []*atomic.Int32{
 			atomic.NewInt32(0),
 			atomic.NewInt32(0),
@@ -345,7 +344,7 @@ var _ = Describe("Monitor", func() {
 						}),
 				))
 				mc := types.NewMonitorClient(cc)
-				provider := clients.NewMonitorProvider(ctx, mc, clients.Buffered)
+				provider := clients.NewMetricsProvider(ctx, mc, clients.Buffered)
 				providers[i] = provider
 			}
 		})

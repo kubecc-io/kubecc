@@ -101,13 +101,6 @@ var _ = BeforeSuite(func(done Done) {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
-	// err = (&ToolchainReconciler{
-	// 	Client: k8sManager.GetClient(),
-	// 	Log:    lg.Named("Toolchain"),
-	// 	Scheme: k8sManager.GetScheme(),
-	// }).SetupWithManager(k8sManager)
-	// Expect(err).NotTo(HaveOccurred())
-
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctrl.SetupSignalHandler())

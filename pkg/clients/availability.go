@@ -21,7 +21,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
 )
@@ -130,7 +129,7 @@ func WatchAvailability(
 	monClient types.MonitorClient,
 	al AvailabilityListener,
 ) {
-	listener := NewListener(ctx, monClient, servers.WithLogEvents(0))
+	listener := NewListener(ctx, monClient, WithLogEvents(0))
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
 		info, err := monClient.Whois(ctx, &types.WhoisRequest{
 			UUID: uuid,

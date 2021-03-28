@@ -15,16 +15,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package servers
+package clients
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 	"time"
 
 	"github.com/cobalt77/kubecc/internal/zapkc"
 	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/cobalt77/kubecc/pkg/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -75,7 +77,9 @@ const (
 )
 
 type StreamManagerOptions struct {
-	logEvents EventKind
+	logEvents  EventKind
+	statusCtrl *metrics.StatusController
+	statusKind StatusCtrlKind
 }
 type StreamManagerOption func(*StreamManagerOptions)
 
@@ -88,6 +92,20 @@ func (o *StreamManagerOptions) Apply(opts ...StreamManagerOption) {
 func WithLogEvents(events EventKind) StreamManagerOption {
 	return func(opts *StreamManagerOptions) {
 		opts.logEvents = events
+	}
+}
+
+type StatusCtrlKind int
+
+const (
+	Optional StatusCtrlKind = iota
+	Required
+)
+
+func WithStatusCtrl(stat *metrics.StatusController, kind StatusCtrlKind) StreamManagerOption {
+	return func(o *StreamManagerOptions) {
+		o.statusCtrl = stat
+		o.statusKind = kind
 	}
 }
 
@@ -168,9 +186,27 @@ func (sm *StreamManager) waitBackoff() {
 	}
 }
 
+func (sm *StreamManager) applyCondition() context.CancelFunc {
+	condCtx, condCancel := context.WithCancel(context.Background())
+	if sm.statusCtrl != nil {
+		var cond metrics.StatusConditions
+		switch sm.statusKind {
+		case Optional:
+			cond = metrics.StatusConditions_MissingOptionalComponent
+		case Required:
+			cond = metrics.StatusConditions_MissingCriticalComponent
+		}
+		sm.statusCtrl.ApplyCondition(condCtx, cond,
+			fmt.Sprintf("Attempting to connect to %s", sm.handler.Target()))
+	}
+	return condCancel
+}
+
 func (sm *StreamManager) Run() {
 	lg := meta.Log(sm.ctx)
 	color := meta.Component(sm.ctx).Color()
+
+	cancelCond := sm.applyCondition()
 	for {
 		if stream, err := sm.handler.TryConnect(); err != nil {
 			if e, ok := sm.handler.(OnConnectFailedEventHandler); ok {
@@ -184,6 +220,7 @@ func (sm *StreamManager) Run() {
 			}
 			sm.waitBackoff()
 		} else {
+			cancelCond()
 			if e, ok := sm.handler.(OnConnectedEventHandler); ok {
 				e.OnConnected()
 			}
@@ -194,6 +231,7 @@ func (sm *StreamManager) Run() {
 			if err := stream.CloseSend(); err != nil {
 				lg.With(zap.Error(err)).Error("Failed to close stream")
 			}
+			cancelCond = sm.applyCondition()
 			if e, ok := sm.handler.(OnLostConnectionEventHandler); ok {
 				e.OnLostConnection()
 			}

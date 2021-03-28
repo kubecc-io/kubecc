@@ -115,3 +115,25 @@ message CacheHits {
   int64 CacheMissesTotal = 2;
   double CacheHitPercent = 3;
 }
+
+enum OverallStatus {
+  UnknownStatus = 0;
+  Ready = 1;
+  Initializing = 2;
+  Degraded = 3;
+  Unavailable = 4;
+}
+
+enum StatusConditions {
+  NoConditions = 0;
+  Pending = 1;
+  MissingOptionalComponent = 2;
+  MissingCriticalComponent = 3;
+  InvalidConfiguration = 4;
+  InternalError = 5;
+}
+
+message Health {
+  OverallStatus Status = 1;
+  repeated string Messages = 3;
+}

@@ -37,12 +37,13 @@ import (
 )
 
 type AgentServer struct {
+	metrics.StatusController
 	srvContext       context.Context
 	executor         run.Executor
 	lg               *zap.SugaredLogger
 	tcStore          *toolchains.Store
 	tcRunStore       *run.ToolchainRunnerStore
-	metricsProvider  metrics.Provider
+	metricsProvider  clients.MetricsProvider
 	toolchainFinders []toolchains.FinderWithOptions
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
@@ -120,15 +121,21 @@ func NewAgentServer(
 		usageLimits:      options.usageLimits,
 		schedulerClient:  options.schedulerClient,
 	}
+	srv.BeginInitialize()
+	defer srv.EndInitialize()
 
 	if options.monitorClient != nil {
-		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
-			clients.Buffered|clients.Discard)
+		srv.metricsProvider = clients.NewMetricsProvider(ctx, options.monitorClient,
+			clients.Buffered|clients.Discard,
+			clients.StatusCtrl(&srv.StatusController))
 	} else {
-		srv.metricsProvider = metrics.NewNoopProvider()
+		srv.metricsProvider = clients.NewNoopMetricsProvider()
 	}
 
-	mgr := servers.NewStreamManager(ctx, srv)
+	mgr := clients.NewStreamManager(ctx, srv, clients.WithStatusCtrl(
+		&srv.StatusController,
+		clients.Required,
+	))
 	go mgr.Run()
 
 	return srv

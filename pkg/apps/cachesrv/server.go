@@ -34,11 +34,12 @@ import (
 )
 
 type CacheServer struct {
+	metrics.StatusController
 	types.UnimplementedCacheServer
 	srvContext      context.Context
 	lg              *zap.SugaredLogger
 	cfg             config.CacheSpec
-	metricsProvider metrics.Provider
+	metricsProvider clients.MetricsProvider
 	storageProvider storage.StorageProvider
 }
 
@@ -80,18 +81,27 @@ func NewCacheServer(
 		cfg:        cfg,
 		lg:         meta.Log(ctx),
 	}
+	srv.BeginInitialize()
+	defer srv.EndInitialize()
+
 	if options.storageProvider == nil {
-		srv.lg.Fatal("No storage provider set.")
-	}
-	srv.storageProvider = options.storageProvider
-	if options.monitorClient != nil {
-		srv.metricsProvider = clients.NewMonitorProvider(
-			ctx, options.monitorClient, clients.Buffered|clients.Block)
+		srv.ApplyCondition(ctx, metrics.StatusConditions_InvalidConfiguration,
+			"No storage provider set")
+		srv.lg.Error("No storage provider set.")
 	} else {
-		srv.metricsProvider = metrics.NewNoopProvider()
-	}
-	if err := srv.storageProvider.Configure(); err != nil {
-		srv.lg.Fatal(err)
+		srv.storageProvider = options.storageProvider
+		if options.monitorClient != nil {
+			srv.metricsProvider = clients.NewMetricsProvider(
+				ctx, options.monitorClient, clients.Buffered|clients.Block,
+				clients.StatusCtrl(&srv.StatusController))
+		} else {
+			srv.metricsProvider = clients.NewNoopMetricsProvider()
+		}
+		if err := srv.storageProvider.Configure(); err != nil {
+			srv.ApplyCondition(ctx, metrics.StatusConditions_InvalidConfiguration,
+				err.Error())
+			srv.lg.Error(err)
+		}
 	}
 	return srv
 }

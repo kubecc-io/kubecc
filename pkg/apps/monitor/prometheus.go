@@ -56,7 +56,6 @@ import (
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -222,7 +221,7 @@ func servePrometheusMetrics(
 	go serveMetricsEndpoint(srvContext, ":2112")
 	lg := meta.Log(srvContext)
 	listener := clients.NewListener(srvContext, client,
-		servers.WithLogEvents(servers.LogNone),
+		clients.WithLogEvents(clients.LogNone),
 	)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
 		info, err := client.Whois(srvContext, &types.WhoisRequest{UUID: uuid})
@@ -255,7 +254,7 @@ func servePrometheusMetrics(
 }
 
 func watchAgentKeys(
-	listener metrics.Listener,
+	listener clients.MetricsListener,
 	info *types.WhoisResponse,
 ) {
 	labels := prometheus.Labels{
@@ -272,7 +271,7 @@ func watchAgentKeys(
 }
 
 func watchSchedulerKeys(
-	listener metrics.Listener,
+	listener clients.MetricsListener,
 	info *types.WhoisResponse,
 ) {
 	listener.OnValueChanged(info.UUID, func(value *metrics.AgentCount) {
@@ -309,7 +308,7 @@ func watchSchedulerKeys(
 }
 
 func watchConsumerdKeys(
-	listener metrics.Listener,
+	listener clients.MetricsListener,
 	info *types.WhoisResponse,
 ) {
 	labels := prometheus.Labels{

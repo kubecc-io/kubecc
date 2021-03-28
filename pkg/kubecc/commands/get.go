@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
@@ -67,6 +68,7 @@ func init() {
 	GetCmd.AddCommand(getKeys)
 	GetCmd.AddCommand(getMetrics)
 	GetCmd.AddCommand(getRoutes)
+	GetCmd.AddCommand(getHealth)
 
 	GetCmd.PersistentFlags().StringVarP(&outputKind, "output", "o", "text",
 		"Output format. One of [text, json, jsonfmt]")
@@ -75,7 +77,7 @@ func init() {
 func getProviders() (*metrics.Providers, error) {
 	c := monitorClient()
 	m, err := c.GetMetric(CLIContext, &types.Key{
-		Bucket: metrics.MetaBucket,
+		Bucket: clients.MetaBucket,
 		Name:   "type.googleapis.com/metrics.Providers",
 	})
 	if err != nil {
@@ -304,5 +306,45 @@ var getRoutes = &cobra.Command{
 			return
 		}
 		formatOutput([]proto.Message{keys})
+	},
+}
+
+var getHealth = &cobra.Command{
+	Use:  "health",
+	Long: "Print the health of all components",
+	Args: cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		c := monitorClient()
+		buckets, err := c.GetBuckets(CLIContext, &types.Empty{})
+		if err != nil {
+			CLILog.Error(err)
+			return
+		}
+		for _, bucket := range buckets.GetBuckets() {
+			keys, err := c.GetKeys(CLIContext, bucket)
+			if err != nil {
+				CLILog.Error(err)
+				continue
+			}
+			for _, key := range keys.GetKeys() {
+				if key.Name == "type.googleapis.com/metrics.Health" {
+					metric, err := c.GetMetric(CLIContext, key)
+					if err != nil {
+						CLILog.With("key", key.Canonical()).Error(err)
+						continue
+					}
+					whois, err := c.Whois(CLIContext, &types.WhoisRequest{
+						UUID: bucket.Name,
+					})
+					if err != nil {
+						CLILog.With("uuid", bucket.Name).Error(err)
+						continue
+					}
+					fmt.Printf("%s [%s]\n",
+						whois.Component.Color().Add(whois.Component.Name()), whois.UUID)
+					formatOutput([]proto.Message{metric.GetValue()})
+				}
+			}
+		}
 	},
 }

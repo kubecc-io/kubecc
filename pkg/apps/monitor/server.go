@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
@@ -49,6 +50,7 @@ type Receiver interface {
 
 type MonitorServer struct {
 	types.UnimplementedMonitorServer
+	metrics.StatusController
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
@@ -91,8 +93,11 @@ func NewMonitorServer(
 			},
 		},
 	}
+	srv.BeginInitialize()
+	defer srv.EndInitialize()
+
 	providerCount.Inc()
-	srv.buckets[metrics.MetaBucket] = storeCreator.NewStore(ctx)
+	srv.buckets[clients.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
 
 	if conf.ServePrometheusMetrics {
@@ -104,35 +109,49 @@ func NewMonitorServer(
 	return srv
 }
 
-var (
-	postedTotal       = &metrics.MetricsPostedTotal{}
-	postedTotalKey    *types.Key
-	postedTotalMetric *types.Metric
-)
-
 func (m *MonitorServer) postTotals() {
+	postedTotal := &metrics.MetricsPostedTotal{
+		Total: m.metricsTotal.Load(),
+	}
 	any, err := anypb.New(postedTotal)
 	if err != nil {
 		panic(err)
 	}
-	if postedTotalKey == nil || postedTotalMetric == nil {
-		postedTotalKey = &types.Key{
+	err = m.post(&types.Metric{
+		Key: &types.Key{
 			Bucket: m.uuid,
 			Name:   any.TypeUrl,
-		}
-		postedTotalMetric = &types.Metric{
-			Key: postedTotalKey,
-		}
-	}
-	postedTotal.Total = m.metricsTotal.Load()
-	postedTotalMetric.Value = any
-	err = m.post(postedTotalMetric)
+		},
+		Value: any,
+	})
 	if err != nil {
 		m.lg.Error(err)
 	}
 }
 
+func (m *MonitorServer) postHealthUpdates() {
+	c := m.StreamHealthUpdates()
+	for {
+		health := <-c
+		any, err := anypb.New(health)
+		if err != nil {
+			panic(err)
+		}
+		err = m.post(&types.Metric{
+			Key: &types.Key{
+				Bucket: m.uuid,
+				Name:   any.TypeUrl,
+			},
+			Value: any,
+		})
+		if err != nil {
+			m.lg.Error(err)
+		}
+	}
+}
+
 func (m *MonitorServer) startMetricsProvider() {
+	go m.postHealthUpdates()
 	slowTimer := util.NewJitteredTimer(10*time.Second, 0.5)
 	go func() {
 		for {
@@ -189,7 +208,7 @@ func (m *MonitorServer) providersUpdated() {
 	}
 	err = m.post(&types.Metric{
 		Key: &types.Key{
-			Bucket: metrics.MetaBucket,
+			Bucket: clients.MetaBucket,
 			Name:   any.GetTypeUrl(),
 		},
 		Value: any,

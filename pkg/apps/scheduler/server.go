@@ -32,18 +32,21 @@ import (
 
 type schedulerServer struct {
 	types.UnimplementedSchedulerServer
+	metrics.StatusController
 
 	monClient   types.MonitorClient
 	cacheClient types.CacheClient
 
 	srvContext      context.Context
 	lg              *zap.SugaredLogger
-	metricsProvider metrics.Provider
-	hashSrv         *util.HashServer
+	metricsProvider clients.MetricsProvider
 	broker          *Broker
 
 	agentCount     *atomic.Int64
 	consumerdCount *atomic.Int64
+
+	condNoAgentsCancel context.CancelFunc
+	condNoCdsCancel    context.CancelFunc
 }
 
 type SchedulerServerOptions struct {
@@ -90,16 +93,36 @@ func NewSchedulerServer(
 			CacheClient(options.cacheClient),
 			MonitorClient(options.monClient),
 		),
-		hashSrv: util.NewHashServer(),
 	}
+	srv.BeginInitialize()
+	srv.applyNoAgentsCond()
+	srv.applyNoCdsCond()
+	defer srv.EndInitialize()
 
 	if options.monClient != nil {
-		srv.metricsProvider = clients.NewMonitorProvider(
-			ctx, options.monClient, clients.Discard)
+		srv.metricsProvider = clients.NewMetricsProvider(
+			ctx, options.monClient, clients.Discard,
+			clients.StatusCtrl(&srv.StatusController))
 	} else {
-		srv.metricsProvider = metrics.NewNoopProvider()
+		srv.metricsProvider = clients.NewNoopMetricsProvider()
 	}
 	return srv
+}
+
+func (s *schedulerServer) applyNoAgentsCond() {
+	s.lg.Debug("Applying status condition [no agents]")
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ApplyCondition(ctx, metrics.StatusConditions_MissingOptionalComponent,
+		"No agents connected")
+	s.condNoAgentsCancel = cancel
+}
+
+func (s *schedulerServer) applyNoCdsCond() {
+	s.lg.Debug("Applying status condition [no consumerds]")
+	ctx, cancel := context.WithCancel(context.Background())
+	s.ApplyCondition(ctx, metrics.StatusConditions_MissingOptionalComponent,
+		"No consumerds connected")
+	s.condNoCdsCancel = cancel
 }
 
 // agent <-> scheduler
@@ -113,8 +136,15 @@ func (s *schedulerServer) StreamIncomingTasks(
 	}
 
 	s.broker.NewAgentTaskStream(srv)
-	s.agentCount.Inc()
-	defer s.agentCount.Dec()
+	if s.agentCount.Inc() == 1 {
+		s.lg.Debug("Removing status condition [no agents]")
+		s.condNoAgentsCancel()
+	}
+	defer func() {
+		if s.agentCount.Dec() == 0 {
+			s.applyNoAgentsCond()
+		}
+	}()
 
 	s.postPreferredUsageLimits()
 	defer s.postPreferredUsageLimits()
@@ -139,12 +169,19 @@ func (s *schedulerServer) StreamOutgoingTasks(
 
 	s.broker.NewConsumerdTaskStream(srv)
 
+	if s.consumerdCount.Inc() == 1 {
+		s.lg.Debug("Removing status condition [no consumerds]")
+		s.condNoCdsCancel()
+	}
 	s.metricsProvider.Post(&metrics.ConsumerdCount{
-		Count: s.consumerdCount.Inc(),
+		Count: s.consumerdCount.Load(),
 	})
 	defer func() {
+		if s.consumerdCount.Dec() == 0 {
+			s.applyNoCdsCond()
+		}
 		s.metricsProvider.Post(&metrics.ConsumerdCount{
-			Count: s.consumerdCount.Dec(),
+			Count: s.consumerdCount.Load(),
 		})
 	}()
 

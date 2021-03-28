@@ -27,6 +27,119 @@ const (
 // of the legacy proto package is being used.
 const _ = proto.ProtoPackageIsVersion4
 
+type OverallStatus int32
+
+const (
+	OverallStatus_UnknownStatus OverallStatus = 0
+	OverallStatus_Ready         OverallStatus = 1
+	OverallStatus_Initializing  OverallStatus = 2
+	OverallStatus_Degraded      OverallStatus = 3
+	OverallStatus_Unavailable   OverallStatus = 4
+)
+
+// Enum value maps for OverallStatus.
+var (
+	OverallStatus_name = map[int32]string{
+		0: "UnknownStatus",
+		1: "Ready",
+		2: "Initializing",
+		3: "Degraded",
+		4: "Unavailable",
+	}
+	OverallStatus_value = map[string]int32{
+		"UnknownStatus": 0,
+		"Ready":         1,
+		"Initializing":  2,
+		"Degraded":      3,
+		"Unavailable":   4,
+	}
+)
+
+func (x OverallStatus) Enum() *OverallStatus {
+	p := new(OverallStatus)
+	*p = x
+	return p
+}
+
+func (x OverallStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OverallStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_metrics_metrics_proto_enumTypes[0].Descriptor()
+}
+
+func (OverallStatus) Type() protoreflect.EnumType {
+	return &file_pkg_metrics_metrics_proto_enumTypes[0]
+}
+
+func (x OverallStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use OverallStatus.Descriptor instead.
+func (OverallStatus) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{0}
+}
+
+type StatusConditions int32
+
+const (
+	StatusConditions_NoConditions             StatusConditions = 0
+	StatusConditions_Pending                  StatusConditions = 1
+	StatusConditions_MissingOptionalComponent StatusConditions = 2
+	StatusConditions_MissingCriticalComponent StatusConditions = 3
+	StatusConditions_InvalidConfiguration     StatusConditions = 4
+	StatusConditions_InternalError            StatusConditions = 5
+)
+
+// Enum value maps for StatusConditions.
+var (
+	StatusConditions_name = map[int32]string{
+		0: "NoConditions",
+		1: "Pending",
+		2: "MissingOptionalComponent",
+		3: "MissingCriticalComponent",
+		4: "InvalidConfiguration",
+		5: "InternalError",
+	}
+	StatusConditions_value = map[string]int32{
+		"NoConditions":             0,
+		"Pending":                  1,
+		"MissingOptionalComponent": 2,
+		"MissingCriticalComponent": 3,
+		"InvalidConfiguration":     4,
+		"InternalError":            5,
+	}
+)
+
+func (x StatusConditions) Enum() *StatusConditions {
+	p := new(StatusConditions)
+	*p = x
+	return p
+}
+
+func (x StatusConditions) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StatusConditions) Descriptor() protoreflect.EnumDescriptor {
+	return file_pkg_metrics_metrics_proto_enumTypes[1].Descriptor()
+}
+
+func (StatusConditions) Type() protoreflect.EnumType {
+	return &file_pkg_metrics_metrics_proto_enumTypes[1]
+}
+
+func (x StatusConditions) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StatusConditions.Descriptor instead.
+func (StatusConditions) EnumDescriptor() ([]byte, []int) {
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{1}
+}
+
 type TaskStatus struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -1181,6 +1294,61 @@ func (x *CacheHits) GetCacheHitPercent() float64 {
 	return 0
 }
 
+type Health struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Status   OverallStatus `protobuf:"varint,1,opt,name=Status,proto3,enum=metrics.OverallStatus" json:"Status,omitempty"`
+	Messages []string      `protobuf:"bytes,3,rep,name=Messages,proto3" json:"Messages,omitempty"`
+}
+
+func (x *Health) Reset() {
+	*x = Health{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pkg_metrics_metrics_proto_msgTypes[22]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Health) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Health) ProtoMessage() {}
+
+func (x *Health) ProtoReflect() protoreflect.Message {
+	mi := &file_pkg_metrics_metrics_proto_msgTypes[22]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Health.ProtoReflect.Descriptor instead.
+func (*Health) Descriptor() ([]byte, []int) {
+	return file_pkg_metrics_metrics_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *Health) GetStatus() OverallStatus {
+	if x != nil {
+		return x.Status
+	}
+	return OverallStatus_UnknownStatus
+}
+
+func (x *Health) GetMessages() []string {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 var File_pkg_metrics_metrics_proto protoreflect.FileDescriptor
 
 var file_pkg_metrics_metrics_proto_rawDesc = []byte{
@@ -1296,10 +1464,31 @@ var file_pkg_metrics_metrics_proto_rawDesc = []byte{
 	0x10, 0x43, 0x61, 0x63, 0x68, 0x65, 0x4d, 0x69, 0x73, 0x73, 0x65, 0x73, 0x54, 0x6f, 0x74, 0x61,
 	0x6c, 0x12, 0x28, 0x0a, 0x0f, 0x43, 0x61, 0x63, 0x68, 0x65, 0x48, 0x69, 0x74, 0x50, 0x65, 0x72,
 	0x63, 0x65, 0x6e, 0x74, 0x18, 0x03, 0x20, 0x01, 0x28, 0x01, 0x52, 0x0f, 0x43, 0x61, 0x63, 0x68,
-	0x65, 0x48, 0x69, 0x74, 0x50, 0x65, 0x72, 0x63, 0x65, 0x6e, 0x74, 0x42, 0x28, 0x5a, 0x26, 0x67,
-	0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x62, 0x61, 0x6c, 0x74,
-	0x37, 0x37, 0x2f, 0x6b, 0x75, 0x62, 0x65, 0x63, 0x63, 0x2f, 0x70, 0x6b, 0x67, 0x2f, 0x6d, 0x65,
-	0x74, 0x72, 0x69, 0x63, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x65, 0x48, 0x69, 0x74, 0x50, 0x65, 0x72, 0x63, 0x65, 0x6e, 0x74, 0x22, 0x54, 0x0a, 0x06, 0x48,
+	0x65, 0x61, 0x6c, 0x74, 0x68, 0x12, 0x2e, 0x0a, 0x06, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0e, 0x32, 0x16, 0x2e, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x2e,
+	0x4f, 0x76, 0x65, 0x72, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x52, 0x06, 0x53,
+	0x74, 0x61, 0x74, 0x75, 0x73, 0x12, 0x1a, 0x0a, 0x08, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
+	0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x09, 0x52, 0x08, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65,
+	0x73, 0x2a, 0x5e, 0x0a, 0x0d, 0x4f, 0x76, 0x65, 0x72, 0x61, 0x6c, 0x6c, 0x53, 0x74, 0x61, 0x74,
+	0x75, 0x73, 0x12, 0x11, 0x0a, 0x0d, 0x55, 0x6e, 0x6b, 0x6e, 0x6f, 0x77, 0x6e, 0x53, 0x74, 0x61,
+	0x74, 0x75, 0x73, 0x10, 0x00, 0x12, 0x09, 0x0a, 0x05, 0x52, 0x65, 0x61, 0x64, 0x79, 0x10, 0x01,
+	0x12, 0x10, 0x0a, 0x0c, 0x49, 0x6e, 0x69, 0x74, 0x69, 0x61, 0x6c, 0x69, 0x7a, 0x69, 0x6e, 0x67,
+	0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x44, 0x65, 0x67, 0x72, 0x61, 0x64, 0x65, 0x64, 0x10, 0x03,
+	0x12, 0x0f, 0x0a, 0x0b, 0x55, 0x6e, 0x61, 0x76, 0x61, 0x69, 0x6c, 0x61, 0x62, 0x6c, 0x65, 0x10,
+	0x04, 0x2a, 0x9a, 0x01, 0x0a, 0x10, 0x53, 0x74, 0x61, 0x74, 0x75, 0x73, 0x43, 0x6f, 0x6e, 0x64,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x10, 0x0a, 0x0c, 0x4e, 0x6f, 0x43, 0x6f, 0x6e, 0x64,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x10, 0x00, 0x12, 0x0b, 0x0a, 0x07, 0x50, 0x65, 0x6e, 0x64,
+	0x69, 0x6e, 0x67, 0x10, 0x01, 0x12, 0x1c, 0x0a, 0x18, 0x4d, 0x69, 0x73, 0x73, 0x69, 0x6e, 0x67,
+	0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x61, 0x6c, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e,
+	0x74, 0x10, 0x02, 0x12, 0x1c, 0x0a, 0x18, 0x4d, 0x69, 0x73, 0x73, 0x69, 0x6e, 0x67, 0x43, 0x72,
+	0x69, 0x74, 0x69, 0x63, 0x61, 0x6c, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x10,
+	0x03, 0x12, 0x18, 0x0a, 0x14, 0x49, 0x6e, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x43, 0x6f, 0x6e, 0x66,
+	0x69, 0x67, 0x75, 0x72, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x10, 0x04, 0x12, 0x11, 0x0a, 0x0d, 0x49,
+	0x6e, 0x74, 0x65, 0x72, 0x6e, 0x61, 0x6c, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x10, 0x05, 0x42, 0x28,
+	0x5a, 0x26, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x62,
+	0x61, 0x6c, 0x74, 0x37, 0x37, 0x2f, 0x6b, 0x75, 0x62, 0x65, 0x63, 0x63, 0x2f, 0x70, 0x6b, 0x67,
+	0x2f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x63, 0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -1314,48 +1503,53 @@ func file_pkg_metrics_metrics_proto_rawDescGZIP() []byte {
 	return file_pkg_metrics_metrics_proto_rawDescData
 }
 
-var file_pkg_metrics_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_pkg_metrics_metrics_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_pkg_metrics_metrics_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_pkg_metrics_metrics_proto_goTypes = []interface{}{
-	(*TaskStatus)(nil),              // 0: metrics.TaskStatus
-	(*Toolchains)(nil),              // 1: metrics.Toolchains
-	(*UsageLimits)(nil),             // 2: metrics.UsageLimits
-	(*AgentInfo)(nil),               // 3: metrics.AgentInfo
-	(*Deleter)(nil),                 // 4: metrics.Deleter
-	(*TasksCompletedTotal)(nil),     // 5: metrics.TasksCompletedTotal
-	(*TasksFailedTotal)(nil),        // 6: metrics.TasksFailedTotal
-	(*SchedulingRequestsTotal)(nil), // 7: metrics.SchedulingRequestsTotal
-	(*AgentCount)(nil),              // 8: metrics.AgentCount
-	(*ConsumerdCount)(nil),          // 9: metrics.ConsumerdCount
-	(*Identifier)(nil),              // 10: metrics.Identifier
-	(*AgentTasksTotal)(nil),         // 11: metrics.AgentTasksTotal
-	(*ConsumerdTasksTotal)(nil),     // 12: metrics.ConsumerdTasksTotal
-	(*PreferredUsageLimits)(nil),    // 13: metrics.PreferredUsageLimits
-	(*MetricsPostedTotal)(nil),      // 14: metrics.MetricsPostedTotal
-	(*ListenerCount)(nil),           // 15: metrics.ListenerCount
-	(*ProviderInfo)(nil),            // 16: metrics.ProviderInfo
-	(*Providers)(nil),               // 17: metrics.Providers
-	(*BucketSpec)(nil),              // 18: metrics.BucketSpec
-	(*LocalTasksCompleted)(nil),     // 19: metrics.LocalTasksCompleted
-	(*CacheUsage)(nil),              // 20: metrics.CacheUsage
-	(*CacheHits)(nil),               // 21: metrics.CacheHits
-	nil,                             // 22: metrics.Providers.ItemsEntry
-	nil,                             // 23: metrics.BucketSpec.DataEntry
-	(*types.Toolchain)(nil),         // 24: types.Toolchain
-	(types.Component)(0),            // 25: types.Component
-	(*any.Any)(nil),                 // 26: google.protobuf.Any
+	(OverallStatus)(0),              // 0: metrics.OverallStatus
+	(StatusConditions)(0),           // 1: metrics.StatusConditions
+	(*TaskStatus)(nil),              // 2: metrics.TaskStatus
+	(*Toolchains)(nil),              // 3: metrics.Toolchains
+	(*UsageLimits)(nil),             // 4: metrics.UsageLimits
+	(*AgentInfo)(nil),               // 5: metrics.AgentInfo
+	(*Deleter)(nil),                 // 6: metrics.Deleter
+	(*TasksCompletedTotal)(nil),     // 7: metrics.TasksCompletedTotal
+	(*TasksFailedTotal)(nil),        // 8: metrics.TasksFailedTotal
+	(*SchedulingRequestsTotal)(nil), // 9: metrics.SchedulingRequestsTotal
+	(*AgentCount)(nil),              // 10: metrics.AgentCount
+	(*ConsumerdCount)(nil),          // 11: metrics.ConsumerdCount
+	(*Identifier)(nil),              // 12: metrics.Identifier
+	(*AgentTasksTotal)(nil),         // 13: metrics.AgentTasksTotal
+	(*ConsumerdTasksTotal)(nil),     // 14: metrics.ConsumerdTasksTotal
+	(*PreferredUsageLimits)(nil),    // 15: metrics.PreferredUsageLimits
+	(*MetricsPostedTotal)(nil),      // 16: metrics.MetricsPostedTotal
+	(*ListenerCount)(nil),           // 17: metrics.ListenerCount
+	(*ProviderInfo)(nil),            // 18: metrics.ProviderInfo
+	(*Providers)(nil),               // 19: metrics.Providers
+	(*BucketSpec)(nil),              // 20: metrics.BucketSpec
+	(*LocalTasksCompleted)(nil),     // 21: metrics.LocalTasksCompleted
+	(*CacheUsage)(nil),              // 22: metrics.CacheUsage
+	(*CacheHits)(nil),               // 23: metrics.CacheHits
+	(*Health)(nil),                  // 24: metrics.Health
+	nil,                             // 25: metrics.Providers.ItemsEntry
+	nil,                             // 26: metrics.BucketSpec.DataEntry
+	(*types.Toolchain)(nil),         // 27: types.Toolchain
+	(types.Component)(0),            // 28: types.Component
+	(*any.Any)(nil),                 // 29: google.protobuf.Any
 }
 var file_pkg_metrics_metrics_proto_depIdxs = []int32{
-	24, // 0: metrics.Toolchains.Items:type_name -> types.Toolchain
-	25, // 1: metrics.ProviderInfo.Component:type_name -> types.Component
-	22, // 2: metrics.Providers.Items:type_name -> metrics.Providers.ItemsEntry
-	23, // 3: metrics.BucketSpec.Data:type_name -> metrics.BucketSpec.DataEntry
-	16, // 4: metrics.Providers.ItemsEntry.value:type_name -> metrics.ProviderInfo
-	26, // 5: metrics.BucketSpec.DataEntry.value:type_name -> google.protobuf.Any
-	6,  // [6:6] is the sub-list for method output_type
-	6,  // [6:6] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	27, // 0: metrics.Toolchains.Items:type_name -> types.Toolchain
+	28, // 1: metrics.ProviderInfo.Component:type_name -> types.Component
+	25, // 2: metrics.Providers.Items:type_name -> metrics.Providers.ItemsEntry
+	26, // 3: metrics.BucketSpec.Data:type_name -> metrics.BucketSpec.DataEntry
+	0,  // 4: metrics.Health.Status:type_name -> metrics.OverallStatus
+	18, // 5: metrics.Providers.ItemsEntry.value:type_name -> metrics.ProviderInfo
+	29, // 6: metrics.BucketSpec.DataEntry.value:type_name -> google.protobuf.Any
+	7,  // [7:7] is the sub-list for method output_type
+	7,  // [7:7] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_pkg_metrics_metrics_proto_init() }
@@ -1628,19 +1822,32 @@ func file_pkg_metrics_metrics_proto_init() {
 				return nil
 			}
 		}
+		file_pkg_metrics_metrics_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Health); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pkg_metrics_metrics_proto_rawDesc,
-			NumEnums:      0,
-			NumMessages:   24,
+			NumEnums:      2,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_pkg_metrics_metrics_proto_goTypes,
 		DependencyIndexes: file_pkg_metrics_metrics_proto_depIdxs,
+		EnumInfos:         file_pkg_metrics_metrics_proto_enumTypes,
 		MessageInfos:      file_pkg_metrics_metrics_proto_msgTypes,
 	}.Build()
 	File_pkg_metrics_metrics_proto = out.File

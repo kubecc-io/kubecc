@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package integration
 
 import (
+	"runtime"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/apps/agent"
@@ -31,7 +32,7 @@ import (
 
 var _ = Describe("Cache test", func() {
 	var testEnv *test.Environment
-	localJobs := 20
+	localJobs := runtime.NumCPU()
 
 	Specify("setup", func() {
 		cfg := test.DefaultConfig()
@@ -43,13 +44,13 @@ var _ = Describe("Cache test", func() {
 		testEnv.SpawnCache()
 		testEnv.SpawnAgent(test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
-				ConcurrentProcessLimit: 50,
+				ConcurrentProcessLimit: int32(localJobs),
 			}),
 		))
 		testEnv.SpawnConsumerd(test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(
-					consumerd.FixedUsageLimits(0),
+					consumerd.FixedUsageLimits(0), // disable local
 				),
 				consumerd.WithRemoteUsageManager(
 					clients.NewRemoteUsageManager(testCtx,
@@ -61,13 +62,13 @@ var _ = Describe("Cache test", func() {
 
 	Measure("1 agent, cache online", func(b Benchmarker) {
 		start := time.Now()
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(50, func() string {
+		processTaskPool(testEnv, localJobs, makeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration1 := time.Since(start)
 		b.RecordValueWithPrecision("No cached results", float64(duration1.Milliseconds()), "ms", 2)
 		start2 := time.Now()
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(50, func() string {
+		processTaskPool(testEnv, localJobs, makeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration2 := time.Since(start2)
