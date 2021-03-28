@@ -18,11 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package commands
 
 import (
-	"context"
-
-	"github.com/cobalt77/kubecc/pkg/clients"
 	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/ui"
@@ -41,26 +37,13 @@ var StatusCmd = &cobra.Command{
 			CLILog.Fatal(err)
 		}
 		client := types.NewMonitorClient(cc)
-		listener := clients.NewMetricsListener(CLIContext, client)
-		display := ui.NewStatusDisplay()
-
-		listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-			info, err := client.Whois(CLIContext, &types.WhoisRequest{
-				UUID: uuid,
-			})
-			if err != nil {
-				return
-			}
-
-			display.AddAgent(pctx, info)
-			listener.OnValueChanged(uuid, func(qp *metrics.UsageLimits) {
-				display.Update(uuid, qp)
-			})
-			listener.OnValueChanged(uuid, func(ts *metrics.TaskStatus) {
-				display.Update(uuid, ts)
-			})
-			<-pctx.Done()
-		})
+		cc2, err := servers.Dial(CLIContext, CLIConfig.SchedulerAddress,
+			servers.WithTLS(!CLIConfig.DisableTLS))
+		if err != nil {
+			CLILog.Fatal(err)
+		}
+		client2 := types.NewSchedulerClient(cc2)
+		display := ui.NewStatusDisplay(CLIContext, client, client2)
 
 		display.Run()
 	},

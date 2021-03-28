@@ -15,16 +15,31 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package test_test
+package ui
 
 import (
-	"testing"
+	"context"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/gizak/termui/v3/widgets"
 )
 
-func TestTest(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Test Suite")
+func NewSchedulerStatus(ctx context.Context, client types.MonitorClient) *widgets.Table {
+	stats := widgets.NewTable()
+	stats.Title = "Scheduler"
+	stats.Rows = [][]string{
+		{"Metric", "Value"},
+	}
+
+	// listener := clients.NewMetricsListener(ctx, client)
+	// listener.OnProviderAdded(func(c context.Context, s string) {
+	// 	whois, err := client.Whois(ctx, &types.WhoisRequest{
+	// 		UUID: s,
+	// 	})
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	whois.
+	// })
+	return stats
 }

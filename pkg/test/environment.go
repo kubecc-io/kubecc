@@ -199,9 +199,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 
 	options := []agent.AgentServerOption{
 		agent.WithUsageLimits(&metrics.UsageLimits{
-			ConcurrentProcessLimit:  int32(cfg.Agent.UsageLimits.ConcurrentProcessLimit),
-			QueuePressureMultiplier: cfg.Agent.UsageLimits.QueuePressureMultiplier,
-			QueueRejectMultiplier:   cfg.Agent.UsageLimits.QueueRejectMultiplier,
+			ConcurrentProcessLimit: int32(cfg.Agent.UsageLimits.ConcurrentProcessLimit),
 		}),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},

@@ -70,9 +70,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 
 	if options.UsageLimits == nil {
 		options.UsageLimits = &metrics.UsageLimits{
-			ConcurrentProcessLimit:  host.AutoConcurrentProcessLimit(),
-			QueuePressureMultiplier: 1,
-			QueueRejectMultiplier:   1,
+			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
 		}
 	} else if options.UsageLimits.ConcurrentProcessLimit == -1 {
 		options.UsageLimits.ConcurrentProcessLimit =
@@ -145,8 +143,6 @@ func (x *QueuedExecutor) ExecAsync(task Task) <-chan error {
 
 func (x *QueuedExecutor) CompleteUsageLimits(stat *metrics.UsageLimits) {
 	stat.ConcurrentProcessLimit = x.UsageLimits.ConcurrentProcessLimit
-	stat.QueuePressureMultiplier = x.UsageLimits.QueuePressureMultiplier
-	stat.QueueRejectMultiplier = x.UsageLimits.QueueRejectMultiplier
 }
 
 func (x *QueuedExecutor) CompleteTaskStatus(stat *metrics.TaskStatus) {

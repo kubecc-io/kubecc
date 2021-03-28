@@ -159,6 +159,9 @@ func (wp *WorkerPool) Resize(count int64) {
 		}
 	}
 }
+func (wp *WorkerPool) Size() int64 {
+	return int64(wp.workers.Cardinality())
+}
 
 type worker struct {
 	taskQueue <-chan *futureTask

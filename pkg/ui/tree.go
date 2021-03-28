@@ -18,42 +18,34 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package ui
 
 import (
-	"log"
-
-	ui "github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 )
 
-type TextBox struct {
-	Paragraph *widgets.Paragraph
+type TreeDataSource interface {
+	Title() string
+	Data() <-chan []*widgets.TreeNode
 }
 
-func (tb *TextBox) SetText(text string) {
-	tb.Paragraph.Text = text
-	ui.Render(tb.Paragraph)
+type Tree struct {
+	*widgets.Tree
+	data <-chan []*widgets.TreeNode
+	src  TreeDataSource
 }
 
-func (tb *TextBox) Run() {
-	if err := ui.Init(); err != nil {
-		log.Fatalf("failed to initialize termui: %v", err)
+func NewTree(src TreeDataSource) *Tree {
+	t := &Tree{
+		Tree: widgets.NewTree(),
+		src:  src,
+		data: src.Data(),
 	}
-	defer ui.Close()
+	t.Title = src.Title()
+	go t.readFromDataSource()
+	return t
+}
 
-	tb.Paragraph = widgets.NewParagraph()
-	tb.Paragraph.Text = ""
-	tb.Paragraph.WrapText = true
-
-	termWidth, termHeight := ui.TerminalDimensions()
-	tb.Paragraph.SetRect(0, 0, termWidth, termHeight)
-
-	ui.Render(tb.Paragraph)
-
-	uiEvents := ui.PollEvents()
+func (t *Tree) readFromDataSource() {
 	for {
-		e := <-uiEvents
-		switch e.ID {
-		case "q", "<C-c>":
-			return
-		}
+		data := <-t.data
+		t.Tree.SetNodes(data)
 	}
 }
