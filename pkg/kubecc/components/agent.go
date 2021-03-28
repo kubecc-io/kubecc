@@ -71,9 +71,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	a := agent.NewAgentServer(ctx,
 		agent.WithUsageLimits(&metrics.UsageLimits{
-			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
-			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
-			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
+			ConcurrentProcessLimit: int32(conf.UsageLimits.ConcurrentProcessLimit),
 		}),
 		agent.WithToolchainFinders(
 			toolchains.FinderWithOptions{

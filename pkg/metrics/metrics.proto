@@ -17,8 +17,7 @@ message Toolchains {
 
 message UsageLimits {
   int32 ConcurrentProcessLimit = 1;
-  double QueuePressureMultiplier = 2;
-  double QueueRejectMultiplier = 3;
+  int32 DelegatedTaskLimit = 2;
 }
 
 message AgentInfo {

@@ -19,99 +19,36 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"sync"
+	"time"
 
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/gizak/termui/v3"
 	ui "github.com/gizak/termui/v3"
-	"github.com/gizak/termui/v3/widgets"
 )
 
-type agent struct {
-	ctx         context.Context
-	info        *types.WhoisResponse
-	usageLimits *metrics.UsageLimits
-	taskStatus  *metrics.TaskStatus
-}
-
 type StatusDisplay struct {
-	agents []*agent
-	table  *widgets.Table
-	mutex  *sync.RWMutex
+	agents     *Table
+	consumerds *Table
+	scheduler  *Table
+	monitor    *Table
+	cache      *Table
+	routes     *Tree
 }
 
-func NewStatusDisplay() *StatusDisplay {
+func NewStatusDisplay(
+	ctx context.Context,
+	mon types.MonitorClient,
+	sch types.SchedulerClient,
+) *StatusDisplay {
 	return &StatusDisplay{
-		agents: []*agent{},
-		mutex:  &sync.RWMutex{},
+		agents:     NewTable(NewAgentDataSource(ctx, mon)),
+		consumerds: NewTable(NewConsumerdDataSource(ctx, mon)),
+		scheduler:  NewTable(NewSchedulerDataSource(ctx, mon)),
+		monitor:    NewTable(NewMonitorDataSource(ctx, mon)),
+		cache:      NewTable(NewCacheDataSource(ctx, mon)),
+		routes:     NewTree(NewRoutesDataSource(ctx, sch)),
 	}
-}
-
-func (s *StatusDisplay) makeRows() [][]string {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	rows := make([][]string, 0)
-	header := []string{"ID", "Running Tasks", "Queued Tasks"}
-	rows = append(rows, header)
-	for _, agent := range s.agents {
-		row := []string{
-			fmt.Sprintf("[%s] %s", agent.info.Component.Name(), agent.info.Address),
-			fmt.Sprintf("%d/%d", agent.taskStatus.NumRunning, agent.usageLimits.ConcurrentProcessLimit),
-			fmt.Sprint(agent.taskStatus.NumQueued),
-		}
-		rows = append(rows, row)
-	}
-	return rows
-}
-
-func (s *StatusDisplay) AddAgent(ctx context.Context, info *types.WhoisResponse) {
-	s.mutex.Lock()
-	s.agents = append(s.agents, &agent{
-		ctx:         ctx,
-		info:        info,
-		usageLimits: &metrics.UsageLimits{},
-		taskStatus:  &metrics.TaskStatus{},
-	})
-	s.mutex.Unlock()
-	s.redraw()
-
-	go func() {
-		<-ctx.Done()
-		s.mutex.Lock()
-		for i, a := range s.agents {
-			if a.info.UUID == info.UUID {
-				s.agents = append(s.agents[:i], s.agents[i+1:]...)
-			}
-		}
-		s.mutex.Unlock()
-		s.redraw()
-	}()
-}
-
-func (s *StatusDisplay) Update(uuid string, params interface{}) {
-	s.mutex.Lock()
-	var index int
-	for i, a := range s.agents {
-		if a.info.UUID == uuid {
-			index = i
-		}
-	}
-	switch p := params.(type) {
-	case *metrics.UsageLimits:
-		s.agents[index].usageLimits = p
-	case *metrics.TaskStatus:
-		s.agents[index].taskStatus = p
-	}
-	s.mutex.Unlock()
-	s.redraw()
-}
-
-func (s *StatusDisplay) redraw() {
-	s.table.Rows = s.makeRows()
-	ui.Render(s.table)
 }
 
 func (s *StatusDisplay) Run() {
@@ -120,18 +57,42 @@ func (s *StatusDisplay) Run() {
 	}
 	defer ui.Close()
 
-	s.table = widgets.NewTable()
-	termWidth, termHeight := ui.TerminalDimensions()
-	s.table.SetRect(0, 0, termWidth, termHeight)
+	grid := termui.NewGrid()
+	w, h := ui.TerminalDimensions()
+	grid.SetRect(0, 0, w, h)
 
-	s.redraw()
+	grid.Set(
+		ui.NewRow(0.3,
+			ui.NewCol(0.5, s.agents),
+			ui.NewCol(0.5, s.consumerds),
+		),
+		ui.NewRow(0.7,
+			ui.NewCol(0.4, s.routes),
+			ui.NewCol(0.3, s.cache),
+			ui.NewCol(0.3,
+				ui.NewRow(0.5, s.monitor),
+				ui.NewRow(0.5, s.scheduler),
+			),
+		),
+	)
+	ui.Render(grid)
 
 	uiEvents := ui.PollEvents()
+	ticker := time.NewTicker(time.Second / 8).C
 	for {
-		e := <-uiEvents
-		switch e.ID {
-		case "q", "<C-c>":
-			return
+		select {
+		case e := <-uiEvents:
+			switch e.ID {
+			case "q", "<C-c>":
+				return
+			case "<Resize>":
+				payload := e.Payload.(ui.Resize)
+				grid.SetRect(0, 0, payload.Width, payload.Height)
+				ui.Clear()
+				ui.Render(grid)
+			}
+		case <-ticker:
+			ui.Render(grid)
 		}
 	}
 }

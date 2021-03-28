@@ -233,7 +233,8 @@ func (sq *SplitQueue) handleAvailabilityChanged() {
 }
 
 func (sq *SplitQueue) CompleteUsageLimits(m *metrics.UsageLimits) {
-
+	m.ConcurrentProcessLimit = int32(sq.localWorkers.Size())
+	m.DelegatedTaskLimit = int32(sq.remoteWorkers.Size())
 }
 
 func (sq *SplitQueue) CompleteTaskStatus(m *metrics.TaskStatus) {
