@@ -39,14 +39,14 @@ var _ = Describe("Cache test", func() {
 		cfg.Global.LogLevel = "warn"
 		testEnv = test.NewEnvironment(cfg)
 
-		testEnv.SpawnMonitor()
-		testEnv.SpawnScheduler()
-		testEnv.SpawnCache()
+		testEnv.SpawnMonitor(test.WaitForReady())
+		testEnv.SpawnScheduler(test.WaitForReady())
+		testEnv.SpawnCache(test.WaitForReady())
 		testEnv.SpawnAgent(test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit: int32(localJobs),
 			}),
-		))
+		), test.WaitForReady())
 		testEnv.SpawnConsumerd(test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(
@@ -56,8 +56,7 @@ var _ = Describe("Cache test", func() {
 					clients.NewRemoteUsageManager(testCtx,
 						testEnv.NewMonitorClient(testCtx))),
 			),
-		))
-		time.Sleep(50 * time.Millisecond)
+		), test.WaitForReady())
 	})
 
 	Measure("1 agent, cache online", func(b Benchmarker) {

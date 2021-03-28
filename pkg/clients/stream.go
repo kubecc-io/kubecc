@@ -29,6 +29,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -236,6 +237,10 @@ func (sm *StreamManager) Run() {
 				e.OnLostConnection()
 			}
 			if err != nil {
+				if status.Code(err) == codes.Canceled {
+					// If the context was canceled, we are done
+					return
+				}
 				if sm.logEvents&LogConnectionLost != 0 {
 					lg.With(
 						zap.Error(err),

@@ -169,10 +169,10 @@ var _ = Describe("Basic Functionality", func() {
 		})
 		When("a scheduler is available", func() {
 			Specify("startup", func() {
-				testEnv.SpawnScheduler()
+				testEnv.SpawnScheduler(test.WaitForReady())
 			})
 			Measure("the queue should split tasks between local and remote evenly", func(b Benchmarker) {
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond) // important
 				eventTimestamps = append(eventTimestamps, time.Now())
 				numTasks = 1000
 				taskPool := makeTaskPool(numTasks)

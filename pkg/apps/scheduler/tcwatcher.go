@@ -46,7 +46,7 @@ type tcWatcher struct {
 
 func (w tcWatcher) WatchToolchains(uuid string) chan *metrics.Toolchains {
 	ch := make(chan *metrics.Toolchains)
-	listener := clients.NewListener(w.Context, w.Client)
+	listener := clients.NewMetricsListener(w.Context, w.Client)
 	listener.OnProviderAdded(func(ctx context.Context, id string) {
 		if id != uuid {
 			return

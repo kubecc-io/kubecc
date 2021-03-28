@@ -33,28 +33,24 @@ var _ = Describe("Hash test", func() {
 		cfg.Global.LogLevel = "warn"
 		testEnv = test.NewEnvironment(cfg)
 
-		testEnv.SpawnMonitor()
-		testEnv.SpawnScheduler()
-		testEnv.SpawnConsumerd()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnMonitor(test.WaitForReady())
+		testEnv.SpawnScheduler(test.WaitForReady())
+		testEnv.SpawnConsumerd(test.WaitForReady())
 	})
 
 	Specify("minimal test, 1 agent, no cache", func() {
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeHashTaskPool(100), 5*time.Second)
 	})
 
 	Specify("minimal test, 2 agents, no cache", func() {
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeHashTaskPool(200), 5*time.Second)
 	})
 
 	Specify("minimal test, 4 agents, no cache", func() {
-		testEnv.SpawnAgent()
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeHashTaskPool(400), 5*time.Second)
 	})
 

@@ -220,7 +220,7 @@ func servePrometheusMetrics(
 ) {
 	go serveMetricsEndpoint(srvContext, ":2112")
 	lg := meta.Log(srvContext)
-	listener := clients.NewListener(srvContext, client,
+	listener := clients.NewMetricsListener(srvContext, client,
 		clients.WithLogEvents(clients.LogNone),
 	)
 	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
