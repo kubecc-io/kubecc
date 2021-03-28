@@ -34,32 +34,27 @@ var _ = Describe("Sleep test", func() {
 		cfg.Global.LogLevel = "warn"
 		testEnv = test.NewEnvironment(cfg)
 
-		testEnv.SpawnMonitor()
-		testEnv.SpawnScheduler()
-		testEnv.SpawnConsumerd()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnMonitor(test.WaitForReady())
+		testEnv.SpawnScheduler(test.WaitForReady())
+		testEnv.SpawnConsumerd(test.WaitForReady())
 	})
 
 	Specify("Starting consumerd", func() {
-		testEnv.SpawnConsumerd()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnConsumerd(test.WaitForReady())
 	})
 	Specify("1 agent, no cache", func() {
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeSleepTaskPool(100), 5*time.Second)
 	})
 
 	Specify("2 agents, no cache", func() {
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeSleepTaskPool(200), 5*time.Second)
 	})
 
 	Specify("4 agents, no cache", func() {
-		testEnv.SpawnAgent()
-		testEnv.SpawnAgent()
-		time.Sleep(50 * time.Millisecond)
+		testEnv.SpawnAgent(test.WaitForReady())
+		testEnv.SpawnAgent(test.WaitForReady())
 		processTaskPool(testEnv, localJobs, makeSleepTaskPool(400), 5*time.Second)
 	})
 

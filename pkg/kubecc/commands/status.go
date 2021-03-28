@@ -41,7 +41,7 @@ var StatusCmd = &cobra.Command{
 			CLILog.Fatal(err)
 		}
 		client := types.NewMonitorClient(cc)
-		listener := clients.NewListener(CLIContext, client)
+		listener := clients.NewMetricsListener(CLIContext, client)
 		display := ui.NewStatusDisplay()
 
 		listener.OnProviderAdded(func(pctx context.Context, uuid string) {

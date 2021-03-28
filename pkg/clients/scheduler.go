@@ -153,7 +153,7 @@ func NewRemoteUsageManager(
 }
 
 func (m *RemoteUsageMonitor) Manage(resizer run.Resizer) {
-	l := NewListener(m.ctx, m.client, WithLogEvents(LogConnectionFailed))
+	l := NewMetricsListener(m.ctx, m.client, WithLogEvents(LogConnectionFailed))
 	lg := meta.Log(m.ctx)
 	l.OnProviderAdded(func(ctx context.Context, uuid string) {
 		whois, err := m.client.Whois(m.ctx, &types.WhoisRequest{

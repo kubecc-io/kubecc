@@ -69,6 +69,7 @@ type SpawnOptions struct {
 	schedulerOptions []scheduler.SchedulerServerOption
 	cacheOptions     []cachesrv.CacheServerOption
 	name             string
+	waitForReady     bool
 }
 
 type SpawnOption func(*SpawnOptions)
@@ -106,6 +107,12 @@ func WithConfig(cfg interface{}) SpawnOption {
 func WithName(name string) SpawnOption {
 	return func(o *SpawnOptions) {
 		o.name = name
+	}
+}
+
+func WaitForReady() SpawnOption {
+	return func(o *SpawnOptions) {
+		o.waitForReady = true
 	}
 }
 
@@ -208,6 +215,9 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 	agentSrv := agent.NewAgentServer(ctx, options...)
 	go agentSrv.StartMetricsProvider()
 
+	if so.waitForReady {
+		e.WaitForReady(meta.UUID(ctx))
+	}
 	return ctx, cancel
 }
 
@@ -246,6 +256,10 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 	sc := scheduler.NewSchedulerServer(ctx, options...)
 	go sc.StartMetricsProvider()
 	e.serve(ctx, sc, so.name)
+
+	if so.waitForReady {
+		e.WaitForReady(meta.UUID(ctx))
+	}
 	return ctx, cancel
 }
 
@@ -300,6 +314,9 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 	go cd.StartMetricsProvider()
 	e.serve(ctx, cd, so.name)
 
+	if so.waitForReady {
+		e.WaitForReady(meta.UUID(ctx))
+	}
 	return ctx, cancel
 }
 
@@ -523,4 +540,22 @@ func (e *Environment) NewConsumerdClient(ctx context.Context, name ...string) ty
 // the top-level parent context.
 func (e *Environment) Shutdown() {
 	e.envCancel()
+}
+
+func (e *Environment) WaitForReady(uuid string) {
+	client := e.NewMonitorClient(e.envContext)
+	listener := clients.NewMetricsListener(e.envContext, client)
+	defer listener.Stop()
+	done := make(chan struct{})
+	listener.OnProviderAdded(func(c context.Context, s string) {
+		if s != uuid {
+			return
+		}
+		listener.OnValueChanged(uuid, func(h *metrics.Health) {
+			if h.GetStatus() != metrics.OverallStatus_Initializing {
+				close(done)
+			}
+		})
+	})
+	<-done
 }

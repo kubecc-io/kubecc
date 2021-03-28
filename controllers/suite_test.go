@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +66,9 @@ var _ = BeforeSuite(func(done Done) {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Controller)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.Controller,
+			logkc.WithLogLevel(zapcore.WarnLevel),
+		))),
 	)
 	lg := meta.Log(ctx)
 

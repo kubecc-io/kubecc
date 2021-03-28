@@ -236,7 +236,7 @@ type monitorListener struct {
 	providersMutex *sync.Mutex
 }
 
-func NewListener(
+func NewMetricsListener(
 	ctx context.Context,
 	client types.MonitorClient,
 	streamOpts ...StreamManagerOption,
@@ -249,7 +249,9 @@ func NewListener(
 		monClient:      client,
 		knownProviders: make(map[string]context.CancelFunc),
 		providersMutex: &sync.Mutex{},
-		streamOpts:     streamOpts,
+		streamOpts: append([]StreamManagerOption{
+			WithLogEvents(LogConnectionFailed),
+		}, streamOpts...),
 	}
 	return listener
 }
@@ -327,6 +329,8 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 				}
 			}
 			cl.ehMutex.Unlock()
+			return nil
+		case codes.Canceled:
 			return nil
 		default:
 			lg.With(

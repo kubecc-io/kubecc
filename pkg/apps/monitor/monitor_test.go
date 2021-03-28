@@ -136,7 +136,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			mc := types.NewMonitorClient(cc)
-			listener := clients.NewListener(ctx, mc)
+			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				if uuid == meta.UUID(monitorCtx) {
 					return
@@ -228,7 +228,7 @@ var _ = Describe("Monitor", func() {
 			))
 			Expect(err).NotTo(HaveOccurred())
 			mc := types.NewMonitorClient(cc)
-			listener := clients.NewListener(ctx, mc)
+			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
 				if uuid == meta.UUID(monitorCtx) {
 					return
@@ -368,7 +368,7 @@ var _ = Describe("Monitor", func() {
 					}),
 			))
 			mc := types.NewMonitorClient(cc)
-			l := clients.NewListener(ctx, mc)
+			l := clients.NewMetricsListener(ctx, mc)
 			listeners[sampleIdx] = l
 			handler := handlers[sampleIdx%4]
 			b.Time("Handling provider add callbacks", func() {
