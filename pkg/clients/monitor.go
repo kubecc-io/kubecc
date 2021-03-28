@@ -26,7 +26,6 @@ import (
 
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -37,12 +36,202 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+type monitorMetricsProvider struct {
+	ctx               context.Context
+	lg                *zap.SugaredLogger
+	monClient         types.MonitorClient
+	postQueue         chan proto.Message
+	queueStrategy     QueueStrategy
+	metricCtxMap      map[string]context.CancelFunc
+	metricCtxMapMutex *sync.Mutex
+}
+
+type QueueStrategy int
+
+const (
+	Buffered QueueStrategy = 1 << iota
+	Discard
+	Block
+)
+
+type MetricsProviderOptions struct {
+	statusCtrl *metrics.StatusController
+}
+
+type MetricsProviderOption func(*MetricsProviderOptions)
+
+func (o *MetricsProviderOptions) Apply(opts ...MetricsProviderOption) {
+	for _, op := range opts {
+		op(o)
+	}
+}
+
+func StatusCtrl(ctrl *metrics.StatusController) MetricsProviderOption {
+	return func(o *MetricsProviderOptions) {
+		o.statusCtrl = ctrl
+	}
+}
+
+func NewMetricsProvider(
+	ctx context.Context,
+	client types.MonitorClient,
+	qs QueueStrategy,
+	opts ...MetricsProviderOption,
+) MetricsProvider {
+	options := MetricsProviderOptions{}
+	options.Apply(opts...)
+
+	var postQueue chan proto.Message
+	if (qs & Buffered) != 0 {
+		postQueue = make(chan proto.Message, 1e6)
+	} else {
+		postQueue = make(chan proto.Message)
+	}
+
+	provider := &monitorMetricsProvider{
+		ctx:               ctx,
+		monClient:         client,
+		postQueue:         postQueue,
+		lg:                meta.Log(ctx),
+		metricCtxMap:      make(map[string]context.CancelFunc),
+		metricCtxMapMutex: &sync.Mutex{},
+	}
+
+	if options.statusCtrl != nil {
+		go provider.watchStatus(options.statusCtrl)
+	}
+
+	mgr := NewStreamManager(ctx, provider)
+	go mgr.Run()
+	return provider
+}
+
+func (p *monitorMetricsProvider) HandleStream(stream grpc.ClientStream) error {
+	for {
+		select {
+		case metric := <-p.postQueue:
+			any, err := anypb.New(metric)
+			if err != nil {
+				return err
+			}
+			key := &types.Key{
+				Bucket: meta.UUID(p.ctx),
+				Name:   any.GetTypeUrl(),
+			}
+			p.lg.With(
+				types.ShortID(key.ShortID()),
+			).Debug("Posting metric")
+			err = stream.SendMsg(&types.Metric{
+				Key:   key,
+				Value: any,
+			})
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					err = stream.RecvMsg(nil)
+				}
+				p.lg.With(
+					zap.Error(err),
+					zap.String("key", key.Canonical()),
+				).Error("Error posting metric")
+				return err
+			}
+		case <-stream.Context().Done():
+			return stream.RecvMsg(nil)
+		case <-p.ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (p *monitorMetricsProvider) TryConnect() (grpc.ClientStream, error) {
+	return p.monClient.Stream(p.ctx)
+}
+
+func (p *monitorMetricsProvider) Target() string {
+	return "monitor"
+}
+
+func (p *monitorMetricsProvider) PostContext(metric proto.Message, ctx context.Context) {
+	p.Post(metric)
+	p.metricCtxMapMutex.Lock()
+	defer p.metricCtxMapMutex.Unlock()
+	any, err := anypb.New(metric)
+	if err != nil {
+		panic(err)
+	}
+	key := any.GetTypeUrl()
+	if cancel, ok := p.metricCtxMap[key]; ok {
+		cancel()
+	}
+	localCtx, cancel := context.WithCancel(ctx)
+	p.metricCtxMap[key] = cancel
+	// When the context is done, send a deleter to the server
+	go func() {
+		defer func() {
+			p.metricCtxMapMutex.Lock()
+			defer p.metricCtxMapMutex.Unlock()
+			delete(p.metricCtxMap, key)
+		}()
+		select {
+		case <-ctx.Done():
+			p.Post(&metrics.Deleter{
+				Key: key,
+			})
+		case <-localCtx.Done(): // the map context
+			return
+		case <-p.ctx.Done():
+		}
+	}()
+}
+
+func (p *monitorMetricsProvider) Post(metric proto.Message) {
+	if (p.queueStrategy & Discard) == 0 {
+		// Block is the default
+		p.postQueue <- metric
+		return
+	}
+	// Discard logic below
+	select {
+	case p.postQueue <- metric:
+		return
+	default:
+	}
+	// If not buffered, do nothing
+	if (p.queueStrategy & Buffered) == 0 {
+		return
+	}
+	select {
+	case p.postQueue <- metric:
+	default:
+		p.lg.Debug("Post queue filled, dropping some messages")
+		for i := 0; i < cap(p.postQueue)/4; i++ {
+			select {
+			case <-p.postQueue:
+			default:
+				// Drain up to 25% of the oldest items, but the channel could be
+				// being read from elsewhere, so prevent accidental blocking
+				goto done
+			}
+		}
+	done:
+		p.postQueue <- metric
+	}
+}
+
+func (p *monitorMetricsProvider) watchStatus(ctrl *metrics.StatusController) {
+	stream := ctrl.StreamHealthUpdates()
+	for {
+		h := <-stream
+		p.Post(h)
+	}
+}
+
 type monitorListener struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	monClient      types.MonitorClient
 	lg             *zap.SugaredLogger
-	streamOpts     []servers.StreamManagerOption
+	streamOpts     []StreamManagerOption
 	knownProviders map[string]context.CancelFunc
 	providersMutex *sync.Mutex
 }
@@ -50,8 +239,8 @@ type monitorListener struct {
 func NewListener(
 	ctx context.Context,
 	client types.MonitorClient,
-	streamOpts ...servers.StreamManagerOption,
-) metrics.Listener {
+	streamOpts ...StreamManagerOption,
+) MetricsListener {
 	ctx, cancel := context.WithCancel(ctx)
 	listener := &monitorListener{
 		ctx:            ctx,
@@ -83,21 +272,21 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 		}
 	}
 
-	l.OnValueChanged(metrics.MetaBucket, func(providers *metrics.Providers) {
+	l.OnValueChanged(MetaBucket, func(providers *metrics.Providers) {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(providers)
-	}).OrExpired(func() metrics.RetryOptions {
+	}).OrExpired(func() RetryOptions {
 		l.providersMutex.Lock()
 		defer l.providersMutex.Unlock()
 		doUpdate(&metrics.Providers{})
-		return metrics.Retry
+		return Retry
 	})
 }
 
 type changeListener struct {
 	ctx            context.Context
-	expiredHandler func() metrics.RetryOptions
+	expiredHandler func() RetryOptions
 	handler        reflect.Value
 	ehMutex        *sync.Mutex
 	monClient      types.MonitorClient
@@ -132,7 +321,7 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 			cl.ehMutex.Lock()
 			if cl.expiredHandler != nil {
 				retryOp := cl.expiredHandler()
-				if retryOp == metrics.Retry {
+				if retryOp == Retry {
 					cl.ehMutex.Unlock()
 					return err
 				}
@@ -158,7 +347,7 @@ func (s *changeListener) Target() string {
 	return "monitor"
 }
 
-func (c *changeListener) OrExpired(handler func() metrics.RetryOptions) {
+func (c *changeListener) OrExpired(handler func() RetryOptions) {
 	c.ehMutex.Lock()
 	defer c.ehMutex.Unlock()
 	c.expiredHandler = handler
@@ -185,7 +374,7 @@ func handlerArgType(handler interface{}) (reflect.Type, reflect.Value, string) {
 func (l *monitorListener) OnValueChanged(
 	bucket string,
 	handler interface{}, // func(type)
-) metrics.ChangeListener {
+) ChangeListener {
 	argType, funcValue, typeUrl := handlerArgType(handler)
 	cl := &changeListener{
 		ctx:       l.ctx,
@@ -198,7 +387,7 @@ func (l *monitorListener) OnValueChanged(
 			Name:   typeUrl,
 		},
 	}
-	mgr := servers.NewStreamManager(l.ctx, cl, l.streamOpts...)
+	mgr := NewStreamManager(l.ctx, cl, l.streamOpts...)
 	go mgr.Run()
 	return cl
 }

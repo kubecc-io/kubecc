@@ -21,15 +21,13 @@ import (
 	"context"
 
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type keyedBufferMonitorProvider struct {
-	monitorProvider
+	monitorMetricsProvider
 	enableWaitRx chan bool
 }
 
@@ -72,9 +70,9 @@ func runWaitReceiver(postQueue chan proto.Message, enableQueue <-chan bool) {
 func NewKeyedBufferMonitorProvider(
 	ctx context.Context,
 	client types.MonitorClient,
-) metrics.Provider {
+) MetricsProvider {
 	provider := &keyedBufferMonitorProvider{
-		monitorProvider: monitorProvider{
+		monitorMetricsProvider: monitorMetricsProvider{
 			ctx:       ctx,
 			lg:        meta.Log(ctx),
 			monClient: client,
@@ -85,7 +83,7 @@ func NewKeyedBufferMonitorProvider(
 		enableWaitRx: make(chan bool),
 	}
 	go runWaitReceiver(provider.postQueue, provider.enableWaitRx)
-	mgr := servers.NewStreamManager(ctx, provider)
+	mgr := NewStreamManager(ctx, provider)
 	go mgr.Run()
 	return provider
 }

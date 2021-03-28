@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package metrics
+package clients
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 
 type noopProvider struct{}
 
-func NewNoopProvider() Provider {
+func NewNoopMetricsProvider() MetricsProvider {
 	return &noopProvider{}
 }
 
@@ -36,7 +36,7 @@ func (noopProvider) PostContext(proto.Message, context.Context) {}
 
 type noopListener struct{}
 
-func NewNoopListener() Listener {
+func NewNoopMetricsListener() MetricsListener {
 	return &noopListener{}
 }
 

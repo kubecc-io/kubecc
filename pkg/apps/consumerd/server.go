@@ -42,6 +42,7 @@ import (
 
 type consumerdServer struct {
 	types.UnimplementedConsumerdServer
+	metrics.StatusController
 
 	srvContext context.Context
 	lg         *zap.SugaredLogger
@@ -51,12 +52,12 @@ type consumerdServer struct {
 	storeUpdateCh       chan struct{}
 	schedulerClient     types.SchedulerClient
 	monitorClient       types.MonitorClient
-	metricsProvider     metrics.Provider
+	metricsProvider     clients.MetricsProvider
 	executor            run.Executor
 	numConsumers        *atomic.Int32
 	localTasksCompleted *atomic.Int64
 	requestClient       run.SchedulerClientStream
-	streamMgr           *servers.StreamManager
+	streamMgr           *clients.StreamManager
 }
 
 type ConsumerdServerOptions struct {
@@ -136,13 +137,21 @@ func NewConsumerdServer(
 		monitorClient:       options.monitorClient,
 		requestClient:       clients.NewCompileRequestClient(ctx, nil),
 	}
-	srv.streamMgr = servers.NewStreamManager(srv.srvContext, srv)
+	srv.BeginInitialize()
+	defer srv.EndInitialize()
 
+	srv.streamMgr = clients.NewStreamManager(srv.srvContext, srv, clients.WithStatusCtrl(
+		&srv.StatusController,
+		clients.Optional,
+	))
 	if options.monitorClient != nil {
-		srv.metricsProvider = clients.NewMonitorProvider(ctx, options.monitorClient,
-			clients.Buffered|clients.Discard)
+		srv.metricsProvider = clients.NewMetricsProvider(ctx, options.monitorClient,
+			clients.Buffered|clients.Discard,
+			clients.StatusCtrl(&srv.StatusController))
 	} else {
-		srv.metricsProvider = metrics.NewNoopProvider()
+		srv.ApplyCondition(ctx, metrics.StatusConditions_MissingOptionalComponent,
+			"No monitor client configured")
+		srv.metricsProvider = clients.NewNoopMetricsProvider()
 	}
 
 	go srv.runRequestClient()

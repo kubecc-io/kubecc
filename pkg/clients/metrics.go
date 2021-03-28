@@ -15,31 +15,39 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package util
+package clients
 
 import (
-	"io/fs"
-	"os"
+	"context"
+
+	"google.golang.org/protobuf/proto"
 )
 
-type ReadDirStatFS interface {
-	fs.StatFS
-	fs.ReadDirFS
+const MetaBucket = "meta"
+
+type RetryOptions uint32
+
+const (
+	NoRetry RetryOptions = iota
+	Retry
+)
+
+type ContextMetric interface {
+	Context() context.Context
 }
 
-// OSFS represents the host operating system's FS.
-var OSFS osfs
-
-type osfs struct{}
-
-var _ ReadDirStatFS = osfs{}
-
-func (osfs) Open(name string) (fs.File, error) {
-	return os.Open(name)
+type MetricsProvider interface {
+	Post(metric proto.Message)
+	PostContext(metric proto.Message, ctx context.Context)
 }
-func (osfs) Stat(name string) (fs.FileInfo, error) {
-	return os.Stat(name)
+
+type MetricsListener interface {
+	OnValueChanged(bucket string, handler interface{}) ChangeListener
+	OnProviderAdded(func(context.Context, string))
+	Stop()
 }
-func (osfs) ReadDir(name string) ([]fs.DirEntry, error) {
-	return os.ReadDir(name)
+
+type ChangeListener interface {
+	StreamHandler
+	OrExpired(handler func() RetryOptions)
 }
