@@ -18,6 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package integration
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -28,43 +32,92 @@ import (
 	"github.com/cobalt77/kubecc/pkg/test"
 	"github.com/cobalt77/kubecc/pkg/tracing"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
-	testEnv *test.Environment
 	testCtx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
-			logkc.New(types.TestComponent, logkc.WithName("-")),
+			logkc.New(types.TestComponent,
+				logkc.WithName("-"),
+				logkc.WithLogLevel(zapcore.InfoLevel),
+			),
 		)),
 		meta.WithProvider(tracing.Tracer),
 	)
-	testLog = meta.Log(testCtx)
+	testLog     = meta.Log(testCtx)
+	hashInputs  []string
+	hashOutputs []string
 )
+
+func init() {
+	for i := 0; i < 100; i++ {
+		str := uuid.NewString()
+		hashInputs = append(hashInputs, str)
+		h := md5.New()
+		h.Write([]byte(str))
+		sum := h.Sum(nil)
+		hashOutputs = append(hashOutputs, base64.StdEncoding.EncodeToString(sum))
+	}
+}
 
 func TestIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Integration Suite")
 }
 
-func makeTaskPool(numTasks int) chan *types.RunRequest {
-	taskPool := make(chan *types.RunRequest, numTasks)
+type task struct {
+	req            *types.RunRequest
+	expectedOutput string
+}
+
+func makeHashTaskPool(numTasks int) chan task {
+	taskPool := make(chan task, numTasks)
 	for i := 0; i < numTasks; i++ {
-		taskPool <- &types.RunRequest{
-			Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
-			Args:     []string{"-duration", "0ms"},
-			UID:      1000,
-			GID:      1000,
+		idx := rand.Intn(len(hashInputs))
+		input := hashInputs[idx]
+		output := hashOutputs[idx]
+		taskPool <- task{
+			req: &types.RunRequest{
+				Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
+				Args:     []string{"-hash", input},
+				UID:      1000,
+				GID:      1000,
+			},
+			expectedOutput: output,
 		}
 	}
 	return taskPool
 }
 
-func processTaskPool(jobs int, pool chan *types.RunRequest) {
+func makeSleepTaskPool(numTasks int, genDuration ...func() string) chan task {
+	gen := func() string {
+		return "0s"
+	}
+	if len(genDuration) == 1 {
+		gen = genDuration[0]
+	}
+	taskPool := make(chan task, numTasks)
+	for i := 0; i < numTasks; i++ {
+		taskPool <- task{
+			req: &types.RunRequest{
+				Compiler: &types.RunRequest_Path{Path: testutil.TestToolchainExecutable},
+				Args:     []string{"-sleep", gen()},
+				UID:      1000,
+				GID:      1000,
+			},
+		}
+	}
+	return taskPool
+}
+
+func processTaskPool(testEnv *test.Environment, jobs int, pool chan task, duration time.Duration) {
 	cdClient := testEnv.NewConsumerdClient(testCtx)
 	remaining := atomic.NewInt32(int32(len(pool)))
 	for i := 0; i < jobs; i++ {
@@ -73,18 +126,24 @@ func processTaskPool(jobs int, pool chan *types.RunRequest) {
 			for {
 				select {
 				case task := <-pool:
-					_, err := cd.Run(testCtx, task)
+					resp, err := cd.Run(testCtx, task.req)
 					if err != nil {
 						panic(err)
 					}
-					testLog.Info(remaining.Dec())
+					if resp.ReturnCode != 0 {
+						panic(fmt.Sprintf("Expected return code to equal 0, was %d", resp.ReturnCode))
+					}
+					if base64.StdEncoding.EncodeToString(resp.Stdout) != task.expectedOutput {
+						panic(fmt.Sprintf("Expected output to equal %s, was %s", task.expectedOutput, string(resp.Stdout)))
+					}
+					testLog.Debug(remaining.Dec())
 				default:
-					testLog.Info("Finished")
+					testLog.Debug("Finished")
 					return
 				}
 			}
 		}(cdClient)
 	}
-	Eventually(remaining.Load, 500*time.Second, 100*time.Millisecond).
+	Eventually(remaining.Load, duration, 50*time.Millisecond).
 		Should(BeEquivalentTo(0))
 }

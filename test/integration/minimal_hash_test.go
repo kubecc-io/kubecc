@@ -18,40 +18,47 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package integration
 
 import (
-	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/config"
+	"time"
+
 	"github.com/cobalt77/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
 )
 
-var _ = Describe("Integration test", func() {
-	localJobs := 100
-	taskPool := makeTaskPool(200)
-	Specify("Starting components", func() {
+var _ = Describe("Hash test", func() {
+	var testEnv *test.Environment
+	localJobs := 20
+
+	Specify("setup", func() {
 		cfg := test.DefaultConfig()
-		cfg.Global.LogLevel = "debug"
+		cfg.Global.LogLevel = "warn"
 		testEnv = test.NewEnvironment(cfg)
 
 		testEnv.SpawnMonitor()
 		testEnv.SpawnScheduler()
-
-		testEnv.SpawnAgent(test.WithConfig(config.AgentSpec{
-			UsageLimits: config.UsageLimitsSpec{
-				ConcurrentProcessLimit: 50,
-			},
-		}))
-
-		testEnv.SpawnConsumerd(test.WithConfig(config.ConsumerdSpec{
-			UsageLimits: config.UsageLimitsSpec{
-				ConcurrentProcessLimit: 50,
-			},
-		}))
+		testEnv.SpawnConsumerd()
+		time.Sleep(50 * time.Millisecond)
 	})
 
-	Measure("Run test", func(b Benchmarker) {
-		testutil.SkipInGithubWorkflow()
-		b.Time("process tasks", func() {
-			processTaskPool(localJobs, taskPool)
-		})
-	}, 1)
+	Specify("minimal test, 1 agent, no cache", func() {
+		testEnv.SpawnAgent()
+		time.Sleep(50 * time.Millisecond)
+		processTaskPool(testEnv, localJobs, makeHashTaskPool(100), 5*time.Second)
+	})
+
+	Specify("minimal test, 2 agents, no cache", func() {
+		testEnv.SpawnAgent()
+		time.Sleep(50 * time.Millisecond)
+		processTaskPool(testEnv, localJobs, makeHashTaskPool(200), 5*time.Second)
+	})
+
+	Specify("minimal test, 4 agents, no cache", func() {
+		testEnv.SpawnAgent()
+		testEnv.SpawnAgent()
+		time.Sleep(50 * time.Millisecond)
+		processTaskPool(testEnv, localJobs, makeHashTaskPool(400), 5*time.Second)
+	})
+
+	Specify("shutdown", func() {
+		testEnv.Shutdown()
+	})
 })

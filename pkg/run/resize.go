@@ -7,3 +7,9 @@ type Resizer interface {
 	// value. It should block until the resize operation is complete.
 	Resize(int64)
 }
+
+// A ResizerManager is an object that can "take ownership" of a Resizer and
+// be expected to manage its resource count.
+type ResizerManager interface {
+	Manage(Resizer)
+}

@@ -24,17 +24,31 @@ import (
 	mapset "github.com/deckarep/golang-set"
 )
 
+var futureTaskPool = sync.Pool{
+	New: func() interface{} {
+		return &futureTask{
+			// The channel has a buffer of 1 to reduce contention between the
+			// goroutine managing the upstream queue and the worker goroutine
+			C: make(chan Task, 1),
+		}
+	},
+}
+
 // WorkerPool is a dynamic pool of worker goroutines which run on a shared
 // task queue. The number of workers can be changed at any time, and the
 // stream itself can be paused and unpaused, which can be used to temporarily
 // stop/start all workers.
 type WorkerPool struct {
 	*util.PauseController
-	taskQueue  <-chan Task
+	taskQueue  chan *futureTask
 	stopQueue  chan struct{}
 	workers    mapset.Set // *worker
 	workerLock *sync.Mutex
 	runner     func(Task)
+}
+
+type futureTask struct {
+	C chan Task
 }
 
 type WorkerPoolOptions struct {
@@ -76,29 +90,46 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	}
 	options.Apply(opts...)
 
-	queue := make(chan Task)
 	wp := &WorkerPool{
 		PauseController: util.NewPauseController(util.DefaultPaused(options.paused)),
-		taskQueue:       queue,
+		taskQueue:       make(chan *futureTask),
 		stopQueue:       make(chan struct{}), // Note the stop queue is not buffered
 		runner:          options.runner,
 		workers:         mapset.NewSet(),
 		workerLock:      &sync.Mutex{},
 	}
 
-	go func() {
-		defer close(queue)
-		for {
-			wp.CheckPaused()
-			task, open := <-taskQueue
-			if !open {
-				return
-			}
-			queue <- task
-		}
-	}()
-
+	go wp.manageQueue(taskQueue)
 	return wp
+}
+
+func (wp *WorkerPool) manageQueue(upstream <-chan Task) {
+	defer close(wp.taskQueue)
+	for {
+		// ensure the worker pool is not paused
+		wp.CheckPaused()
+
+		// Take a futureTask from the pool. This object contains a channel that
+		// will eventually hold a single Task.
+		ft := futureTaskPool.Get().(*futureTask)
+
+		// Send the futureTask to a worker
+		wp.taskQueue <- ft
+
+		// Only when a worker has accepted the task, try to take a task from
+		// the upstream queue and write it on the futureTask's channel. This is
+		// done because if there are no available workers, a single task will be
+		// stuck here in limbo, unable to be processed by a different worker pool.
+		task, open := <-upstream
+		if !open {
+			// upstream is closed, we are done
+			return
+		}
+		// Send the task to the futureTask's channel. The channel has a single
+		// element buffer, so this won't block. The worker is responsible for
+		// putting the futureTask back into the pool.
+		ft.C <- task
+	}
 }
 
 // Resize sets the target number of workers that should be running
@@ -130,7 +161,7 @@ func (wp *WorkerPool) Resize(count int64) {
 }
 
 type worker struct {
-	taskQueue <-chan Task
+	taskQueue <-chan *futureTask
 	stopQueue <-chan struct{}
 	runner    func(Task)
 }
@@ -144,7 +175,17 @@ func (w *worker) Run() {
 			return
 		default:
 		}
-		task := <-w.taskQueue
+
+		// Get a futureTask from the queue
+		ft := <-w.taskQueue
+
+		// Wait until a task is sent on the futureTask's channel
+		task := <-ft.C
+
+		// Put the futureTask back into the global pool
+		futureTaskPool.Put(ft)
+
+		// Run the task
 		w.runner(task)
 	}
 }

@@ -34,19 +34,19 @@ func (m localRunnerManager) Process(
 	lg.Info("=> Running local")
 	req := request.(*types.RunRequest)
 
-	ap := testutil.SleepArgParser{
+	ap := testutil.TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
-	t := &testutil.SleepTask{
-		Duration: ap.Duration,
+	out, err := doTestAction(&ap)
+	if err != nil {
+		return &types.RunResponse{
+			ReturnCode: 1,
+			Stderr:     []byte(err.Error()),
+		}, nil
 	}
-	t.Run()
-	if err := t.Err(); err != nil {
-		panic(err)
-	}
-	lg.Info("=> Done.")
 	return &types.RunResponse{
 		ReturnCode: 0,
+		Stdout:     out,
 	}, nil
 }

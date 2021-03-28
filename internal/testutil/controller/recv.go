@@ -33,22 +33,28 @@ func (m recvRemoteRunnerManager) Process(
 	lg := meta.Log(ctx.ServerContext)
 
 	lg.Info("=> Receiving remote")
+	defer lg.Info("=> Done.")
 	req := request.(*types.CompileRequest)
-	ap := testutil.SleepArgParser{
+	ap := testutil.TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
-	t := &testutil.SleepTask{
-		Duration: ap.Duration,
+	out, err := doTestAction(&ap)
+	if err != nil {
+		return &types.CompileResponse{
+			RequestID:     req.RequestID,
+			CompileResult: types.CompileResponse_Fail,
+			Data: &types.CompileResponse_Error{
+				Error: err.Error(),
+			},
+		}, nil
 	}
-	t.Run()
-	if err := t.Err(); err != nil {
-		panic(err)
-	}
-	lg.Info("=> Done.")
 	return &types.CompileResponse{
 		RequestID:     req.RequestID,
 		CompileResult: types.CompileResponse_Success,
+		Data: &types.CompileResponse_CompiledSource{
+			CompiledSource: out,
+		},
 	}, nil
 }
 

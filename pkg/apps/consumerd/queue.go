@@ -81,10 +81,10 @@ type SplitQueue struct {
 }
 
 type SplitQueueOptions struct {
-	telemetryCfg                   TelemetryConfig
-	usageLimits                    *metrics.UsageLimits
-	defaultRemoteUsageLimits       *metrics.UsageLimits
-	enableDynamicRemoteUsageLimits bool
+	telemetryCfg   TelemetryConfig
+	bufferSize     int
+	localUsageMgr  run.ResizerManager
+	remoteUsageMgr run.ResizerManager
 }
 
 type SplitQueueOption func(*SplitQueueOptions)
@@ -101,21 +101,51 @@ func WithTelemetryConfig(cfg TelemetryConfig) SplitQueueOption {
 	}
 }
 
-func LocalUsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
+func WithBufferSize(sz int) SplitQueueOption {
 	return func(o *SplitQueueOptions) {
-		o.usageLimits = limits
+		o.bufferSize = sz
 	}
 }
 
-func DefaultRemoteUsageLimits(limits *metrics.UsageLimits) SplitQueueOption {
+func WithLocalUsageManager(rm run.ResizerManager) SplitQueueOption {
 	return func(o *SplitQueueOptions) {
-		o.defaultRemoteUsageLimits = limits
+		o.localUsageMgr = rm
 	}
 }
 
-func EnableDynamicRemoteUsageLimits(enable bool) SplitQueueOption {
+func WithRemoteUsageManager(rm run.ResizerManager) SplitQueueOption {
 	return func(o *SplitQueueOptions) {
-		o.enableDynamicRemoteUsageLimits = enable
+		o.remoteUsageMgr = rm
+	}
+}
+
+type NoRemoteUsageManager struct{}
+
+func (NoRemoteUsageManager) Manage(run.Resizer) {}
+
+type fixedUsageLimits struct {
+	limit int64
+}
+
+func (f fixedUsageLimits) Manage(r run.Resizer) {
+	r.Resize(f.limit)
+}
+
+func FixedUsageLimits(limit int64) run.ResizerManager {
+	return fixedUsageLimits{limit: limit}
+}
+
+type autoUsageLimits struct {
+	limit int64
+}
+
+func (a autoUsageLimits) Manage(r run.Resizer) {
+	r.Resize(a.limit)
+}
+
+func AutoUsageLimits() run.ResizerManager {
+	return autoUsageLimits{
+		limit: int64(host.AutoConcurrentProcessLimit()),
 	}
 }
 
@@ -125,16 +155,12 @@ func NewSplitQueue(
 	opts ...SplitQueueOption,
 ) *SplitQueue {
 	options := SplitQueueOptions{
-		usageLimits: &metrics.UsageLimits{
-			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
-		},
-		defaultRemoteUsageLimits: &metrics.UsageLimits{
-			ConcurrentProcessLimit: 0,
-		},
-		enableDynamicRemoteUsageLimits: true,
+		bufferSize:     1000,
+		localUsageMgr:  NoRemoteUsageManager{},
+		remoteUsageMgr: NoRemoteUsageManager{},
 	}
 	options.Apply(opts...)
-	capacity := int64(1000) // todo
+	capacity := int64(options.bufferSize)
 	queue := make(chan run.Task, capacity)
 	sq := &SplitQueue{
 		PauseController: util.NewPauseController(),
@@ -161,14 +187,10 @@ func NewSplitQueue(
 		run.DefaultPaused(),
 	)
 
-	sq.localWorkers.Resize(int64(options.usageLimits.ConcurrentProcessLimit))
+	go options.localUsageMgr.Manage(sq.localWorkers)
+	go options.remoteUsageMgr.Manage(sq.remoteWorkers)
 
-	sq.remoteWorkers.Resize(int64(options.defaultRemoteUsageLimits.ConcurrentProcessLimit))
-	if options.enableDynamicRemoteUsageLimits {
-		clients.WatchRemoteUsage(ctx, monClient, sq.remoteWorkers)
-	}
 	clients.WatchAvailability(ctx, monClient, sq.avc)
-
 	go sq.handleAvailabilityChanged()
 	return sq
 }

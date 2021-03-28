@@ -64,7 +64,7 @@ type ConsumerdServerOptions struct {
 	toolchainRunners []run.StoreAddFunc
 	schedulerClient  types.SchedulerClient
 	monitorClient    types.MonitorClient
-	usageLimits      *metrics.UsageLimits
+	queueOpts        []SplitQueueOption
 }
 
 type ConsumerdServerOption func(*ConsumerdServerOptions)
@@ -105,9 +105,9 @@ func WithMonitorClient(
 	}
 }
 
-func WithUsageLimits(cpuConfig *metrics.UsageLimits) ConsumerdServerOption {
+func WithQueueOptions(opts ...SplitQueueOption) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
-		o.usageLimits = cpuConfig
+		o.queueOpts = opts
 	}
 }
 
@@ -122,6 +122,7 @@ func NewConsumerdServer(
 	for _, add := range options.toolchainRunners {
 		add(runStore)
 	}
+
 	srv := &consumerdServer{
 		srvContext:          ctx,
 		lg:                  meta.Log(ctx),
@@ -130,7 +131,7 @@ func NewConsumerdServer(
 		storeUpdateCh:       make(chan struct{}, 1),
 		numConsumers:        atomic.NewInt32(0),
 		localTasksCompleted: atomic.NewInt64(0),
-		executor:            NewSplitQueue(ctx, options.monitorClient),
+		executor:            NewSplitQueue(ctx, options.monitorClient, options.queueOpts...),
 		schedulerClient:     options.schedulerClient,
 		monitorClient:       options.monitorClient,
 		requestClient:       clients.NewCompileRequestClient(ctx, nil),

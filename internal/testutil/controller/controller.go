@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package controller
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/cobalt77/kubecc/internal/testutil"
@@ -42,7 +43,7 @@ func (r *TestToolchainCtrl) RecvRemote() run.RequestManager {
 }
 
 func (r *TestToolchainCtrl) NewArgParser(_ context.Context, args []string) run.ArgParser {
-	return &testutil.SleepArgParser{
+	return &testutil.TestArgParser{
 		Args: args,
 	}
 }
@@ -69,11 +70,42 @@ func (r *TestToolchainCtrlLocal) RecvRemote() run.RequestManager {
 }
 
 func (r *TestToolchainCtrlLocal) NewArgParser(_ context.Context, args []string) run.ArgParser {
-	return &testutil.SleepArgParser{
+	return &testutil.TestArgParser{
 		Args: args,
 	}
 }
 
 func AddToStoreSim(store *run.ToolchainRunnerStore) {
 	store.Add(types.TestToolchain, &TestToolchainCtrlLocal{})
+}
+
+func doTestAction(ap *testutil.TestArgParser) ([]byte, error) {
+	switch ap.Action {
+	case testutil.Sleep:
+		t := &testutil.SleepTask{
+			Duration: ap.Duration,
+		}
+		t.Run()
+		if err := t.Err(); err != nil {
+			return nil, err
+		}
+		return []byte{}, nil
+	case testutil.Hash:
+		out := new(bytes.Buffer)
+		t := &testutil.HashTask{
+			TaskOptions: run.TaskOptions{
+				ResultOptions: run.ResultOptions{
+					OutputWriter: out,
+				},
+			},
+			Input: ap.Input,
+		}
+		t.Run()
+		if err := t.Err(); err != nil {
+			return nil, err
+		}
+		return out.Bytes(), nil
+	default:
+		panic("Invalid action")
+	}
 }

@@ -26,11 +26,11 @@ import (
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/cc"
 	ccctrl "github.com/cobalt77/kubecc/pkg/cc/controller"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
 	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/servers"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/tracing"
@@ -76,11 +76,12 @@ func runConsumerd(cmd *cobra.Command, args []string) {
 	srv := servers.NewServer(ctx)
 
 	d := consumerd.NewConsumerdServer(ctx,
-		consumerd.WithUsageLimits(&metrics.UsageLimits{
-			ConcurrentProcessLimit:  int32(conf.UsageLimits.ConcurrentProcessLimit),
-			QueuePressureMultiplier: conf.UsageLimits.QueuePressureMultiplier,
-			QueueRejectMultiplier:   conf.UsageLimits.QueueRejectMultiplier,
-		}),
+		consumerd.WithQueueOptions(
+			consumerd.WithLocalUsageManager(
+				consumerd.FixedUsageLimits(int64(conf.UsageLimits.ConcurrentProcessLimit))),
+			consumerd.WithRemoteUsageManager(
+				clients.NewRemoteUsageManager(ctx, monitorClient)),
+		),
 		consumerd.WithToolchainFinders(
 			toolchains.FinderWithOptions{
 				Finder: cc.CCFinder{},

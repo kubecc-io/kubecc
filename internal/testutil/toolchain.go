@@ -19,9 +19,11 @@ package testutil
 
 import (
 	"context"
+	"crypto/md5"
 	"flag"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/run"
 	"github.com/cobalt77/kubecc/pkg/toolchains"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/util"
@@ -66,19 +68,29 @@ func (f TestToolchainFinder) FindToolchains(
 	return store
 }
 
-// SleepTask will sleep for (probably slightly more than) the given duration.
-// This runner will "pause time" to a granularity of 1/100th the total duration
-// while its goroutine is paused (i.e. while debugging at a breakpoint) by
-// chaining multiple small timers in sequence instead of using one timer.
 type SleepTask struct {
 	util.NullableError
 	Duration time.Duration
 }
 
 func (t *SleepTask) Run() {
-	for i := 0; i < 100; i++ {
-		time.Sleep(t.Duration / 100)
-	}
+	time.Sleep(t.Duration)
+	t.SetErr(nil)
+}
+
+// HashTask will compute the md5 sum of the Input string and write the output
+// to the OutputWriter specified in the task options.
+type HashTask struct {
+	run.TaskOptions
+	util.NullableError
+	Input string
+}
+
+func (t *HashTask) Run() {
+	h := md5.New()
+	h.Write([]byte(t.Input))
+	result := h.Sum(nil)
+	t.TaskOptions.OutputWriter.Write(result)
 	t.SetErr(nil)
 }
 
@@ -88,27 +100,47 @@ func (*NoopRunner) Run() error {
 	return nil
 }
 
-type SleepArgParser struct {
+type Action int
+
+const (
+	Sleep Action = iota
+	Hash
+)
+
+type TestArgParser struct {
 	Args     []string
 	Duration time.Duration
+	Input    string
+	Action   Action
 }
 
-func (ap *SleepArgParser) Parse() {
-	var duration string
+func (ap *TestArgParser) Parse() {
+	var sleep string
+	var hash string
 	set := flag.NewFlagSet("test", flag.PanicOnError)
-	set.StringVar(&duration, "duration", "1s", "")
+	set.StringVar(&sleep, "sleep", "", "")
+	set.StringVar(&hash, "hash", "", "")
 	if err := set.Parse(ap.Args); err != nil {
 		panic(err)
 	}
 
-	d, err := time.ParseDuration(duration)
-	if err != nil {
-		panic(err)
+	switch {
+	case sleep != "":
+		d, err := time.ParseDuration(sleep)
+		if err != nil {
+			panic(err)
+		}
+		ap.Duration = d
+		ap.Action = Sleep
+	case hash != "":
+		ap.Input = hash
+		ap.Action = Hash
+	default:
+		panic("Invalid arguments to test arg parser")
 	}
-	ap.Duration = d
 }
 
-func (SleepArgParser) CanRunRemote() bool {
+func (TestArgParser) CanRunRemote() bool {
 	return true
 }
 

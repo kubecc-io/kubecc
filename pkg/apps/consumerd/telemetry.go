@@ -223,7 +223,7 @@ func (e Entries) TimeRange(begin, end time.Time) Entries {
 }
 
 func (e Entries) LinearRegression() (alpha, beta float64) {
-	if len(e) == 0 {
+	if len(e) < 2 {
 		return 0, 0
 	}
 	times := make([]float64, 0, len(e))

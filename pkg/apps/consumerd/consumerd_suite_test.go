@@ -54,12 +54,10 @@ var _ = BeforeSuite(func() {
 
 var _ = AfterSuite(func() {
 	testEnv.Shutdown()
-	plotStatsLog()
 })
 
 var (
 	testEnv *test.Environment
-	queue   *consumerd.SplitQueue
 	testCtx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
@@ -78,7 +76,7 @@ func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 			ClientContext: testCtx,
 		}
 		request := &types.RunRequest{
-			Args: []string{"--duration", fmt.Sprintf("%dms", rand.Intn(4)+1)},
+			Args: []string{"-sleep", fmt.Sprintf("%dms", rand.Intn(10)+1)},
 		}
 
 		taskPool <- &consumerd.SplitTask{
@@ -101,47 +99,74 @@ func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 	return taskPool
 }
 
-func makeInfiniteTaskPool() (chan *consumerd.SplitTask, context.CancelFunc) {
-	taskPool := make(chan *consumerd.SplitTask, 100)
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		contexts := run.Contexts{
-			ServerContext: testCtx,
-			ClientContext: testCtx,
-		}
-		request := &types.RunRequest{}
-		for {
-			if ctx.Err() != nil {
-				break
-			}
-			taskPool <- &consumerd.SplitTask{
-				Local: run.PackageRequest(
-					testToolchainRunner.RunLocal(
-						testToolchainRunner.NewArgParser(testCtx, []string{})),
-					contexts,
-					request,
-				),
-				Remote: run.PackageRequest(
-					testToolchainRunner.SendRemote(
-						testToolchainRunner.NewArgParser(testCtx, []string{}),
-						nil, // Testing CompileRequestClient is out of scope for this test
-					),
-					contexts,
-					request,
-				),
-			}
-		}
-	}()
-	return taskPool, cancel
+type infiniteTaskPool struct {
+	C      chan *consumerd.SplitTask
+	ctx    context.Context
+	cancel context.CancelFunc
+	args   []string
 }
 
-var collectionPeriod = 25 * time.Millisecond
+func (i *infiniteTaskPool) Run() {
+	contexts := run.Contexts{
+		ServerContext: testCtx,
+		ClientContext: testCtx,
+	}
+	request := &types.RunRequest{
+		Args: i.args,
+	}
+	for {
+		select {
+		case <-i.ctx.Done():
+			close(i.C)
+			return
+		case i.C <- &consumerd.SplitTask{
+			Local: run.PackageRequest(
+				testToolchainRunner.RunLocal(
+					testToolchainRunner.NewArgParser(testCtx, []string{})),
+				contexts,
+				request,
+			),
+			Remote: run.PackageRequest(
+				testToolchainRunner.SendRemote(
+					testToolchainRunner.NewArgParser(testCtx, []string{}),
+					nil, // Testing CompileRequestClient is out of scope for this test
+				),
+				contexts,
+				request,
+			),
+		}:
+		}
+	}
+}
+
+func (i *infiniteTaskPool) Cancel() {
+	// This will cause the channel to be closed
+	i.cancel()
+}
+
+// makeInfiniteTaskPool creates a new task pool that will always have tasks
+// available until it is canceled with the Cancel method. It can be paused
+// and resumed without closing its channel.
+func makeInfiniteTaskPool(args []string) *infiniteTaskPool {
+	taskPool := make(chan *consumerd.SplitTask)
+	ctx, cancel := context.WithCancel(context.Background())
+	pool := &infiniteTaskPool{
+		args:   args,
+		ctx:    ctx,
+		cancel: cancel,
+		C:      taskPool,
+	}
+	go pool.Run()
+	return pool
+}
+
+var collectionPeriod = 10 * time.Millisecond
 
 type filter struct {
 	kind consumerd.EntryKind
 }
 
-func plotStatsLog() {
+func plotStatsLog(queue *consumerd.SplitQueue) {
 	p := plot.New()
 	p.Title.Text = "Local/Remote Executor Usage"
 	p.X.Label.Text = "Timestamp (ms)"
@@ -223,4 +248,21 @@ func plotStatsLog() {
 	if err := p.Save(16*vg.Inch, 8*vg.Inch, "stats.svg"); err != nil {
 		panic(err)
 	}
+}
+
+type testRemoteUsageMgr struct {
+	c    chan int64
+	done chan struct{}
+}
+
+func (m *testRemoteUsageMgr) Manage(r run.Resizer) {
+	for {
+		r.Resize(<-m.c)
+		m.done <- struct{}{}
+	}
+}
+
+func (m *testRemoteUsageMgr) Resize(sz int64) {
+	m.c <- sz
+	<-m.done
 }

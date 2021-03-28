@@ -29,6 +29,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
 	"github.com/cobalt77/kubecc/pkg/apps/monitor"
 	"github.com/cobalt77/kubecc/pkg/apps/scheduler"
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/config"
 	"github.com/cobalt77/kubecc/pkg/host"
 	"github.com/cobalt77/kubecc/pkg/identity"
@@ -62,8 +63,12 @@ var (
 )
 
 type SpawnOptions struct {
-	config config.KubeccSpec
-	name   string
+	config           config.KubeccSpec
+	agentOptions     []agent.AgentServerOption
+	consumerdOptions []consumerd.ConsumerdServerOption
+	schedulerOptions []scheduler.SchedulerServerOption
+	cacheOptions     []cachesrv.CacheServerOption
+	name             string
 }
 
 type SpawnOption func(*SpawnOptions)
@@ -101,6 +106,30 @@ func WithConfig(cfg interface{}) SpawnOption {
 func WithName(name string) SpawnOption {
 	return func(o *SpawnOptions) {
 		o.name = name
+	}
+}
+
+func WithAgentOptions(opts ...agent.AgentServerOption) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.agentOptions = opts
+	}
+}
+
+func WithConsumerdOptions(opts ...consumerd.ConsumerdServerOption) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.consumerdOptions = opts
+	}
+}
+
+func WithSchedulerOptions(opts ...scheduler.SchedulerServerOption) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.schedulerOptions = opts
+	}
+}
+
+func WithCacheOptions(opts ...cachesrv.CacheServerOption) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.cacheOptions = opts
 	}
 }
 
@@ -174,6 +203,7 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 		agent.WithMonitorClient(e.NewMonitorClient(ctx)),
 		agent.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
+	options = append(options, so.agentOptions...)
 
 	agentSrv := agent.NewAgentServer(ctx, options...)
 	go agentSrv.StartMetricsProvider()
@@ -211,6 +241,7 @@ func (e *Environment) SpawnScheduler(opts ...SpawnOption) (context.Context, cont
 		scheduler.WithMonitorClient(e.NewMonitorClient(ctx)),
 		scheduler.WithCacheClient(e.NewCacheClient(ctx)),
 	}
+	options = append(options, so.schedulerOptions...)
 
 	sc := scheduler.NewSchedulerServer(ctx, options...)
 	go sc.StartMetricsProvider()
@@ -251,18 +282,18 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 	}()
 
 	options := []consumerd.ConsumerdServerOption{
-		consumerd.WithUsageLimits(&metrics.UsageLimits{
-			ConcurrentProcessLimit:  int32(cfg.Consumerd.UsageLimits.ConcurrentProcessLimit),
-			QueuePressureMultiplier: cfg.Consumerd.UsageLimits.QueuePressureMultiplier,
-			QueueRejectMultiplier:   cfg.Consumerd.UsageLimits.QueueRejectMultiplier,
-		}),
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
 			Finder: testutil.TestToolchainFinder{},
 		}),
 		consumerd.WithToolchainRunners(testctrl.AddToStore),
 		consumerd.WithMonitorClient(e.NewMonitorClient(ctx)),
 		consumerd.WithSchedulerClient(e.NewSchedulerClient(ctx)),
+		consumerd.WithQueueOptions(
+			consumerd.WithLocalUsageManager(consumerd.AutoUsageLimits()),
+			consumerd.WithRemoteUsageManager(clients.NewRemoteUsageManager(ctx, e.NewMonitorClient(ctx))),
+		),
 	}
+	options = append(options, so.consumerdOptions...)
 
 	cd := consumerd.NewConsumerdServer(ctx, options...)
 
@@ -346,6 +377,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 	options = append(options, cachesrv.WithStorageProvider(
 		storage.NewChainStorageProvider(ctx, providers...),
 	))
+	options = append(options, so.cacheOptions...)
 
 	cacheSrv := cachesrv.NewCacheServer(ctx, cfg.Cache, options...)
 
