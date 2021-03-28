@@ -256,7 +256,7 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed locally
-			Expect(counts.local).To(BeNumerically(">", 175))
+			Expect(counts.local).To(BeNumerically(">", 100))
 			Expect(counts.remote).To(BeEquivalentTo(0))
 		})
 	})
@@ -275,8 +275,8 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed on both local and remote
-			Expect(counts.local).To(BeNumerically(">", 175))
-			Expect(counts.remote).To(BeNumerically(">", 175))
+			Expect(counts.local).To(BeNumerically(">", 100))
+			Expect(counts.remote).To(BeNumerically(">", 100))
 		})
 		Specify("stopping scheduler", func() {
 			cancel()
@@ -295,7 +295,7 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed locally
-			Expect(counts.local).To(BeNumerically(">", 175))
+			Expect(counts.local).To(BeNumerically(">", 100))
 			Expect(counts.remote).To(BeEquivalentTo(0))
 		})
 	})
