@@ -80,6 +80,10 @@ message ListenerCount {
   int32 Count = 1;
 }
 
+message ProviderCount {
+  int32 Count = 1;
+}
+
 message ProviderInfo {
   string UUID = 1;
   types.Component Component = 2;

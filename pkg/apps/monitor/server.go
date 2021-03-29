@@ -109,15 +109,8 @@ func NewMonitorServer(
 	return srv
 }
 
-func (m *MonitorServer) postTotals() {
-	postedTotal := &metrics.MetricsPostedTotal{
-		Total: m.metricsTotal.Load(),
-	}
-	any, err := anypb.New(postedTotal)
-	if err != nil {
-		panic(err)
-	}
-	err = m.post(&types.Metric{
+func (m *MonitorServer) postInternal(any *anypb.Any) {
+	err := m.post(&types.Metric{
 		Key: &types.Key{
 			Bucket: m.uuid,
 			Name:   any.TypeUrl,
@@ -129,6 +122,46 @@ func (m *MonitorServer) postTotals() {
 	}
 }
 
+func (m *MonitorServer) postTotals() {
+	postedTotal := &metrics.MetricsPostedTotal{
+		Total: m.metricsTotal.Load(),
+	}
+	any, err := anypb.New(postedTotal)
+	if err != nil {
+		panic(err)
+	}
+	m.postInternal(any)
+}
+
+func (m *MonitorServer) postListeners() {
+	m.listenerMutex.RLock()
+	total := 0
+	for _, v := range m.listeners {
+		total += len(v)
+	}
+	m.listenerMutex.RUnlock()
+	any, err := anypb.New(&metrics.ListenerCount{
+		Count: int32(total),
+	})
+	if err != nil {
+		panic(err)
+	}
+	m.postInternal(any)
+}
+
+func (m *MonitorServer) postProviders() {
+	m.providerMutex.RLock()
+	total := len(m.providers.GetItems())
+	m.providerMutex.RUnlock()
+	any, err := anypb.New(&metrics.ProviderCount{
+		Count: int32(total),
+	})
+	if err != nil {
+		panic(err)
+	}
+	m.postInternal(any)
+}
+
 func (m *MonitorServer) postHealthUpdates() {
 	c := m.StreamHealthUpdates()
 	for {
@@ -137,16 +170,7 @@ func (m *MonitorServer) postHealthUpdates() {
 		if err != nil {
 			panic(err)
 		}
-		err = m.post(&types.Metric{
-			Key: &types.Key{
-				Bucket: m.uuid,
-				Name:   any.TypeUrl,
-			},
-			Value: any,
-		})
-		if err != nil {
-			m.lg.Error(err)
-		}
+		m.postInternal(any)
 	}
 }
 
@@ -157,6 +181,8 @@ func (m *MonitorServer) startMetricsProvider() {
 		for {
 			<-slowTimer
 			m.postTotals()
+			m.postListeners()
+			m.postProviders()
 		}
 	}()
 }
