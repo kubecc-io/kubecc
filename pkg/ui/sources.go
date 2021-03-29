@@ -95,6 +95,7 @@ type monitorDataSource struct {
 	lock          sync.Mutex
 	metricsPosted int64
 	listeners     int32
+	providers     int32
 }
 
 type cacheDataSource struct {
@@ -408,6 +409,7 @@ func (a *monitorDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Sty
 		rows := [][]string{
 			{"Metrics Posted", fmt.Sprint(a.metricsPosted)},
 			{"Listeners", fmt.Sprint(a.listeners)},
+			{"Providers", fmt.Sprint(a.providers)},
 		}
 		a.lock.Unlock()
 		ch <- rows
@@ -434,10 +436,17 @@ func (a *monitorDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Sty
 			a.lock.Unlock()
 			doUpdate()
 		})
+		listener.OnValueChanged(s, func(m *metrics.ProviderCount) {
+			a.lock.Lock()
+			a.providers = m.GetCount()
+			a.lock.Unlock()
+			doUpdate()
+		})
 		<-c.Done()
 		a.lock.Lock()
 		a.metricsPosted = 0
 		a.listeners = 0
+		a.providers = 0
 		a.lock.Unlock()
 		ch <- [][]string{}
 	})
