@@ -26,14 +26,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/go-cmp/cmp"
+	"github.com/kubecc-io/kubecc/internal/logkc"
+	"github.com/kubecc-io/kubecc/internal/testutil"
+	"github.com/kubecc-io/kubecc/pkg/cc"
+	"github.com/kubecc-io/kubecc/pkg/identity"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/toolchains"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"google.golang.org/protobuf/testing/protocmp"
 )
 

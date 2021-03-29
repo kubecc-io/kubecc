@@ -21,7 +21,7 @@ package rec
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/meta"
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

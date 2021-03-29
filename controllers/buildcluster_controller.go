@@ -27,10 +27,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/cobalt77/kubecc/api/v1alpha1"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/rec"
-	"github.com/cobalt77/kubecc/pkg/resolvers"
+	"github.com/kubecc-io/kubecc/api/v1alpha1"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/rec"
+	"github.com/kubecc-io/kubecc/pkg/resolvers"
 )
 
 // BuildClusterReconciler reconciles a BuildCluster object.

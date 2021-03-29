@@ -25,11 +25,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
+	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 type agent struct {

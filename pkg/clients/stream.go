@@ -24,9 +24,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cobalt77/kubecc/internal/zapkc"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/internal/zapkc"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -22,11 +22,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 )

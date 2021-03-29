@@ -61,7 +61,7 @@ manifests:
 	GOROOT=$(shell $(GO) env GOROOT) controller-gen $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 
-module_opt = module=github.com/cobalt77/kubecc
+module_opt = module=github.com/kubecc-io/kubecc
 
 # Protobuf code generators
 .PHONY: proto

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cobalt77/kubecc/pkg/templates"
+	"github.com/kubecc-io/kubecc/pkg/templates"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"

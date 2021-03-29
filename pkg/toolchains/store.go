@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 type toolchainData struct {

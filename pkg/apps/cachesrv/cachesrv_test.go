@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	// . "github.com/onsi/gomega"
 
-	"github.com/cobalt77/kubecc/pkg/test"
+	"github.com/kubecc-io/kubecc/pkg/test"
 )
 
 var _ = Describe("Cache Server", func() {

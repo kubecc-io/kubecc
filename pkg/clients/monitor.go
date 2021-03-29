@@ -24,10 +24,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

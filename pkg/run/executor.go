@@ -20,8 +20,8 @@ package run
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/host"
-	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/host"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"go.uber.org/atomic"
 )
 

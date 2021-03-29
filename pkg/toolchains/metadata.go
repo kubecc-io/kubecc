@@ -21,7 +21,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/cobalt77/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 )

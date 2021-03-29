@@ -21,7 +21,7 @@ import (
 	"embed"
 	_ "embed"
 
-	"github.com/cobalt77/kubecc/pkg/templates"
+	"github.com/kubecc-io/kubecc/pkg/templates"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

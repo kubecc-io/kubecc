@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package cc_test
 
 import (
-	"github.com/cobalt77/kubecc/pkg/cc"
+	"github.com/kubecc-io/kubecc/pkg/cc"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

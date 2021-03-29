@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 // A Querier can query a compiler to determine its characteristics.

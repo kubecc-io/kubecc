@@ -23,10 +23,10 @@ import (
 	"flag"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/run"
+	"github.com/kubecc-io/kubecc/pkg/toolchains"
+	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util"
 )
 
 var TestToolchainExecutable = "/path/to/test-toolchain"

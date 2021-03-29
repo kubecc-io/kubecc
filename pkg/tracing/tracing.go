@@ -22,9 +22,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	opentracing "github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 

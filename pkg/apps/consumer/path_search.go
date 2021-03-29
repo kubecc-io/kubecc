@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/meta"
 	"go.uber.org/zap"
 )
 

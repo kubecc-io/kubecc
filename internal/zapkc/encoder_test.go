@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/kubecc-io/kubecc/internal/zapkc"
 	"github.com/stretchr/testify/assert"
 )
 

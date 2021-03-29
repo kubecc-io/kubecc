@@ -21,11 +21,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/apps/agent"
-	"github.com/cobalt77/kubecc/pkg/apps/consumerd"
-	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/test"
+	"github.com/kubecc-io/kubecc/pkg/apps/agent"
+	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
+	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

@@ -21,8 +21,8 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 // An AvailabilityListener allows asserting that a component is available

@@ -23,12 +23,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/test"
-	"github.com/cobalt77/kubecc/pkg/tracing"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/internal/logkc"
+	"github.com/kubecc-io/kubecc/pkg/identity"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/test"
+	"github.com/kubecc-io/kubecc/pkg/tracing"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 var _ = Describe("Test Environment", func() {

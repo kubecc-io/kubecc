@@ -21,9 +21,9 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/internal/testutil"
+	"github.com/kubecc-io/kubecc/pkg/run"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 type TestToolchainCtrl struct{}

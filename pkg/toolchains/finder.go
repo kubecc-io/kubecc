@@ -20,7 +20,7 @@ package toolchains
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/util"
 )
 
 // A Finder can locate toolchains in a filesystem.

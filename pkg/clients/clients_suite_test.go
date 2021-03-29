@@ -20,7 +20,7 @@ package clients_test
 import (
 	"testing"
 
-	"github.com/cobalt77/kubecc/internal/testutil"
+	"github.com/kubecc-io/kubecc/internal/testutil"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
