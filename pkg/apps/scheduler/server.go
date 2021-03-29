@@ -19,6 +19,7 @@ package scheduler
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/cobalt77/kubecc/pkg/clients"
@@ -45,8 +46,10 @@ type schedulerServer struct {
 	agentCount     *atomic.Int64
 	consumerdCount *atomic.Int64
 
-	condNoAgentsCancel context.CancelFunc
-	condNoCdsCancel    context.CancelFunc
+	condNoAgentsCancel     context.CancelFunc
+	condNoCdsCancel        context.CancelFunc
+	condNoAgentsCancelLock sync.Mutex
+	condNoCdsCancelLock    sync.Mutex
 }
 
 type SchedulerServerOptions struct {
@@ -114,7 +117,9 @@ func (s *schedulerServer) applyNoAgentsCond() {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.ApplyCondition(ctx, metrics.StatusConditions_MissingOptionalComponent,
 		"No agents connected")
+	s.condNoAgentsCancelLock.Lock()
 	s.condNoAgentsCancel = cancel
+	s.condNoAgentsCancelLock.Unlock()
 }
 
 func (s *schedulerServer) applyNoCdsCond() {
@@ -122,7 +127,9 @@ func (s *schedulerServer) applyNoCdsCond() {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.ApplyCondition(ctx, metrics.StatusConditions_MissingOptionalComponent,
 		"No consumerds connected")
+	s.condNoCdsCancelLock.Lock()
 	s.condNoCdsCancel = cancel
+	s.condNoCdsCancelLock.Unlock()
 }
 
 // agent <-> scheduler
@@ -138,7 +145,9 @@ func (s *schedulerServer) StreamIncomingTasks(
 	s.broker.NewAgentTaskStream(srv)
 	if s.agentCount.Inc() == 1 {
 		s.lg.Debug("Removing status condition [no agents]")
+		s.condNoAgentsCancelLock.Lock()
 		s.condNoAgentsCancel()
+		s.condNoAgentsCancelLock.Unlock()
 	}
 	defer func() {
 		if s.agentCount.Dec() == 0 {
@@ -171,7 +180,9 @@ func (s *schedulerServer) StreamOutgoingTasks(
 
 	if s.consumerdCount.Inc() == 1 {
 		s.lg.Debug("Removing status condition [no consumerds]")
+		s.condNoCdsCancelLock.Lock()
 		s.condNoCdsCancel()
+		s.condNoCdsCancelLock.Unlock()
 	}
 	s.metricsProvider.Post(&metrics.ConsumerdCount{
 		Count: s.consumerdCount.Load(),

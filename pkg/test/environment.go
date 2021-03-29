@@ -551,7 +551,7 @@ func (e *Environment) WaitForReady(uuid string) {
 		}
 		listener.OnValueChanged(uuid, func(h *metrics.Health) {
 			if h.GetStatus() != metrics.OverallStatus_Initializing {
-				close(done)
+				done <- struct{}{}
 			}
 		})
 	})
