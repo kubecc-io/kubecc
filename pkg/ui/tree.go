@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package ui
 
 import (
+	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 )
 
@@ -46,6 +47,11 @@ func NewTree(src TreeDataSource) *Tree {
 func (t *Tree) readFromDataSource() {
 	for {
 		data := <-t.data
+		if len(data) > 0 {
+			t.Tree.TitleStyle.Fg = termui.ColorBlue
+		} else {
+			t.Tree.TitleStyle.Fg = termui.ColorRed
+		}
 		t.Tree.SetNodes(data)
 	}
 }

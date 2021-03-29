@@ -22,9 +22,11 @@ import (
 	"log"
 	"time"
 
+	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/gizak/termui/v3"
 	ui "github.com/gizak/termui/v3"
+	"go.uber.org/atomic"
 )
 
 type StatusDisplay struct {
@@ -34,6 +36,8 @@ type StatusDisplay struct {
 	monitor    *Table
 	cache      *Table
 	routes     *Tree
+
+	connected *atomic.Bool
 }
 
 func NewStatusDisplay(
@@ -41,14 +45,26 @@ func NewStatusDisplay(
 	mon types.MonitorClient,
 	sch types.SchedulerClient,
 ) *StatusDisplay {
-	return &StatusDisplay{
+	s := &StatusDisplay{
 		agents:     NewTable(NewAgentDataSource(ctx, mon)),
 		consumerds: NewTable(NewConsumerdDataSource(ctx, mon)),
 		scheduler:  NewTable(NewSchedulerDataSource(ctx, mon)),
 		monitor:    NewTable(NewMonitorDataSource(ctx, mon)),
 		cache:      NewTable(NewCacheDataSource(ctx, mon)),
 		routes:     NewTree(NewRoutesDataSource(ctx, sch)),
+		connected:  atomic.NewBool(false),
 	}
+	go func() {
+		avc := clients.NewAvailabilityChecker(clients.ComponentFilter(types.Monitor))
+		clients.WatchAvailability(ctx, mon, avc)
+		for {
+			ctx := avc.EnsureAvailable()
+			s.connected.Store(true)
+			<-ctx.Done()
+			s.connected.Store(false)
+		}
+	}()
+	return s
 }
 
 func (s *StatusDisplay) Run() {
@@ -75,10 +91,10 @@ func (s *StatusDisplay) Run() {
 			),
 		),
 	)
-	ui.Render(grid)
 
 	uiEvents := ui.PollEvents()
 	ticker := time.NewTicker(time.Second / 8).C
+
 	for {
 		select {
 		case e := <-uiEvents:
