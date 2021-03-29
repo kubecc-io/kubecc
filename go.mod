@@ -1,4 +1,4 @@
-module github.com/cobalt77/kubecc
+module github.com/kubecc-io/kubecc
 
 go 1.16
 

@@ -25,9 +25,9 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/run"
+	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/zap"
 )
 

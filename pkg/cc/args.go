@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )

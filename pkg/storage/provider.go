@@ -21,8 +21,8 @@ package storage
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 // A StorageProvider represents an object capable of storing and retrieving

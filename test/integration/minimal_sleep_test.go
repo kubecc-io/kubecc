@@ -20,7 +20,7 @@ package integration
 import (
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/test"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
 	// . "github.com/onsi/gomega"
 )

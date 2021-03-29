@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package types
 
 import (
-	"github.com/cobalt77/kubecc/internal/zapkc"
+	"github.com/kubecc-io/kubecc/internal/zapkc"
 )
 
 // Name returns the title-case component name.

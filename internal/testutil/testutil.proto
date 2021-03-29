@@ -1,5 +1,5 @@
 syntax = "proto3";
-option go_package = "github.com/cobalt77/kubecc/internal/testutil";
+option go_package = "github.com/kubecc-io/kubecc/internal/testutil";
 
 package testutil;
 

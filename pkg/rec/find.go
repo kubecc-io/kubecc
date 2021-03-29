@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package rec
 
 import (
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/util"
 
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"

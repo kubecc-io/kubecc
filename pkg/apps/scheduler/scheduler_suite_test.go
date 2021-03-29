@@ -20,13 +20,13 @@ package scheduler
 import (
 	"testing"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/tracing"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
+	"github.com/kubecc-io/kubecc/internal/logkc"
+	"github.com/kubecc-io/kubecc/pkg/identity"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/tracing"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

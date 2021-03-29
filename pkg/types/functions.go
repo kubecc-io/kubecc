@@ -21,7 +21,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	md5simd "github.com/minio/md5-simd"
 )
 

@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	types "github.com/cobalt77/kubecc/pkg/types"
 	gomock "github.com/golang/mock/gomock"
 	any "github.com/golang/protobuf/ptypes/any"
+	types "github.com/kubecc-io/kubecc/pkg/types"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
 )

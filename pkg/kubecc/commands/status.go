@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package commands
 
 import (
-	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
-	"github.com/cobalt77/kubecc/pkg/servers"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/ui"
+	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
+	"github.com/kubecc-io/kubecc/pkg/servers"
+	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

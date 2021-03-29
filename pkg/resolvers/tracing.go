@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package resolvers
 
 import (
-	"github.com/cobalt77/kubecc/api/v1alpha1"
-	"github.com/cobalt77/kubecc/pkg/rec"
+	"github.com/kubecc-io/kubecc/api/v1alpha1"
+	"github.com/kubecc-io/kubecc/pkg/rec"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

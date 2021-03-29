@@ -20,11 +20,11 @@ package controller
 import (
 	"errors"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
+	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/run"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 )
 

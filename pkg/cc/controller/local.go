@@ -20,10 +20,10 @@ package toolchain
 import (
 	"bytes"
 
-	"github.com/cobalt77/kubecc/pkg/cc"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/run"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/cc"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/run"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 )

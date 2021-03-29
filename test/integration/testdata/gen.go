@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/cobalt77/kubecc/pkg/templates"
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/pkg/templates"
+	"github.com/kubecc-io/kubecc/pkg/util"
 )
 
 func main() {

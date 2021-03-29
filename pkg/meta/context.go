@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"

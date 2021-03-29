@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 package run
 
-import "github.com/cobalt77/kubecc/pkg/types"
+import "github.com/kubecc-io/kubecc/pkg/types"
 
 type ToolchainRunnerStore struct {
 	items map[types.ToolchainKind]ToolchainController

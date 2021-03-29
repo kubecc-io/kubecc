@@ -2,7 +2,7 @@ componentConfig: true
 domain: kubecc.io
 layout: go.kubebuilder.io/v3
 projectName: kubecc
-repo: github.com/cobalt77/kubecc
+repo: github.com/kubecc-io/kubecc
 resources:
 - crdVersion: v1
   kind: Kubecc

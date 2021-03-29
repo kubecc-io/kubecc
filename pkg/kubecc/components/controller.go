@@ -32,13 +32,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
-	"github.com/cobalt77/kubecc/api/v1alpha1"
-	"github.com/cobalt77/kubecc/controllers"
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/identity"
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/types"
-	"github.com/cobalt77/kubecc/pkg/util"
+	"github.com/kubecc-io/kubecc/api/v1alpha1"
+	"github.com/kubecc-io/kubecc/controllers"
+	"github.com/kubecc-io/kubecc/internal/logkc"
+	"github.com/kubecc-io/kubecc/pkg/identity"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	"github.com/spf13/cobra"
 	// +kubebuilder:scaffold:imports
 )

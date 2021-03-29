@@ -22,10 +22,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/clients"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/gizak/termui/v3"
 	ui "github.com/gizak/termui/v3"
+	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/atomic"
 )
 

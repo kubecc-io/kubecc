@@ -23,8 +23,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/cobalt77/kubecc/pkg/kubecc"
-	"github.com/cobalt77/kubecc/pkg/kubecc/tools"
+	"github.com/kubecc-io/kubecc/pkg/kubecc"
+	"github.com/kubecc-io/kubecc/pkg/kubecc/tools"
 )
 
 func main() {

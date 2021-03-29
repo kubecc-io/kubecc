@@ -22,9 +22,9 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/cobalt77/kubecc/pkg/metrics"
-	"github.com/cobalt77/kubecc/pkg/types"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	md5simd "github.com/minio/md5-simd"
 	"go.uber.org/atomic"
 )

@@ -25,10 +25,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/toolchains"
-	"github.com/cobalt77/kubecc/pkg/util"
 	mapset "github.com/deckarep/golang-set"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/toolchains"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/zap"
 )
 

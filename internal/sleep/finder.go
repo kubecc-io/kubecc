@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cobalt77/kubecc/pkg/toolchains"
+	"github.com/kubecc-io/kubecc/pkg/toolchains"
 )
 
 type SleepToolchainFinder struct{}

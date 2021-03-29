@@ -26,8 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/cobalt77/kubecc/internal/testutil"
-	"github.com/cobalt77/kubecc/pkg/apps/monitor"
+	"github.com/kubecc-io/kubecc/internal/testutil"
+	"github.com/kubecc-io/kubecc/pkg/apps/monitor"
 )
 
 var _ = Describe("Store", func() {

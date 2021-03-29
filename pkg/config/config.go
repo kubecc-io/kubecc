@@ -25,7 +25,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
 )

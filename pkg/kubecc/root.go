@@ -24,10 +24,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/kubectl/pkg/util/templates"
 
-	"github.com/cobalt77/kubecc/internal/logkc"
-	"github.com/cobalt77/kubecc/pkg/kubecc/commands"
-	"github.com/cobalt77/kubecc/pkg/kubecc/components"
-	"github.com/cobalt77/kubecc/pkg/kubecc/tools"
+	"github.com/kubecc-io/kubecc/internal/logkc"
+	"github.com/kubecc-io/kubecc/pkg/kubecc/commands"
+	"github.com/kubecc-io/kubecc/pkg/kubecc/components"
+	"github.com/kubecc-io/kubecc/pkg/kubecc/tools"
 )
 
 func CreateRootCmd() *cobra.Command {

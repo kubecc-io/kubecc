@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 

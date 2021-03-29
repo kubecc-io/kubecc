@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/cobalt77/kubecc/api/v1alpha1"
+	"github.com/kubecc-io/kubecc/api/v1alpha1"
 )
 
 var _ = Describe("BuildCluster Controller", func() {

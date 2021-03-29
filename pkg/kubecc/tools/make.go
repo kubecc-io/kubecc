@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"strings"
 
-	. "github.com/cobalt77/kubecc/pkg/kubecc/internal"
+	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/spf13/cobra"
 )
 

@@ -21,8 +21,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
-	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"go.uber.org/zap"
 )

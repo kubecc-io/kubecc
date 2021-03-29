@@ -20,10 +20,10 @@ package identity
 import (
 	"context"
 
-	"github.com/cobalt77/kubecc/pkg/meta"
-	"github.com/cobalt77/kubecc/pkg/meta/mdkeys"
-	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/google/uuid"
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
 type componentMDP struct{}
