@@ -2,6 +2,7 @@
 
 ![logo](docs/media/logo.png)
 [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/cobalt77/kubecc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kubecc-io/kubecc)](https://goreportcard.com/report/github.com/kubecc-io/kubecc)
 
 Kubecc is a modern Kubernetes-native distributed build system for teams working on C/C++ projects. Inspired by the original [distcc](https://github.com/distcc/distcc), Kubecc was written from the ground up in Go to be a fast, highly-concurrent build system that lives on your on-prem development cluster and works silently in the background to speed up builds for your entire team. 
 
