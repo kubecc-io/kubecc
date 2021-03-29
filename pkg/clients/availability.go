@@ -27,7 +27,7 @@ import (
 
 // An AvailabilityListener allows asserting that a component is available
 // (i.e. it is streaming metadata to the monitor) during a section of code.
-// The default concrete implementaion of this interface is the
+// The default concrete implementation of this interface is the
 // AvailabilityChecker. This interface is intended to be used with
 // the function WatchAvailability.
 //
