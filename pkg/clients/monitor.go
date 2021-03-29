@@ -27,6 +27,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/meta"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
+	mapset "github.com/deckarep/golang-set"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -258,29 +259,41 @@ func NewMetricsListener(
 
 func (l *monitorListener) OnProviderAdded(handler func(context.Context, string)) {
 	doUpdate := func(providers *metrics.Providers) {
-		for uuid := range providers.Items {
-			if _, ok := l.knownProviders[uuid]; !ok {
-				pctx, cancel := context.WithCancel(l.ctx)
-				l.knownProviders[uuid] = cancel
+		l.providersMutex.Lock()
+		defer l.providersMutex.Unlock()
+
+		known := mapset.NewSet()
+		for uuid := range l.knownProviders {
+			known.Add(uuid)
+		}
+		updated := mapset.NewSet()
+		for uuid := range providers.GetItems() {
+			updated.Add(uuid)
+		}
+		removed := known.Difference(updated)
+		added := updated.Difference(known)
+
+		removed.Each(func(i interface{}) (stop bool) {
+			uuid := i.(string)
+			cancel := l.knownProviders[uuid]
+			delete(l.knownProviders, uuid)
+			defer cancel()
+			return
+		})
+		added.Each(func(i interface{}) (stop bool) {
+			uuid := i.(string)
+			pctx, cancel := context.WithCancel(l.ctx)
+			l.knownProviders[uuid] = cancel
+			defer func() {
 				go handler(pctx, uuid)
-			}
-		}
-		for uuid, cancel := range l.knownProviders {
-			if _, ok := providers.Items[uuid]; !ok {
-				// this is called before the mutex is unlocked, defers are LIFO
-				defer delete(l.knownProviders, uuid)
-				cancel()
-			}
-		}
+			}()
+			return
+		})
 	}
 
 	l.OnValueChanged(MetaBucket, func(providers *metrics.Providers) {
-		l.providersMutex.Lock()
-		defer l.providersMutex.Unlock()
 		doUpdate(providers)
 	}).OrExpired(func() RetryOptions {
-		l.providersMutex.Lock()
-		defer l.providersMutex.Unlock()
 		doUpdate(&metrics.Providers{})
 		return Retry
 	})

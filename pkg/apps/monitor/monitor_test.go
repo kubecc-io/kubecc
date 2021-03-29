@@ -70,6 +70,8 @@ func drain(c chan interface{}) {
 	}
 }
 
+// todo: these tests are flaky, figure out why
+
 var _ = Describe("Monitor", func() {
 	var listener *bufconn.Listener
 	var monitorCtx context.Context
@@ -118,16 +120,18 @@ var _ = Describe("Monitor", func() {
 		"testKey1Expired": make(chan interface{}, 100),
 	}
 
-	When("A listener connects", func() {
-		ctx := meta.NewContext(
-			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
-			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
-				logkc.WithLogLevel(zapcore.WarnLevel)))),
-			meta.WithProvider(tracing.Tracer),
-		)
+	bug := atomic.NewBool(true)
+	var providerUuid string
 
+	When("A listener connects", func() {
 		It("should succeed", func() {
+			ctx := meta.NewContext(
+				meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
+				meta.WithProvider(identity.UUID),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
+					logkc.WithLogLevel(zapcore.WarnLevel)))),
+				meta.WithProvider(tracing.Tracer),
+			)
 			cc, err := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
@@ -138,7 +142,7 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-				if uuid == meta.UUID(monitorCtx) {
+				if uuid != providerUuid {
 					return
 				}
 				listenerEvents["providerAdded"] <- uuid
@@ -155,6 +159,10 @@ var _ = Describe("Monitor", func() {
 					return clients.NoRetry
 				})
 				<-pctx.Done()
+				if bug.Load() {
+					// ! Put a breakpoint here to catch the GC issue
+					testLog.Warn("pctx done " + uuid)
+				}
 				listenerEvents["providerRemoved"] <- uuid
 			})
 		})
@@ -162,19 +170,18 @@ var _ = Describe("Monitor", func() {
 
 	var provider clients.MetricsProvider
 	var providerCancel context.CancelFunc
-	var providerUuid string
 	When("A provider connects", func() {
-		ctx := meta.NewContext(
-			meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
-			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.Agent,
-				logkc.WithLogLevel(zapcore.WarnLevel)))),
-			meta.WithProvider(tracing.Tracer),
-		)
-		providerUuid = meta.UUID(ctx)
-		cctx, cancel := context.WithCancel(ctx)
-		providerCancel = cancel
 		It("should succeed", func() {
+			ctx := meta.NewContext(
+				meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
+				meta.WithProvider(identity.UUID),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.Agent,
+					logkc.WithLogLevel(zapcore.WarnLevel)))),
+				meta.WithProvider(tracing.Tracer),
+			)
+			providerUuid = meta.UUID(ctx)
+			cctx, cancel := context.WithCancel(ctx)
+			providerCancel = cancel
 			cc, err := servers.Dial(cctx, uuid.NewString(), servers.WithDialOpts(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
@@ -192,8 +199,8 @@ var _ = Describe("Monitor", func() {
 			}).Should(BeEquivalentTo(2))
 		})
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(meta.UUID(ctx))))
-			Expect(listenerEvents["providerRemoved"]).ShouldNot(Receive())
+			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid)))
+			Expect(listenerEvents["providerRemoved"]).NotTo(Receive())
 			// ensure the context is not canceled and no duplicates occur
 			Consistently(listenerEvents["providerAdded"]).ShouldNot(Receive())
 			Consistently(listenerEvents["providerRemoved"]).ShouldNot(Receive())
@@ -212,14 +219,14 @@ var _ = Describe("Monitor", func() {
 		})
 	})
 	When("A late-joining listener connects", func() {
-		ctx := meta.NewContext(
-			meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
-			meta.WithProvider(identity.UUID),
-			meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
-				logkc.WithLogLevel(zapcore.WarnLevel)))),
-			meta.WithProvider(tracing.Tracer),
-		)
 		It("should be notified of existing data", func() {
+			ctx := meta.NewContext(
+				meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
+				meta.WithProvider(identity.UUID),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
+					logkc.WithLogLevel(zapcore.WarnLevel)))),
+				meta.WithProvider(tracing.Tracer),
+			)
 			cc, err := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
 				grpc.WithContextDialer(
 					func(context.Context, string) (net.Conn, error) {
@@ -230,7 +237,7 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-				if uuid == meta.UUID(monitorCtx) {
+				if uuid != providerUuid {
 					return
 				}
 				lateJoinListenerEvents["providerAdded"] <- uuid
@@ -278,6 +285,7 @@ var _ = Describe("Monitor", func() {
 	When("The provider exits", func() {
 		It("should cancel its context", func() {
 			providerCancel()
+			bug.Toggle() // ! Enables GC issue breakpoint
 			Eventually(listenerEvents["providerRemoved"]).Should(Receive())
 			Eventually(lateJoinListenerEvents["providerRemoved"]).Should(Receive())
 		})
@@ -286,12 +294,6 @@ var _ = Describe("Monitor", func() {
 			Eventually(lateJoinListenerEvents["testKey1Expired"]).Should(Receive())
 			Eventually(listenerEvents["testKey2Expired"]).Should(Receive())
 		})
-		for _, c := range listenerEvents {
-			drain(c)
-		}
-		for _, c := range lateJoinListenerEvents {
-			drain(c)
-		}
 	})
 	Context("Stress Test", func() {
 		numProviders := 2
@@ -306,6 +308,7 @@ var _ = Describe("Monitor", func() {
 		}
 		providers := make([]clients.MetricsProvider, numProviders)
 		listeners := make([]clients.MetricsListener, numListenersPerKey*4)
+		uuids := map[string]struct{}{}
 		totals := []*atomic.Int32{
 			atomic.NewInt32(0),
 			atomic.NewInt32(0),
@@ -337,6 +340,7 @@ var _ = Describe("Monitor", func() {
 						logkc.WithLogLevel(zapcore.ErrorLevel)))),
 					meta.WithProvider(tracing.Tracer),
 				)
+				uuids[meta.UUID(ctx)] = struct{}{}
 				cc, _ := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
 					grpc.WithContextDialer(
 						func(context.Context, string) (net.Conn, error) {
@@ -371,20 +375,18 @@ var _ = Describe("Monitor", func() {
 			l := clients.NewMetricsListener(ctx, mc)
 			listeners[sampleIdx] = l
 			handler := handlers[sampleIdx%4]
-			b.Time("Handling provider add callbacks", func() {
-				testCh := make(chan struct{}, len(providers))
-				l.OnProviderAdded(func(ctx context.Context, uuid string) {
-					if uuid == meta.UUID(monitorCtx) {
-						return
-					}
-					testCh <- struct{}{}
-					l.OnValueChanged(uuid, handler)
-					<-ctx.Done()
-				})
-				Eventually(func() int {
-					return len(testCh)
-				}, 10*time.Second, 1*time.Millisecond).Should(Equal(len(providers)))
+			testCh := make(chan struct{}, len(providers))
+			l.OnProviderAdded(func(ctx context.Context, uuid string) {
+				if _, ok := uuids[uuid]; !ok {
+					return
+				}
+				testCh <- struct{}{}
+				l.OnValueChanged(uuid, handler)
+				<-ctx.Done()
 			})
+			Eventually(func() int {
+				return len(testCh)
+			}, 10*time.Second, 1*time.Millisecond).Should(Equal(len(providers)))
 		}, len(listeners)) // This is the loop
 		Measure("Updating keys rapidly for each provider", func(b Benchmarker) {
 			testutil.SkipInGithubWorkflow()
