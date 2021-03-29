@@ -23,6 +23,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/types"
 	"github.com/cobalt77/kubecc/pkg/ui"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // StatusCmd represents the status command.
@@ -31,6 +32,7 @@ var StatusCmd = &cobra.Command{
 	Short:            "Show overall cluster status",
 	PersistentPreRun: InitCLI,
 	Run: func(cmd *cobra.Command, args []string) {
+		*CLILog = *zap.NewNop().Sugar()
 		cc, err := servers.Dial(CLIContext, CLIConfig.MonitorAddress,
 			servers.WithTLS(!CLIConfig.DisableTLS))
 		if err != nil {

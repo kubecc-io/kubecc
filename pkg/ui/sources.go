@@ -28,6 +28,7 @@ import (
 	"github.com/cobalt77/kubecc/pkg/clients"
 	"github.com/cobalt77/kubecc/pkg/metrics"
 	"github.com/cobalt77/kubecc/pkg/types"
+	"github.com/gizak/termui/v3"
 	"github.com/gizak/termui/v3/widgets"
 )
 
@@ -159,17 +160,37 @@ func (a *agentDataSource) Headers() []string {
 	return []string{"Address", "ID", "Health", "Running", "Queued"}
 }
 
-func (a *agentDataSource) Data() <-chan [][]string {
-	ch := make(chan [][]string)
+func healthStyle(h metrics.OverallStatus) termui.Style {
+	switch h {
+	case metrics.OverallStatus_UnknownStatus:
+		return termui.NewStyle(termui.ColorClear)
+	case metrics.OverallStatus_Ready:
+		return termui.NewStyle(termui.ColorGreen)
+	case metrics.OverallStatus_Initializing:
+		return termui.NewStyle(termui.ColorClear)
+	case metrics.OverallStatus_Degraded:
+		return termui.NewStyle(termui.ColorYellow)
+	case metrics.OverallStatus_Unavailable:
+		return termui.NewStyle(termui.ColorRed)
+	}
+	return termui.StyleClear
+}
+
+func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style) {
+	dataCh := make(chan [][]string)
+	styleCh := make(chan map[int]termui.Style)
 	listener := clients.NewMetricsListener(a.ctx, a.client)
 	doUpdate := func() {
 		rows := [][]string{}
+		style := map[int]termui.Style{}
 		a.agents.Range(func(key, value interface{}) bool {
 			agent := value.(*agent)
 			rows = append(rows, agent.rowData())
+			style[len(rows)] = healthStyle(agent.health.Status)
 			return true
 		})
-		ch <- rows
+		dataCh <- rows
+		styleCh <- style
 	}
 	listener.OnProviderAdded(func(c context.Context, s string) {
 		whois, err := a.client.Whois(a.ctx, &types.WhoisRequest{
@@ -225,7 +246,7 @@ func (a *agentDataSource) Data() <-chan [][]string {
 		a.agents.Delete(s)
 		doUpdate()
 	})
-	return ch
+	return dataCh, styleCh
 }
 
 func (c *consumerdDataSource) Title() string {
@@ -236,17 +257,21 @@ func (c *consumerdDataSource) Headers() []string {
 	return []string{"Address", "ID", "Health", "Local", "Remote", "Queued"}
 }
 
-func (a *consumerdDataSource) Data() <-chan [][]string {
-	ch := make(chan [][]string)
+func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style) {
+	dataCh := make(chan [][]string)
+	styleCh := make(chan map[int]termui.Style)
 	listener := clients.NewMetricsListener(a.ctx, a.client)
 	doUpdate := func() {
 		rows := [][]string{}
+		style := map[int]termui.Style{}
 		a.consumerds.Range(func(key, value interface{}) bool {
 			cd := value.(*consumerd)
 			rows = append(rows, cd.rowData())
+			style[len(rows)] = healthStyle(cd.health.Status)
 			return true
 		})
-		ch <- rows
+		dataCh <- rows
+		styleCh <- style
 	}
 	listener.OnProviderAdded(func(c context.Context, s string) {
 		whois, err := a.client.Whois(a.ctx, &types.WhoisRequest{
@@ -302,7 +327,7 @@ func (a *consumerdDataSource) Data() <-chan [][]string {
 		a.consumerds.Delete(s)
 		doUpdate()
 	})
-	return ch
+	return dataCh, styleCh
 }
 
 func (c *schedulerDataSource) Title() string {
@@ -310,11 +335,11 @@ func (c *schedulerDataSource) Title() string {
 }
 
 func (c *schedulerDataSource) Headers() []string {
-	return nil
+	return []string{"Metric", "Value"}
 }
 
-func (a *schedulerDataSource) Data() <-chan [][]string {
-	ch := make(chan [][]string)
+func (a *schedulerDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style) {
+	dataCh := make(chan [][]string)
 	listener := clients.NewMetricsListener(a.ctx, a.client)
 
 	doUpdate := func() {
@@ -325,7 +350,7 @@ func (a *schedulerDataSource) Data() <-chan [][]string {
 			{"Requests", fmt.Sprint(a.requests)},
 		}
 		a.lock.Unlock()
-		ch <- rows
+		dataCh <- rows
 	}
 	listener.OnProviderAdded(func(c context.Context, s string) {
 		whois, err := a.client.Whois(a.ctx, &types.WhoisRequest{
@@ -361,9 +386,9 @@ func (a *schedulerDataSource) Data() <-chan [][]string {
 		a.tasksFailed = 0
 		a.requests = 0
 		a.lock.Unlock()
-		ch <- [][]string{}
+		dataCh <- [][]string{}
 	})
-	return ch
+	return dataCh, make(chan map[int]termui.Style)
 }
 
 func (c *monitorDataSource) Title() string {
@@ -371,10 +396,10 @@ func (c *monitorDataSource) Title() string {
 }
 
 func (c *monitorDataSource) Headers() []string {
-	return nil
+	return []string{"Metric", "Value"}
 }
 
-func (a *monitorDataSource) Data() <-chan [][]string {
+func (a *monitorDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style) {
 	ch := make(chan [][]string)
 	listener := clients.NewMetricsListener(a.ctx, a.client)
 
@@ -416,7 +441,7 @@ func (a *monitorDataSource) Data() <-chan [][]string {
 		a.lock.Unlock()
 		ch <- [][]string{}
 	})
-	return ch
+	return ch, make(chan map[int]termui.Style)
 }
 
 func (c *cacheDataSource) Title() string {
@@ -424,10 +449,10 @@ func (c *cacheDataSource) Title() string {
 }
 
 func (c *cacheDataSource) Headers() []string {
-	return nil
+	return []string{"Metric", "Value"}
 }
 
-func (a *cacheDataSource) Data() <-chan [][]string {
+func (a *cacheDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style) {
 	ch := make(chan [][]string)
 	listener := clients.NewMetricsListener(a.ctx, a.client)
 	a.hits = &metrics.CacheHits{}
@@ -473,7 +498,7 @@ func (a *cacheDataSource) Data() <-chan [][]string {
 		a.lock.Unlock()
 		ch <- [][]string{}
 	})
-	return ch
+	return ch, make(chan map[int]termui.Style)
 }
 
 func (c *routesDataSource) Title() string {
