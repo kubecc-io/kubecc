@@ -233,6 +233,10 @@ var _ = Describe("Task Redirection", func() {
 	var queue *consumerd.SplitQueue
 	var countsCh chan counts
 	requestCounts := make(chan struct{})
+	expectedTasks := 150
+	if test.InGithubWorkflow() {
+		expectedTasks = 75
+	}
 	Specify("setup", func() {
 		testEnv = test.NewDefaultEnvironment()
 		queue = consumerd.NewSplitQueue(testCtx,
@@ -255,7 +259,7 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed locally
-			Expect(counts.local).To(BeNumerically(">", 100))
+			Expect(counts.local).To(BeNumerically(">", expectedTasks))
 			Expect(counts.remote).To(BeEquivalentTo(0))
 		})
 	})
@@ -274,8 +278,9 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed on both local and remote
-			Expect(counts.local).To(BeNumerically(">", 100))
-			Expect(counts.remote).To(BeNumerically(">", 100))
+
+			Expect(counts.local).To(BeNumerically(">", expectedTasks))
+			Expect(counts.remote).To(BeNumerically(">", expectedTasks))
 		})
 		Specify("stopping scheduler", func() {
 			cancel()
@@ -294,7 +299,7 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed locally
-			Expect(counts.local).To(BeNumerically(">", 100))
+			Expect(counts.local).To(BeNumerically(">", expectedTasks))
 			Expect(counts.remote).To(BeEquivalentTo(0))
 		})
 	})
