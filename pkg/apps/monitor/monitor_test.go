@@ -109,7 +109,7 @@ var _ = Describe("Monitor", func() {
 	}
 
 	bug := atomic.NewBool(true)
-	var providerUuid string
+	providerUuid := atomic.NewString("")
 
 	When("A listener connects", func() {
 		It("should succeed", func() {
@@ -130,7 +130,7 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-				if uuid != providerUuid {
+				if uuid != providerUuid.Load() {
 					return
 				}
 				listenerEvents["providerAdded"] <- uuid
@@ -167,7 +167,7 @@ var _ = Describe("Monitor", func() {
 					logkc.WithLogLevel(zapcore.WarnLevel)))),
 				meta.WithProvider(tracing.Tracer),
 			)
-			providerUuid = meta.UUID(ctx)
+			providerUuid.Store(meta.UUID(ctx))
 			cctx, cancel := context.WithCancel(ctx)
 			providerCancel = cancel
 			cc, err := servers.Dial(cctx, uuid.NewString(), servers.WithDialOpts(
@@ -187,7 +187,7 @@ var _ = Describe("Monitor", func() {
 			}).Should(BeEquivalentTo(2))
 		})
 		It("should notify the listener", func() {
-			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid)))
+			Eventually(listenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid.Load())))
 			Expect(listenerEvents["providerRemoved"]).NotTo(Receive())
 			// ensure the context is not canceled and no duplicates occur
 			Consistently(listenerEvents["providerAdded"]).ShouldNot(Receive())
@@ -225,7 +225,7 @@ var _ = Describe("Monitor", func() {
 			mc := types.NewMonitorClient(cc)
 			listener := clients.NewMetricsListener(ctx, mc)
 			listener.OnProviderAdded(func(pctx context.Context, uuid string) {
-				if uuid != providerUuid {
+				if uuid != providerUuid.Load() {
 					return
 				}
 				lateJoinListenerEvents["providerAdded"] <- uuid
@@ -238,7 +238,7 @@ var _ = Describe("Monitor", func() {
 				<-pctx.Done()
 				lateJoinListenerEvents["providerRemoved"] <- struct{}{}
 			})
-			Eventually(lateJoinListenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid)))
+			Eventually(lateJoinListenerEvents["providerAdded"]).Should(Receive(Equal(providerUuid.Load())))
 			Eventually(lateJoinListenerEvents["testKey1Changed"]).Should(Receive(Equal(int32(1))))
 		})
 	})
