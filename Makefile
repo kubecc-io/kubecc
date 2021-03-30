@@ -104,7 +104,6 @@ docker-environment:
 docker: 
 	docker buildx bake -f bake.hcl --push
 
-
 # Generate bundle manifests and metadata
 .PHONY: bundle bundle-build
 bundle: manifests kustomize
