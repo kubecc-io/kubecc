@@ -176,7 +176,7 @@ func (m *MonitorServer) postHealthUpdates() {
 
 func (m *MonitorServer) startMetricsProvider() {
 	go m.postHealthUpdates()
-	slowTimer := util.NewJitteredTimer(10*time.Second, 0.5)
+	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5)
 	go func() {
 		for {
 			<-slowTimer

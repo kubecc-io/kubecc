@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	testctrl "github.com/kubecc-io/kubecc/internal/testutil/controller"
 	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
@@ -65,7 +64,7 @@ var (
 			logkc.WithLogLevel(zapcore.WarnLevel)))),
 		meta.WithProvider(tracing.Tracer),
 	)
-	testToolchainRunner = &testctrl.TestToolchainCtrlLocal{}
+	testToolchainRunner = &test.TestToolchainCtrlLocal{}
 )
 
 func makeTaskPool(numTasks int) chan *consumerd.SplitTask {

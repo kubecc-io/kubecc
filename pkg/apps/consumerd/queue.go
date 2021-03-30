@@ -77,7 +77,7 @@ type SplitQueue struct {
 	localWorkers  *run.WorkerPool
 	remoteWorkers *run.WorkerPool
 
-	telemetry Telemetry
+	telemetry *Telemetry
 }
 
 type SplitQueueOptions struct {
@@ -170,7 +170,7 @@ func NewSplitQueue(
 		avc: clients.NewAvailabilityChecker(
 			clients.ComponentFilter(types.Scheduler),
 		),
-		telemetry: Telemetry{
+		telemetry: &Telemetry{
 			conf:          options.telemetryCfg,
 			queueCapacity: capacity,
 		},
@@ -243,6 +243,14 @@ func (sq *SplitQueue) CompleteTaskStatus(m *metrics.TaskStatus) {
 	m.NumDelegated = sq.telemetry.numDelegated.Load()
 }
 
+func (sq *SplitQueue) CompleteLocalTasksCompleted(m *metrics.LocalTasksCompleted) {
+	m.Total = int64(sq.telemetry.numCompletedLocal.Load())
+}
+
+func (sq *SplitQueue) CompleteDelegatedTasksCompleted(m *metrics.DelegatedTasksCompleted) {
+	m.Total = int64(sq.telemetry.numCompletedRemote.Load())
+}
+
 func (sq *SplitQueue) Telemetry() *Telemetry {
-	return &sq.telemetry
+	return sq.telemetry
 }

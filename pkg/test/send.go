@@ -15,13 +15,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package controller
+package test
 
 import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/clients"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/run"
@@ -82,7 +81,7 @@ func (m sendRemoteRunnerManagerSim) Process(
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.RunRequest)
-	ap := testutil.TestArgParser{
+	ap := TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()

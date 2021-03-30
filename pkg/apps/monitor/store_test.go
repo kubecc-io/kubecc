@@ -26,8 +26,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/apps/monitor"
+	"github.com/kubecc-io/kubecc/pkg/test"
 )
 
 var _ = Describe("Store", func() {
@@ -39,20 +39,20 @@ var _ = Describe("Store", func() {
 		})
 	})
 	It("Should handle setting and retrieving keys", func() {
-		store.Set("key1", &testutil.Test1{Counter: 1})
+		store.Set("key1", &test.Test1{Counter: 1})
 		value, ok := store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 1}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 1}))
 		Expect(store.Len()).To(Equal(1))
-		store.Set("key2", &testutil.Test2{Value: "1"})
+		store.Set("key2", &test.Test2{Value: "1"})
 		value, ok = store.Get("key2")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test2{Value: "1"}))
+		Expect(value).To(BeEquivalentTo(&test.Test2{Value: "1"}))
 		Expect(store.Len()).To(Equal(2))
-		store.Set("key3", &testutil.Test3{Counter: 2})
+		store.Set("key3", &test.Test3{Counter: 2})
 		value, ok = store.Get("key3")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test3{Counter: 2}))
+		Expect(value).To(BeEquivalentTo(&test.Test3{Counter: 2}))
 		Expect(store.Len()).To(Equal(3))
 	})
 	It("Should list the available keys", func() {
@@ -84,65 +84,65 @@ var _ = Describe("Store", func() {
 		Expect(store.Keys()).To(BeEmpty())
 	})
 	It("Should handle compare-and-swap", func() {
-		Expect(store.CAS("key1", &testutil.Test1{Counter: 2})).To(BeTrue())
+		Expect(store.CAS("key1", &test.Test1{Counter: 2})).To(BeTrue())
 		value, ok := store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 2}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 2}))
 
-		Expect(store.CAS("key1", &testutil.Test1{Counter: 2})).To(BeFalse())
+		Expect(store.CAS("key1", &test.Test1{Counter: 2})).To(BeFalse())
 		value, ok = store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 2}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 2}))
 
-		Expect(store.CAS("key1", &testutil.Test1{Counter: 3})).To(BeTrue())
+		Expect(store.CAS("key1", &test.Test1{Counter: 3})).To(BeTrue())
 		value, ok = store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 3}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 3}))
 
-		Expect(store.CAS("key1", &testutil.Test1{Counter: 3})).To(BeFalse())
+		Expect(store.CAS("key1", &test.Test1{Counter: 3})).To(BeFalse())
 		value, ok = store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 3}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 3}))
 
-		Expect(store.CAS("key1", &testutil.Test1{Counter: 2})).To(BeTrue())
+		Expect(store.CAS("key1", &test.Test1{Counter: 2})).To(BeTrue())
 		value, ok = store.Get("key1")
 		Expect(ok).To(BeTrue())
-		Expect(value).To(BeEquivalentTo(&testutil.Test1{Counter: 2}))
+		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 2}))
 	})
 	Measure("Performance", func(b Benchmarker) {
 		store = monitor.InMemoryStoreCreator.NewStore(context.Background())
 		b.Time("10B payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: "0123456789"})
+			store.Set("key1", &test.Test2{Value: "0123456789"})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("100B payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 10)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("1KB payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 100)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 100)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("10KB payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 1000)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1000)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("100KB payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 10000)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10000)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("1MB payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 1e5)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e5)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
 		b.Time("10MB payload Set/Get", func() {
-			store.Set("key1", &testutil.Test2{Value: strings.Repeat("0123456789", 1e6)})
+			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e6)})
 			_, _ = store.Get("key1")
 		})
 		store.Delete("key1")
@@ -151,7 +151,7 @@ var _ = Describe("Store", func() {
 	Measure("Throughput", func(b Benchmarker) {
 		start := time.Now()
 		for i := 0; i < 1000; i++ {
-			store.CAS("throughput", &testutil.Test1{Counter: int32(i)})
+			store.CAS("throughput", &test.Test1{Counter: int32(i)})
 		}
 		elapsed := time.Since(start)
 		b.RecordValueWithPrecision("Updates per second",

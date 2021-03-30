@@ -15,7 +15,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package testutil
+package test
 
 import (
 	"errors"
@@ -26,9 +26,11 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
-type MockQuerier struct{}
+// SampleQuerier is a querier that will return predefined values for some common
+// compiler toolchains
+type SampleQuerier struct{}
 
-func (q MockQuerier) IsPicDefault(compiler string) (bool, error) {
+func (q SampleQuerier) IsPicDefault(compiler string) (bool, error) {
 	switch filepath.Base(compiler) {
 	case "x86_64-linux-gnu-gcc-10", "x86_64-linux-gnu-g++-10":
 		return true, nil
@@ -40,7 +42,7 @@ func (q MockQuerier) IsPicDefault(compiler string) (bool, error) {
 	return false, errors.New("Unknown compiler")
 }
 
-func (q MockQuerier) TargetArch(compiler string) (string, error) {
+func (q SampleQuerier) TargetArch(compiler string) (string, error) {
 	switch filepath.Base(compiler) {
 	case "x86_64-linux-gnu-gcc-10", "x86_64-linux-gnu-g++-10":
 		return "x86_64", nil
@@ -52,7 +54,7 @@ func (q MockQuerier) TargetArch(compiler string) (string, error) {
 	return "", errors.New("Unknown compiler")
 }
 
-func (q MockQuerier) Version(compiler string) (string, error) {
+func (q SampleQuerier) Version(compiler string) (string, error) {
 	switch filepath.Base(compiler) {
 	case "x86_64-linux-gnu-gcc-10", "x86_64-linux-gnu-g++-10":
 		return "10", nil
@@ -64,7 +66,7 @@ func (q MockQuerier) Version(compiler string) (string, error) {
 	return "", errors.New("Unknown compiler")
 }
 
-func (q MockQuerier) Kind(compiler string) (types.ToolchainKind, error) {
+func (q SampleQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Clang, nil
@@ -76,7 +78,7 @@ func (q MockQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 	return 0, errors.New("Unknown compiler")
 }
 
-func (q MockQuerier) Lang(compiler string) (types.ToolchainLang, error) {
+func (q SampleQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Multi, nil
@@ -90,6 +92,6 @@ func (q MockQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 
 var sampleTime = time.Now()
 
-func (q MockQuerier) ModTime(compiler string) (time.Time, error) {
+func (q SampleQuerier) ModTime(compiler string) (time.Time, error) {
 	return sampleTime, nil
 }

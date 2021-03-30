@@ -22,6 +22,7 @@ import (
 
 	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
+	"go.uber.org/zap/zapcore"
 	// . "github.com/onsi/gomega"
 )
 
@@ -30,9 +31,7 @@ var _ = Describe("Sleep test", func() {
 	localJobs := 20
 
 	Specify("setup", func() {
-		cfg := test.DefaultConfig()
-		cfg.Global.LogLevel = "warn"
-		testEnv = test.NewEnvironment(cfg)
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
 
 		testEnv.SpawnMonitor(test.WaitForReady())
 		testEnv.SpawnScheduler(test.WaitForReady())
@@ -44,18 +43,18 @@ var _ = Describe("Sleep test", func() {
 	})
 	Specify("1 agent, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(100), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(100), 5*time.Second)
 	})
 
 	Specify("2 agents, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(200), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(200), 5*time.Second)
 	})
 
 	Specify("4 agents, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(400), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(400), 5*time.Second)
 	})
 
 	Specify("shutdown", func() {

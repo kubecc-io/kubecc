@@ -21,8 +21,6 @@ import (
 	"net"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/sleep"
-	sleepctrl "github.com/kubecc-io/kubecc/internal/sleep/controller"
 	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	ccctrl "github.com/kubecc-io/kubecc/pkg/cc/controller"
@@ -32,6 +30,8 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/servers"
+	"github.com/kubecc-io/kubecc/pkg/sleep"
+	sleepctrl "github.com/kubecc-io/kubecc/pkg/sleep/controller"
 	"github.com/kubecc-io/kubecc/pkg/toolchains"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"

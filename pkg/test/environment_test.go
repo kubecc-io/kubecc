@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/identity"
@@ -50,9 +51,7 @@ var _ = Describe("Test Environment", func() {
 	}
 	When("spawning components", func() {
 		It("should have the correct number of components", func() {
-			cfg := test.DefaultConfig()
-			cfg.Global.LogLevel = "panic"
-			env = test.NewEnvironment(cfg)
+			env = test.NewEnvironmentWithLogLevel(zapcore.PanicLevel)
 			env.SpawnMonitor()
 			_, cancel1 = env.SpawnScheduler(test.WaitForReady())
 			_, cancel2 = env.SpawnCache(test.WaitForReady())

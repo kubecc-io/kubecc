@@ -67,7 +67,7 @@ module_opt = module=github.com/kubecc-io/kubecc
 .PHONY: proto
 proto:
 	protoc pkg/types/types.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
-	protoc internal/testutil/testutil.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
+	protoc pkg/test/test.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
 	protoc pkg/metrics/metrics.proto -I. --go_out=. --go_opt=$(module_opt)
 
 # Code generating, formatting, vetting

@@ -22,6 +22,7 @@ import (
 
 	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
+	"go.uber.org/zap/zapcore"
 )
 
 var _ = Describe("Hash test", func() {
@@ -29,9 +30,7 @@ var _ = Describe("Hash test", func() {
 	localJobs := 20
 
 	Specify("setup", func() {
-		cfg := test.DefaultConfig()
-		cfg.Global.LogLevel = "warn"
-		testEnv = test.NewEnvironment(cfg)
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
 
 		testEnv.SpawnMonitor(test.WaitForReady())
 		testEnv.SpawnScheduler(test.WaitForReady())
@@ -40,18 +39,18 @@ var _ = Describe("Hash test", func() {
 
 	Specify("minimal test, 1 agent, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeHashTaskPool(100), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(100), 5*time.Second)
 	})
 
 	Specify("minimal test, 2 agents, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeHashTaskPool(200), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(200), 5*time.Second)
 	})
 
 	Specify("minimal test, 4 agents, no cache", func() {
 		testEnv.SpawnAgent(test.WaitForReady())
 		testEnv.SpawnAgent(test.WaitForReady())
-		processTaskPool(testEnv, localJobs, makeHashTaskPool(400), 5*time.Second)
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(400), 5*time.Second)
 	})
 
 	Specify("shutdown", func() {

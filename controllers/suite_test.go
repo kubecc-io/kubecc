@@ -38,9 +38,9 @@ import (
 
 	"github.com/kubecc-io/kubecc/api/v1alpha1"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	// +kubebuilder:scaffold:imports
 )
@@ -52,7 +52,7 @@ var testEnv *envtest.Environment
 var useExistingCluster = false
 
 func TestAPIs(t *testing.T) {
-	if testutil.InGithubWorkflow() {
+	if test.InGithubWorkflow() {
 		t.SkipNow()
 	}
 	RegisterFailHandler(Fail)
