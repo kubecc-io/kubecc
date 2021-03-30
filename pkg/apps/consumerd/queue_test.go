@@ -21,7 +21,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/clients"
 	"github.com/kubecc-io/kubecc/pkg/test"
@@ -214,7 +213,7 @@ var _ = Describe("Basic Functionality", func() {
 			}
 		})
 		Specify("Saving telemetry graph", func() {
-			testutil.SkipInGithubWorkflow()
+			test.SkipInGithubWorkflow()
 			plotStatsLog(queue)
 		})
 	})

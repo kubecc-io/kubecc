@@ -105,6 +105,10 @@ message LocalTasksCompleted {
   int64 Total = 1;
 }
 
+message DelegatedTasksCompleted {
+  int64 Total = 1;
+}
+
 // Cache Server
 
 message CacheUsage {

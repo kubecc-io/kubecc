@@ -26,13 +26,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/apps/monitor"
 	"github.com/kubecc-io/kubecc/pkg/clients"
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/servers"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
@@ -59,18 +59,6 @@ func (c *TestStoreCreator) NewStore(ctx context.Context) monitor.KeyValueStore {
 	c.Count.Store(i)
 	return store
 }
-
-func drain(c chan interface{}) {
-	for {
-		select {
-		case <-c:
-		default:
-			return
-		}
-	}
-}
-
-// todo: these tests are flaky, figure out why
 
 var _ = Describe("Monitor", func() {
 	var listener *bufconn.Listener
@@ -146,13 +134,13 @@ var _ = Describe("Monitor", func() {
 					return
 				}
 				listenerEvents["providerAdded"] <- uuid
-				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
+				listener.OnValueChanged(uuid, func(k1 *test.Test1) {
 					listenerEvents["testKey1Changed"] <- k1.Counter
 				}).OrExpired(func() clients.RetryOptions {
 					listenerEvents["testKey1Expired"] <- struct{}{}
 					return clients.NoRetry
 				})
-				listener.OnValueChanged(uuid, func(k2 *testutil.Test2) {
+				listener.OnValueChanged(uuid, func(k2 *test.Test2) {
 					listenerEvents["testKey2Changed"] <- k2.Value
 				}).OrExpired(func() clients.RetryOptions {
 					listenerEvents["testKey2Expired"] <- struct{}{}
@@ -208,7 +196,7 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider updates a key", func() {
 		It("should succeed", func() {
-			provider.Post(&testutil.Test1{
+			provider.Post(&test.Test1{
 				Counter: 1,
 			})
 		})
@@ -241,7 +229,7 @@ var _ = Describe("Monitor", func() {
 					return
 				}
 				lateJoinListenerEvents["providerAdded"] <- uuid
-				listener.OnValueChanged(uuid, func(k1 *testutil.Test1) {
+				listener.OnValueChanged(uuid, func(k1 *test.Test1) {
 					lateJoinListenerEvents["testKey1Changed"] <- k1.Counter
 				}).OrExpired(func() clients.RetryOptions {
 					lateJoinListenerEvents["testKey1Expired"] <- struct{}{}
@@ -256,7 +244,7 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider updates a different key", func() {
 		It("should succeed", func() {
-			provider.Post(&testutil.Test2{
+			provider.Post(&test.Test2{
 				Value: "test",
 			})
 		})
@@ -269,10 +257,10 @@ var _ = Describe("Monitor", func() {
 	})
 	When("The provider posts a key with the same value", func() {
 		It("should succeed", func() {
-			provider.Post(&testutil.Test2{
+			provider.Post(&test.Test2{
 				Value: "test",
 			})
-			provider.Post(&testutil.Test1{
+			provider.Post(&test.Test1{
 				Counter: 1,
 			})
 		})
@@ -301,7 +289,7 @@ var _ = Describe("Monitor", func() {
 		numUpdatesPerKey := 1000
 		callbackTimeout := 10 * time.Second
 		stressTestLoops := 5
-		if testutil.IsRaceDetectorEnabled() {
+		if test.IsRaceDetectorEnabled() {
 			numListenersPerKey = 10
 			numUpdatesPerKey = 100
 			stressTestLoops = 3
@@ -316,22 +304,22 @@ var _ = Describe("Monitor", func() {
 			atomic.NewInt32(0),
 		}
 		handlers := []interface{}{
-			func(k *testutil.Test1) {
+			func(k *test.Test1) {
 				totals[0].Inc()
 			},
-			func(k *testutil.Test2) {
+			func(k *test.Test2) {
 				totals[1].Inc()
 			},
-			func(k *testutil.Test3) {
+			func(k *test.Test3) {
 				totals[2].Inc()
 			},
-			func(k *testutil.Test4) {
+			func(k *test.Test4) {
 				totals[3].Inc()
 			},
 		}
 
 		Specify("Creating providers", func() {
-			testutil.SkipInGithubWorkflow()
+			test.SkipInGithubWorkflow()
 			for i := 0; i < numProviders; i++ {
 				ctx := meta.NewContext(
 					meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
@@ -354,7 +342,7 @@ var _ = Describe("Monitor", func() {
 		})
 		sampleIdx := 0
 		Measure("Creating listeners for each key", func(b Benchmarker) {
-			testutil.SkipInGithubWorkflow()
+			test.SkipInGithubWorkflow()
 			defer func() {
 				sampleIdx++
 			}()
@@ -389,15 +377,15 @@ var _ = Describe("Monitor", func() {
 			}, 10*time.Second, 1*time.Millisecond).Should(Equal(len(providers)))
 		}, len(listeners)) // This is the loop
 		Measure("Updating keys rapidly for each provider", func(b Benchmarker) {
-			testutil.SkipInGithubWorkflow()
-			if testutil.IsRaceDetectorEnabled() {
+			test.SkipInGithubWorkflow()
+			if test.IsRaceDetectorEnabled() {
 				testLog.Warn("Race detector enabled: Data volume limited to 10%")
 			}
 			go func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 1 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&testutil.Test1{Counter: int32(i)})
+						providers[i%len(providers)].Post(&test.Test1{Counter: int32(i)})
 					}
 				})
 			}()
@@ -405,7 +393,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 2 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&testutil.Test2{Value: fmt.Sprint(i)})
+						providers[i%len(providers)].Post(&test.Test2{Value: fmt.Sprint(i)})
 					}
 				})
 			}()
@@ -413,7 +401,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 3 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&testutil.Test3{Counter: int32(i)})
+						providers[i%len(providers)].Post(&test.Test3{Counter: int32(i)})
 					}
 				})
 			}()
@@ -421,7 +409,7 @@ var _ = Describe("Monitor", func() {
 				defer GinkgoRecover()
 				b.Time(fmt.Sprintf("%d Key 4 updates", numUpdatesPerKey), func() {
 					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&testutil.Test4{Value: fmt.Sprint(i)})
+						providers[i%len(providers)].Post(&test.Test4{Value: fmt.Sprint(i)})
 					}
 				})
 			}()

@@ -24,9 +24,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type logLevelString string
+type LogLevelString string
 
-func (str logLevelString) Level() (l zapcore.Level) {
+func (str LogLevelString) Level() (l zapcore.Level) {
 	if err := l.Set(string(str)); err != nil {
 		panic(fmt.Sprintf("Could not parse log level string %q", str))
 	}
@@ -34,7 +34,7 @@ func (str logLevelString) Level() (l zapcore.Level) {
 }
 
 type GlobalSpec struct {
-	LogLevel logLevelString `json:"logLevel"`
+	LogLevel LogLevelString `json:"logLevel"`
 	LogFile  string         `json:"logFile"`
 }
 

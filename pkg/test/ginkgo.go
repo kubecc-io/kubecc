@@ -15,15 +15,19 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package testutil
+package test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/format"
+	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 )
 
 // InGithubWorkflow returns true if the test is running inside github
@@ -47,5 +51,31 @@ func ExtendTimeoutsIfDebugging() {
 	self, _ := os.Executable()
 	if filepath.Base(self) == "debug.test" {
 		gomega.SetDefaultEventuallyTimeout(1 * time.Hour)
+	}
+}
+
+type ProtoEqualMatcher struct {
+	Expected proto.Message
+}
+
+func (matcher *ProtoEqualMatcher) Match(actual interface{}) (success bool, err error) {
+	if actual == nil && matcher.Expected == nil {
+		return false, fmt.Errorf("Both actual and expected must not be nil.")
+	}
+
+	return proto.Equal(matcher.Expected, actual.(proto.Message)), nil
+}
+
+func (matcher *ProtoEqualMatcher) FailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "to be equivalent to", matcher.Expected)
+}
+
+func (matcher *ProtoEqualMatcher) NegatedFailureMessage(actual interface{}) (message string) {
+	return format.Message(actual, "not to be equivalent to", matcher.Expected)
+}
+
+func EqualProto(expected proto.Message) types.GomegaMatcher {
+	return &ProtoEqualMatcher{
+		Expected: expected,
 	}
 }

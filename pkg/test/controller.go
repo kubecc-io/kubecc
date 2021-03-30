@@ -15,9 +15,10 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package testutil
+package test
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"flag"
@@ -28,6 +29,90 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/kubecc-io/kubecc/pkg/util"
 )
+
+type TestToolchainCtrl struct{}
+
+func (r *TestToolchainCtrl) RunLocal(run.ArgParser) run.RequestManager {
+	return &localRunnerManager{}
+}
+
+func (r *TestToolchainCtrl) SendRemote(_ run.ArgParser, client run.SchedulerClientStream) run.RequestManager {
+	return &sendRemoteRunnerManager{
+		client: client,
+	}
+}
+
+func (r *TestToolchainCtrl) RecvRemote() run.RequestManager {
+	return &recvRemoteRunnerManager{}
+}
+
+func (r *TestToolchainCtrl) NewArgParser(_ context.Context, args []string) run.ArgParser {
+	return &TestArgParser{
+		Args: args,
+	}
+}
+
+func AddToStore(store *run.ToolchainRunnerStore) {
+	store.Add(types.TestToolchain, &TestToolchainCtrl{})
+}
+
+// TestToolchainCtrlLocal is similar to TestToolchainRunner, except that it
+// will simulate a remote connection. All tasks are run locally but separate
+// executors can be used to measure local and remote usage.
+type TestToolchainCtrlLocal struct{}
+
+func (r *TestToolchainCtrlLocal) RunLocal(run.ArgParser) run.RequestManager {
+	return &localRunnerManager{}
+}
+
+func (r *TestToolchainCtrlLocal) SendRemote(run.ArgParser, run.SchedulerClientStream) run.RequestManager {
+	return &sendRemoteRunnerManagerSim{}
+}
+
+func (r *TestToolchainCtrlLocal) RecvRemote() run.RequestManager {
+	return &recvRemoteRunnerManagerSim{}
+}
+
+func (r *TestToolchainCtrlLocal) NewArgParser(_ context.Context, args []string) run.ArgParser {
+	return &TestArgParser{
+		Args: args,
+	}
+}
+
+func AddToStoreSim(store *run.ToolchainRunnerStore) {
+	store.Add(types.TestToolchain, &TestToolchainCtrlLocal{})
+}
+
+func doTestAction(ap *TestArgParser) ([]byte, error) {
+	switch ap.Action {
+	case Sleep:
+		t := &SleepTask{
+			Duration: ap.Duration,
+		}
+		t.Run()
+		if err := t.Err(); err != nil {
+			return nil, err
+		}
+		return []byte{}, nil
+	case Hash:
+		out := new(bytes.Buffer)
+		t := &HashTask{
+			TaskOptions: run.TaskOptions{
+				ResultOptions: run.ResultOptions{
+					OutputWriter: out,
+				},
+			},
+			Input: ap.Input,
+		}
+		t.Run()
+		if err := t.Err(); err != nil {
+			return nil, err
+		}
+		return out.Bytes(), nil
+	default:
+		panic("Invalid action")
+	}
+}
 
 var TestToolchainExecutable = "/path/to/test-toolchain"
 
@@ -50,11 +135,18 @@ func (q TestQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 }
 
 func (q TestQuerier) Lang(compiler string) (types.ToolchainLang, error) {
-	return types.CXX, nil
+	return types.ToolchainLang_ToolchainLang_Unknown, nil
 }
 
 func (q TestQuerier) ModTime(compiler string) (time.Time, error) {
 	return time.Unix(0, 0), nil
+}
+
+var DefaultTestToolchain *types.Toolchain
+
+func init() {
+	store := toolchains.NewStore()
+	DefaultTestToolchain, _ = store.Add(TestToolchainExecutable, TestQuerier{})
 }
 
 type TestToolchainFinder struct{}

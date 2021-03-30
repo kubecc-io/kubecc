@@ -1,7 +1,7 @@
 syntax = "proto3";
-option go_package = "github.com/kubecc-io/kubecc/internal/testutil";
+option go_package = "github.com/kubecc-io/kubecc/pkg/test";
 
-package testutil;
+package test;
 
 message Baz {}
 

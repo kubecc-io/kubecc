@@ -47,17 +47,16 @@ type consumerdServer struct {
 	srvContext context.Context
 	lg         *zap.SugaredLogger
 
-	tcRunStore          *run.ToolchainRunnerStore
-	tcStore             *toolchains.Store
-	storeUpdateCh       chan struct{}
-	schedulerClient     types.SchedulerClient
-	monitorClient       types.MonitorClient
-	metricsProvider     clients.MetricsProvider
-	executor            run.Executor
-	numConsumers        *atomic.Int32
-	localTasksCompleted *atomic.Int64
-	requestClient       run.SchedulerClientStream
-	streamMgr           *clients.StreamManager
+	tcRunStore      *run.ToolchainRunnerStore
+	tcStore         *toolchains.Store
+	storeUpdateCh   chan struct{}
+	schedulerClient types.SchedulerClient
+	monitorClient   types.MonitorClient
+	metricsProvider clients.MetricsProvider
+	executor        run.Executor
+	numConsumers    *atomic.Int32
+	requestClient   run.SchedulerClientStream
+	streamMgr       *clients.StreamManager
 }
 
 type ConsumerdServerOptions struct {
@@ -108,7 +107,7 @@ func WithMonitorClient(
 
 func WithQueueOptions(opts ...SplitQueueOption) ConsumerdServerOption {
 	return func(o *ConsumerdServerOptions) {
-		o.queueOpts = opts
+		o.queueOpts = append(o.queueOpts, opts...)
 	}
 }
 
@@ -125,17 +124,16 @@ func NewConsumerdServer(
 	}
 
 	srv := &consumerdServer{
-		srvContext:          ctx,
-		lg:                  meta.Log(ctx),
-		tcStore:             toolchains.Aggregate(ctx, options.toolchainFinders...),
-		tcRunStore:          runStore,
-		storeUpdateCh:       make(chan struct{}, 1),
-		numConsumers:        atomic.NewInt32(0),
-		localTasksCompleted: atomic.NewInt64(0),
-		executor:            NewSplitQueue(ctx, options.monitorClient, options.queueOpts...),
-		schedulerClient:     options.schedulerClient,
-		monitorClient:       options.monitorClient,
-		requestClient:       clients.NewCompileRequestClient(ctx, nil),
+		srvContext:      ctx,
+		lg:              meta.Log(ctx),
+		tcStore:         toolchains.Aggregate(ctx, options.toolchainFinders...),
+		tcRunStore:      runStore,
+		storeUpdateCh:   make(chan struct{}, 1),
+		numConsumers:    atomic.NewInt32(0),
+		executor:        NewSplitQueue(ctx, options.monitorClient, options.queueOpts...),
+		schedulerClient: options.schedulerClient,
+		monitorClient:   options.monitorClient,
+		requestClient:   clients.NewCompileRequestClient(ctx, nil),
 	}
 	srv.BeginInitialize()
 	defer srv.EndInitialize()
@@ -238,9 +236,14 @@ func (s *consumerdServer) postTaskStatus() {
 }
 
 func (s *consumerdServer) postTotals() {
-	s.metricsProvider.Post(&metrics.LocalTasksCompleted{
-		Total: s.localTasksCompleted.Load(),
-	})
+	local := &metrics.LocalTasksCompleted{}
+	remote := &metrics.DelegatedTasksCompleted{}
+	if c, ok := s.executor.(metrics.TasksCompletedCompleter); ok {
+		c.CompleteLocalTasksCompleted(local)
+		c.CompleteDelegatedTasksCompleted(remote)
+	}
+	s.metricsProvider.Post(local)
+	s.metricsProvider.Post(remote)
 }
 
 func (s *consumerdServer) postToolchains() {
@@ -338,7 +341,7 @@ func (c *consumerdServer) Run(
 		Remote: run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
 	}
 
-	// Exec blocks only while the task is queued
+	// Exec does not block unless the queue's buffer is full
 	if err := c.executor.Exec(st); err != nil {
 		panic(err)
 	}

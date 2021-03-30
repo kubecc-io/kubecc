@@ -23,8 +23,6 @@ import (
 
 	"github.com/imdario/mergo"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil"
-	testctrl "github.com/kubecc-io/kubecc/internal/testutil/controller"
 	"github.com/kubecc-io/kubecc/pkg/apps/agent"
 	"github.com/kubecc-io/kubecc/pkg/apps/cachesrv"
 	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
@@ -42,8 +40,12 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // Environment is an in-process simulated kubecc cluster environment used
@@ -202,9 +204,9 @@ func (e *Environment) SpawnAgent(opts ...SpawnOption) (context.Context, context.
 			ConcurrentProcessLimit: int32(cfg.Agent.UsageLimits.ConcurrentProcessLimit),
 		}),
 		agent.WithToolchainFinders(toolchains.FinderWithOptions{
-			Finder: testutil.TestToolchainFinder{},
+			Finder: TestToolchainFinder{},
 		}),
-		agent.WithToolchainRunners(testctrl.AddToStore),
+		agent.WithToolchainRunners(AddToStore),
 		agent.WithMonitorClient(e.NewMonitorClient(ctx)),
 		agent.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 	}
@@ -295,9 +297,9 @@ func (e *Environment) SpawnConsumerd(opts ...SpawnOption) (context.Context, cont
 
 	options := []consumerd.ConsumerdServerOption{
 		consumerd.WithToolchainFinders(toolchains.FinderWithOptions{
-			Finder: testutil.TestToolchainFinder{},
+			Finder: TestToolchainFinder{},
 		}),
-		consumerd.WithToolchainRunners(testctrl.AddToStore),
+		consumerd.WithToolchainRunners(AddToStore),
 		consumerd.WithMonitorClient(e.NewMonitorClient(ctx)),
 		consumerd.WithSchedulerClient(e.NewSchedulerClient(ctx)),
 		consumerd.WithQueueOptions(
@@ -472,6 +474,13 @@ func NewDefaultEnvironment() *Environment {
 	return NewEnvironment(DefaultConfig())
 }
 
+// NewDefaultEnvironment creates a new environment with the default configuration.
+func NewEnvironmentWithLogLevel(lv zapcore.Level) *Environment {
+	cfg := DefaultConfig()
+	cfg.Global.LogLevel = config.LogLevelString(lv.String())
+	return NewEnvironment(cfg)
+}
+
 // Dial creates a grpc client connection to the component named by the component
 // type and an optional name which defaults to "default" if not provided.
 func (e *Environment) Dial(ctx context.Context, c types.Component, name ...string) *grpc.ClientConn {
@@ -534,6 +543,14 @@ func (e *Environment) NewConsumerdClient(ctx context.Context, name ...string) ty
 	return types.NewConsumerdClient(e.Dial(ctx, types.Consumerd, srvName))
 }
 
+func (e *Environment) Context() context.Context {
+	return e.envContext
+}
+
+func (e *Environment) Log() *zap.SugaredLogger {
+	return meta.Log(e.envContext)
+}
+
 // Shutdown terminates all components running in the environment by canceling
 // the top-level parent context.
 func (e *Environment) Shutdown() {
@@ -556,4 +573,27 @@ func (e *Environment) WaitForReady(uuid string) {
 		})
 	})
 	<-done
+}
+
+func (e *Environment) MetricF(srvCtx context.Context, out proto.Message) func() (proto.Message, error) {
+	any, err := anypb.New(out)
+	if err != nil {
+		panic(err)
+	}
+	client := e.NewMonitorClient(e.envContext)
+	clone, err := any.UnmarshalNew()
+	if err != nil {
+		panic(err)
+	}
+	return func() (proto.Message, error) {
+		metric, err := client.GetMetric(srvCtx, &types.Key{
+			Bucket: meta.UUID(srvCtx),
+			Name:   any.TypeUrl,
+		})
+		if err != nil {
+			return nil, err
+		}
+		err = metric.Value.UnmarshalTo(clone)
+		return proto.Clone(clone), err
+	}
 }

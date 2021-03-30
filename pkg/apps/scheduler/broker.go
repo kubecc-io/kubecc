@@ -408,12 +408,12 @@ func (b *Broker) CalcAgentStats() <-chan []agentStats {
 			defer agent.RUnlock()
 
 			stats := agentStats{
-				agentCtx:        agent.Context,
-				agentTasksTotal: &metrics.AgentTasksTotal{},
+				agentCtx: agent.Context,
+				agentTasksTotal: &metrics.AgentTasksTotal{
+					Total: agent.CompletedTasks.Load(),
+					UUID:  uuid,
+				},
 			}
-
-			stats.agentTasksTotal.Total = agent.CompletedTasks.Load()
-			stats.agentTasksTotal.UUID = uuid
 
 			statsList = append(statsList, stats)
 		}
@@ -436,8 +436,8 @@ func (b *Broker) CalcConsumerdStats() <-chan []consumerdStats {
 
 			total := &metrics.ConsumerdTasksTotal{
 				Total: cd.CompletedTasks.Load(),
+				UUID:  uuid,
 			}
-			total.UUID = uuid
 			statsList = append(statsList, consumerdStats{
 				consumerdCtx:       cd.Context,
 				cdRemoteTasksTotal: total,

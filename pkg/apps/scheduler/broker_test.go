@@ -25,11 +25,11 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil/mock_types"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/metrics"
+	"github.com/kubecc-io/kubecc/pkg/test/mock_types"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"

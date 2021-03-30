@@ -1,3 +1,5 @@
+// +build race
+
 /*
 Copyright 2021 The Kubecc Authors.
 
@@ -15,18 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package clients_test
+package test
 
-import (
-	"testing"
-
-	"github.com/kubecc-io/kubecc/pkg/test"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-)
-
-func TestClients(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Clients Suite")
-	test.ExtendTimeoutsIfDebugging()
-}
+const RaceDetectorEnabled = true

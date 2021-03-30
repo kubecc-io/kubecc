@@ -24,3 +24,8 @@ type UsageLimitsCompleter interface {
 type TaskStatusCompleter interface {
 	CompleteTaskStatus(*TaskStatus)
 }
+
+type TasksCompletedCompleter interface {
+	CompleteLocalTasksCompleted(*LocalTasksCompleted)
+	CompleteDelegatedTasksCompleted(*DelegatedTasksCompleted)
+}

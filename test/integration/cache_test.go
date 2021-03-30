@@ -28,6 +28,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 )
 
 var _ = Describe("Cache test", func() {
@@ -35,9 +36,7 @@ var _ = Describe("Cache test", func() {
 	localJobs := runtime.NumCPU()
 
 	Specify("setup", func() {
-		cfg := test.DefaultConfig()
-		cfg.Global.LogLevel = "warn"
-		testEnv = test.NewEnvironment(cfg)
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
 
 		testEnv.SpawnMonitor(test.WaitForReady())
 		testEnv.SpawnScheduler(test.WaitForReady())
@@ -61,13 +60,13 @@ var _ = Describe("Cache test", func() {
 
 	Measure("1 agent, cache online", func(b Benchmarker) {
 		start := time.Now()
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(localJobs, func() string {
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration1 := time.Since(start)
 		b.RecordValueWithPrecision("No cached results", float64(duration1.Milliseconds()), "ms", 2)
 		start2 := time.Now()
-		processTaskPool(testEnv, localJobs, makeSleepTaskPool(localJobs, func() string {
+		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration2 := time.Since(start2)

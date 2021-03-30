@@ -1,5 +1,3 @@
-// +build race
-
 /*
 Copyright 2021 The Kubecc Authors.
 
@@ -17,6 +15,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package testutil
+package presets
 
-const RaceDetectorEnabled = true
+func NewMinimalEnvironment() {
+
+}
+
+func NewCompleteEnvironment() {
+
+}

@@ -23,11 +23,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/meta/mdkeys"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
@@ -37,13 +37,13 @@ import (
 )
 
 type fooServer struct {
-	testutil.FooServer
+	test.FooServer
 }
 
 func (s *fooServer) Foo(
 	ctx context.Context,
-	in *testutil.Baz,
-) (*testutil.Baz, error) {
+	in *test.Baz,
+) (*test.Baz, error) {
 	defer GinkgoRecover()
 	Expect(ctx).NotTo(BeNil())
 	Expect(meta.Component(ctx)).To(Equal(types.TestComponent))
@@ -51,15 +51,15 @@ func (s *fooServer) Foo(
 	Expect(meta.Log(ctx)).NotTo(BeNil())
 	Expect(meta.Tracer(ctx)).NotTo(BeNil())
 	Expect(meta.SystemInfo(ctx)).NotTo(BeNil())
-	return &testutil.Baz{}, nil
+	return &test.Baz{}, nil
 }
 
 type barServer struct {
-	testutil.BarServer
+	test.BarServer
 }
 
 func (s *barServer) Bar(
-	srv testutil.Bar_BarServer,
+	srv test.Bar_BarServer,
 ) error {
 	defer GinkgoRecover()
 	ctx := srv.Context()
@@ -188,7 +188,7 @@ var _ = Describe("Meta", func() {
 							},
 						})),
 			)
-			testutil.RegisterFooServer(srv, fooSrv)
+			test.RegisterFooServer(srv, fooSrv)
 			go srv.Serve(listener)
 			defer srv.GracefulStop()
 			By("Creating a gRPC client with the meta interceptor")
@@ -202,8 +202,8 @@ var _ = Describe("Meta", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			By("Calling a gRPC method from the client")
-			client := testutil.NewFooClient(cc)
-			reply, err := client.Foo(ctx, &testutil.Baz{})
+			client := test.NewFooClient(cc)
+			reply, err := client.Foo(ctx, &test.Baz{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(reply).NotTo(BeNil())
 		})
@@ -240,7 +240,7 @@ var _ = Describe("Meta", func() {
 							},
 						})),
 			)
-			testutil.RegisterBarServer(srv, barSrv)
+			test.RegisterBarServer(srv, barSrv)
 			go srv.Serve(listener)
 			By("Creating a gRPC client with the stream meta interceptor")
 			cc, err := grpc.Dial("bufconn",
@@ -253,10 +253,10 @@ var _ = Describe("Meta", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			By("Starting a gRPC stream")
-			client := testutil.NewBarClient(cc)
+			client := test.NewBarClient(cc)
 			stream, err := client.Bar(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			err = stream.Send(&testutil.Baz{})
+			err = stream.Send(&test.Baz{})
 			Expect(err).NotTo(HaveOccurred())
 			err = stream.CloseSend()
 			Expect(err).NotTo(HaveOccurred())

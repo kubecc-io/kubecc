@@ -15,38 +15,53 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package controller
+package test
 
 import (
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/run"
 	"github.com/kubecc-io/kubecc/pkg/types"
 )
 
-type localRunnerManager struct{}
+type recvRemoteRunnerManager struct{}
 
-func (m localRunnerManager) Process(
+func (m recvRemoteRunnerManager) Process(
 	ctx run.Contexts,
 	request interface{},
 ) (response interface{}, err error) {
 	lg := meta.Log(ctx.ServerContext)
-	lg.Info("=> Running local")
-	req := request.(*types.RunRequest)
 
-	ap := testutil.TestArgParser{
+	lg.Info("=> Receiving remote")
+	defer lg.Info("=> Done.")
+	req := request.(*types.CompileRequest)
+	ap := TestArgParser{
 		Args: req.Args,
 	}
 	ap.Parse()
 	out, err := doTestAction(&ap)
 	if err != nil {
-		return &types.RunResponse{
-			ReturnCode: 1,
-			Stderr:     []byte(err.Error()),
+		return &types.CompileResponse{
+			RequestID:     req.RequestID,
+			CompileResult: types.CompileResponse_Fail,
+			Data: &types.CompileResponse_Error{
+				Error: err.Error(),
+			},
 		}, nil
 	}
-	return &types.RunResponse{
-		ReturnCode: 0,
-		Stdout:     out,
+	return &types.CompileResponse{
+		RequestID:     req.RequestID,
+		CompileResult: types.CompileResponse_Success,
+		Data: &types.CompileResponse_CompiledSource{
+			CompiledSource: out,
+		},
 	}, nil
+}
+
+type recvRemoteRunnerManagerSim struct{}
+
+func (m recvRemoteRunnerManagerSim) Process(
+	ctx run.Contexts,
+	request interface{},
+) (response interface{}, err error) {
+	panic("Unimplemented")
 }

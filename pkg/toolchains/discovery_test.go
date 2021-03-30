@@ -28,10 +28,10 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/internal/testutil"
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/toolchains"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -233,7 +233,7 @@ var _ = Describe("Find Toolchains", func() {
 					Finder: cc.CCFinder{},
 					Opts: []toolchains.FindOption{
 						toolchains.WithFS(fs),
-						toolchains.WithQuerier(testutil.MockQuerier{}),
+						toolchains.WithQuerier(test.SampleQuerier{}),
 						toolchains.SearchPathEnv(false),
 						toolchains.WithSearchPaths([]string{
 							"usr/bin",
