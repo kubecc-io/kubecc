@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package rec
 
 import (
+	"errors"
 	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,4 +45,10 @@ func RequeueWith(res ctrl.Result, err error) (ctrl.Result, error) {
 
 func Requeue() (ctrl.Result, error) {
 	return ctrl.Result{Requeue: true}, nil
+}
+
+var ErrCancelReconcile = errors.New("Reconciling Canceled")
+
+func CancelReconcile() (ctrl.Result, error) {
+	return ctrl.Result{}, ErrCancelReconcile
 }

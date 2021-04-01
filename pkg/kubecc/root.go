@@ -30,6 +30,8 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/kubecc/tools"
 )
 
+var config string
+
 func CreateRootCmd() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:  "kubecc",
@@ -38,6 +40,8 @@ func CreateRootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
+	rootCmd.PersistentFlags().StringVar(&config, "config", "",
+		"Path to config file. If not set, uses default locations (~/.kubecc/config.yaml, /etc/kubecc/config.yaml)")
 
 	groups := templates.CommandGroups{
 		{
@@ -70,7 +74,8 @@ func CreateRootCmd() *cobra.Command {
 		},
 	}
 	groups.Add(rootCmd)
-	templates.ActsAsRootCommand(rootCmd, nil, groups...)
+	fe := templates.ActsAsRootCommand(rootCmd, nil, groups...)
+	fe.ExposeFlags(rootCmd, "config")
 	return rootCmd
 }
 

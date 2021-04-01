@@ -32,7 +32,7 @@ import (
 )
 
 func runMonitor(cmd *cobra.Command, args []string) {
-	conf := (&config.ConfigMapProvider{}).Load().Monitor
+	conf := config.ConfigMapProvider.Load().Monitor
 
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),

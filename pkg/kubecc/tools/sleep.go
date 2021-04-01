@@ -176,7 +176,7 @@ the pool of available agents during the run. Only agents matching the given
 architecture will be available.
 `,
 	Run: func(cmd *cobra.Command, args []string) {
-		conf := (&config.ConfigMapProvider{}).Load().Consumer
+		conf := config.ConfigMapProvider.Load().Consumer
 		ctx := meta.NewContext(
 			meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
 			meta.WithProvider(identity.UUID),

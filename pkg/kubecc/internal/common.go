@@ -37,7 +37,7 @@ var (
 )
 
 func InitCLI(_ *cobra.Command, _ []string) {
-	CLIConfig = (&config.ConfigMapProvider{}).Load().Kcctl
+	CLIConfig = CLIConfigProvider.Load().Kcctl
 
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),

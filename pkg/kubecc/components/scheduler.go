@@ -34,7 +34,7 @@ import (
 )
 
 func runScheduler(cmd *cobra.Command, args []string) {
-	conf := (&config.ConfigMapProvider{}).Load().Scheduler
+	conf := config.ConfigMapProvider.Load().Scheduler
 
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),

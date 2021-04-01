@@ -1,0 +1,11 @@
+global:
+  logLevel: debug
+consumerd:
+  monitorAddress: 127.0.0.1:19090
+  schedulerAddress: 127.0.0.1:19091
+  disableTLS: true
+kcctl:
+  logLevel: warn
+  monitorAddress: 127.0.0.1:19090
+  schedulerAddress: 127.0.0.1:19091
+  disableTLS: true

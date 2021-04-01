@@ -28,8 +28,6 @@ spec:
       - command:
         - /kubecc
         - controller
-        args:
-        - --leader-elect
         image: kubecc/kubecc:testing
         imagePullPolicy: Always
         name: manager
