@@ -18,7 +18,8 @@ spec:
 {{ end }}
       initContainers:
         - name: copy-binaries
-          image: gcr.io/kubecc/kubecc
+          image: {{ .Root.Spec.Components.Image }}
+          imagePullPolicy: {{ .Root.Spec.Components.ImagePullPolicy }}
           command:
             - sh
             - -c

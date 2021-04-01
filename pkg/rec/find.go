@@ -117,6 +117,7 @@ func Find(
 			if err != nil {
 				return RequeueWithErr(err)
 			}
+			return Requeue()
 		}
 	}
 

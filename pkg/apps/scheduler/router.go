@@ -341,8 +341,8 @@ func (r *Router) GetRoutes() *types.RouteList {
 	for _, v := range r.routes {
 		list.Routes = append(list.Routes, &types.Route{
 			Toolchain:  v.tc,
-			Consumerds: stringSlice(v.receivers.ToSlice()),
-			Agents:     stringSlice(v.senders.ToSlice()),
+			Consumerds: stringSlice(v.senders.ToSlice()),
+			Agents:     stringSlice(v.receivers.ToSlice()),
 		})
 	}
 	return list

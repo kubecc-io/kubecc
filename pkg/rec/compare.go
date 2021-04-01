@@ -20,6 +20,7 @@ package rec
 import (
 	"reflect"
 
+	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,6 +51,10 @@ func UpdateIfNeeded(
 			eq = update.Equal
 		}
 		if !eq() {
+			rc.Log.With(
+				zap.Any("have", update.Actual),
+				zap.Any("want", update.Desired),
+			).Infof("Applying update")
 			if update.Apply != nil {
 				update.Apply()
 			} else {
@@ -124,57 +129,55 @@ func ResourceUpdater(a v1.ResourceRequirements, pod *v1.PodSpec, idx int) Update
 	}
 }
 
-func CompareImage(a string, pod *v1.PodSpec, idx int) func() bool {
+func CompareImage(a string, container *v1.Container) func() bool {
 	return func() bool {
-		if len(pod.Containers) <= idx {
-			return true // Nothing to compare
-		}
-		return a == pod.Containers[idx].Image
+		return a == container.Image
 	}
 }
 
-func ApplyImage(a string, pod *v1.PodSpec, idx int) func() {
+func ApplyImage(a string, container *v1.Container) func() {
 	return func() {
-		if len(pod.Containers) <= idx {
-			return // Nothing to compare
-		}
-		ctr := pod.Containers[idx]
-		ctr.Image = a
-		pod.Containers[idx] = ctr
+		container.Image = a
 	}
 }
 
-func ImageUpdater(a string, pod *v1.PodSpec, idx int) Updater {
+func PodImageUpdater(a string, pod *v1.PodSpec, idx int) Updater {
 	return Updater{
-		Equal: CompareImage(a, pod, idx),
-		Apply: ApplyImage(a, pod, idx),
+		Equal: CompareImage(a, &pod.Containers[idx]),
+		Apply: ApplyImage(a, &pod.Containers[idx]),
 	}
 }
 
-func ComparePullPolicy(a v1.PullPolicy, pod *v1.PodSpec, idx int) func() bool {
+func ImageUpdater(a string, container *v1.Container) Updater {
+	return Updater{
+		Equal: CompareImage(a, container),
+		Apply: ApplyImage(a, container),
+	}
+}
+
+func ComparePullPolicy(a v1.PullPolicy, container *v1.Container) func() bool {
 	return func() bool {
-		if len(pod.Containers) <= idx {
-			return true // Nothing to compare
-		}
-		return a == pod.Containers[idx].ImagePullPolicy
+		return a == container.ImagePullPolicy
 	}
 }
 
-func ApplyPullPolicy(a v1.PullPolicy, pod *v1.PodSpec, idx int) func() {
+func ApplyPullPolicy(a v1.PullPolicy, container *v1.Container) func() {
 	return func() {
-		if len(pod.Containers) <= idx {
-			return // Nothing to compare
-		}
-		ctr := pod.Containers[idx]
-		ctr.ImagePullPolicy = a
-		pod.Containers[idx] = ctr
+		container.ImagePullPolicy = a
 	}
 }
 
-func PullPolicyUpdater(a v1.PullPolicy, pod *v1.PodSpec, idx int) Updater {
+func PodPullPolicyUpdater(a v1.PullPolicy, pod *v1.PodSpec, idx int) Updater {
 	return Updater{
-		Equal: ComparePullPolicy(a, pod, idx),
-		Apply: ApplyPullPolicy(a, pod, idx),
+		Equal: ComparePullPolicy(a, &pod.Containers[idx]),
+		Apply: ApplyPullPolicy(a, &pod.Containers[idx]),
+	}
+}
+
+func PullPolicyUpdater(a v1.PullPolicy, container *v1.Container) Updater {
+	return Updater{
+		Equal: ComparePullPolicy(a, container),
+		Apply: ApplyPullPolicy(a, container),
 	}
 }
 

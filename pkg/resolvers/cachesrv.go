@@ -36,16 +36,18 @@ const (
 func (r *CacheSrvResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
+	ctrl.Log.Info("Resolving Cache Server")
 	cacheSpec := rc.Object.(v1alpha1.CacheSpec)
+	root := rc.RootObject.(*v1alpha1.BuildCluster)
 	deployment := &appsv1.Deployment{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      cacheSrvAppName,
 	}, deployment,
 		rec.WithCreator(rec.FromTemplate("objects/cachesrv_deployment.yaml")),
-		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Cache Server Deployment")
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
@@ -58,19 +60,20 @@ func (r *CacheSrvResolver) Resolve(
 				&deployment.Spec.Template.Spec),
 			rec.ResourceUpdater(cacheSpec.Resources,
 				&deployment.Spec.Template.Spec, 0),
-			rec.ImageUpdater(cacheSpec.Image,
-				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(cacheSpec.ImagePullPolicy,
-				&deployment.Spec.Template.Spec, 0),
 			rec.LabelUpdater(cacheSpec.AdditionalLabels,
 				&deployment.Spec.Template,
-				staticLabels,
-			),
+				staticLabels),
+			rec.PodImageUpdater(root.Spec.Components.Image,
+				&deployment.Spec.Template.Spec, 0),
+			rec.PodPullPolicyUpdater(root.Spec.Components.ImagePullPolicy,
+				&deployment.Spec.Template.Spec, 0),
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Updating Cache Server Deployment")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Cache Server Deployment is up to date")
 
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
@@ -81,8 +84,10 @@ func (r *CacheSrvResolver) Resolve(
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Cache Server Service")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Cache Server Service already exists")
 
 	return rec.DoNotRequeue()
 }

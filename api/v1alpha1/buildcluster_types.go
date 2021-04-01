@@ -25,21 +25,16 @@ import (
 
 type BuildClusterSpec struct {
 	Components ComponentsSpec `json:"components"`
-	Ingress    IngressSpec    `json:"ingress,omitempty"` // +optional
 	Tracing    TracingSpec    `json:"tracing,omitempty"` // +optional
 }
 
 type ComponentsSpec struct {
-	Agent     AgentSpec     `json:"agent"`
-	Scheduler SchedulerSpec `json:"scheduler,omitempty"` // +optional
-	Monitor   MonitorSpec   `json:"monitor,omitempty"`   // +optional
-	Cache     CacheSpec     `json:"cache,omitempty"`     // +optional
-}
-
-type IngressSpec struct {
-	Kind          string `json:"kind,omitempty"`
-	Host          string `json:"host,omitempty"`
-	TLSSecretName string `json:"tlsSecretName,omitempty"` // +optional
+	Image           string        `json:"image"`
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"` // +optional
+	Agents          AgentSpec     `json:"agents"`
+	Scheduler       SchedulerSpec `json:"scheduler,omitempty"` // +optional
+	Monitor         MonitorSpec   `json:"monitor,omitempty"`   // +optional
+	Cache           CacheSpec     `json:"cache,omitempty"`     // +optional
 }
 
 type TracingSpec struct {
@@ -65,49 +60,29 @@ type SamplerSpec struct {
 }
 
 type AgentSpec struct {
-	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity"`
-	Resources    v1.ResourceRequirements `json:"resources,omitempty"` // +optional
-	// +kubebuilder:default:="gcr.io/kubecc/agent:latest"
-	Image            string            `json:"image"`                      // +optional
-	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=Always
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity"`
+	Image            string                  `json:"image"`
+	ImagePullPolicy  v1.PullPolicy           `json:"imagePullPolicy,omitempty"`  // +optional
+	Resources        v1.ResourceRequirements `json:"resources,omitempty"`        // +optional
+	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"` // +optional
 }
 
 type SchedulerSpec struct {
-	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
-	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
-	// +kubebuilder:default:="gcr.io/kubecc/scheduler:latest"
-	Image            string            `json:"image"`                      // +optional
-	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=Always
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`     // +optional
+	Resources        v1.ResourceRequirements `json:"resources,omitempty"`        // +optional
+	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"` // +optional
 }
 
 type MonitorSpec struct {
-	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
-	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
-	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
-	Image            string            `json:"image"`                      // +optional
-	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=Always
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
+	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`     // +optional
+	Resources        v1.ResourceRequirements `json:"resources,omitempty"`        // +optional
+	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"` // +optional
 }
 
 type CacheSpec struct {
-	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"` // +optional
-	Resources    v1.ResourceRequirements `json:"resources,omitempty"`    // +optional
-	// +kubebuilder:default:="gcr.io/kubecc/monitor:latest"
-	Image            string            `json:"image"`                      // +optional
-	AdditionalLabels map[string]string `json:"additionalLabels,omitempty"` // +optional
-	// +kubebuilder:default:=Always
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy"` // +optional
-}
-
-type TLSSpec struct {
-	// +kubebuilder:validation:MinItems:=1
-	Hosts      []string `json:"hosts,omitempty"`
-	SecretName string   `json:"secretName,omitempty"`
+	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`     // +optional
+	Resources        v1.ResourceRequirements `json:"resources,omitempty"`        // +optional
+	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"` // +optional
 }
 
 // BuildClusterStatus defines the observed state of BuildCluster.

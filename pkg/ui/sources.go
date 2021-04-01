@@ -47,9 +47,8 @@ func (a *agent) rowData() []string {
 	return []string{
 		a.address,
 		types.FormatShortID(a.uuid, 6, types.ElideCenter),
-		a.health.String(),
+		a.health.Status.String(),
 		fmt.Sprintf("%d/%d", a.taskStatus.NumRunning, a.usageLimits.ConcurrentProcessLimit),
-		fmt.Sprint(a.taskStatus.NumQueued),
 	}
 }
 
@@ -61,7 +60,7 @@ func (c *consumerd) rowData() []string {
 	return []string{
 		c.address,
 		types.FormatShortID(c.uuid, 6, types.ElideCenter),
-		c.health.String(),
+		c.health.Status.String(),
 		fmt.Sprintf("%d/%d", c.taskStatus.NumRunning, c.usageLimits.ConcurrentProcessLimit),
 		fmt.Sprintf("%d/%d", c.taskStatus.NumDelegated, c.usageLimits.DelegatedTaskLimit),
 		fmt.Sprint(c.taskStatus.NumQueued),
@@ -158,7 +157,7 @@ func (a *agentDataSource) Title() string {
 }
 
 func (a *agentDataSource) Headers() []string {
-	return []string{"Address", "ID", "Health", "Running", "Queued"}
+	return []string{"Address", "ID", "Health", "Running"}
 }
 
 func healthStyle(h metrics.OverallStatus) termui.Style {
@@ -189,6 +188,9 @@ func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style
 			rows = append(rows, agent.rowData())
 			style[len(rows)] = healthStyle(agent.health.Status)
 			return true
+		})
+		sort.Slice(rows, func(i, j int) bool {
+			return rows[i][1] < rows[j][1]
 		})
 		dataCh <- rows
 		styleCh <- style
@@ -270,6 +272,9 @@ func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.S
 			rows = append(rows, cd.rowData())
 			style[len(rows)] = healthStyle(cd.health.Status)
 			return true
+		})
+		sort.Slice(rows, func(i, j int) bool {
+			return rows[i][1] < rows[j][1]
 		})
 		dataCh <- rows
 		styleCh <- style
@@ -532,7 +537,7 @@ func friendlyName(tc *types.Toolchain) string {
 			return fmt.Sprintf("G++ %s (%s)", tc.Version, tc.TargetArch)
 		}
 	case types.Sleep:
-		return "Sleep (internal)"
+		return fmt.Sprintf("Sleep %s (%s)", tc.Version, tc.TargetArch)
 	}
 	return "Unknown"
 }
@@ -578,6 +583,8 @@ func (a *routesDataSource) Data() <-chan []*widgets.TreeNode {
 						Expanded: true,
 					},
 				}
+				sort.Strings(route.Agents)
+				sort.Strings(route.Consumerds)
 				for _, agent := range route.Agents {
 					node.Nodes[0].Nodes = append(node.Nodes[0].Nodes, &widgets.TreeNode{
 						Value: stringer(agent),

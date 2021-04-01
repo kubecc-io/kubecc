@@ -37,8 +37,7 @@ var _ = Describe("BuildCluster Controller", func() {
 	const (
 		Name      = "test-buildcluster"
 		Namespace = "kubecc-test"
-		timeout   = 20 * time.Second
-		duration  = 20 * time.Second
+		timeout   = 10 * time.Second
 		interval  = 500 * time.Millisecond
 	)
 	var (
@@ -66,42 +65,41 @@ var _ = Describe("BuildCluster Controller", func() {
 
 	Context("When creating a BuildCluster", func() {
 		ctx := context.Background()
-		It("Should succeed", func() {
-			cluster := &v1alpha1.BuildCluster{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "kubecc.io/v1alpha1",
-					Kind:       "BuildCluster",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      Name,
-					Namespace: Namespace,
-				},
-				Spec: v1alpha1.BuildClusterSpec{
-					Components: v1alpha1.ComponentsSpec{
-						Agent: v1alpha1.AgentSpec{
-							NodeAffinity:    nodeAffinity,
-							Image:           "gcr.io/kubecc/agent:latest",
-							ImagePullPolicy: "Always",
-							Resources:       resources,
-						},
-						Scheduler: v1alpha1.SchedulerSpec{
-							Resources:       resources,
-							Image:           "gcr.io/kubecc/scheduler:latest",
-							ImagePullPolicy: "Always",
-						},
-						Monitor: v1alpha1.MonitorSpec{
-							Resources:       resources,
-							Image:           "gcr.io/kubecc/monitor:latest",
-							ImagePullPolicy: "Always",
-						},
-						Cache: v1alpha1.CacheSpec{
-							Resources:       resources,
-							Image:           "gcr.io/kubecc/cache:latest",
-							ImagePullPolicy: "Always",
-						},
+		cluster := &v1alpha1.BuildCluster{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "kubecc.io/v1alpha1",
+				Kind:       "BuildCluster",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      Name,
+				Namespace: Namespace,
+			},
+			Spec: v1alpha1.BuildClusterSpec{
+				Components: v1alpha1.ComponentsSpec{
+					Image:           "kubecc/kubecc:latest",
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Agents: v1alpha1.AgentSpec{
+						NodeAffinity:    nodeAffinity,
+						Resources:       resources,
+						Image:           "kubecc/environment:latest",
+						ImagePullPolicy: v1.PullIfNotPresent,
 					},
+					// Scheduler: v1alpha1.SchedulerSpec{
+					// 	Resources:       resources,
+					// 	ImagePullPolicy: "Always",
+					// },
+					// Monitor: v1alpha1.MonitorSpec{
+					// 	Resources:       resources,
+					// 	ImagePullPolicy: "Always",
+					// },
+					// Cache: v1alpha1.CacheSpec{
+					// 	Resources:       resources,
+					// 	ImagePullPolicy: "Always",
+					// },
 				},
-			}
+			},
+		}
+		It("Should succeed", func() {
 			Expect(k8sClient.Create(ctx, cluster)).Should(Succeed())
 			Eventually(func() bool {
 				cluster := &v1alpha1.BuildCluster{}
@@ -135,23 +133,54 @@ var _ = Describe("BuildCluster Controller", func() {
 		})
 		It("Should create a monitor deployment", func() {
 			Eventually(func() bool {
-				agents := &appsv1.Deployment{}
+				monitor := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "kubecc-monitor",
 					Namespace: Namespace,
-				}, agents)
+				}, monitor)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 		})
 		It("Should create a cache server deployment", func() {
 			Eventually(func() bool {
-				agents := &appsv1.Deployment{}
+				cachesrv := &appsv1.Deployment{}
 				err := k8sClient.Get(ctx, types.NamespacedName{
 					Name:      "kubecc-cache",
 					Namespace: Namespace,
-				}, agents)
+				}, cachesrv)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
+		})
+		It("should apply the default image", func() {
+			// scheduler
+			scheduler := &appsv1.Deployment{}
+			err := k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "kubecc-scheduler",
+				Namespace: Namespace,
+			}, scheduler)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(scheduler.Spec.Template.Spec.Containers[0].Image ==
+				cluster.Spec.Components.Image)
+
+			// monitor
+			monitor := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "kubecc-monitor",
+				Namespace: Namespace,
+			}, monitor)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(monitor.Spec.Template.Spec.Containers[0].Image ==
+				cluster.Spec.Components.Image)
+
+			// cache
+			cachesrv := &appsv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      "kubecc-cache",
+				Namespace: Namespace,
+			}, cachesrv)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(monitor.Spec.Template.Spec.Containers[0].Image ==
+				cluster.Spec.Components.Image)
 		})
 		It("Should create a configmap", func() {
 			Eventually(func() bool {
@@ -196,7 +225,7 @@ var _ = Describe("BuildCluster Controller", func() {
 					},
 				},
 			}
-			cluster.Spec.Components.Agent.NodeAffinity = affinity
+			cluster.Spec.Components.Agents.NodeAffinity = affinity
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
@@ -212,7 +241,7 @@ var _ = Describe("BuildCluster Controller", func() {
 					v1.ResourceCPU: resource.MustParse("400m"),
 				},
 			}
-			cluster.Spec.Components.Agent.Resources = resources
+			cluster.Spec.Components.Agents.Resources = resources
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
@@ -223,14 +252,14 @@ var _ = Describe("BuildCluster Controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("Updating container image")
-			image := "gcr.io/kubecc/test:doesntexist"
-			cluster.Spec.Components.Agent.Image = image
+			image := "kubecc/test:doesntexist"
+			cluster.Spec.Components.Image = image
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
 				ds := getDaemonSet()
 				return reflect.DeepEqual(
-					ds.Spec.Template.Spec.Containers[0].Image,
+					ds.Spec.Template.Spec.InitContainers[0].Image,
 					image)
 			}, timeout, interval).Should(BeTrue())
 
@@ -239,7 +268,7 @@ var _ = Describe("BuildCluster Controller", func() {
 				"testing":  "true",
 				"testing2": "yes",
 			}
-			cluster.Spec.Components.Agent.AdditionalLabels = labels
+			cluster.Spec.Components.Agents.AdditionalLabels = labels
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			labels["app"] = "kubecc-agent"
@@ -252,13 +281,13 @@ var _ = Describe("BuildCluster Controller", func() {
 
 			By("Updating imagePullPolicy")
 			policy := v1.PullNever
-			cluster.Spec.Components.Agent.ImagePullPolicy = policy
+			cluster.Spec.Components.ImagePullPolicy = policy
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
 				ds := getDaemonSet()
 				return reflect.DeepEqual(
-					ds.Spec.Template.Spec.Containers[0].ImagePullPolicy,
+					ds.Spec.Template.Spec.InitContainers[0].ImagePullPolicy,
 					policy)
 			}, timeout, interval).Should(BeTrue())
 		})
@@ -324,8 +353,8 @@ var _ = Describe("BuildCluster Controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			By("Updating container image")
-			image := "gcr.io/kubecc/test:doesntexist"
-			cluster.Spec.Components.Scheduler.Image = image
+			image := "kubecc/test:doesntexist"
+			cluster.Spec.Components.Image = image
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {
@@ -353,7 +382,7 @@ var _ = Describe("BuildCluster Controller", func() {
 
 			By("Updating imagePullPolicy")
 			policy := v1.PullNever
-			cluster.Spec.Components.Scheduler.ImagePullPolicy = policy
+			cluster.Spec.Components.ImagePullPolicy = policy
 			err = k8sClient.Update(ctx, cluster)
 			Expect(err).NotTo(HaveOccurred())
 			Eventually(func() bool {

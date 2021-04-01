@@ -37,17 +37,15 @@ spec:
             properties:
               components:
                 properties:
-                  agent:
+                  agents:
                     properties:
                       additionalLabels:
                         additionalProperties:
                           type: string
                         type: object
                       image:
-                        default: gcr.io/kubecc/agent:latest
                         type: string
                       imagePullPolicy:
-                        default: Always
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
                         type: string
@@ -294,7 +292,6 @@ spec:
                         type: object
                     required:
                     - image
-                    - imagePullPolicy
                     - nodeAffinity
                     type: object
                   cache:
@@ -303,14 +300,6 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
-                      image:
-                        default: gcr.io/kubecc/monitor:latest
-                        type: string
-                      imagePullPolicy:
-                        default: Always
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
-                        type: string
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
                           rules.
@@ -552,24 +541,19 @@ spec:
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                             type: object
                         type: object
-                    required:
-                    - image
-                    - imagePullPolicy
                     type: object
+                  image:
+                    type: string
+                  imagePullPolicy:
+                    description: PullPolicy describes a policy for if/when to pull
+                      a container image
+                    type: string
                   monitor:
                     properties:
                       additionalLabels:
                         additionalProperties:
                           type: string
                         type: object
-                      image:
-                        default: gcr.io/kubecc/monitor:latest
-                        type: string
-                      imagePullPolicy:
-                        default: Always
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
-                        type: string
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
                           rules.
@@ -811,9 +795,6 @@ spec:
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                             type: object
                         type: object
-                    required:
-                    - image
-                    - imagePullPolicy
                     type: object
                   scheduler:
                     properties:
@@ -821,14 +802,6 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
-                      image:
-                        default: gcr.io/kubecc/scheduler:latest
-                        type: string
-                      imagePullPolicy:
-                        default: Always
-                        description: PullPolicy describes a policy for if/when to
-                          pull a container image
-                        type: string
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
                           rules.
@@ -1070,21 +1043,10 @@ spec:
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                             type: object
                         type: object
-                    required:
-                    - image
-                    - imagePullPolicy
                     type: object
                 required:
-                - agent
-                type: object
-              ingress:
-                properties:
-                  host:
-                    type: string
-                  kind:
-                    type: string
-                  tlsSecretName:
-                    type: string
+                - agents
+                - image
                 type: object
               tracing:
                 properties:

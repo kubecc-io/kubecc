@@ -4,7 +4,7 @@ group "default" {
 
 target "kubecc" {
   dockerfile = "images/kubecc/Dockerfile"
-  tags = ["gcr.io/kubecc/kubecc"]
+  tags = ["kubecc/kubecc:testing"]
   platforms = ["linux/amd64", "linux/arm64"]
   context = "."
   cache-from = ["type=local,src=build/cache/kubecc"]
@@ -13,7 +13,7 @@ target "kubecc" {
 
 target "environment" {
   dockerfile = "images/environment/Dockerfile"
-  tags = ["gcr.io/kubecc/environment"]
+  tags = ["kubecc/environment"]
   platforms = ["linux/amd64", "linux/arm64"]
   context = "."
   cache-from = ["type=local,src=build/cache/environment"]

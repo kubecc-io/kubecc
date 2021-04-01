@@ -278,7 +278,6 @@ var _ = Describe("Task Redirection", func() {
 			counts := <-countsCh
 			// At this point in time the queue should be near-full and about 200 tasks
 			// should have been completed on both local and remote
-
 			Expect(counts.local).To(BeNumerically(">", expectedTasks))
 			Expect(counts.remote).To(BeNumerically(">", expectedTasks))
 		})

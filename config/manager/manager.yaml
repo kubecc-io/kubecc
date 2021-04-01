@@ -3,13 +3,13 @@ kind: Namespace
 metadata:
   labels:
     control-plane: controller-manager
-  name: system
+  name: kubecc
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
-  namespace: system
+  name: kubecc-operator
+  namespace: kubecc
   labels:
     control-plane: controller-manager
 spec:
@@ -30,7 +30,7 @@ spec:
         - controller
         args:
         - --leader-elect
-        image: gcr.io/kubecc/kubecc
+        image: kubecc/kubecc:testing
         imagePullPolicy: Always
         name: manager
         securityContext:

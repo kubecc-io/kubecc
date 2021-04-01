@@ -23,8 +23,8 @@ spec:
             - /kubecc
             - run
             - monitor
-          image: {{ .Spec.Image }}
-          imagePullPolicy: {{ .Spec.ImagePullPolicy }}
+          image: {{ .Root.Spec.Components.Image }}
+          imagePullPolicy: {{ .Root.Spec.Components.ImagePullPolicy }}
 {{ if .Spec.Resources }}
           resources:
 {{ .Spec.Resources | toYaml | indent 12 }}

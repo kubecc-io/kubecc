@@ -1,5 +1,4 @@
 resources:
-- user_namespace.yaml
 - role.yaml
 - role_binding.yaml
 - leader_election_role.yaml

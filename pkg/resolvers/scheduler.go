@@ -36,16 +36,18 @@ const (
 func (r *SchedulerResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
+	ctrl.Log.Info("Resolving Scheduler")
 	schedulerSpec := rc.Object.(v1alpha1.SchedulerSpec)
+	root := rc.RootObject.(*v1alpha1.BuildCluster)
 	deployment := &appsv1.Deployment{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      schedulerAppName,
 	}, deployment,
 		rec.WithCreator(rec.FromTemplate("objects/scheduler_deployment.yaml")),
-		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Scheduler Deployment")
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
@@ -58,19 +60,20 @@ func (r *SchedulerResolver) Resolve(
 				&deployment.Spec.Template.Spec),
 			rec.ResourceUpdater(schedulerSpec.Resources,
 				&deployment.Spec.Template.Spec, 0),
-			rec.ImageUpdater(schedulerSpec.Image,
-				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(schedulerSpec.ImagePullPolicy,
-				&deployment.Spec.Template.Spec, 0),
 			rec.LabelUpdater(schedulerSpec.AdditionalLabels,
 				&deployment.Spec.Template,
-				staticLabels,
-			),
+				staticLabels),
+			rec.PodImageUpdater(root.Spec.Components.Image,
+				&deployment.Spec.Template.Spec, 0),
+			rec.PodPullPolicyUpdater(root.Spec.Components.ImagePullPolicy,
+				&deployment.Spec.Template.Spec, 0),
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Updating Scheduler Deployment")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Scheduler Deployment is up to date")
 
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
@@ -81,9 +84,10 @@ func (r *SchedulerResolver) Resolve(
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Scheduler Service")
 		return rec.RequeueWith(res, err)
 	}
-
+	ctrl.Log.Info("✓ Scheduler Service already exists")
 	return rec.DoNotRequeue()
 }
 
