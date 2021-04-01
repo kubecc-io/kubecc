@@ -1,11 +1,16 @@
 global:
   logLevel: debug
 consumerd:
+  usageLimits:
+    concurrentProcessLimit: 20
   monitorAddress: 127.0.0.1:19090
   schedulerAddress: 127.0.0.1:19091
+  listenAddress: :10001
   disableTLS: true
 kcctl:
   logLevel: warn
   monitorAddress: 127.0.0.1:19090
   schedulerAddress: 127.0.0.1:19091
   disableTLS: true
+consumer:
+  consumerdAddress: 127.0.0.1:10001
