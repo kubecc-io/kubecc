@@ -5,7 +5,9 @@ metadata:
   namespace: kubecc
 spec:
   components:
-    agent:
+    image: kubecc/kubecc:testing
+    imagePullPolicy: Always
+    agents:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
@@ -16,20 +18,6 @@ spec:
                   - "true"
       resources:
         limits:
-          memory: "16Gi"
-      image: gcr.io/kubecc/kubecc:latest
+          memory: "8Gi"
+      image: kubecc/environment:latest
       imagePullPolicy: Always
-    scheduler:
-      image: gcr.io/kubecc/kubecc:latest
-      imagePullPolicy: Always
-    monitor:
-      image: gcr.io/kubecc/kubecc:latest
-      imagePullPolicy: Always
-  tracing:
-    jaeger:
-      collector:
-        endpoint: https://jaeger-collector.example.com/api/traces
-        internalEndpoint: http://collector.observability.svc.cluster.local:14268/api/traces
-      sampling:
-        type: probabilistic
-        param: "0.2"

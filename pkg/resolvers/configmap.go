@@ -35,6 +35,7 @@ const (
 func (r *ConfigMapResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
+	ctrl.Log.Info("Resolving ConfigMap")
 	configMap := &v1.ConfigMap{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
@@ -43,9 +44,10 @@ func (r *ConfigMapResolver) Resolve(
 		rec.WithCreator(rec.FromTemplate("objects/kubecc_configmap.yaml")),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating ConfigMap")
 		return rec.RequeueWith(res, err)
 	}
-
+	ctrl.Log.Info("✓ ConfigMap already exists")
 	return rec.DoNotRequeue()
 }
 

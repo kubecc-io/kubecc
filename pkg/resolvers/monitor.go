@@ -36,16 +36,18 @@ const (
 func (r *MonitorResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
+	ctrl.Log.Info("Resolving Monitor")
 	monitorSpec := rc.Object.(v1alpha1.MonitorSpec)
+	root := rc.RootObject.(*v1alpha1.BuildCluster)
 	deployment := &appsv1.Deployment{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      monitorAppName,
 	}, deployment,
 		rec.WithCreator(rec.FromTemplate("objects/monitor_deployment.yaml")),
-		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Monitor Deployment")
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
@@ -58,19 +60,20 @@ func (r *MonitorResolver) Resolve(
 				&deployment.Spec.Template.Spec),
 			rec.ResourceUpdater(monitorSpec.Resources,
 				&deployment.Spec.Template.Spec, 0),
-			rec.ImageUpdater(monitorSpec.Image,
-				&deployment.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(monitorSpec.ImagePullPolicy,
-				&deployment.Spec.Template.Spec, 0),
 			rec.LabelUpdater(monitorSpec.AdditionalLabels,
 				&deployment.Spec.Template,
-				staticLabels,
-			),
+				staticLabels),
+			rec.PodImageUpdater(root.Spec.Components.Image,
+				&deployment.Spec.Template.Spec, 0),
+			rec.PodPullPolicyUpdater(root.Spec.Components.ImagePullPolicy,
+				&deployment.Spec.Template.Spec, 0),
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Updating Monitor Deployment")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Monitor Deployment is up to date")
 
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
@@ -81,8 +84,10 @@ func (r *MonitorResolver) Resolve(
 		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Monitor Service")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Monitor Service already exists")
 
 	return rec.DoNotRequeue()
 }

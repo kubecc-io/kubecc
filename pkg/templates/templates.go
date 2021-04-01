@@ -30,21 +30,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type wrapper struct {
+type LoadSpec struct {
 	Spec interface{}
+	Root interface{}
 }
 
 // Load parses a template file and returns the processed text. The file is
 // searched for in the given filesystem. A spec can be passed to the template
 // loader which will be applied when processing the template.
-func Load(fsys fs.FS, name string, spec interface{}) ([]byte, error) {
+func Load(fsys fs.FS, name string, spec LoadSpec) ([]byte, error) {
 	tmpl := template.New(filepath.Base(name)).Funcs(Funcs())
 	tmpl, err := tmpl.ParseFS(fsys, name)
 	if err != nil {
 		return nil, err
 	}
 	buf := new(bytes.Buffer)
-	err = tmpl.Execute(buf, wrapper{Spec: spec})
+	err = tmpl.Execute(buf, spec)
 	if err != nil {
 		return nil, err
 	}

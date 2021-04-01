@@ -13,7 +13,6 @@ data:
         queueRejectMultiplier: 2
       schedulerAddress: kubecc-scheduler:9090
       monitorAddress: kubecc-monitor:9090
-      listenAddress: :9090
     scheduler:
       monitorAddress: kubecc-monitor:9090
       cacheAddress: kubecc-cache:9090

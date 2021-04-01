@@ -263,6 +263,7 @@ func (s *consumerdServer) StartMetricsProvider() {
 			<-slowTimer
 			s.postUsageLimits()
 			s.postTotals()
+			s.postToolchains()
 		}
 	}()
 

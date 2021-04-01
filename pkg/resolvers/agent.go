@@ -39,16 +39,18 @@ const (
 func (r *AgentResolver) Resolve(
 	rc rec.ResolveContext,
 ) (ctrl.Result, error) {
+	ctrl.Log.Info("Resolving Agents")
 	agentSpec := rc.Object.(v1alpha1.AgentSpec)
+	root := rc.RootObject.(*v1alpha1.BuildCluster)
 	daemonSet := &appsv1.DaemonSet{}
 	res, err := rec.Find(rc, types.NamespacedName{
 		Namespace: rc.RootObject.GetNamespace(),
 		Name:      agentAppName,
 	}, daemonSet,
 		rec.WithCreator(rec.FromTemplate("objects/agent_daemonset.yaml")),
-		rec.RecreateIfChanged(),
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Agent DaemonSet")
 		return rec.RequeueWith(res, err)
 	}
 	staticLabels := map[string]string{
@@ -61,10 +63,14 @@ func (r *AgentResolver) Resolve(
 				&daemonSet.Spec.Template.Spec),
 			rec.ResourceUpdater(agentSpec.Resources,
 				&daemonSet.Spec.Template.Spec, 0),
-			rec.ImageUpdater(agentSpec.Image,
+			rec.PodImageUpdater(agentSpec.Image,
 				&daemonSet.Spec.Template.Spec, 0),
-			rec.PullPolicyUpdater(agentSpec.ImagePullPolicy,
+			rec.ImageUpdater(root.Spec.Components.Image,
+				&daemonSet.Spec.Template.Spec.InitContainers[0]),
+			rec.PodPullPolicyUpdater(agentSpec.ImagePullPolicy,
 				&daemonSet.Spec.Template.Spec, 0),
+			rec.PullPolicyUpdater(root.Spec.Components.ImagePullPolicy,
+				&daemonSet.Spec.Template.Spec.InitContainers[0]),
 			rec.LabelUpdater(agentSpec.AdditionalLabels,
 				&daemonSet.Spec.Template,
 				staticLabels,
@@ -72,8 +78,10 @@ func (r *AgentResolver) Resolve(
 		},
 	)
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Updating Agent DaemonSet")
 		return rec.RequeueWith(res, err)
 	}
+	ctrl.Log.Info("✓ Agent DaemonSet is up to date")
 
 	svc := &v1.Service{}
 	res, err = rec.Find(rc, types.NamespacedName{
@@ -85,12 +93,13 @@ func (r *AgentResolver) Resolve(
 	)
 
 	if rec.ShouldRequeue(res, err) {
+		ctrl.Log.Info("> Creating Agent Service")
 		return rec.RequeueWith(res, err)
 	}
-
+	ctrl.Log.Info("✓ Agent Service already exists")
 	return rec.DoNotRequeue()
 }
 
 func (r *AgentResolver) Find(root client.Object) interface{} {
-	return root.(*v1alpha1.BuildCluster).Spec.Components.Agent
+	return root.(*v1alpha1.BuildCluster).Spec.Components.Agents
 }

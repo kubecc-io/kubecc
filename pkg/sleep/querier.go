@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package sleep
 
 import (
-	"runtime"
 	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/toolchains"
@@ -32,7 +31,7 @@ func (q SleepQuerier) IsPicDefault(compiler string) (bool, error) {
 }
 
 func (q SleepQuerier) TargetArch(compiler string) (string, error) {
-	return runtime.GOARCH, nil
+	return "internal", nil
 }
 
 func (q SleepQuerier) Version(compiler string) (string, error) {

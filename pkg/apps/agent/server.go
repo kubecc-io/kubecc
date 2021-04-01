@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"github.com/kubecc-io/kubecc/pkg/run"
@@ -31,6 +32,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/toolchains"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/kubecc-io/kubecc/pkg/util"
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -39,7 +41,6 @@ import (
 type AgentServer struct {
 	metrics.StatusController
 	srvContext       context.Context
-	executor         run.Executor
 	lg               *zap.SugaredLogger
 	tcStore          *toolchains.Store
 	tcRunStore       *run.ToolchainRunnerStore
@@ -49,6 +50,7 @@ type AgentServer struct {
 	schedulerClient  types.SchedulerClient
 	monitorClient    types.MonitorClient
 	usageLimits      *metrics.UsageLimits
+	runningTasks     *atomic.Int32
 }
 
 type AgentServerOptions struct {
@@ -109,11 +111,15 @@ func NewAgentServer(
 		add(runStore)
 	}
 
+	if options.usageLimits.ConcurrentProcessLimit == -1 {
+		options.usageLimits.ConcurrentProcessLimit = host.AutoConcurrentProcessLimit()
+	}
+
 	srv := &AgentServer{
 		srvContext:       ctx,
 		lg:               meta.Log(ctx),
 		tcStore:          toolchains.Aggregate(ctx, options.toolchainFinders...),
-		executor:         run.NewQueuedExecutor(run.WithUsageLimits(options.usageLimits)),
+		runningTasks:     atomic.NewInt32(0),
 		tcRunStore:       runStore,
 		toolchainFinders: options.toolchainFinders,
 		toolchainRunners: options.toolchainRunners,
@@ -142,14 +148,16 @@ func NewAgentServer(
 }
 
 func (s *AgentServer) postUsageLimits() {
-	qp := &metrics.UsageLimits{}
-	s.executor.CompleteUsageLimits(qp)
+	qp := &metrics.UsageLimits{
+		ConcurrentProcessLimit: s.usageLimits.ConcurrentProcessLimit,
+	}
 	s.metricsProvider.Post(qp)
 }
 
 func (s *AgentServer) postTaskStatus() {
-	ts := &metrics.TaskStatus{}
-	s.executor.CompleteTaskStatus(ts)
+	ts := &metrics.TaskStatus{
+		NumRunning: s.runningTasks.Load(),
+	}
 	s.metricsProvider.Post(ts)
 }
 
@@ -177,18 +185,9 @@ func (s *AgentServer) StartMetricsProvider() {
 		for {
 			<-slowTimer
 			s.postUsageLimits()
+			s.postToolchains()
 		}
 	}()
-}
-
-func (s *AgentServer) SetUsageLimits(
-	ctx context.Context,
-	usageLimits *metrics.UsageLimits,
-) (*types.Empty, error) {
-	s.executor.(*run.QueuedExecutor).SetUsageLimits(usageLimits)
-	s.usageLimits = usageLimits
-	s.postUsageLimits()
-	return &types.Empty{}, nil
 }
 
 func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
@@ -249,6 +248,8 @@ func (s *AgentServer) compile(
 		return makeInternalErr(err.Error())
 	}
 
+	s.runningTasks.Inc()
+	defer s.runningTasks.Dec()
 	span, sctx, err := servers.StartSpanFromServer(ctx, "compile")
 	if err != nil {
 		s.lg.Error(err)

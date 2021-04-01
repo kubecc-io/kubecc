@@ -44,7 +44,10 @@ var (
 
 func FromTemplate(templateName string) ObjectCreator {
 	return func(rc ResolveContext) (client.Object, error) {
-		tmplData, err := templates.Load(objectsFS, templateName, rc.Object)
+		tmplData, err := templates.Load(objectsFS, templateName, templates.LoadSpec{
+			Spec: rc.Object,
+			Root: rc.RootObject,
+		})
 		if err != nil {
 			return nil, err
 		}

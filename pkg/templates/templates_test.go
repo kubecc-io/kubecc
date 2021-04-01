@@ -103,7 +103,7 @@ var _ = Describe("Template Parser", func() {
 	Context("when parsing a template", func() {
 		Context("and the file does not exist", func() {
 			It("should error", func() {
-				_, err := templates.Load(testFS, "does_not_exist.yaml", struct{}{})
+				_, err := templates.Load(testFS, "does_not_exist.yaml", templates.LoadSpec{})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -111,10 +111,10 @@ var _ = Describe("Template Parser", func() {
 			It("should load the exact file contents", func() {
 				data, err := os.ReadFile("./test/deployment_nospec.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load(testFS, "test/deployment_nospec.yaml", struct{}{})).To(Equal(data))
+				Expect(templates.Load(testFS, "test/deployment_nospec.yaml", templates.LoadSpec{})).To(Equal(data))
 			})
 			It("should unmarshal fields into Kubernetes objects", func() {
-				data, err := templates.Load(testFS, "test/deployment_nospec.yaml", struct{}{})
+				data, err := templates.Load(testFS, "test/deployment_nospec.yaml", templates.LoadSpec{})
 				Expect(err).NotTo(HaveOccurred())
 				d, err := templates.Unmarshal(data, clientgoscheme.Scheme)
 				Expect(err).NotTo(HaveOccurred())
@@ -136,7 +136,9 @@ var _ = Describe("Template Parser", func() {
 				}
 				data, err := os.ReadFile("./test/simple_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load(testFS, "test/simple.yaml", spec)).
+				Expect(templates.Load(testFS, "test/simple.yaml", templates.LoadSpec{
+					Spec: spec,
+				})).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 			})
 			It("should substitute multiline strings", func() {
@@ -162,10 +164,14 @@ line 3`,
 				}
 				data, err := os.ReadFile("./test/multiline_expected.yaml")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(templates.Load(testFS, "test/multiline_manual.yaml", spec)).
+				Expect(templates.Load(testFS, "test/multiline_manual.yaml", templates.LoadSpec{
+					Spec: spec,
+				})).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 				By("using the indent function")
-				Expect(templates.Load(testFS, "test/multiline_indent.yaml", spec)).
+				Expect(templates.Load(testFS, "test/multiline_indent.yaml", templates.LoadSpec{
+					Spec: spec,
+				})).
 					To(WithTransform(sanitize, Equal(sanitize(data))))
 			})
 			It("should convert spec fields to YAML", func() {
@@ -195,25 +201,29 @@ line 3`, "test"},
 				var expected, actual structField
 				Expect(yaml.Unmarshal(data, &expected)).To(Succeed())
 				Expect(expected).To(Equal(spec))
-				tmplData, err := templates.Load(testFS, "test/toyaml.yaml", spec)
+				tmplData, err := templates.Load(testFS, "test/toyaml.yaml", templates.LoadSpec{
+					Spec: spec,
+				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(yaml.Unmarshal(tmplData, &actual)).To(Succeed())
 				Expect(actual).To(Equal(spec))
 			})
 		})
 		It("should unmarshal fields into Kubernetes objects", func() {
-			data, err := templates.Load(testFS, "test/deployment_spec.yaml", struct {
-				Name       string
-				Labels     map[string]string
-				PullPolicy v1.PullPolicy
-				Ports      []v1.ContainerPort
-				Resources  v1.ResourceRequirements
-			}{
-				Name:       sampleDeployment.Name,
-				Labels:     sampleDeployment.Labels,
-				PullPolicy: sampleDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy,
-				Ports:      sampleDeployment.Spec.Template.Spec.Containers[0].Ports,
-				Resources:  sampleDeployment.Spec.Template.Spec.Containers[0].Resources,
+			data, err := templates.Load(testFS, "test/deployment_spec.yaml", templates.LoadSpec{
+				Spec: struct {
+					Name       string
+					Labels     map[string]string
+					PullPolicy v1.PullPolicy
+					Ports      []v1.ContainerPort
+					Resources  v1.ResourceRequirements
+				}{
+					Name:       sampleDeployment.Name,
+					Labels:     sampleDeployment.Labels,
+					PullPolicy: sampleDeployment.Spec.Template.Spec.Containers[0].ImagePullPolicy,
+					Ports:      sampleDeployment.Spec.Template.Spec.Containers[0].Ports,
+					Resources:  sampleDeployment.Spec.Template.Spec.Containers[0].Resources,
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			d, err := templates.Unmarshal(data, clientgoscheme.Scheme)

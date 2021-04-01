@@ -75,6 +75,9 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.resolveTree = rec.BuildRootResolver(r.Context, r.Client, &rec.ResolverTree{
 		Nodes: []*rec.ResolverTree{
 			{
+				Resolver: &resolvers.ConfigMapResolver{},
+			},
+			{
 				Resolver: &resolvers.ComponentsResolver{},
 				Nodes: []*rec.ResolverTree{
 					{
@@ -93,9 +96,6 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			},
 			{
 				Resolver: &resolvers.TracingResolver{},
-			},
-			{
-				Resolver: &resolvers.ConfigMapResolver{},
 			},
 		},
 	})
