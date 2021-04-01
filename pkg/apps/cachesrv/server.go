@@ -147,7 +147,7 @@ func (s *CacheServer) postCacheHits() {
 func (s *CacheServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 
-	slowTimer := util.NewJitteredTimer(20*time.Second, 0.5)
+	slowTimer := util.NewJitteredTimer(3*time.Second, 0.5) // 3-4.5s
 	go func() {
 		for {
 			<-slowTimer

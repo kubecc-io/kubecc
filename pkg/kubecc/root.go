@@ -27,10 +27,9 @@ import (
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/kubecc/commands"
 	"github.com/kubecc-io/kubecc/pkg/kubecc/components"
+	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/kubecc-io/kubecc/pkg/kubecc/tools"
 )
-
-var config string
 
 func CreateRootCmd() *cobra.Command {
 	var rootCmd = &cobra.Command{
@@ -40,7 +39,7 @@ func CreateRootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	rootCmd.PersistentFlags().StringVar(&config, "config", "",
+	rootCmd.PersistentFlags().StringVar(&ConfigPath, "config", "",
 		"Path to config file. If not set, uses default locations (~/.kubecc/config.yaml, /etc/kubecc/config.yaml)")
 
 	groups := templates.CommandGroups{

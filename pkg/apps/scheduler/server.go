@@ -142,7 +142,10 @@ func (s *schedulerServer) StreamIncomingTasks(
 		return err
 	}
 
-	s.broker.NewAgentTaskStream(srv)
+	err := s.broker.NewAgentTaskStream(srv)
+	if err != nil {
+		s.lg.With(zap.Error(err)).Error("Agent error")
+	}
 	if s.agentCount.Inc() == 1 {
 		s.lg.Debug("Removing status condition [no agents]")
 		s.condNoAgentsCancelLock.Lock()
@@ -176,8 +179,10 @@ func (s *schedulerServer) StreamOutgoingTasks(
 		return err
 	}
 
-	s.broker.NewConsumerdTaskStream(srv)
-
+	err := s.broker.NewConsumerdTaskStream(srv)
+	if err != nil {
+		s.lg.With(zap.Error(err)).Error("Consumerd error")
+	}
 	if s.consumerdCount.Inc() == 1 {
 		s.lg.Debug("Removing status condition [no consumerds]")
 		s.condNoCdsCancelLock.Lock()

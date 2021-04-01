@@ -24,8 +24,8 @@ import (
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/apps/consumer"
-	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/identity"
+	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/servers"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
@@ -43,7 +43,7 @@ var ConsumerNames = []string{
 }
 
 func run() {
-	conf := config.ConfigMapProvider.Load().Consumer
+	conf := CLIConfigProvider.Load().Consumer
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
 		meta.WithProvider(identity.UUID),

@@ -42,8 +42,6 @@ type Broker struct {
 	completedTasks  *atomic.Int64
 	failedTasks     *atomic.Int64
 	requestCount    *atomic.Int64
-	cacheHitCount   *atomic.Int64
-	cacheMissCount  *atomic.Int64
 	requestQueue    chan *types.CompileRequest
 	responseQueue   chan *types.CompileResponse
 	agents          map[string]*Agent
@@ -111,8 +109,6 @@ func NewBroker(
 		consumerdsMutex: &sync.RWMutex{},
 		hashSrv:         util.NewHashServer(),
 		tcWatcher:       tcw,
-		cacheHitCount:   atomic.NewInt64(0),
-		cacheMissCount:  atomic.NewInt64(0),
 		cacheClient:     options.cacheClient,
 		monClient:       options.monClient,
 		cacheAvailable:  atomic.NewBool(false),
@@ -320,15 +316,21 @@ func (b *Broker) handleResponseQueue() {
 
 func (b *Broker) NewAgentTaskStream(
 	stream types.Scheduler_StreamIncomingTasksServer,
-) {
+) error {
 	b.agentsMutex.Lock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
 	tcChan := b.tcWatcher.WatchToolchains(id)
 
 	b.lg.With(types.ShortID(id)).Info("Agent connected, waiting for toolchains")
-	tcs := <-tcChan
-	b.lg.With(types.ShortID(id)).Info("Toolchains received")
+	var tcs *metrics.Toolchains
+	select {
+	case tcs = <-tcChan:
+		b.lg.With(types.ShortID(id)).Info("Toolchains received")
+	case <-time.After(5 * time.Second):
+		b.agentsMutex.Unlock()
+		return status.Error(codes.DeadlineExceeded, "Timed out waiting for toolchains")
+	}
 
 	agent := &Agent{
 		remoteInfo: remoteInfoFromContext(streamCtx),
@@ -352,18 +354,26 @@ func (b *Broker) NewAgentTaskStream(
 		defer b.agentsMutex.Unlock()
 		delete(b.agents, agent.UUID)
 	}()
+	return nil
 }
 
 func (b *Broker) NewConsumerdTaskStream(
 	stream types.Scheduler_StreamOutgoingTasksServer,
-) {
+) error {
 	b.consumerdsMutex.Lock()
 	streamCtx := stream.Context()
 	id := meta.UUID(streamCtx)
 	tcChan := b.tcWatcher.WatchToolchains(id)
 
 	b.lg.With(types.ShortID(id)).Info("Consumerd connected, waiting for toolchains")
-	tcs := <-tcChan
+	var tcs *metrics.Toolchains
+	select {
+	case tcs = <-tcChan:
+		b.lg.With(types.ShortID(id)).Info("Toolchains received")
+	case <-time.After(5 * time.Second):
+		b.agentsMutex.Unlock()
+		return status.Error(codes.DeadlineExceeded, "Timed out waiting for toolchains")
+	}
 	b.lg.With(types.ShortID(id)).Info("Toolchains received")
 
 	cd := &Consumerd{
@@ -394,6 +404,7 @@ func (b *Broker) NewConsumerdTaskStream(
 		defer b.agentsMutex.Unlock()
 		delete(b.agents, cd.UUID)
 	}()
+	return nil
 }
 
 func (b *Broker) CalcAgentStats() <-chan []agentStats {
@@ -476,10 +487,8 @@ func (b *Broker) PreReceive(
 		switch action {
 		case ProcessRequestNormally:
 			b.lg.Debug("Cache Miss")
-			b.cacheMissCount.Inc()
 		case RequestIntercepted:
 			b.lg.Info("Cache Hit")
-			b.cacheHitCount.Inc()
 		}
 	}(&action)
 
