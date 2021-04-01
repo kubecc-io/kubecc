@@ -18,12 +18,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package rec
 
 import (
+	"errors"
+
 	"github.com/kubecc-io/kubecc/pkg/util"
 
 	"go.uber.org/zap"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -69,8 +71,14 @@ func Find(
 
 	err := rc.Client.Get(rc.Context, name, out)
 	if err != nil {
-		if errors.IsNotFound(err) && findOptions.creator != nil {
+		if k8serr.IsNotFound(err) && findOptions.creator != nil {
 			out, err = findOptions.creator(rc)
+			if errors.Is(err, ErrMustExist) {
+				lg.With(
+					"name", name.String(),
+				).Warn("Buildcluster no longer exists")
+				return CancelReconcile()
+			}
 			if err != nil {
 				lg.With(zap.Error(err)).Error("Error constructing object from creator")
 			} else {

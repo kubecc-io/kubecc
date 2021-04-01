@@ -20,6 +20,7 @@ package rec
 import (
 	"embed"
 	_ "embed"
+	"errors"
 
 	"github.com/kubecc-io/kubecc/pkg/templates"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,17 +29,11 @@ import (
 //go:embed objects
 var objectsFS embed.FS
 
-type mustExist struct {
-	error
-}
-
-func (e mustExist) Error() string {
-	return "Object must already exist"
-}
+var ErrMustExist = errors.New("Object must already exist")
 
 var (
 	MustExist ObjectCreator = func(ResolveContext) (client.Object, error) {
-		return nil, &mustExist{}
+		return nil, ErrMustExist
 	}
 )
 

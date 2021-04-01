@@ -35,7 +35,7 @@ import (
 )
 
 func runCache(cmd *cobra.Command, args []string) {
-	conf := (&config.ConfigMapProvider{}).Load().Cache
+	conf := config.ConfigMapProvider.Load().Cache
 
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Cache)),

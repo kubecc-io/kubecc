@@ -39,7 +39,7 @@ import (
 )
 
 func runAgent(cmd *cobra.Command, args []string) {
-	conf := (&config.ConfigMapProvider{}).Load().Agent
+	conf := config.ConfigMapProvider.Load().Agent
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
 		meta.WithProvider(identity.UUID),

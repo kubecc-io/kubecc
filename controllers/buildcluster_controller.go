@@ -19,6 +19,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
@@ -64,6 +65,9 @@ func (r *BuildClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}, req.NamespacedName, cluster,
 		rec.WithCreator(rec.MustExist))
 	if rec.ShouldRequeue(res, err) {
+		if errors.Is(err, rec.ErrCancelReconcile) {
+			return rec.DoNotRequeue()
+		}
 		return rec.RequeueWith(res, err)
 	}
 
@@ -75,11 +79,11 @@ func (r *BuildClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.resolveTree = rec.BuildRootResolver(r.Context, r.Client, &rec.ResolverTree{
 		Nodes: []*rec.ResolverTree{
 			{
-				Resolver: &resolvers.ConfigMapResolver{},
-			},
-			{
 				Resolver: &resolvers.ComponentsResolver{},
 				Nodes: []*rec.ResolverTree{
+					{
+						Resolver: &resolvers.ConfigMapResolver{},
+					},
 					{
 						Resolver: &resolvers.AgentResolver{},
 					},

@@ -25,16 +25,17 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kubecc-io/kubecc/pkg/types"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
 )
 
-type ConfigProvider interface {
-	Setup(types.Component)
+type ConfigLoader interface {
+	Load() *KubeccSpec
 }
 
-type ConfigMapProvider struct{}
+type configMapProvider struct{}
+
+var ConfigMapProvider configMapProvider
 
 // ApplyGlobals walks the config structure of KubeccSpec (depth 1), finds any
 // structs that contain a *GlobalSpec field, and syncs non-overridden global
@@ -56,7 +57,7 @@ func ApplyGlobals(cfg *KubeccSpec) {
 	}
 }
 
-func loadConfigOrDie(path string) *KubeccSpec {
+func LoadFile(path string) *KubeccSpec {
 	contents, err := os.ReadFile(path)
 	if err != nil {
 		panic(fmt.Sprintf("Error reading config file %s: %s", path, err.Error()))
@@ -74,7 +75,7 @@ func loadConfigOrDie(path string) *KubeccSpec {
 	return cfg
 }
 
-func (cmp *ConfigMapProvider) Load() *KubeccSpec {
+func (cmp configMapProvider) Load() *KubeccSpec {
 	paths := []string{
 		"/etc/kubecc",
 		path.Join(homedir.HomeDir(), ".kubecc"),
@@ -90,7 +91,7 @@ func (cmp *ConfigMapProvider) Load() *KubeccSpec {
 			if _, err := os.Stat(abs); err != nil {
 				continue
 			}
-			return loadConfigOrDie(abs)
+			return LoadFile(abs)
 		}
 	}
 	panic("Could not find config file")

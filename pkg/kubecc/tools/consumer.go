@@ -43,7 +43,7 @@ var ConsumerNames = []string{
 }
 
 func run() {
-	conf := (&config.ConfigMapProvider{}).Load().Consumer
+	conf := config.ConfigMapProvider.Load().Consumer
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumer)),
 		meta.WithProvider(identity.UUID),

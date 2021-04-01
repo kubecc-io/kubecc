@@ -25,9 +25,9 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	ccctrl "github.com/kubecc-io/kubecc/pkg/cc/controller"
 	"github.com/kubecc-io/kubecc/pkg/clients"
-	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"
+	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/servers"
 	"github.com/kubecc-io/kubecc/pkg/sleep"
@@ -40,7 +40,7 @@ import (
 )
 
 func runConsumerd(cmd *cobra.Command, args []string) {
-	conf := (&config.ConfigMapProvider{}).Load().Consumerd
+	conf := CLIConfigProvider.Load().Consumerd
 
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumerd)),
