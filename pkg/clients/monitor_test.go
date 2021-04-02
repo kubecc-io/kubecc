@@ -109,7 +109,6 @@ var _ = Describe("Monitor Clients", func() {
 		"testKey1Expired": make(chan interface{}, 100),
 	}
 
-	bug := atomic.NewBool(true)
 	providerUuid := atomic.NewString("")
 
 	Context("Functionality", func() {
@@ -149,10 +148,6 @@ var _ = Describe("Monitor Clients", func() {
 						return clients.NoRetry
 					})
 					<-pctx.Done()
-					if bug.Load() {
-						// ! Put a breakpoint here to catch the GC issue
-						testLog.Warn("pctx done " + uuid)
-					}
 					listenerEvents["providerRemoved"] <- uuid
 				})
 			})
@@ -275,7 +270,6 @@ var _ = Describe("Monitor Clients", func() {
 		When("The provider exits", func() {
 			It("should cancel its context", func() {
 				providerCancel()
-				bug.Toggle() // ! Enables GC issue breakpoint
 				Eventually(listenerEvents["providerRemoved"]).Should(Receive())
 				Eventually(lateJoinListenerEvents["providerRemoved"]).Should(Receive())
 			})
