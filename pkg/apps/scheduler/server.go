@@ -245,18 +245,13 @@ func (s *schedulerServer) postPreferredUsageLimits() {
 
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postPreferredUsageLimits()
 
-	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5) // 5-7.5 sec
-	go func() {
-		for {
-			<-slowTimer
-			s.postCounts()
-			s.postTotals()
-			s.postAgentStats()
-			s.postConsumerdStats()
-		}
-	}()
+	util.RunPeriodic(s.srvContext, 5*time.Second, 0.5, true, // 5-7.5 sec
+		s.postPreferredUsageLimits,
+		s.postCounts,
+		s.postTotals,
+		s.postAgentStats,
+		s.postConsumerdStats)
 }
 
 func (s *schedulerServer) GetRoutes(

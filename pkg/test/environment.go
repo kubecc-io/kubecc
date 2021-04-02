@@ -558,9 +558,9 @@ func (e *Environment) Shutdown() {
 }
 
 func (e *Environment) WaitForReady(uuid string) {
-	client := e.NewMonitorClient(e.envContext)
-	listener := clients.NewMetricsListener(e.envContext, client)
-	defer listener.Stop()
+	ctx, ca := context.WithCancel(e.envContext)
+	client := e.NewMonitorClient(ctx)
+	listener := clients.NewMetricsListener(ctx, client)
 	done := make(chan struct{})
 	listener.OnProviderAdded(func(c context.Context, s string) {
 		if s != uuid {
@@ -568,11 +568,15 @@ func (e *Environment) WaitForReady(uuid string) {
 		}
 		listener.OnValueChanged(uuid, func(h *metrics.Health) {
 			if h.GetStatus() != metrics.OverallStatus_Initializing {
-				done <- struct{}{}
+				select {
+				case done <- struct{}{}:
+				default:
+				}
 			}
 		})
 	})
 	<-done
+	ca()
 }
 
 func (e *Environment) MetricF(srvCtx context.Context, out proto.Message) func() (proto.Message, error) {

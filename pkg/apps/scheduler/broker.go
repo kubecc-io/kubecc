@@ -371,7 +371,7 @@ func (b *Broker) NewConsumerdTaskStream(
 	case tcs = <-tcChan:
 		b.lg.With(types.ShortID(id)).Info("Toolchains received")
 	case <-time.After(5 * time.Second):
-		b.agentsMutex.Unlock()
+		b.consumerdsMutex.Unlock()
 		return status.Error(codes.DeadlineExceeded, "Timed out waiting for toolchains")
 	}
 	b.lg.With(types.ShortID(id)).Info("Toolchains received")
@@ -400,9 +400,9 @@ func (b *Broker) NewConsumerdTaskStream(
 	go func() {
 		<-streamCtx.Done()
 
-		b.agentsMutex.Lock()
-		defer b.agentsMutex.Unlock()
-		delete(b.agents, cd.UUID)
+		b.consumerdsMutex.Lock()
+		defer b.consumerdsMutex.Unlock()
+		delete(b.consumerds, cd.UUID)
 	}()
 	return nil
 }
