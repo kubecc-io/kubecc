@@ -254,33 +254,13 @@ func (s *consumerdServer) postToolchains() {
 
 func (s *consumerdServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postUsageLimits()
-	s.postToolchains()
 
-	slowTimer := util.NewJitteredTimer(5*time.Second, 0.25)
-	go func() {
-		for {
-			<-slowTimer
-			s.postUsageLimits()
-			s.postTotals()
-			s.postToolchains()
-		}
-	}()
-
-	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
-	go func() {
-		for {
-			<-fastTimer
-			s.postTaskStatus()
-		}
-	}()
-
-	go func() {
-		for {
-			<-s.storeUpdateCh
-			s.postToolchains()
-		}
-	}()
+	util.RunPeriodic(s.srvContext, 5*time.Second, 0.25, true,
+		s.postUsageLimits, s.postToolchains, s.postTotals)
+	util.RunPeriodic(s.srvContext, time.Second/6, 2.0, true,
+		s.postTaskStatus)
+	util.RunOnNotify(s.srvContext, s.storeUpdateCh,
+		s.postToolchains)
 }
 
 func (c *consumerdServer) Run(

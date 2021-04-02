@@ -26,6 +26,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/kubecc-io/kubecc/pkg/clients"
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/meta"
@@ -56,8 +57,11 @@ type MonitorServer struct {
 	lg         *zap.SugaredLogger
 	uuid       string
 
-	buckets       map[string]KeyValueStore
-	listeners     map[string]map[string]Receiver
+	buckets map[string]KeyValueStore
+
+	// todo: refactor this
+	// map[key]map[listener uuid]map[arbitrary id]Receiver
+	listeners     map[string]map[string]map[string]Receiver
 	providerMutex *sync.RWMutex
 	listenerMutex *sync.RWMutex
 	metricsTotal  *atomic.Int64
@@ -78,7 +82,7 @@ func NewMonitorServer(
 		buckets: map[string]KeyValueStore{
 			uuid: storeCreator.NewStore(ctx),
 		},
-		listeners:     make(map[string]map[string]Receiver),
+		listeners:     make(map[string]map[string]map[string]Receiver),
 		providerMutex: &sync.RWMutex{},
 		listenerMutex: &sync.RWMutex{},
 		storeCreator:  storeCreator,
@@ -96,9 +100,11 @@ func NewMonitorServer(
 	srv.BeginInitialize()
 	defer srv.EndInitialize()
 
+	srv.providerMutex.Lock()
 	providerCount.Inc()
 	srv.buckets[clients.MetaBucket] = storeCreator.NewStore(ctx)
 	srv.providersUpdated()
+	srv.providerMutex.Unlock()
 
 	if conf.ServePrometheusMetrics {
 		go srv.runPrometheusListener()
@@ -110,6 +116,8 @@ func NewMonitorServer(
 }
 
 func (m *MonitorServer) postInternal(any *anypb.Any) {
+	m.providerMutex.RLock()
+	defer m.providerMutex.RUnlock()
 	err := m.post(&types.Metric{
 		Key: &types.Key{
 			Bucket: m.uuid,
@@ -136,8 +144,10 @@ func (m *MonitorServer) postTotals() {
 func (m *MonitorServer) postListeners() {
 	m.listenerMutex.RLock()
 	total := 0
-	for _, v := range m.listeners {
-		total += len(v)
+	for _, m := range m.listeners {
+		for _, v := range m {
+			total += len(v)
+		}
 	}
 	m.listenerMutex.RUnlock()
 	any, err := anypb.New(&metrics.ListenerCount{
@@ -176,15 +186,8 @@ func (m *MonitorServer) postHealthUpdates() {
 
 func (m *MonitorServer) startMetricsProvider() {
 	go m.postHealthUpdates()
-	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5)
-	go func() {
-		for {
-			<-slowTimer
-			m.postTotals()
-			m.postListeners()
-			m.postProviders()
-		}
-	}()
+	util.RunPeriodic(m.srvContext, 5*time.Second, 0.5, false,
+		m.postTotals, m.postListeners, m.postProviders)
 }
 
 func (m *MonitorServer) runPrometheusListener() {
@@ -224,14 +227,14 @@ func (m *MonitorServer) incMetricsPostedTotal() {
 	metricsPostedTotal.Inc()
 }
 
-// bucketMutex must not be held by the same thread when calling this function.
+// providerMutex must be write-locked when calling this function.
 func (m *MonitorServer) providersUpdated() {
-	m.providerMutex.RLock()
 	any, err := anypb.New(proto.Clone(m.providers))
-	m.providerMutex.RUnlock()
 	if err != nil {
 		panic(err)
 	}
+	// the providerMutex lock requirement is satisfied by the requirements of
+	// calling providersUpdated
 	err = m.post(&types.Metric{
 		Key: &types.Key{
 			Bucket: clients.MetaBucket,
@@ -283,6 +286,7 @@ func (m *MonitorServer) Stream(
 			"A client with the same identity is already connected")
 	}
 	bucketCtx, bucketCancel := context.WithCancel(context.Background())
+
 	store := m.storeCreator.NewStore(bucketCtx)
 	m.buckets[uuid] = store
 	m.providers.Items[uuid] = &metrics.ProviderInfo{
@@ -291,8 +295,8 @@ func (m *MonitorServer) Stream(
 		Address:   addr,
 	}
 	providerCount.Inc()
-	m.providerMutex.Unlock()
 	m.providersUpdated()
+	m.providerMutex.Unlock()
 
 	m.lg.With(
 		zap.String("component", component.Name()),
@@ -308,7 +312,11 @@ func (m *MonitorServer) Stream(
 			}
 			break
 		}
+
+		m.providerMutex.RLock()
 		err = m.post(metric)
+		m.providerMutex.RUnlock()
+
 		if err != nil {
 			m.lg.Error(err)
 			streamError = err
@@ -321,12 +329,15 @@ func (m *MonitorServer) Stream(
 	).Info(types.Monitor.Color().Add("Provider disconnected"))
 
 	m.providerMutex.Lock()
-	bucketCancel()
 	delete(m.buckets, uuid)
 	delete(m.providers.Items, uuid)
 	providerCount.Dec()
-	m.providerMutex.Unlock()
+	// Important: the providerMutex must stay write-locked when canceling the
+	// bucket context, otherwise listeners will be removed and may not be
+	// notified of this cancellation.
+	bucketCancel()
 	m.providersUpdated()
+	m.providerMutex.Unlock()
 	return
 }
 
@@ -335,18 +346,19 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 	defer m.listenerMutex.RUnlock()
 
 	if listeners, ok := m.listeners[metric.Key.Canonical()]; ok {
-		for _, v := range listeners {
-			err := v.Send(metric.Value)
-			if err != nil {
-				m.lg.With(zap.Error(err)).Error("Error notifying listener")
+		for _, receivers := range listeners {
+			for _, receiver := range receivers {
+				err := receiver.Send(metric.Value)
+				if err != nil {
+					m.lg.With(zap.Error(err)).Error("Error notifying listener")
+				}
 			}
 		}
 	}
 }
 
+// providerMutex must be locked (read or write) when calling this function.
 func (m *MonitorServer) post(metric *types.Metric) error {
-	m.providerMutex.RLock()
-	defer m.providerMutex.RUnlock()
 	bucket := metric.Key.Bucket
 	if store, ok := m.buckets[bucket]; ok {
 		if metric.Value == nil {
@@ -379,10 +391,12 @@ func (m *MonitorServer) Listen(
 		return err
 	}
 	ctx := srv.Context()
-	uuid := meta.UUID(ctx)
+	listenerID := meta.UUID(ctx)
+	nonce := uuid.NewString()
 	m.lg.With(
 		zap.String("component", meta.Component(ctx).Name()),
-		types.ShortID(uuid),
+		"id", types.FormatShortID(listenerID, 6, types.ElideCenter),
+		"nonce", types.FormatShortID(nonce, 4, types.ElideCenter),
 	).Debug("Listener added")
 	m.providerMutex.RLock()
 
@@ -399,10 +413,13 @@ func (m *MonitorServer) Listen(
 	m.listenerMutex.Lock()
 	canonical := key.Canonical()
 	if m.listeners[canonical] == nil {
-		m.listeners[canonical] = make(map[string]Receiver)
+		m.listeners[canonical] = make(map[string]map[string]Receiver)
+	}
+	if m.listeners[canonical][listenerID] == nil {
+		m.listeners[canonical][listenerID] = make(map[string]Receiver)
 	}
 	listenerCount.Inc()
-	m.listeners[canonical][uuid] = srv
+	m.listeners[canonical][listenerID][nonce] = srv
 	m.listenerMutex.Unlock()
 
 	// late join
@@ -420,13 +437,23 @@ func (m *MonitorServer) Listen(
 	m.providerMutex.RUnlock()
 
 	defer func() {
+		// Locking the provider mutex here ensures listeners stay alive while
+		// a provider is being deleted, so that they can be properly notified
+		// that a provider has been deleted by canceling the associated bucket
+		// context.
+		m.providerMutex.Lock()
+		// Mutex lock order is important here!
 		m.listenerMutex.Lock()
-		delete(m.listeners[canonical], uuid)
+
+		delete(m.listeners[canonical][listenerID], nonce)
 		listenerCount.Dec()
 		m.listenerMutex.Unlock()
+		m.providerMutex.Unlock()
+
 		m.lg.With(
 			zap.String("component", meta.Component(ctx).Name()),
-			types.ShortID(uuid),
+			"id", types.FormatShortID(listenerID, 6, types.ElideCenter),
+			"nonce", types.FormatShortID(nonce, 4, types.ElideCenter),
 		).Debug("Listener removed")
 	}()
 

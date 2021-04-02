@@ -52,7 +52,14 @@ func (a *agent) rowData() []string {
 	}
 }
 
-type consumerd agent
+type consumerd struct {
+	lock        sync.Mutex
+	address     string
+	uuid        string
+	health      *metrics.Health
+	taskStatus  *metrics.TaskStatus
+	usageLimits *metrics.UsageLimits
+}
 
 func (c *consumerd) rowData() []string {
 	c.lock.Lock()
@@ -212,7 +219,7 @@ func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style
 			taskStatus:  &metrics.TaskStatus{},
 			usageLimits: &metrics.UsageLimits{},
 		})
-		listener.OnValueChanged(s, func(h *metrics.Health) {
+		updateHealth := func(h *metrics.Health) {
 			v, ok := a.agents.Load(s)
 			if !ok {
 				return
@@ -222,8 +229,15 @@ func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style
 			agent.health = h
 			agent.lock.Unlock()
 			doUpdate()
-		})
-		listener.OnValueChanged(s, func(status *metrics.TaskStatus) {
+		}
+		listener.OnValueChanged(s, updateHealth).
+			OrExpired(func() clients.RetryOptions {
+				updateHealth(&metrics.Health{
+					Status: metrics.OverallStatus_UnknownStatus,
+				})
+				return clients.NoRetry
+			})
+		updateTaskStatus := func(status *metrics.TaskStatus) {
 			v, ok := a.agents.Load(s)
 			if !ok {
 				return
@@ -233,8 +247,13 @@ func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style
 			agent.taskStatus = status
 			agent.lock.Unlock()
 			doUpdate()
-		})
-		listener.OnValueChanged(s, func(limits *metrics.UsageLimits) {
+		}
+		listener.OnValueChanged(s, updateTaskStatus).
+			OrExpired(func() clients.RetryOptions {
+				updateTaskStatus(&metrics.TaskStatus{})
+				return clients.NoRetry
+			})
+		updateUsageLimits := func(limits *metrics.UsageLimits) {
 			v, ok := a.agents.Load(s)
 			if !ok {
 				return
@@ -244,9 +263,17 @@ func (a *agentDataSource) Data() (<-chan [][]string, <-chan map[int]termui.Style
 			agent.usageLimits = limits
 			agent.lock.Unlock()
 			doUpdate()
-		})
+		}
+		listener.OnValueChanged(s, updateUsageLimits).
+			OrExpired(func() clients.RetryOptions {
+				updateUsageLimits(&metrics.UsageLimits{})
+				return clients.NoRetry
+			})
 		<-c.Done()
-		a.agents.Delete(s)
+		_, ok := a.agents.LoadAndDelete(s)
+		if !ok {
+			panic("deleted nonexistent agent")
+		}
 		doUpdate()
 	})
 	return dataCh, styleCh
@@ -296,7 +323,7 @@ func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.S
 			taskStatus:  &metrics.TaskStatus{},
 			usageLimits: &metrics.UsageLimits{},
 		})
-		listener.OnValueChanged(s, func(h *metrics.Health) {
+		updateHealth := func(h *metrics.Health) {
 			v, ok := a.consumerds.Load(s)
 			if !ok {
 				return
@@ -306,8 +333,15 @@ func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.S
 			cd.health = h
 			cd.lock.Unlock()
 			doUpdate()
-		})
-		listener.OnValueChanged(s, func(status *metrics.TaskStatus) {
+		}
+		listener.OnValueChanged(s, updateHealth).
+			OrExpired(func() clients.RetryOptions {
+				updateHealth(&metrics.Health{
+					Status: metrics.OverallStatus_UnknownStatus,
+				})
+				return clients.NoRetry
+			})
+		updateTaskStatus := func(status *metrics.TaskStatus) {
 			v, ok := a.consumerds.Load(s)
 			if !ok {
 				return
@@ -317,8 +351,13 @@ func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.S
 			cd.taskStatus = status
 			cd.lock.Unlock()
 			doUpdate()
-		})
-		listener.OnValueChanged(s, func(limits *metrics.UsageLimits) {
+		}
+		listener.OnValueChanged(s, updateTaskStatus).
+			OrExpired(func() clients.RetryOptions {
+				updateTaskStatus(&metrics.TaskStatus{})
+				return clients.NoRetry
+			})
+		updateUsageLimits := func(limits *metrics.UsageLimits) {
 			v, ok := a.consumerds.Load(s)
 			if !ok {
 				return
@@ -328,9 +367,17 @@ func (a *consumerdDataSource) Data() (<-chan [][]string, <-chan map[int]termui.S
 			cd.usageLimits = limits
 			cd.lock.Unlock()
 			doUpdate()
-		})
+		}
+		listener.OnValueChanged(s, updateUsageLimits).
+			OrExpired(func() clients.RetryOptions {
+				updateUsageLimits(&metrics.UsageLimits{})
+				return clients.NoRetry
+			})
 		<-c.Done()
-		a.consumerds.Delete(s)
+		_, ok := a.consumerds.LoadAndDelete(s)
+		if !ok {
+			panic("deleted nonexistent consumerd")
+		}
 		doUpdate()
 	})
 	return dataCh, styleCh

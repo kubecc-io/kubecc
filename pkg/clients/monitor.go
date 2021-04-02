@@ -173,6 +173,7 @@ func (p *monitorMetricsProvider) PostContext(metric proto.Message, ctx context.C
 			defer p.metricCtxMapMutex.Unlock()
 			delete(p.metricCtxMap, key)
 		}()
+
 		select {
 		case <-ctx.Done():
 			p.Post(&metrics.Deleter{
@@ -222,19 +223,25 @@ func (p *monitorMetricsProvider) Post(metric proto.Message) {
 func (p *monitorMetricsProvider) watchStatus(ctrl *metrics.StatusController) {
 	stream := ctrl.StreamHealthUpdates()
 	for {
-		h := <-stream
-		p.Post(h)
+		select {
+		case h := <-stream:
+			p.Post(h)
+		case <-p.ctx.Done():
+			return
+		}
 	}
 }
 
 type monitorListener struct {
-	ctx            context.Context
-	cancel         context.CancelFunc
-	monClient      types.MonitorClient
-	lg             *zap.SugaredLogger
-	streamOpts     []StreamManagerOption
-	knownProviders map[string]context.CancelFunc
-	providersMutex *sync.Mutex
+	parentCtx  context.Context
+	cancel     context.CancelFunc
+	monClient  types.MonitorClient
+	lg         *zap.SugaredLogger
+	streamOpts []StreamManagerOption
+}
+
+func (m *monitorListener) newContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(m.parentCtx)
 }
 
 func NewMetricsListener(
@@ -242,14 +249,12 @@ func NewMetricsListener(
 	client types.MonitorClient,
 	streamOpts ...StreamManagerOption,
 ) MetricsListener {
-	ctx, cancel := context.WithCancel(ctx)
+	parent, cancel := context.WithCancel(ctx)
 	listener := &monitorListener{
-		ctx:            ctx,
-		cancel:         cancel,
-		lg:             meta.Log(ctx),
-		monClient:      client,
-		knownProviders: make(map[string]context.CancelFunc),
-		providersMutex: &sync.Mutex{},
+		parentCtx: parent,
+		cancel:    cancel,
+		lg:        meta.Log(ctx),
+		monClient: client,
 		streamOpts: append([]StreamManagerOption{
 			WithLogEvents(LogConnectionFailed),
 		}, streamOpts...),
@@ -258,12 +263,15 @@ func NewMetricsListener(
 }
 
 func (l *monitorListener) OnProviderAdded(handler func(context.Context, string)) {
+	knownProviders := make(map[string]context.CancelFunc)
+	providersMutex := &sync.Mutex{}
+
 	doUpdate := func(providers *metrics.Providers) {
-		l.providersMutex.Lock()
-		defer l.providersMutex.Unlock()
+		providersMutex.Lock()
+		defer providersMutex.Unlock()
 
 		known := mapset.NewSet()
-		for uuid := range l.knownProviders {
+		for uuid := range knownProviders {
 			known.Add(uuid)
 		}
 		updated := mapset.NewSet()
@@ -275,28 +283,25 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 
 		removed.Each(func(i interface{}) (stop bool) {
 			uuid := i.(string)
-			cancel := l.knownProviders[uuid]
-			delete(l.knownProviders, uuid)
+			cancel := knownProviders[uuid]
+			delete(knownProviders, uuid)
 			defer cancel()
 			return
 		})
 		added.Each(func(i interface{}) (stop bool) {
 			uuid := i.(string)
-			pctx, cancel := context.WithCancel(l.ctx)
-			l.knownProviders[uuid] = cancel
-			defer func() {
-				go handler(pctx, uuid)
-			}()
+			pctx, cancel := l.newContext()
+			knownProviders[uuid] = cancel
+			go handler(pctx, uuid)
 			return
 		})
 	}
 
-	l.OnValueChanged(MetaBucket, func(providers *metrics.Providers) {
-		doUpdate(providers)
-	}).OrExpired(func() RetryOptions {
-		doUpdate(&metrics.Providers{})
-		return Retry
-	})
+	l.OnValueChanged(MetaBucket, doUpdate).
+		OrExpired(func() RetryOptions {
+			doUpdate(&metrics.Providers{})
+			return Retry
+		})
 }
 
 type changeListener struct {
@@ -394,7 +399,7 @@ func (l *monitorListener) OnValueChanged(
 ) ChangeListener {
 	argType, funcValue, typeUrl := handlerArgType(handler)
 	cl := &changeListener{
-		ctx:       l.ctx,
+		ctx:       l.parentCtx,
 		handler:   funcValue,
 		argType:   argType,
 		ehMutex:   &sync.Mutex{},
@@ -404,7 +409,8 @@ func (l *monitorListener) OnValueChanged(
 			Name:   typeUrl,
 		},
 	}
-	mgr := NewStreamManager(l.ctx, cl, l.streamOpts...)
+
+	mgr := NewStreamManager(l.parentCtx, cl, l.streamOpts...)
 	go mgr.Run()
 	return cl
 }

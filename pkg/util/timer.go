@@ -18,17 +18,52 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package util
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// NewJitteredTimer returns a channel which will be written to on every tick
-// of a jittered timer.
-func NewJitteredTimer(duration time.Duration, factor float64) <-chan struct{} {
-	ch := make(chan struct{})
+// RunPeriodic runs each function given in funcs (in parallel) every time
+// the channel receives a value. It stops when either the channel is closed
+// or the context is canceled.
+func RunOnNotify(ctx context.Context, c <-chan struct{}, funcs ...func()) {
+	go func() {
+		for {
+			select {
+			case _, open := <-c:
+				if !open {
+					return
+				}
+				for _, fn := range funcs {
+					go fn()
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// RunPeriodic runs each function given in funcs (in parallel) every given
+// duration until the context is done. A jitter factor can be provided, or
+// set to a negative number to disable jitter. If now is true, the functions
+// will be run once immediately before starting the timer.
+func RunPeriodic(
+	ctx context.Context,
+	duration time.Duration,
+	factor float64,
+	now bool,
+	funcs ...func(),
+) {
+	if now {
+		for _, fn := range funcs {
+			go fn()
+		}
+	}
 	go wait.JitterUntil(func() {
-		ch <- struct{}{}
-	}, duration, factor, false, wait.NeverStop)
-	return ch
+		for _, fn := range funcs {
+			go fn()
+		}
+	}, duration, factor, false, ctx.Done())
 }

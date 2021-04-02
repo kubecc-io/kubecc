@@ -169,25 +169,11 @@ func (s *AgentServer) postToolchains() {
 
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
-	s.postUsageLimits()
-	s.postToolchains()
 
-	fastTimer := util.NewJitteredTimer(time.Second/6, 2.0)
-	go func() {
-		for {
-			<-fastTimer
-			s.postTaskStatus()
-		}
-	}()
-
-	slowTimer := util.NewJitteredTimer(5*time.Second, 0.5)
-	go func() {
-		for {
-			<-slowTimer
-			s.postUsageLimits()
-			s.postToolchains()
-		}
-	}()
+	util.RunPeriodic(s.srvContext, time.Second/6, 2.0, false,
+		s.postTaskStatus)
+	util.RunPeriodic(s.srvContext, 5*time.Second, 0.5, true,
+		s.postUsageLimits, s.postToolchains)
 }
 
 func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {

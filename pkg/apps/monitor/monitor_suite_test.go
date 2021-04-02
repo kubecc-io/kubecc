@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package monitor_test
 
 import (
-	"runtime/debug"
 	"testing"
 	"time"
 
@@ -35,17 +34,6 @@ func TestMonitor(t *testing.T) {
 	testLog = logkc.New(types.TestComponent, logkc.WithWriter(GinkgoWriter))
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(3 * time.Second)
-	// SetDefaultEventuallyTimeout(1 * time.Hour)
 	SetDefaultEventuallyPollingInterval(50 * time.Millisecond)
 	RunSpecs(t, "Monitor Suite")
 }
-
-var _ = BeforeSuite(func() {
-	// ! this test is flaky because something is getting GC'd when it shouldn't be
-	// ! disabling GC during this test for now as a temporary fix
-	debug.SetGCPercent(-1)
-})
-
-var _ = AfterSuite(func() {
-	debug.SetGCPercent(100)
-})

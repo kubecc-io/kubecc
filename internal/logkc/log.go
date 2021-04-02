@@ -65,7 +65,7 @@ func formatTime(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 	case 3:
 		timeBuf = []byte{'[', number[0], number[1], number[2], ']'}
 	default:
-		timeBuf = append([]byte{'['}, number...)
+		timeBuf = append(append([]byte{'['}, number...), ']')
 	}
 	enc.AppendByteString(timeBuf)
 }

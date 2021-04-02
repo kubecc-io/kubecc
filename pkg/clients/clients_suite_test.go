@@ -19,14 +19,23 @@ package clients_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/test"
+	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
 )
 
+var testLog *zap.SugaredLogger
+
 func TestClients(t *testing.T) {
+	testLog = logkc.New(types.TestComponent, logkc.WithWriter(GinkgoWriter))
 	RegisterFailHandler(Fail)
+	SetDefaultEventuallyTimeout(3 * time.Second)
+	SetDefaultEventuallyPollingInterval(50 * time.Millisecond)
 	RunSpecs(t, "Clients Suite")
 	test.ExtendTimeoutsIfDebugging()
 }
