@@ -53,6 +53,9 @@ type Agent struct {
 
 	Toolchains *metrics.Toolchains
 	Stream     types.Scheduler_StreamIncomingTasksServer
+
+	AvailableTokens chan struct{}
+	LockedTokens    chan struct{}
 }
 
 func remoteInfoFromContext(ctx context.Context) remoteInfo {

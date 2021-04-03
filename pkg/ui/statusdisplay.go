@@ -93,7 +93,7 @@ func (s *StatusDisplay) Run() {
 	)
 
 	uiEvents := ui.PollEvents()
-	ticker := time.NewTicker(time.Second / 8).C
+	ticker := time.NewTicker(time.Second / 4).C
 
 	for {
 		select {

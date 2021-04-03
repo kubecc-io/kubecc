@@ -19,6 +19,7 @@ package scheduler
 
 import (
 	"context"
+	"math"
 	"sync"
 	"time"
 
@@ -50,6 +51,9 @@ type schedulerServer struct {
 	condNoCdsCancel        context.CancelFunc
 	condNoAgentsCancelLock sync.Mutex
 	condNoCdsCancelLock    sync.Mutex
+
+	optimizer            *Optimizer
+	usageLimitMultiplier *atomic.Float64
 }
 
 type SchedulerServerOptions struct {
@@ -96,7 +100,9 @@ func NewSchedulerServer(
 			CacheClient(options.cacheClient),
 			MonitorClient(options.monClient),
 		),
+		usageLimitMultiplier: atomic.NewFloat64(0.0),
 	}
+	srv.optimizer = NewOptimizer(ctx, options.monClient, srv.broker)
 	srv.BeginInitialize()
 	srv.applyNoAgentsCond()
 	srv.applyNoCdsCond()
@@ -239,12 +245,24 @@ func (s *schedulerServer) postConsumerdStats() {
 
 func (s *schedulerServer) postPreferredUsageLimits() {
 	s.metricsProvider.Post(&metrics.PreferredUsageLimits{
-		ConcurrentProcessLimit: s.broker.calcPreferredUsageLimits(),
+		ConcurrentProcessLimit: int64(math.Round(
+			float64(s.broker.calcPreferredUsageLimits()) *
+				s.usageLimitMultiplier.Load(),
+		)),
 	})
 }
 
 func (s *schedulerServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
+	go func() {
+		for {
+			adjustment := <-s.optimizer.UsageLimitMultiplierChanged()
+			s.lg.With(
+				"multiplier", adjustment,
+			).Info("Adjusting preferred usage limits based on cache metrics")
+			s.usageLimitMultiplier.Store(adjustment)
+		}
+	}()
 
 	util.RunPeriodic(s.srvContext, 5*time.Second, 0.5, true, // 5-7.5 sec
 		s.postPreferredUsageLimits,

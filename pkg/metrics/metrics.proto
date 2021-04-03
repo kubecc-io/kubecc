@@ -30,6 +30,25 @@ message Deleter {
   string Key = 1;
 }
 
+message CpuStats {
+  uint64 WallTime = 1;
+  CpuUsage CpuUsage = 2;
+  ThrottlingData ThrottlingData = 3;
+}
+
+message CpuUsage {
+  int64 CfsQuota = 1;
+  int64 CfsPeriod = 2;
+  uint64 TotalUsage = 3;
+}
+
+// libcontainer/cgroups/stats.go ThrottlingData
+message ThrottlingData {
+  uint64 Periods = 1;
+  uint64 ThrottledPeriods = 2;
+  uint64 ThrottledTime = 3;
+}
+
 // Scheduler
 
 message TasksCompletedTotal {
