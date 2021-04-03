@@ -161,11 +161,11 @@ func (b *Broker) handleAgentStream(
 	uuid := meta.UUID(stream.Context())
 	agent := b.agents[uuid]
 	b.agentsMutex.RUnlock()
-	availableTokens := make(chan struct{}, MaxTokens)
-	lockedTokens := make(chan struct{}, MaxTokens)
+	agent.AvailableTokens = make(chan struct{}, MaxTokens)
+	agent.LockedTokens = make(chan struct{}, MaxTokens)
 	agent.Lock()
 	for i := 0; i < int(agent.UsageLimits.ConcurrentProcessLimit); i++ {
-		availableTokens <- struct{}{}
+		agent.AvailableTokens <- struct{}{}
 	}
 	agent.Unlock()
 
@@ -180,8 +180,8 @@ func (b *Broker) handleAgentStream(
 			// received. If there are no tokens left, this will block until one
 			// becomes available or the stream is done.
 			select {
-			case token := <-availableTokens:
-				lockedTokens <- token
+			case token := <-agent.AvailableTokens:
+				agent.LockedTokens <- token
 			case <-stream.Context().Done():
 				return
 			}
@@ -218,8 +218,8 @@ func (b *Broker) handleAgentStream(
 			}
 
 			select {
-			case token := <-lockedTokens:
-				availableTokens <- token
+			case token := <-agent.LockedTokens:
+				agent.AvailableTokens <- token
 			default:
 				b.lg.With(
 					types.ShortID(agent.UUID),
@@ -564,5 +564,12 @@ func (b *Broker) calcPreferredUsageLimits() (total int64) {
 	for _, a := range b.agents {
 		total += int64(a.remoteInfo.UsageLimits.ConcurrentProcessLimit)
 	}
+	return
+}
+
+func (b *Broker) GetAgent(uuid string) (agent *Agent, ok bool) {
+	b.agentsMutex.RLock()
+	defer b.agentsMutex.RUnlock()
+	agent, ok = b.agents[uuid]
 	return
 }

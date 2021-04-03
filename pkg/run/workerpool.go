@@ -171,24 +171,21 @@ type worker struct {
 
 func (w *worker) Run() {
 	for {
-		// Checking stopQueue up front allows it to terminate immediately,
-		// since if both channels can be read from, go will pick one at random.
 		select {
 		case <-w.stopQueue:
 			return
-		default:
+			// Get a futureTask from the queue
+		case ft := <-w.taskQueue:
+			select {
+			case <-w.stopQueue:
+				return
+				// Wait until a task is sent on the futureTask's channel
+			case task := <-ft.C:
+				// Put the futureTask back into the global pool
+				futureTaskPool.Put(ft)
+				// Run the task
+				w.runner(task)
+			}
 		}
-
-		// Get a futureTask from the queue
-		ft := <-w.taskQueue
-
-		// Wait until a task is sent on the futureTask's channel
-		task := <-ft.C
-
-		// Put the futureTask back into the global pool
-		futureTaskPool.Put(ft)
-
-		// Run the task
-		w.runner(task)
 	}
 }

@@ -255,8 +255,12 @@ func (s *consumerdServer) postToolchains() {
 func (s *consumerdServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 
+	// todo: send this on worker pool resize instead
+	util.RunPeriodic(s.srvContext, 1*time.Second, 1.0, true,
+		s.postUsageLimits)
+
 	util.RunPeriodic(s.srvContext, 5*time.Second, 0.25, true,
-		s.postUsageLimits, s.postToolchains, s.postTotals)
+		s.postToolchains, s.postTotals)
 	util.RunPeriodic(s.srvContext, time.Second/6, 2.0, true,
 		s.postTaskStatus)
 	util.RunOnNotify(s.srvContext, s.storeUpdateCh,

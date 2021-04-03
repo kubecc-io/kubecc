@@ -38,6 +38,11 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+var (
+	cfsQuota  = host.CfsQuota()
+	cfsPeriod = host.CfsPeriod()
+)
+
 type AgentServer struct {
 	metrics.StatusController
 	srvContext       context.Context
@@ -167,11 +172,35 @@ func (s *AgentServer) postToolchains() {
 	})
 }
 
+func (s *AgentServer) postCpuStats() {
+	stats, err := host.CpuStats()
+	if err != nil {
+		s.lg.With(
+			zap.Error(err),
+		).Warn("Could not obtain CPU stats")
+		return
+	}
+	s.metricsProvider.Post(&metrics.CpuStats{
+		CpuUsage: &metrics.CpuUsage{
+			TotalUsage: stats.CpuStats.CpuUsage.TotalUsage,
+			CfsQuota:   cfsQuota,
+			CfsPeriod:  cfsPeriod,
+		},
+		ThrottlingData: &metrics.ThrottlingData{
+			Periods:          stats.CpuStats.ThrottlingData.Periods,
+			ThrottledPeriods: stats.CpuStats.ThrottlingData.ThrottledPeriods,
+			ThrottledTime:    stats.CpuStats.ThrottlingData.ThrottledTime,
+		},
+	})
+}
+
 func (s *AgentServer) StartMetricsProvider() {
 	s.lg.Info("Starting metrics provider")
 
 	util.RunPeriodic(s.srvContext, time.Second/6, 2.0, false,
 		s.postTaskStatus)
+	util.RunPeriodic(s.srvContext, 1*time.Second, -1, true,
+		s.postCpuStats)
 	util.RunPeriodic(s.srvContext, 5*time.Second, 0.5, true,
 		s.postUsageLimits, s.postToolchains)
 }

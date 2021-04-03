@@ -24,6 +24,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
 )
 
 const (
@@ -60,4 +63,19 @@ func CfsPeriod() int64 {
 		return 1
 	}
 	return value
+}
+
+func CpuStats() (*cgroups.Stats, error) {
+	cpuacct := &fs.CpuacctGroup{}
+	cpu := &fs.CpuGroup{}
+	stats := cgroups.NewStats()
+	err := cpuacct.GetStats(filepath.Join(cgroupDir, "cpu"), stats)
+	if err != nil {
+		return nil, err
+	}
+	err = cpu.GetStats(filepath.Join(cgroupDir, "cpu"), stats)
+	if err != nil {
+		return nil, err
+	}
+	return stats, nil
 }
