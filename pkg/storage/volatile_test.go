@@ -31,6 +31,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"github.com/kubecc-io/kubecc/pkg/storage"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
@@ -222,6 +223,44 @@ var _ = Describe("Volatile Storage Provider", func() {
 			Eventually(func() float64 {
 				return vsp.UsageInfo().UsagePercent
 			}).Should(Equal(0.0))
+			_, err := vsp.Get(testCtx, &types.CacheKey{
+				Hash: "1",
+			})
+			Expect(status.Code(err)).To(Equal(codes.NotFound))
+		})
+	})
+	Context("Stats", func() {
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			Limits: config.StorageLimitsSpec{
+				Memory: "1Ki",
+			},
+		})
+		It("Should configure successfully", func() {
+			Expect(vsp.Configure()).To(Succeed())
+		})
+		It("should calculate cache hit statistics", func() {
+			Expect(vsp.CacheHits()).To(BeEquivalentTo(&metrics.CacheHits{
+				CacheHitsTotal:   0,
+				CacheMissesTotal: 0,
+				CacheHitPercent:  0.0,
+			}))
+			for i := 0; i < 10; i++ {
+				Expect(vsp.Put(testCtx, &types.CacheKey{
+					Hash: fmt.Sprint(i),
+				}, &types.CacheObject{
+					Data: []byte(fmt.Sprint(i)),
+				})).To(Succeed())
+			}
+			for i := 0; i < 100; i++ {
+				vsp.Get(testCtx, &types.CacheKey{
+					Hash: fmt.Sprint(i),
+				})
+			}
+			Expect(vsp.CacheHits()).To(BeEquivalentTo(&metrics.CacheHits{
+				CacheHitsTotal:   10,
+				CacheMissesTotal: 90,
+				CacheHitPercent:  10.0 / 100.0,
+			}))
 		})
 	})
 })
