@@ -36,7 +36,9 @@ var _ = Describe("Test Environment", func() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+			logkc.WithLogLevel(zapcore.ErrorLevel),
+		))),
 		meta.WithProvider(tracing.Tracer),
 	)
 	var cancel1, cancel2, cancel3, cancel4, cancel5, cancel6 context.CancelFunc

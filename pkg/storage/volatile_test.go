@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -38,7 +39,9 @@ import (
 var testCtx = meta.NewContext(
 	meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 	meta.WithProvider(identity.UUID),
-	meta.WithProvider(logkc.Logger),
+	meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+		logkc.WithLogLevel(zapcore.ErrorLevel),
+	))),
 	meta.WithProvider(tracing.Tracer),
 )
 

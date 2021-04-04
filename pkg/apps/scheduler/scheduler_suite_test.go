@@ -29,6 +29,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 )
 
 func TestScheduler(t *testing.T) {
@@ -40,7 +41,9 @@ var (
 	testCtx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+			logkc.WithLogLevel(zapcore.ErrorLevel),
+		))),
 		meta.WithProvider(tracing.Tracer),
 	)
 	clang_c = &types.Toolchain{

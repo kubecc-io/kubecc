@@ -19,13 +19,15 @@ package cachesrv_test
 
 import (
 	. "github.com/onsi/ginkgo"
+	"go.uber.org/zap/zapcore"
+
 	// . "github.com/onsi/gomega"
 
 	"github.com/kubecc-io/kubecc/pkg/test"
 )
 
 var _ = Describe("Cache Server", func() {
-	testEnv := test.NewDefaultEnvironment()
+	testEnv := test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
 	Specify("setup", func() {
 		testEnv.SpawnCache()
 	})

@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/kubecc-io/kubecc/internal/logkc"
@@ -159,7 +160,9 @@ var _ = Describe("Find Toolchains", func() {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+			logkc.WithLogLevel(zapcore.ErrorLevel),
+		))),
 	)
 
 	fs := fstest.MapFS{

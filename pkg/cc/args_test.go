@@ -38,7 +38,7 @@ func init() {
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
-			logkc.WithLogLevel(zapcore.WarnLevel)))),
+			logkc.WithLogLevel(zapcore.ErrorLevel)))),
 	)
 }
 
