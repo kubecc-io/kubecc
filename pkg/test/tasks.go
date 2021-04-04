@@ -92,6 +92,9 @@ func MakeSleepTaskPool(numTasks int, genDuration ...func() string) chan task {
 }
 
 func ProcessTaskPool(testEnv *Environment, jobs int, pool chan task, duration time.Duration) {
+	if InGithubWorkflow() {
+		duration *= 2
+	}
 	cdClient := testEnv.NewConsumerdClient(testEnv.Context())
 	remaining := atomic.NewInt32(int32(len(pool)))
 	for i := 0; i < jobs; i++ {
