@@ -32,6 +32,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
@@ -81,7 +82,9 @@ var _ = Describe("Meta", func() {
 					meta.WithProvider(identity.Component,
 						meta.WithValue(types.TestComponent)),
 					meta.WithProvider(identity.UUID),
-					meta.WithProvider(logkc.Logger),
+					meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+						logkc.WithLogLevel(zapcore.ErrorLevel),
+					))),
 					meta.WithProvider(tracing.Tracer),
 					meta.WithProvider(host.SystemInfo),
 				)
@@ -102,7 +105,9 @@ var _ = Describe("Meta", func() {
 				ctx = meta.NewContext(
 					meta.WithProvider(identity.Component,
 						meta.WithValue(types.TestComponent)),
-					meta.WithProvider(logkc.Logger),
+					meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+						logkc.WithLogLevel(zapcore.ErrorLevel),
+					))),
 				)
 			}).ShouldNot(Panic())
 			Expect(ctx).NotTo(BeNil())
@@ -124,7 +129,9 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+					logkc.WithLogLevel(zapcore.ErrorLevel),
+				))),
 				meta.WithProvider(tracing.Tracer),
 				meta.WithProvider(host.SystemInfo),
 			)
@@ -141,7 +148,9 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+					logkc.WithLogLevel(zapcore.ErrorLevel),
+				))),
 				meta.WithProvider(tracing.Tracer),
 				meta.WithProvider(host.SystemInfo),
 			)
@@ -161,7 +170,9 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+					logkc.WithLogLevel(zapcore.ErrorLevel),
+				))),
 				meta.WithProvider(tracing.Tracer),
 				meta.WithProvider(host.SystemInfo),
 			)
@@ -213,7 +224,9 @@ var _ = Describe("Meta", func() {
 				meta.WithProvider(identity.Component,
 					meta.WithValue(types.TestComponent)),
 				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.Logger),
+				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+					logkc.WithLogLevel(zapcore.ErrorLevel),
+				))),
 				meta.WithProvider(tracing.Tracer),
 				meta.WithProvider(host.SystemInfo),
 			)

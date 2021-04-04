@@ -26,5 +26,5 @@ import (
 
 func TestToolchain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Toolchain Suite")
+	RunSpecs(t, "CC Toolchain Suite")
 }

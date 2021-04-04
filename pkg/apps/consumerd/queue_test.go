@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"go.uber.org/atomic"
+	"go.uber.org/zap/zapcore"
 )
 
 func runTasksInf(
@@ -133,7 +134,7 @@ func linReg(e consumerd.Entries, start, end time.Time) float64 {
 var _ = Describe("Basic Functionality", func() {
 	var queue *consumerd.SplitQueue
 	Specify("setup", func() {
-		testEnv = test.NewDefaultEnvironment()
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
 		queue = consumerd.NewSplitQueue(testCtx,
 			testEnv.NewMonitorClient(testCtx),
 			consumerd.WithTelemetryConfig(consumerd.TelemetryConfig{
@@ -238,7 +239,7 @@ var _ = Describe("Task Redirection", func() {
 		expectedTasks = 75
 	}
 	Specify("setup", func() {
-		testEnv = test.NewDefaultEnvironment()
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
 		queue = consumerd.NewSplitQueue(testCtx,
 			testEnv.NewMonitorClient(testCtx),
 			consumerd.WithTelemetryConfig(consumerd.TelemetryConfig{

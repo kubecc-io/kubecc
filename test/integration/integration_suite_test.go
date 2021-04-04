@@ -37,7 +37,7 @@ var (
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.TestComponent,
 				logkc.WithName("-"),
-				logkc.WithLogLevel(zapcore.InfoLevel),
+				logkc.WithLogLevel(zapcore.ErrorLevel),
 			),
 		)),
 		meta.WithProvider(tracing.Tracer),

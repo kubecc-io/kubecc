@@ -32,7 +32,10 @@ import (
 var testLog *zap.SugaredLogger
 
 func TestClients(t *testing.T) {
-	testLog = logkc.New(types.TestComponent, logkc.WithWriter(GinkgoWriter))
+	testLog = logkc.New(types.TestComponent,
+		logkc.WithWriter(GinkgoWriter),
+		logkc.WithLogLevel(zap.WarnLevel),
+	)
 	RegisterFailHandler(Fail)
 	SetDefaultEventuallyTimeout(3 * time.Second)
 	SetDefaultEventuallyPollingInterval(50 * time.Millisecond)

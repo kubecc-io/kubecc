@@ -408,7 +408,7 @@ func (e *Environment) SpawnCache(opts ...SpawnOption) (context.Context, context.
 func DefaultConfig() config.KubeccSpec {
 	return config.KubeccSpec{
 		Global: config.GlobalSpec{
-			LogLevel: "info",
+			LogLevel: "warn",
 		},
 		Agent: config.AgentSpec{
 			UsageLimits: config.UsageLimitsSpec{
@@ -442,7 +442,9 @@ func NewEnvironment(cfg config.KubeccSpec) *Environment {
 	ctx := meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
-		meta.WithProvider(logkc.Logger),
+		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
+			logkc.WithLogLevel(zapcore.ErrorLevel),
+		))),
 		meta.WithProvider(tracing.Tracer),
 	)
 	ctx, cancel := context.WithCancel(ctx)

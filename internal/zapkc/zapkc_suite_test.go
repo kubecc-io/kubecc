@@ -15,29 +15,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-package monitor_test
+package zapkc_test
 
 import (
 	"testing"
-	"time"
 
-	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-var testLog *zap.SugaredLogger
-
-func TestMonitor(t *testing.T) {
-	testLog = logkc.New(types.TestComponent,
-		logkc.WithWriter(GinkgoWriter),
-		logkc.WithLogLevel(zapcore.WarnLevel),
-	)
+func TestZapkc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	SetDefaultEventuallyTimeout(3 * time.Second)
-	SetDefaultEventuallyPollingInterval(50 * time.Millisecond)
-	RunSpecs(t, "Monitor Suite")
+	RunSpecs(t, "Zapkc Suite")
 }

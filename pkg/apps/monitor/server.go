@@ -305,7 +305,7 @@ func (m *MonitorServer) Stream(
 	for {
 		metric, err := srv.Recv()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) || status.Code(err) == codes.Canceled {
 				m.lg.Debug(err)
 			} else {
 				m.lg.Error(err)
@@ -349,7 +349,7 @@ func (m *MonitorServer) notify(metric *types.Metric) {
 		for _, receivers := range listeners {
 			for _, receiver := range receivers {
 				err := receiver.Send(metric.Value)
-				if err != nil {
+				if err != nil && status.Code(err) != codes.Canceled {
 					m.lg.With(zap.Error(err)).Error("Error notifying listener")
 				}
 			}

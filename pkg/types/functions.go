@@ -47,7 +47,7 @@ func (k *Key) ShortID() string {
 func (tc *Toolchain) Hash(hasher md5simd.Hasher) {
 	util.Must(hasher.Write([]byte(tc.TargetArch)))
 	util.Must(hasher.Write([]byte(ToolchainKind_name[int32(tc.Kind)])))
-	util.Must(hasher.Write([]byte(ToolchainLang_name[int32(tc.Kind)])))
+	util.Must(hasher.Write([]byte(ToolchainLang_name[int32(tc.Lang)])))
 	util.Must(hasher.Write([]byte(tc.Version)))
 	if tc.PicDefault {
 		util.Must(hasher.Write([]byte{1}))

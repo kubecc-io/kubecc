@@ -20,112 +20,113 @@ package zapkc_test
 import (
 	"fmt"
 	"strings"
-	"testing"
 
 	"github.com/kubecc-io/kubecc/internal/zapkc"
+	. "github.com/onsi/ginkgo"
 	"github.com/stretchr/testify/assert"
 )
 
-func BenchmarkFormatEntryCaller(b *testing.B) {
-	testCases := []string{
-		"zxxxxxx/yxxxxxxxxxxx.go:123",
-		"zxxxxxx/yxxxxxx.go:123",
-	}
-	for i, test := range testCases {
-		func(test string) {
-			b.Run(fmt.Sprintf("FormatEntryCaller (%d)", i), func(b *testing.B) {
-				b.ReportAllocs()
-				for i := 0; i < b.N; i++ {
-					_ = zapkc.FormatEntryCaller(test, 16)
-				}
-			})
-		}(test)
-	}
-	b.Run("fmt.Sprintf (0)", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			spl := strings.Split(testCases[0], "/")
-			spl2 := strings.Split(spl[1], ".")
-			_ = fmt.Sprintf("%16s", fmt.Sprintf("%-8s+.%s", spl2[0], spl2[1]))
+var _ = Describe("Encoder", func() {
+	It("should properly format entry caller", func() {
+		testCases := map[string]string{
+			// normal cases
+			"zxxxxxx/yxxxxxxxxxxx.go:123": "yxxxxxxx+.go:123",
+			"zxxxxxx/yxxxxxxxxxx.go:123":  "yxxxxxxx+.go:123",
+			"zxxxxxx/yxxxxxxxxx.go:123":   "yxxxxxxx+.go:123",
+			"zxxxxxx/yxxxxxxxx.go:123":    "yxxxxxxxx.go:123",
+			"zxxxxxx/yxxxxxxx.go:123":     " yxxxxxxx.go:123",
+			"zxxxxxx/yxxxxxx.go:123":      "z/yxxxxxx.go:123",
+			"zxxxxxx/yxxxxx.go:123":       " z/yxxxxx.go:123",
+			"zxxxxxx/yxxxx.go:123":        "  z/yxxxx.go:123",
+			"zxxxxxx/yxxx.go:123":         "   z/yxxx.go:123",
+			"zxxxxxx/yxx.go:123":          "    z/yxx.go:123",
+			"zxxxxxx/yx.go:123":           "     z/yx.go:123",
+			"zxxxxxx/y.go:123":            "zxxxxxx/y.go:123",
+			"zxxxxx/y.go:123":             " zxxxxx/y.go:123",
+			"zxxxx/y.go:123":              "  zxxxx/y.go:123",
+			"zxxx/y.go:123":               "   zxxx/y.go:123",
+			"zxx/y.go:123":                "    zxx/y.go:123",
+			"zx/y.go:123":                 "     zx/y.go:123",
+			"z/y.go:123":                  "      z/y.go:123",
+			"y.go:123":                    "        y.go:123",
+			"y.go:12":                     "         y.go:12",
+			"y.go:1":                      "          y.go:1",
+			"y.go":                        "            y.go",
+
+			// weird cases
+			"yxxxxxxxxxxxxxxxxx":    "yxxxxxxxxxxxxxx+",
+			".yxxxxxxxxxxxxxxxx":    ".yxxxxxxxxxxxxx+",
+			"y.yxxxxxxxxxxxxxxx":    "y.yxxxxxxxxxxxx+",
+			"yxxxxxxxxxxxxxxxxx.":   "yxxxxxxxxxxxxx+.",
+			"yxxxxxxxxxxxxxxxxx...": "yxxxxxxxxxxxxx+.",
+			"yxxxxxxxxxxxxxxxxx.xx": "yxxxxxxxxxxx+.xx",
+			"zxxxxxx/yxxxxxxxxx":    "    z/yxxxxxxxxx",
+			"zxxxxxx/yxxxxxx":       " zxxxxxx/yxxxxxx",
+			"yxxxxxx":               "         yxxxxxx",
+			"yxxxxxx/":              "        yxxxxxx/",
+			"yxxxxxx.":              "        yxxxxxx.",
+			"y.go:":                 "           y.go:",
+			"y.:":                   "             y.:",
+			"y.":                    "              y.",
+			"y":                     "               y",
+			".":                     "               .",
+			".go":                   "             .go",
+			"/":                     "               /",
+			":":                     "               :",
+			"":                      "                ",
 		}
-	})
-	b.Run("fmt.Sprintf (1)", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			spl := strings.Split(testCases[0], "/")
-			spl2 := strings.Split(spl[1], ".")
-			_ = fmt.Sprintf("%16s", fmt.Sprintf("%c+.%s", spl2[0][0], spl2[1]))
+		for input, expected := range testCases {
+			assert.Equal(GinkgoT(), expected, string(zapkc.FormatEntryCaller(input, 16)))
 		}
+
+		assert.Panics(GinkgoT(), func() { zapkc.FormatEntryCaller("xxxxx", 0) })
+		assert.Panics(GinkgoT(), func() { zapkc.FormatEntryCaller("", 0) })
+		assert.Equal(GinkgoT(), "+", string(zapkc.FormatEntryCaller("xxxxx", 1)))
+		assert.Equal(GinkgoT(), "x+", string(zapkc.FormatEntryCaller("xxxxx", 2)))
+		assert.Equal(GinkgoT(), "xx+", string(zapkc.FormatEntryCaller("xxxxx", 3)))
+		assert.Equal(GinkgoT(), "xxx+", string(zapkc.FormatEntryCaller("xxxxx", 4)))
+		assert.Equal(GinkgoT(), "xxxxx", string(zapkc.FormatEntryCaller("xxxxx", 5)))
+		assert.Equal(GinkgoT(), "x", string(zapkc.FormatEntryCaller("x", 1)))
+		assert.Equal(GinkgoT(), " x", string(zapkc.FormatEntryCaller("x", 2)))
+		assert.Equal(GinkgoT(), "  x", string(zapkc.FormatEntryCaller("x", 3)))
+		assert.Equal(GinkgoT(), "   x", string(zapkc.FormatEntryCaller("x", 4)))
+		assert.Equal(GinkgoT(), "    x", string(zapkc.FormatEntryCaller("x", 5)))
+		assert.Equal(GinkgoT(), " ", string(zapkc.FormatEntryCaller("", 1)))
+		assert.Equal(GinkgoT(), "  ", string(zapkc.FormatEntryCaller("", 2)))
+		assert.Equal(GinkgoT(), "   ", string(zapkc.FormatEntryCaller("", 3)))
+		assert.Equal(GinkgoT(), "    ", string(zapkc.FormatEntryCaller("", 4)))
+		assert.Equal(GinkgoT(), "     ", string(zapkc.FormatEntryCaller("", 5)))
 	})
-}
+	Measure("performance", func(b Benchmarker) {
+		testCases := []string{
+			"zxxxxxx/yxxxxxxxxxxx.go:123",
+			"zxxxxxx/yxxxxxx.go:123",
+		}
 
-func TestFormatEntryCaller(t *testing.T) {
-	testCases := map[string]string{
-		// normal cases
-		"zxxxxxx/yxxxxxxxxxxx.go:123": "yxxxxxxx+.go:123",
-		"zxxxxxx/yxxxxxxxxxx.go:123":  "yxxxxxxx+.go:123",
-		"zxxxxxx/yxxxxxxxxx.go:123":   "yxxxxxxx+.go:123",
-		"zxxxxxx/yxxxxxxxx.go:123":    "yxxxxxxxx.go:123",
-		"zxxxxxx/yxxxxxxx.go:123":     " yxxxxxxx.go:123",
-		"zxxxxxx/yxxxxxx.go:123":      "z/yxxxxxx.go:123",
-		"zxxxxxx/yxxxxx.go:123":       " z/yxxxxx.go:123",
-		"zxxxxxx/yxxxx.go:123":        "  z/yxxxx.go:123",
-		"zxxxxxx/yxxx.go:123":         "   z/yxxx.go:123",
-		"zxxxxxx/yxx.go:123":          "    z/yxx.go:123",
-		"zxxxxxx/yx.go:123":           "     z/yx.go:123",
-		"zxxxxxx/y.go:123":            "zxxxxxx/y.go:123",
-		"zxxxxx/y.go:123":             " zxxxxx/y.go:123",
-		"zxxxx/y.go:123":              "  zxxxx/y.go:123",
-		"zxxx/y.go:123":               "   zxxx/y.go:123",
-		"zxx/y.go:123":                "    zxx/y.go:123",
-		"zx/y.go:123":                 "     zx/y.go:123",
-		"z/y.go:123":                  "      z/y.go:123",
-		"y.go:123":                    "        y.go:123",
-		"y.go:12":                     "         y.go:12",
-		"y.go:1":                      "          y.go:1",
-		"y.go":                        "            y.go",
-
-		// weird cases
-		"yxxxxxxxxxxxxxxxxx":    "yxxxxxxxxxxxxxx+",
-		".yxxxxxxxxxxxxxxxx":    ".yxxxxxxxxxxxxx+",
-		"y.yxxxxxxxxxxxxxxx":    "y.yxxxxxxxxxxxx+",
-		"yxxxxxxxxxxxxxxxxx.":   "yxxxxxxxxxxxxx+.",
-		"yxxxxxxxxxxxxxxxxx...": "yxxxxxxxxxxxxx+.",
-		"yxxxxxxxxxxxxxxxxx.xx": "yxxxxxxxxxxx+.xx",
-		"zxxxxxx/yxxxxxxxxx":    "    z/yxxxxxxxxx",
-		"zxxxxxx/yxxxxxx":       " zxxxxxx/yxxxxxx",
-		"yxxxxxx":               "         yxxxxxx",
-		"yxxxxxx/":              "        yxxxxxx/",
-		"yxxxxxx.":              "        yxxxxxx.",
-		"y.go:":                 "           y.go:",
-		"y.:":                   "             y.:",
-		"y.":                    "              y.",
-		"y":                     "               y",
-		".":                     "               .",
-		".go":                   "             .go",
-		"/":                     "               /",
-		":":                     "               :",
-		"":                      "                ",
-	}
-	for input, expected := range testCases {
-		assert.Equal(t, expected, string(zapkc.FormatEntryCaller(input, 16)))
-	}
-
-	assert.Panics(t, func() { zapkc.FormatEntryCaller("xxxxx", 0) })
-	assert.Panics(t, func() { zapkc.FormatEntryCaller("", 0) })
-	assert.Equal(t, "+", string(zapkc.FormatEntryCaller("xxxxx", 1)))
-	assert.Equal(t, "x+", string(zapkc.FormatEntryCaller("xxxxx", 2)))
-	assert.Equal(t, "xx+", string(zapkc.FormatEntryCaller("xxxxx", 3)))
-	assert.Equal(t, "xxx+", string(zapkc.FormatEntryCaller("xxxxx", 4)))
-	assert.Equal(t, "xxxxx", string(zapkc.FormatEntryCaller("xxxxx", 5)))
-	assert.Equal(t, "x", string(zapkc.FormatEntryCaller("x", 1)))
-	assert.Equal(t, " x", string(zapkc.FormatEntryCaller("x", 2)))
-	assert.Equal(t, "  x", string(zapkc.FormatEntryCaller("x", 3)))
-	assert.Equal(t, "   x", string(zapkc.FormatEntryCaller("x", 4)))
-	assert.Equal(t, "    x", string(zapkc.FormatEntryCaller("x", 5)))
-	assert.Equal(t, " ", string(zapkc.FormatEntryCaller("", 1)))
-	assert.Equal(t, "  ", string(zapkc.FormatEntryCaller("", 2)))
-	assert.Equal(t, "   ", string(zapkc.FormatEntryCaller("", 3)))
-	assert.Equal(t, "    ", string(zapkc.FormatEntryCaller("", 4)))
-	assert.Equal(t, "     ", string(zapkc.FormatEntryCaller("", 5)))
-}
+		go func() {
+			for i, test := range testCases {
+				func(test string) {
+					b.Time(fmt.Sprintf("FormatEntryCaller (%d)", i), func() {
+						for ii := 0; ii < 1e5; ii++ {
+							_ = zapkc.FormatEntryCaller(test, 16)
+						}
+					})
+				}(test)
+			}
+		}()
+		go b.Time("fmt.Sprintf (0)", func() {
+			for i := 0; i < 1e5; i++ {
+				spl := strings.Split(testCases[0], "/")
+				spl2 := strings.Split(spl[1], ".")
+				_ = fmt.Sprintf("%16s", fmt.Sprintf("%-8s+.%s", spl2[0], spl2[1]))
+			}
+		})
+		b.Time("fmt.Sprintf (1)", func() {
+			for i := 0; i < 1e5; i++ {
+				spl := strings.Split(testCases[1], "/")
+				spl2 := strings.Split(spl[1], ".")
+				_ = fmt.Sprintf("%16s", fmt.Sprintf("%c+.%s", spl2[0][0], spl2[1]))
+			}
+		})
+	}, 5)
+})

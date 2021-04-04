@@ -66,7 +66,7 @@ func (c Component) ShortName() string {
 	case Make:
 		return "$make"
 	case CLI:
-		return "kcctl"
+		return "cli"
 	case Monitor:
 		return "monit"
 	case Dashboard:
