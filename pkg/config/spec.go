@@ -34,8 +34,8 @@ func (str LogLevelString) Level() (l zapcore.Level) {
 }
 
 type GlobalSpec struct {
-	LogLevel LogLevelString `json:"logLevel"`
-	LogFile  string         `json:"logFile"`
+	LogLevel LogLevelString `json:"logLevel,omitempty"`
+	LogFile  string         `json:"logFile,omitempty"`
 }
 
 // Merge will load fields from the global GlobalSpec into
@@ -48,88 +48,88 @@ func (override *GlobalSpec) Merge(global GlobalSpec) {
 }
 
 type KubeccSpec struct {
-	Global    GlobalSpec    `json:"global"`
-	Agent     AgentSpec     `json:"agent"`
-	Consumer  ConsumerSpec  `json:"consumer"`
-	Consumerd ConsumerdSpec `json:"consumerd"`
-	Scheduler SchedulerSpec `json:"scheduler"`
-	Monitor   MonitorSpec   `json:"monitor"`
-	Cache     CacheSpec     `json:"cache"`
-	Kcctl     KcctlSpec     `json:"kcctl"`
+	Global    GlobalSpec    `json:"global,omitempty"`
+	Agent     AgentSpec     `json:"agent,omitempty"`
+	Consumer  ConsumerSpec  `json:"consumer,omitempty"`
+	Consumerd ConsumerdSpec `json:"consumerd,omitempty"`
+	Scheduler SchedulerSpec `json:"scheduler,omitempty"`
+	Monitor   MonitorSpec   `json:"monitor,omitempty"`
+	Cache     CacheSpec     `json:"cache,omitempty"`
+	Kcctl     KcctlSpec     `json:"kcctl,omitempty"`
 }
 
 type AgentSpec struct {
 	GlobalSpec
-	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
-	SchedulerAddress string          `json:"schedulerAddress"`
-	MonitorAddress   string          `json:"monitorAddress"`
+	UsageLimits      *UsageLimitsSpec `json:"usageLimits,omitempty"`
+	SchedulerAddress string           `json:"schedulerAddress,omitempty"`
+	MonitorAddress   string           `json:"monitorAddress,omitempty"`
 }
 
 type ConsumerSpec struct {
 	GlobalSpec
-	ConsumerdAddress string `json:"consumerdAddress"`
+	ConsumerdAddress string `json:"consumerdAddress,omitempty"`
 }
 
 type ConsumerdSpec struct {
 	GlobalSpec
-	UsageLimits      UsageLimitsSpec `json:"usageLimits"`
-	SchedulerAddress string          `json:"schedulerAddress"`
-	MonitorAddress   string          `json:"monitorAddress"`
-	ListenAddress    string          `json:"listenAddress"`
-	DisableTLS       bool            `json:"disableTLS"`
+	UsageLimits      *UsageLimitsSpec `json:"usageLimits,omitempty"`
+	SchedulerAddress string           `json:"schedulerAddress,omitempty"`
+	MonitorAddress   string           `json:"monitorAddress,omitempty"`
+	ListenAddress    string           `json:"listenAddress,omitempty"`
+	DisableTLS       bool             `json:"disableTLS,omitempty"`
 }
 
 type SchedulerSpec struct {
 	GlobalSpec
-	MonitorAddress string `json:"monitorAddress"`
-	CacheAddress   string `json:"cacheAddress"`
-	ListenAddress  string `json:"listenAddress"`
+	MonitorAddress string `json:"monitorAddress,omitempty"`
+	CacheAddress   string `json:"cacheAddress,omitempty"`
+	ListenAddress  string `json:"listenAddress,omitempty"`
 }
 
 type MonitorSpec struct {
 	GlobalSpec
-	ListenAddress          string `json:"listenAddress"`
-	ServePrometheusMetrics bool   `json:"servePrometheusMetrics"`
+	ListenAddress          string `json:"listenAddress,omitempty"`
+	ServePrometheusMetrics bool   `json:"servePrometheusMetrics,omitempty"`
 }
 
 type CacheSpec struct {
 	GlobalSpec
-	LocalStorage   *LocalStorageSpec  `json:"localStorage"`
-	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage"`
-	ListenAddress  string             `json:"listenAddress"`
-	MonitorAddress string             `json:"monitorAddress"`
+	LocalStorage   *LocalStorageSpec  `json:"localStorage,omitempty"`
+	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage,omitempty"`
+	ListenAddress  string             `json:"listenAddress,omitempty"`
+	MonitorAddress string             `json:"monitorAddress,omitempty"`
 }
 
 type LocalStorageSpec struct {
-	Limits StorageLimitsSpec `json:"limits"`
-	Path   string            `json:"path"`
+	Limits StorageLimitsSpec `json:"limits,omitempty"`
+	Path   string            `json:"path,omitempty"`
 }
 
 type RemoteStorageSpec struct {
-	Endpoint       string `json:"endpoint"`
-	AccessKey      string `json:"accessKey"`
-	SecretKey      string `json:"secretKey"`
-	TLS            bool   `json:"tls"`
-	CertPath       string `json:"certPath"`
-	Bucket         string `json:"bucket"`
-	Region         string `json:"region"`
-	ExpirationDays int    `json:"expirationDays"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	AccessKey      string `json:"accessKey,omitempty"`
+	SecretKey      string `json:"secretKey,omitempty"`
+	TLS            bool   `json:"tls,omitempty"`
+	CertPath       string `json:"certPath,omitempty"`
+	Bucket         string `json:"bucket,omitempty"`
+	Region         string `json:"region,omitempty"`
+	ExpirationDays int    `json:"expirationDays,omitempty"`
 }
 
 type StorageLimitsSpec struct {
-	Memory string `json:"memory"`
-	Disk   string `json:"disk"`
+	Memory string `json:"memory,omitempty"`
+	Disk   string `json:"disk,omitempty"`
 }
 
 type KcctlSpec struct {
 	GlobalSpec
-	MonitorAddress   string `json:"monitorAddress"`
-	SchedulerAddress string `json:"schedulerAddress"`
-	DisableTLS       bool   `json:"disableTLS"`
+	MonitorAddress   string `json:"monitorAddress,omitempty"`
+	SchedulerAddress string `json:"schedulerAddress,omitempty"`
+	DisableTLS       bool   `json:"disableTLS,omitempty"`
 }
 
 type UsageLimitsSpec struct {
-	QueuePressureMultiplier float64 `json:"queuePressureMultiplier"`
-	QueueRejectMultiplier   float64 `json:"queueRejectMultiplier"`
-	ConcurrentProcessLimit  int     `json:"concurrentProcessLimit"`
+	QueuePressureMultiplier float64 `json:"queuePressureMultiplier,omitempty"`
+	QueueRejectMultiplier   float64 `json:"queueRejectMultiplier,omitempty"`
+	ConcurrentProcessLimit  int     `json:"concurrentProcessLimit,omitempty"`
 }

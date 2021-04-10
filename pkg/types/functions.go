@@ -78,3 +78,27 @@ func ParseKey(canonical string) (*Key, error) {
 		Name:   split[1],
 	}, nil
 }
+
+func (tc *Toolchain) CommonNames() []string {
+	switch tc.Kind {
+	case Clang:
+		switch tc.Lang {
+		case C:
+			return []string{"clang"}
+		case CXX:
+			return []string{"clang++"}
+		case Multi:
+			return []string{"clang", "clang++"}
+		}
+	case Gnu:
+		switch tc.Lang {
+		case C:
+			return []string{"gcc", "cc"}
+		case CXX:
+			return []string{"g++"}
+		case Multi:
+			return []string{"gcc", "g++"}
+		}
+	}
+	return []string{}
+}

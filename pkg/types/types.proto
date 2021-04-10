@@ -8,6 +8,7 @@ message Empty {}
 
 service Consumerd {
   rpc Run(RunRequest) returns (RunResponse);
+  rpc GetToolchains(Empty) returns (ToolchainList);
 }
 
 service Scheduler {
@@ -163,6 +164,10 @@ message Toolchain {
   string TargetArch = 4;
   string Version = 5;
   bool PicDefault = 6;
+}
+
+message ToolchainList {
+  repeated Toolchain Items = 1;
 }
 
 message AgentToolchainInfo {

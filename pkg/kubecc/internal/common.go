@@ -55,3 +55,23 @@ func InitCLI(_ *cobra.Command, _ []string) {
 	CLIContext = ctx
 	CLILog = lg
 }
+
+func InitCLIQuiet(_ *cobra.Command, _ []string) {
+	CLIConfig = CLIConfigProvider.Load().Kcctl
+
+	ctx := meta.NewContext(
+		meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
+		meta.WithProvider(identity.UUID),
+		meta.WithProvider(logkc.Logger, meta.WithValue(
+			logkc.New(
+				types.CLI,
+				logkc.WithLogLevel(zap.ErrorLevel),
+			),
+		)),
+		meta.WithProvider(tracing.Tracer),
+	)
+	lg := meta.Log(ctx)
+
+	CLIContext = ctx
+	CLILog = lg
+}

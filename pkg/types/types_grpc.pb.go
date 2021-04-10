@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ConsumerdClient interface {
 	Run(ctx context.Context, in *RunRequest, opts ...grpc.CallOption) (*RunResponse, error)
+	GetToolchains(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ToolchainList, error)
 }
 
 type consumerdClient struct {
@@ -39,11 +40,21 @@ func (c *consumerdClient) Run(ctx context.Context, in *RunRequest, opts ...grpc.
 	return out, nil
 }
 
+func (c *consumerdClient) GetToolchains(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ToolchainList, error) {
+	out := new(ToolchainList)
+	err := c.cc.Invoke(ctx, "/types.Consumerd/GetToolchains", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ConsumerdServer is the server API for Consumerd service.
 // All implementations must embed UnimplementedConsumerdServer
 // for forward compatibility
 type ConsumerdServer interface {
 	Run(context.Context, *RunRequest) (*RunResponse, error)
+	GetToolchains(context.Context, *Empty) (*ToolchainList, error)
 	mustEmbedUnimplementedConsumerdServer()
 }
 
@@ -53,6 +64,9 @@ type UnimplementedConsumerdServer struct {
 
 func (UnimplementedConsumerdServer) Run(context.Context, *RunRequest) (*RunResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Run not implemented")
+}
+func (UnimplementedConsumerdServer) GetToolchains(context.Context, *Empty) (*ToolchainList, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetToolchains not implemented")
 }
 func (UnimplementedConsumerdServer) mustEmbedUnimplementedConsumerdServer() {}
 
@@ -85,6 +99,24 @@ func _Consumerd_Run_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Consumerd_GetToolchains_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ConsumerdServer).GetToolchains(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/types.Consumerd/GetToolchains",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ConsumerdServer).GetToolchains(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Consumerd_ServiceDesc is the grpc.ServiceDesc for Consumerd service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -95,6 +127,10 @@ var Consumerd_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Run",
 			Handler:    _Consumerd_Run_Handler,
+		},
+		{
+			MethodName: "GetToolchains",
+			Handler:    _Consumerd_GetToolchains_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
