@@ -133,10 +133,10 @@ func (o *Optimizer) runAgentOptimizer(
 		return
 	}
 	listener.OnValueChanged(uuid, func(s *metrics.CpuStats) {
-		available := len(agent.AvailableTokens)
-		locked := len(agent.LockedTokens)
 		lock.Lock()
 		defer lock.Unlock()
+		available := len(agent.AvailableTokens)
+		locked := len(agent.LockedTokens)
 		snapshots = append(snapshots, snapshot{
 			wallTime:    s.WallTime,
 			tokenCount:  available + locked,

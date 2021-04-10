@@ -411,7 +411,7 @@ func DefaultConfig() config.KubeccSpec {
 			LogLevel: "warn",
 		},
 		Agent: config.AgentSpec{
-			UsageLimits: config.UsageLimitsSpec{
+			UsageLimits: &config.UsageLimitsSpec{
 				ConcurrentProcessLimit:  32,
 				QueuePressureMultiplier: 1.0,
 				QueueRejectMultiplier:   2.0,
@@ -429,7 +429,7 @@ func DefaultConfig() config.KubeccSpec {
 		},
 		Consumerd: config.ConsumerdSpec{
 			DisableTLS: true,
-			UsageLimits: config.UsageLimitsSpec{
+			UsageLimits: &config.UsageLimitsSpec{
 				ConcurrentProcessLimit: 20,
 			},
 		},

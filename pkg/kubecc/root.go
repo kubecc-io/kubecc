@@ -71,6 +71,12 @@ func CreateRootCmd() *cobra.Command {
 				commands.GetCmd,
 			},
 		},
+		{
+			Message: "Setup and Configuration:",
+			Commands: []*cobra.Command{
+				commands.SetupCmd,
+			},
+		},
 	}
 	groups.Add(rootCmd)
 	fe := templates.ActsAsRootCommand(rootCmd, nil, groups...)

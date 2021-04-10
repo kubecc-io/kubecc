@@ -359,3 +359,12 @@ func (c *consumerdServer) TryConnect() (grpc.ClientStream, error) {
 func (c *consumerdServer) Target() string {
 	return "scheduler"
 }
+
+func (c *consumerdServer) GetToolchains(
+	ctx context.Context,
+	_ *types.Empty,
+) (*types.ToolchainList, error) {
+	return &types.ToolchainList{
+		Items: c.tcStore.ItemsList(),
+	}, nil
+}
