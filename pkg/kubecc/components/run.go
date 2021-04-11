@@ -64,7 +64,7 @@ func init() {
 
 var RunCmd = &cobra.Command{
 	Use:       "run component...",
-	Short:     "Run one or more kubecc components.",
+	Short:     "Run one or more kubecc components",
 	ValidArgs: append(componentNames, "all"),
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
