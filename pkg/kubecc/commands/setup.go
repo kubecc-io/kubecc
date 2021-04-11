@@ -638,6 +638,55 @@ func makeAliases(binPath string) ([]string, error) {
 	return aliases, nil
 }
 
+func doAppend(rc string) error {
+	printStatus(fmt.Sprintf("Appending to %s... ", rc))
+	expanded, err := homedir.Expand(rc)
+	if err != nil {
+		printFailed()
+		return err
+	}
+	f, err := os.OpenFile(expanded, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		printFailed()
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write([]byte{'\n'})
+	if err != nil {
+		printFailed()
+		return err
+	}
+	_, err = f.WriteString(`source "$HOME/.kubecc/env"`)
+	if err != nil {
+		printFailed()
+		return err
+	}
+	_, err = f.Write([]byte{'\n'})
+	if err != nil {
+		printFailed()
+		return err
+	}
+	printDone()
+	return nil
+}
+
+func appendToShellRC() error {
+	shell, err := loginshell.Shell()
+	if err != nil {
+		return err
+	}
+	switch filepath.Base(shell) {
+	case "bash":
+		return doAppend("~/.bashrc")
+	case "zsh":
+		return doAppend("~/.zshrc")
+	case "ash":
+		return doAppend("~/.ashrc")
+	default:
+		return fmt.Errorf("Sorry, your shell is not supported.")
+	}
+}
+
 func setupEnv(binPath string) error {
 	printStatus("Writing environment file... ")
 	envPath, err := homedir.Expand("~/.kubecc/env")
@@ -679,7 +728,7 @@ func setupEnv(binPath string) error {
 			var response string
 			err := survey.AskOne(&survey.Select{
 				Message: fmt.Sprintf("Please add '%s' to your shell's RC file, then select Retry to check again", `source "$HOME/.kubecc/env"`),
-				Options: []string{"Retry", "Skip this step"},
+				Options: []string{"Retry", "Do this for me", "Skip this step"},
 				Default: "Retry",
 			}, &response)
 			if err != nil {
@@ -687,6 +736,20 @@ func setupEnv(binPath string) error {
 			}
 			if response == "Skip this step" {
 				break
+			} else if response == "Do this for me" {
+				var confirm bool
+				err := survey.AskOne(&survey.Confirm{
+					Message: "This will attempt to append the necessary line to your shell RC file. Continue?",
+					Default: false,
+				}, &confirm)
+				if err != nil {
+					return err
+				}
+				if confirm {
+					if err := appendToShellRC(); err != nil {
+						printErr(err.Error())
+					}
+				}
 			}
 		} else {
 			printYes()
