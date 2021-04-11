@@ -75,6 +75,7 @@ func CreateRootCmd() *cobra.Command {
 			Message: "Setup and Configuration:",
 			Commands: []*cobra.Command{
 				commands.SetupCmd,
+				commands.TeardownCmd,
 			},
 		},
 	}

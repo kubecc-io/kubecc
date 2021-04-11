@@ -64,7 +64,8 @@ Teardown sequence:
 - Delete ~/.kubecc
 */
 
-var serviceTmpl = `[Unit]
+var (
+	serviceTmpl = `[Unit]
 Description=Kubecc Consumerd Service
 After=network.target
 
@@ -78,13 +79,20 @@ ExecStart=%s consumerd
 Restart=on-failure
 `
 
-var envTmpl = `# This file is auto-generated, do not edit!
+	envTmpl = `# This file is auto-generated, do not edit!
 export KUBECC_HOME="$HOME/.kubecc"
 export KUBECC_BINARY="%s"
 %s
 `
 
-var defaultConsumerdPort = "10991"
+	defaultConsumerdPort  = "10991"
+	systemServiceFilepath = "/etc/systemd/system/consumerd.service"
+	configFilenames       = []string{
+		"config.yaml",
+		"config.yml",
+		"config.json",
+	}
+)
 
 func inPath() (string, bool) {
 	path, err := exec.LookPath("kubecc")
@@ -100,10 +108,14 @@ func installBinary() (string, error) {
 	fmt.Println(zapkc.Red.Add("no"))
 	var pathName string
 	for {
+		defaultPath := "~/.local/bin"
+		if sudo {
+			defaultPath = "/usr/local/bin"
+		}
 		err := survey.AskOne(&survey.Select{
 			Message: "Choose an install location for the kubecc binary",
 			Options: []string{"~/.local/bin", "~/bin", "/usr/local/bin", "(other)"},
-			Default: "~/.local/bin",
+			Default: defaultPath,
 		}, &pathName)
 		if err != nil {
 			return "", err
@@ -178,20 +190,15 @@ func unitIsActive(system bool, unit string) (bool, error) {
 }
 
 func configExists(option string) bool {
-	filenames := []string{
-		"config.yaml",
-		"config.yml",
-		"config.json",
-	}
 	switch option {
 	case "user":
-		for _, name := range filenames {
+		for _, name := range configFilenames {
 			if _, err := os.Stat(path.Join(path.Join(home.HomeDir(), ".kubecc"), name)); err == nil {
 				return true
 			}
 		}
 	case "system":
-		for _, name := range filenames {
+		for _, name := range configFilenames {
 			if _, err := os.Stat(path.Join("/etc/kubecc", name)); err == nil {
 				return true
 			}
@@ -322,9 +329,8 @@ func installConfig(option string) error {
 
 func checkConfig(option string) error {
 	printStatus("Checking if a configuration file is available... ")
-
 	if configExists(option) {
-		printYes()
+		fmt.Printf(zapkc.Green.Add("yes (%s)\n"), option)
 		return nil
 	}
 	printNo()
@@ -371,8 +377,7 @@ func writeUserService(serviceContents string) error {
 }
 
 func writeSystemService(serviceContents string) error {
-	err := os.WriteFile("/etc/systemd/system/consumerd.service",
-		[]byte(serviceContents), 0o644)
+	err := os.WriteFile(systemServiceFilepath, []byte(serviceContents), 0o644)
 	if err != nil {
 		printFailed()
 		return err
@@ -407,6 +412,18 @@ func updateService(option, newContents string) error {
 		fmt.Println(zapkc.Red.Add("error"))
 		return err
 	}
+	return nil
+}
+
+func stopService(option string) error {
+	printStatus(fmt.Sprintf("Stopping service (%s)... ", option))
+	cmd := exec.Command("/usr/bin/systemctl", "--"+option,
+		"disable", "--now", "consumerd.service")
+	if err := cmd.Run(); err != nil {
+		printFailed()
+		return err
+	}
+	printDone()
 	return nil
 }
 
@@ -451,10 +468,14 @@ func installConsumerd(binaryPath string) (string, bool, error) {
 
 	// not installed, prompt to install
 	var option string
+	defaultOption := "user"
+	if sudo {
+		defaultOption = "system"
+	}
 	err = survey.AskOne(&survey.Select{
 		Message: "Would you like to install consumerd as a system or user service?",
 		Options: []string{"system", "user"},
-		Default: "user",
+		Default: defaultOption,
 	}, &option)
 	if err != nil {
 		return "", false, err
@@ -676,8 +697,10 @@ func setupEnv(binPath string) error {
 }
 
 var SetupCmd = &cobra.Command{
-	Use:   "setup",
-	Short: "Set up and configure Kubecc on your machine",
+	Use:     "setup",
+	Short:   "Set up and configure Kubecc on your machine",
+	PreRun:  sudoPreRun,
+	PostRun: sudoPostRun,
 	Run: func(cmd *cobra.Command, args []string) {
 		binPath, err := installBinary()
 		if err != nil {
@@ -699,6 +722,10 @@ var SetupCmd = &cobra.Command{
 				printErr(err.Error())
 				os.Exit(1)
 			}
+		}
+
+		if sudo {
+			return
 		}
 		cc, err := connectToConsumerd()
 		if err != nil {
