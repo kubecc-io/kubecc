@@ -39,8 +39,7 @@ func CreateRootCmd() *cobra.Command {
 			return cmd.Help()
 		},
 	}
-	rootCmd.PersistentFlags().StringVar(&ConfigPath, "config", "",
-		"Path to config file. If not set, uses default locations (~/.kubecc/config.yaml, /etc/kubecc/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&ConfigPath, "config", "", "Path to config file")
 
 	groups := templates.CommandGroups{
 		{
@@ -76,10 +75,12 @@ func CreateRootCmd() *cobra.Command {
 			Commands: []*cobra.Command{
 				commands.SetupCmd,
 				commands.TeardownCmd,
+				commands.InstallCmd,
 			},
 		},
 	}
 	groups.Add(rootCmd)
+	rootCmd.AddCommand(commands.CompletionCmd)
 	fe := templates.ActsAsRootCommand(rootCmd, nil, groups...)
 	fe.ExposeFlags(rootCmd, "config")
 	return rootCmd

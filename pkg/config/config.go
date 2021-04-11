@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kubecc-io/kubecc/internal/zapkc"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
 )
@@ -60,7 +61,7 @@ func ApplyGlobals(cfg *KubeccSpec) {
 func LoadFile(path string) *KubeccSpec {
 	contents, err := os.ReadFile(path)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading config file %s: %s", path, err.Error()))
+		fmt.Fprintln(os.Stderr, zapkc.Red.Add(fmt.Sprintf("Error reading config file %s: %s", path, err.Error())))
 	}
 	cfg := &KubeccSpec{}
 	if strings.HasSuffix(path, ".json") {
@@ -69,7 +70,7 @@ func LoadFile(path string) *KubeccSpec {
 		err = yaml.Unmarshal(contents, cfg, yaml.DisallowUnknownFields)
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Error parsing config file %s: %s", path, err.Error()))
+		fmt.Fprintln(os.Stderr, zapkc.Red.Add(fmt.Sprintf("Error parsing config file %s: %s", path, err.Error())))
 	}
 	ApplyGlobals(cfg)
 	return cfg
@@ -94,5 +95,7 @@ func (cmp configMapProvider) Load() *KubeccSpec {
 			return LoadFile(abs)
 		}
 	}
-	panic("Could not find config file")
+	fmt.Fprintln(os.Stderr, zapkc.Red.Add("Could not find config file (try running `kubecc setup`)"))
+	os.Exit(1)
+	return nil
 }
