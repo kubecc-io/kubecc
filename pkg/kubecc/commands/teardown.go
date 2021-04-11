@@ -26,12 +26,17 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/kubecc-io/kubecc/internal/zapkc"
 	"github.com/mitchellh/go-homedir"
+	"github.com/snapcore/snapd/systemd"
 	"github.com/spf13/cobra"
 )
 
 func removeSystemConsumerd() {
-	if active, err := unitIsActive(true, "consumerd"); err == nil && active {
-		if err := stopService("system"); err != nil {
+	system := systemd.New(systemd.SystemMode, nil)
+	if active, err := system.IsActive(consumerdUnit); err == nil && active {
+		if err := system.Stop(consumerdUnit, systemdTimeout); err != nil {
+			printErr(err.Error())
+		}
+		if err := system.Disable(consumerdUnit); err != nil {
 			printErr(err.Error())
 		}
 	}
@@ -44,14 +49,18 @@ func removeSystemConsumerd() {
 		}
 		printDone()
 	}
-	if err := daemonReload("system"); err != nil {
+	if err := system.DaemonReload(); err != nil {
 		printErr(err.Error())
 	}
 }
 
 func removeUserConsumerd() {
-	if active, err := unitIsActive(false, "consumerd"); err == nil && active {
-		if err := stopService("user"); err != nil {
+	user := systemd.New(systemd.UserMode, nil)
+	if active, err := user.IsActive(consumerdUnit); err == nil && active {
+		if err := user.Stop(consumerdUnit, systemdTimeout); err != nil {
+			printErr(err.Error())
+		}
+		if err := user.Disable(consumerdUnit); err != nil {
 			printErr(err.Error())
 		}
 	}
@@ -67,7 +76,7 @@ func removeUserConsumerd() {
 			printDone()
 		}
 	}
-	if err := daemonReload("user"); err != nil {
+	if err := user.DaemonReload(); err != nil {
 		printErr(err.Error())
 	}
 }
@@ -151,14 +160,15 @@ var TeardownCmd = &cobra.Command{
 	PreRun:  sudoPreRun,
 	PostRun: sudoPostRun,
 	Run: func(cmd *cobra.Command, args []string) {
+		system, user := systemdClients()
 		options := map[string]func(){}
-		if active, err := unitIsActive(true, "consumerd"); err == nil && active {
+		if active, err := system.IsActive(consumerdUnit); err == nil && active {
 			options["Consumerd service (system)"] = removeSystemConsumerd
 		} else if _, err := os.Stat(systemServiceFilepath); err == nil {
 			options["Consumerd service (system)"] = removeSystemConsumerd
 		}
 
-		if active, err := unitIsActive(false, "consumerd"); err == nil && active {
+		if active, err := user.IsActive(consumerdUnit); err == nil && active {
 			options["Consumerd service (user)"] = removeUserConsumerd
 		} else {
 			path, err := homedir.Expand("~/.config/systemd/user/consumerd.service")
