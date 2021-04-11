@@ -39,6 +39,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/mitchellh/go-homedir"
 	"github.com/riywo/loginshell"
+	"github.com/snapcore/snapd/systemd"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	home "k8s.io/client-go/util/homedir"
@@ -92,7 +93,13 @@ export KUBECC_BINARY="%s"
 		"config.yml",
 		"config.json",
 	}
+	consumerdUnit  = "consumerd"
+	systemdTimeout = 10 * time.Second
 )
+
+func systemdClients() (system, user systemd.Systemd) {
+	return systemd.New(systemd.SystemMode, nil), systemd.New(systemd.UserMode, nil)
+}
 
 func inPath() (string, bool) {
 	path, err := exec.LookPath("kubecc")
@@ -169,24 +176,6 @@ func installBinary() (string, error) {
 	}
 	fmt.Printf(zapkc.Green.Add("Installed kubecc to %s\n"), dest.Name())
 	return dest.Name(), nil
-}
-
-func unitIsActive(system bool, unit string) (bool, error) {
-	var flag string
-	if system {
-		flag = "--system"
-	} else {
-		flag = "--user"
-	}
-	cmd := exec.Command("/usr/bin/systemctl", "-q", flag, "is-active", unit)
-	err := cmd.Run()
-	if err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }
 
 func configExists(option string) bool {
@@ -342,12 +331,10 @@ func catUnit(option string) (string, error) {
 	stdout := new(bytes.Buffer)
 	cmd.Stdout = stdout
 	if err := cmd.Run(); err != nil {
-		printFailed()
 		return "", err
 	}
 	output := strings.Split(stdout.String(), "\n")
 	if len(output) <= 2 {
-		printFailed()
 		return "", fmt.Errorf("unexpected output from %q", cmd.String())
 	}
 	// remove the comment at the beginning of the output
@@ -356,6 +343,7 @@ func catUnit(option string) (string, error) {
 }
 
 func writeUserService(serviceContents string) error {
+	printStatus("Installing user service... ")
 	systemdUser, err := homedir.Expand("~/.config/systemd/user")
 	if err != nil {
 		printFailed()
@@ -377,6 +365,7 @@ func writeUserService(serviceContents string) error {
 }
 
 func writeSystemService(serviceContents string) error {
+	printStatus("Installing system service... ")
 	err := os.WriteFile(systemServiceFilepath, []byte(serviceContents), 0o644)
 	if err != nil {
 		printFailed()
@@ -387,54 +376,44 @@ func writeSystemService(serviceContents string) error {
 }
 
 func updateService(option, newContents string) error {
+	system, user := systemdClients()
+
+	var selected systemd.Systemd
 	switch option {
 	case "system":
-		printStatus("Updating system service... ")
 		err := writeSystemService(newContents)
 		if err != nil {
-			fmt.Println(zapkc.Red.Add("error"))
 			return err
 		}
+		selected = system
 	case "user":
-		printStatus("Updating user service... ")
 		err := writeUserService(newContents)
 		if err != nil {
-			fmt.Println(zapkc.Red.Add("error"))
 			return err
 		}
+		selected = user
 	}
 
-	if err := daemonReload(option); err != nil {
-		fmt.Println(zapkc.Red.Add("error"))
+	if err := selected.DaemonReload(); err != nil {
 		return err
 	}
-	if err := restartUnit(option); err != nil {
-		fmt.Println(zapkc.Red.Add("error"))
+	if err := selected.Restart(consumerdUnit, systemdTimeout); err != nil {
 		return err
 	}
 	return nil
 }
 
-func stopService(option string) error {
-	printStatus(fmt.Sprintf("Stopping service (%s)... ", option))
-	cmd := exec.Command("/usr/bin/systemctl", "--"+option,
-		"disable", "--now", "consumerd.service")
-	if err := cmd.Run(); err != nil {
-		printFailed()
-		return err
-	}
-	printDone()
-	return nil
-}
+func installConsumerd(binaryPath string) (systemd.Systemd, string, error) {
+	system := systemd.New(systemd.SystemMode, nil)
+	user := systemd.New(systemd.UserMode, nil)
 
-func installConsumerd(binaryPath string) (string, bool, error) {
 	printStatus("Checking if the consumerd service is running... ")
 	serviceContents := strings.TrimSpace(fmt.Sprintf(serviceTmpl, binaryPath))
 
-	active, err := unitIsActive(true, "consumerd")
+	active, err := system.IsActive(consumerdUnit)
 	if err != nil {
-		fmt.Println(zapkc.Red.Add("error"))
-		return "", false, err
+		printFailed()
+		return nil, "", err
 	}
 
 	if active {
@@ -442,91 +421,60 @@ func installConsumerd(binaryPath string) (string, bool, error) {
 		// check if the file contents need updating
 		if existing, err := catUnit("system"); err == nil && existing != serviceContents {
 			if err := updateService("system", serviceContents); err != nil {
-				return "", false, err
+				return nil, "", err
 			}
 		}
-		return "system", true, nil
+		return system, "system", nil
 	}
 
-	// check user install
-	active, err = unitIsActive(false, "consumerd")
-	if err != nil {
-		fmt.Println(zapkc.Red.Add("error"))
-		return "", false, err
-	}
-	if active {
-		fmt.Println(zapkc.Green.Add("yes (user)"))
-		// check if the file contents need updating
-		if existing, err := catUnit("user"); err == nil && existing != serviceContents {
-			if err := updateService("user", serviceContents); err != nil {
-				return "", false, err
-			}
+	option := "system"
+	if os.Getuid() != 0 {
+		option = "user"
+		active, err = user.IsActive(consumerdUnit)
+		if err != nil {
+			printFailed()
+			return nil, "", err
 		}
-		return "user", true, nil
+		if active {
+			fmt.Println(zapkc.Green.Add("yes (user)"))
+			// check if the file contents need updating
+			if existing, err := catUnit("user"); err == nil && existing != serviceContents {
+				if err := updateService("user", serviceContents); err != nil {
+					return nil, "", err
+				}
+			}
+			return user, "user", nil
+		}
 	}
 	fmt.Println(zapkc.Red.Add("no"))
 
-	// not installed, prompt to install
-	var option string
-	defaultOption := "user"
-	if sudo {
-		defaultOption = "system"
-	}
-	err = survey.AskOne(&survey.Select{
-		Message: "Would you like to install consumerd as a system or user service?",
-		Options: []string{"system", "user"},
-		Default: defaultOption,
-	}, &option)
-	if err != nil {
-		return "", false, err
-	}
-	fmt.Print("Installing service... ")
+	var selected systemd.Systemd
 	switch option {
 	case "user":
 		if err := writeUserService(serviceContents); err != nil {
-			return "", false, err
+			return nil, "", err
 		}
+		selected = user
 	case "system":
 		if err := writeSystemService(serviceContents); err != nil {
-			return "", false, err
+			return nil, "", err
 		}
+		selected = system
 	}
-	return option, false, nil
+	return selected, option, nil
 }
 
-func daemonReload(option string) error {
-	printStatus("Reloading units... ")
-	cmd := exec.Command("/usr/bin/systemctl", "--"+option, "daemon-reload")
-	if err := cmd.Run(); err != nil {
-		printFailed()
-		return err
-	}
-	printDone()
-	return nil
-}
-
-func restartUnit(option string) error {
-	printStatus("Restarting service... ")
-	cmd := exec.Command("/usr/bin/systemctl", "--"+option,
-		"restart", "consumerd.service")
-	if err := cmd.Run(); err != nil {
-		printFailed()
-		return err
-	}
-	printDone()
-	return nil
-}
-
-func startConsumerd(option string) error {
-	if err := daemonReload(option); err != nil {
-		printFailed()
+func startConsumerd(sd systemd.Systemd) error {
+	if err := sd.DaemonReload(); err != nil {
 		return err
 	}
 
 	printStatus("Starting service... ")
-	cmd := exec.Command("/usr/bin/systemctl", "--"+option,
-		"enable", "--now", "consumerd.service")
-	if err := cmd.Run(); err != nil {
+	if err := sd.Start(consumerdUnit); err != nil {
+		printFailed()
+		return err
+	}
+	if err := sd.Enable(consumerdUnit); err != nil {
 		printFailed()
 		return err
 	}
@@ -770,7 +718,7 @@ var SetupCmd = &cobra.Command{
 			printErr(err.Error())
 			os.Exit(1)
 		}
-		option, serviceActive, err := installConsumerd(binPath)
+		sd, option, err := installConsumerd(binPath)
 		if err != nil {
 			printErr(err.Error())
 			os.Exit(1)
@@ -780,8 +728,8 @@ var SetupCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		InitCLIQuiet(cmd, args)
-		if !serviceActive {
-			if err := startConsumerd(option); err != nil {
+		if active, err := sd.IsActive(consumerdUnit); err == nil && !active {
+			if err := startConsumerd(sd); err != nil {
 				printErr(err.Error())
 				os.Exit(1)
 			}
