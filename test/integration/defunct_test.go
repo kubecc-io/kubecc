@@ -31,7 +31,6 @@ import (
 )
 
 var _ = Describe("Defunct Tasks", func() {
-	test.SkipInGithubWorkflow()
 	var testEnv *test.Environment
 	localJobs := 10
 	numTasks := 20
@@ -39,7 +38,8 @@ var _ = Describe("Defunct Tasks", func() {
 	var cdCtx context.Context
 	var agentCancel context.CancelFunc
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
+		test.SkipInGithubWorkflow()
+		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
 
 		testEnv.SpawnMonitor(test.WaitForReady())
 		testEnv.SpawnScheduler(test.WaitForReady())
@@ -58,6 +58,7 @@ var _ = Describe("Defunct Tasks", func() {
 
 	When("An agent becomes unavailable while processing tasks", func() {
 		It("should handle retrying tasks or running locally", func() {
+			test.SkipInGithubWorkflow()
 			go func() {
 				time.Sleep(500 * time.Millisecond)
 				agentCancel()

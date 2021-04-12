@@ -228,7 +228,6 @@ type counts struct {
 }
 
 var _ = Describe("Task Redirection", func() {
-	test.SkipInGithubWorkflow()
 	// These tasks will keep the queue at max capacity, since they will be
 	// added much faster than they can be completed
 	taskPool := makeInfiniteTaskPool([]string{"-sleep", "10ms"})
@@ -240,6 +239,7 @@ var _ = Describe("Task Redirection", func() {
 		expectedTasks = 75
 	}
 	Specify("setup", func() {
+		test.SkipInGithubWorkflow()
 		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
 		queue = consumerd.NewSplitQueue(testCtx,
 			testEnv.NewMonitorClient(testCtx),
@@ -254,6 +254,7 @@ var _ = Describe("Task Redirection", func() {
 	})
 	When("no remote is available yet", func() {
 		It("should run all tasks locally", func() {
+			test.SkipInGithubWorkflow()
 			By("Waiting 100ms")
 			time.Sleep(200 * time.Millisecond)
 			By("Checking counts")
@@ -268,9 +269,11 @@ var _ = Describe("Task Redirection", func() {
 	When("the remote becomes available", func() {
 		var cancel context.CancelFunc
 		Specify("starting scheduler", func() {
+			test.SkipInGithubWorkflow()
 			_, cancel = testEnv.SpawnScheduler()
 		})
 		It("should split tasks between local and remote", func() {
+			test.SkipInGithubWorkflow()
 			By("Waiting 100ms")
 			requestCounts <- struct{}{} // set the counts back to 0
 			<-countsCh
@@ -284,6 +287,7 @@ var _ = Describe("Task Redirection", func() {
 			Expect(counts.remote).To(BeNumerically(">", expectedTasks))
 		})
 		Specify("stopping scheduler", func() {
+			test.SkipInGithubWorkflow()
 			cancel()
 			// wait for any active remote tasks to be completed/canceled
 			time.Sleep(50 * time.Millisecond)
@@ -291,6 +295,7 @@ var _ = Describe("Task Redirection", func() {
 	})
 	When("the remote becomes unavailable", func() {
 		It("should run all tasks locally", func() {
+			test.SkipInGithubWorkflow()
 			By("Waiting 100ms")
 			requestCounts <- struct{}{} // set the counts back to 0
 			<-countsCh
@@ -305,6 +310,7 @@ var _ = Describe("Task Redirection", func() {
 		})
 	})
 	Specify("shutdown", func() {
+		test.SkipInGithubWorkflow()
 		taskPool.Cancel()
 		testEnv.Shutdown()
 	})
