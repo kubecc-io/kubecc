@@ -228,6 +228,7 @@ type counts struct {
 }
 
 var _ = Describe("Task Redirection", func() {
+	test.SkipInGithubWorkflow()
 	// These tasks will keep the queue at max capacity, since they will be
 	// added much faster than they can be completed
 	taskPool := makeInfiniteTaskPool([]string{"-sleep", "10ms"})
