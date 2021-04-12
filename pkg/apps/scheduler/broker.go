@@ -365,6 +365,9 @@ func (b *Broker) cleanupAgent(a *Agent) {
 	// re-queue or cancel those requests.
 	b.inflightRequests.Range(func(key, value interface{}) bool {
 		req := value.(inflightRequest)
+		if req.agent == nil {
+			return true
+		}
 		if req.agent.UUID == a.UUID {
 			// Don't need to delete the key here, responseQueue handles that
 			// Defer to run after the Range operation finishes
@@ -569,6 +572,16 @@ func (b *Broker) PreReceive(
 	})
 	switch status.Code(err) {
 	case codes.OK:
+		value, ok := b.pendingRequests.LoadAndDelete(req.GetRequestID())
+		if !ok {
+			b.lg.DPanic("Invalid request in Pre Receive hook")
+			return
+		}
+		pending := value.(pendingRequest)
+		b.inflightRequests.Store(req.GetRequestID(), inflightRequest{
+			pendingRequest: pending,
+			agent:          nil,
+		})
 		b.responseQueue <- &types.CompileResponse{
 			RequestID:     req.GetRequestID(),
 			CompileResult: types.CompileResponse_Success,

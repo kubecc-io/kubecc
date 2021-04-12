@@ -30,7 +30,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ = FDescribe("Defunct Tasks", func() {
+var _ = Describe("Defunct Tasks", func() {
 	var testEnv *test.Environment
 	localJobs := 10
 	numTasks := 20

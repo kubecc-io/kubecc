@@ -28,6 +28,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 )
 
 // Optimizer is responsible for adjusting the preferred remote usage
@@ -141,7 +142,7 @@ func (o *Optimizer) runAgentOptimizer(
 			wallTime:    s.WallTime,
 			tokenCount:  available + locked,
 			tokensInUse: locked,
-			stats:       s,
+			stats:       proto.Clone(s).(*metrics.CpuStats),
 		})
 	})
 	util.RunPeriodic(pctx, 8*time.Second, 0.5, false, func() { // every 8-12s
