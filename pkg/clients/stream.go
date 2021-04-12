@@ -229,9 +229,6 @@ func (sm *StreamManager) Run() {
 				lg.Infof(color.Add("Connected to %s"), sm.handler.Target())
 			}
 			err := sm.handler.HandleStream(stream)
-			if err := stream.CloseSend(); err != nil {
-				lg.With(zap.Error(err)).Error("Failed to close stream")
-			}
 			cancelCond = sm.applyCondition()
 			if e, ok := sm.handler.(OnLostConnectionEventHandler); ok {
 				e.OnLostConnection()

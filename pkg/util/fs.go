@@ -43,3 +43,12 @@ func (osfs) Stat(name string) (fs.FileInfo, error) {
 func (osfs) ReadDir(name string) ([]fs.DirEntry, error) {
 	return os.ReadDir(name)
 }
+
+var PreferredTempDirectory string
+
+func init() {
+	if _, err := os.Stat("/dev/shm"); err == nil {
+		PreferredTempDirectory = "/dev/shm"
+	}
+	PreferredTempDirectory = "/tmp"
+}

@@ -29,6 +29,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/run"
 	"github.com/kubecc-io/kubecc/pkg/servers"
 	"github.com/kubecc-io/kubecc/pkg/sleep"
 	sleepctrl "github.com/kubecc-io/kubecc/pkg/sleep/controller"
@@ -75,10 +76,16 @@ func runConsumerd(cmd *cobra.Command, args []string) {
 	monitorClient := types.NewMonitorClient(monitorCC)
 	srv := servers.NewServer(ctx)
 
+	var localUsageMgr run.ResizerManager
+	if conf.UsageLimits.ConcurrentProcessLimit < 0 {
+		localUsageMgr = consumerd.AutoUsageLimits()
+	} else {
+		localUsageMgr = consumerd.FixedUsageLimits(
+			int64(conf.UsageLimits.ConcurrentProcessLimit))
+	}
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithQueueOptions(
-			consumerd.WithLocalUsageManager(
-				consumerd.FixedUsageLimits(int64(conf.UsageLimits.ConcurrentProcessLimit))),
+			consumerd.WithLocalUsageManager(localUsageMgr),
 			consumerd.WithRemoteUsageManager(
 				clients.NewRemoteUsageManager(ctx, monitorClient)),
 		),

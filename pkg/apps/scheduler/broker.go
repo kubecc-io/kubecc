@@ -37,29 +37,35 @@ import (
 )
 
 type Broker struct {
-	srvContext      context.Context
-	lg              *zap.SugaredLogger
-	completedTasks  *atomic.Int64
-	failedTasks     *atomic.Int64
-	requestCount    *atomic.Int64
-	requestQueue    chan *types.CompileRequest
-	responseQueue   chan *types.CompileResponse
-	agents          map[string]*Agent
-	consumerds      map[string]*Consumerd
-	agentsMutex     *sync.RWMutex
-	consumerdsMutex *sync.RWMutex
-	router          *Router
-	cacheClient     types.CacheClient
-	monClient       types.MonitorClient
-	hashSrv         *util.HashServer
-	pendingRequests sync.Map // map[uuid string]pendingRequest
-	tcWatcher       ToolchainWatcher
-	cacheAvailable  *atomic.Bool
+	srvContext       context.Context
+	lg               *zap.SugaredLogger
+	completedTasks   *atomic.Int64
+	failedTasks      *atomic.Int64
+	requestCount     *atomic.Int64
+	requestQueue     chan *types.CompileRequest
+	responseQueue    chan *types.CompileResponse
+	agents           map[string]*Agent
+	consumerds       map[string]*Consumerd
+	agentsMutex      *sync.RWMutex
+	consumerdsMutex  *sync.RWMutex
+	router           *Router
+	cacheClient      types.CacheClient
+	monClient        types.MonitorClient
+	hashSrv          *util.HashServer
+	pendingRequests  sync.Map // map[uuid string]pendingRequest
+	inflightRequests sync.Map // map[uuid string]inflightRequest
+	tcWatcher        ToolchainWatcher
+	cacheAvailable   *atomic.Bool
 }
 
 type pendingRequest struct {
 	request   *types.CompileRequest
 	requester *Consumerd
+}
+
+type inflightRequest struct {
+	pendingRequest
+	agent *Agent
 }
 
 type BrokerOptions struct {
@@ -130,8 +136,6 @@ func NewBroker(
 	return b
 }
 
-var ErrTokenImbalance = errors.New("Token imbalance")
-
 // this function is not *necessarily* needed, but it allows the cache to be
 // unavailable while testing using bufconn. It also speeds things up a tiny
 // bit because it doesn't have to repeatedly fail trying to make calls to the
@@ -182,21 +186,30 @@ func (b *Broker) handleAgentStream(
 			select {
 			case token := <-agent.AvailableTokens:
 				agent.LockedTokens <- token
-			case <-stream.Context().Done():
-				return
-			}
-			req, ok := <-filterOutput
-			if !ok {
-				// Output closed
-				return
-			}
-			err := stream.Send(req)
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					b.lg.Debug(err)
-				} else {
-					b.lg.Error(err)
+				req, ok := <-filterOutput
+				if !ok {
+					// Output closed
+					return
 				}
+				pending, ok := b.pendingRequests.LoadAndDelete(req.RequestID)
+				if !ok {
+					b.lg.DPanic("Tried to run a nonexistent task")
+					continue
+				}
+				b.inflightRequests.Store(req.RequestID, inflightRequest{
+					pendingRequest: pending.(pendingRequest),
+					agent:          agent,
+				})
+				err := stream.Send(req)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						b.lg.Debug(err)
+					} else {
+						b.lg.Error(err)
+					}
+					return
+				}
+			case <-stream.Context().Done():
 				return
 			}
 		}
@@ -212,7 +225,10 @@ func (b *Broker) handleAgentStream(
 				if errors.Is(err, io.EOF) {
 					b.lg.Debug(err)
 				} else {
-					b.lg.Error(err)
+					b.lg.With(
+						zap.Error(err),
+						zap.String("id", agent.UUID),
+					).Warn("Agent stream closed")
 				}
 				return
 			}
@@ -223,12 +239,47 @@ func (b *Broker) handleAgentStream(
 			default:
 				b.lg.With(
 					types.ShortID(agent.UUID),
-				).Error(ErrTokenImbalance)
+				).DPanic("Token Imbalance")
 			}
 			agent.CompletedTasks.Inc()
 			b.responseQueue <- resp
 		}
 	}()
+}
+
+func (b *Broker) routeNewRequest(
+	ctx context.Context,
+	cd *Consumerd,
+	req *types.CompileRequest,
+	ifRouteFails types.RetryAction,
+) {
+	b.requestCount.Inc()
+	b.pendingRequests.Store(req.RequestID, pendingRequest{
+		request:   req,
+		requester: cd,
+	})
+	if err := b.router.Route(ctx, req); err != nil {
+		b.lg.With(
+			zap.Error(err),
+		).Warn("Failed to route compile request")
+		pending, ok := b.pendingRequests.LoadAndDelete(req.RequestID)
+		if !ok {
+			b.lg.DPanic("Tried to load a nonexistent task")
+			return
+		}
+		b.inflightRequests.Store(req.RequestID, inflightRequest{
+			pendingRequest: pending.(pendingRequest),
+			agent:          nil,
+		})
+		b.requestCount.Dec()
+		b.responseQueue <- &types.CompileResponse{
+			RequestID:     req.GetRequestID(),
+			CompileResult: types.CompileResponse_Retry,
+			Data: &types.CompileResponse_RetryAction{
+				RetryAction: ifRouteFails,
+			},
+		}
+	}
 }
 
 func (b *Broker) handleConsumerdStream(
@@ -253,25 +304,7 @@ func (b *Broker) handleConsumerdStream(
 				}
 				return
 			}
-			b.requestCount.Inc()
-			b.pendingRequests.Store(req.RequestID, pendingRequest{
-				request:   req,
-				requester: cd,
-			})
-			if err := b.router.Route(srv.Context(), req); err != nil {
-				b.lg.With(
-					zap.Error(err),
-				).Error("Encountered an error while routing compile request")
-				b.pendingRequests.Delete(req.RequestID)
-				b.requestCount.Dec()
-				b.responseQueue <- &types.CompileResponse{
-					RequestID:     req.GetRequestID(),
-					CompileResult: types.CompileResponse_InternalError,
-					Data: &types.CompileResponse_Error{
-						Error: err.Error(),
-					},
-				}
-			}
+			b.routeNewRequest(srv.Context(), cd, req, types.RetryAction_DoNotRetry)
 		}
 	}()
 }
@@ -283,14 +316,11 @@ func (b *Broker) handleResponseQueue() {
 			b.lg.Debug("Response queue closed")
 			return
 		}
-		if value, ok := b.pendingRequests.LoadAndDelete(resp.RequestID); ok {
-			b.lg.With(
-				zap.String("request", resp.RequestID),
-			).Debug("Sending response to consumerd")
-			pr := value.(pendingRequest)
-			consumerd := pr.requester
-			request := pr.request
-			consumerd.CompletedTasks.Inc()
+		if value, ok := b.inflightRequests.LoadAndDelete(resp.RequestID); ok {
+			b.requestCount.Dec()
+			ir := value.(inflightRequest)
+			consumerd := ir.requester
+			request := ir.request
 			switch resp.CompileResult {
 			case types.CompileResponse_Fail, types.CompileResponse_InternalError:
 				b.failedTasks.Inc()
@@ -299,7 +329,20 @@ func (b *Broker) handleResponseQueue() {
 				if managed := request.GetManagedFields(); managed != nil {
 					go b.cacheTransaction(managed.GetComputedHash(), resp)
 				}
+			case types.CompileResponse_Defunct:
+				// Try to requeue the defunct task
+				b.lg.With(
+					zap.String("request", resp.GetRequestID()),
+					zap.String("error", resp.GetError()),
+				).Warn("Requeueing defunct task")
+				go b.routeNewRequest(consumerd.Stream.Context(), consumerd, request,
+					types.RetryAction_Retry)
+				continue
 			}
+			b.lg.With(
+				zap.String("request", resp.RequestID),
+			).Debug("Sending response to consumerd")
+			consumerd.CompletedTasks.Inc()
 			err := consumerd.Stream.Send(resp)
 			if err != nil {
 				b.lg.With(
@@ -309,9 +352,34 @@ func (b *Broker) handleResponseQueue() {
 		} else {
 			b.lg.With(
 				"id", resp.RequestID,
-			).Error("Received response for which there was no pending request")
+			).Error("Received response for which there was no inflight request")
 		}
 	}
+}
+
+func (b *Broker) cleanupAgent(a *Agent) {
+	a.Lock()
+	defer a.Unlock()
+	// If the agent is gone, any tasks it was working on are now defunct.
+	// We can look at its locked tokens which will contain request IDs, and
+	// re-queue or cancel those requests.
+	b.inflightRequests.Range(func(key, value interface{}) bool {
+		req := value.(inflightRequest)
+		if req.agent.UUID == a.UUID {
+			// Don't need to delete the key here, responseQueue handles that
+			// Defer to run after the Range operation finishes
+			defer func() {
+				b.responseQueue <- &types.CompileResponse{
+					RequestID:     key.(string),
+					CompileResult: types.CompileResponse_Defunct,
+					Data: &types.CompileResponse_Error{
+						Error: "The agent handling this task is no longer available.",
+					},
+				}
+			}()
+		}
+		return true
+	})
 }
 
 func (b *Broker) NewAgentTaskStream(
@@ -352,6 +420,7 @@ func (b *Broker) NewAgentTaskStream(
 
 		b.agentsMutex.Lock()
 		defer b.agentsMutex.Unlock()
+		b.cleanupAgent(agent)
 		delete(b.agents, agent.UUID)
 	}()
 	return nil

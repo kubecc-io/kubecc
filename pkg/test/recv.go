@@ -26,10 +26,10 @@ import (
 type recvRemoteRunnerManager struct{}
 
 func (m recvRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 
 	lg.Info("=> Receiving remote")
 	defer lg.Info("=> Done.")
@@ -38,15 +38,9 @@ func (m recvRemoteRunnerManager) Process(
 		Args: req.Args,
 	}
 	ap.Parse()
-	out, err := doTestAction(&ap)
+	out, err := doTestAction(ctx, &ap)
 	if err != nil {
-		return &types.CompileResponse{
-			RequestID:     req.RequestID,
-			CompileResult: types.CompileResponse_Fail,
-			Data: &types.CompileResponse_Error{
-				Error: err.Error(),
-			},
-		}, nil
+		return nil, err
 	}
 	return &types.CompileResponse{
 		RequestID:     req.RequestID,
@@ -60,7 +54,7 @@ func (m recvRemoteRunnerManager) Process(
 type recvRemoteRunnerManagerSim struct{}
 
 func (m recvRemoteRunnerManagerSim) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
 	panic("Unimplemented")

@@ -22,7 +22,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/types"
@@ -52,15 +51,9 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 		}
 	}
 
-	var compilerPath string
-	if filepath.IsAbs(os.Args[0]) {
-		compilerPath = os.Args[0]
-	} else {
-		compilerPath = findCompilerOrDie(ctx)
-	}
 	resp, err := consumerd.Run(ctx, &types.RunRequest{
 		Compiler: &types.RunRequest_Path{
-			Path: compilerPath,
+			Path: findCompilerOrDie(ctx),
 		},
 		Args:    os.Args[1:],
 		Env:     os.Environ(),

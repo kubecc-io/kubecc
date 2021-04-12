@@ -23,6 +23,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/kubecc-io/kubecc/pkg/util"
@@ -63,10 +64,55 @@ func RunWait(t Task) error {
 	return t.Err()
 }
 
-// Contexts is a pair of client and server contexts.
-type Contexts struct {
+// PairContext is a pair of client and server contexts.
+type PairContext struct {
 	ServerContext context.Context
 	ClientContext context.Context
+}
+
+func (pc PairContext) Deadline() (deadline time.Time, ok bool) {
+	timeA, okA := pc.ClientContext.Deadline()
+	timeB, okB := pc.ServerContext.Deadline()
+	switch {
+	case okA && okB:
+		if timeA.Before(timeB) {
+			return timeA, true
+		}
+		return timeB, true
+	case okA:
+		return timeA, true
+	case okB:
+		return timeB, true
+	default:
+		return time.Time{}, false
+	}
+}
+
+func (pc PairContext) Done() <-chan struct{} {
+	c := make(chan struct{})
+	go func() {
+		select {
+		case <-pc.ClientContext.Done():
+			close(c)
+		case <-pc.ServerContext.Done():
+			close(c)
+		}
+	}()
+	return c
+}
+
+func (pc PairContext) Err() error {
+	if err := pc.ServerContext.Err(); err != nil {
+		return err
+	}
+	return pc.ClientContext.Err()
+}
+
+func (pc PairContext) Value(key interface{}) interface{} {
+	if value := pc.ServerContext.Value(key); value != nil {
+		return value
+	}
+	return pc.ClientContext.Value(key)
 }
 
 // RequestManager represents an entity that is responsible for the entire
@@ -80,7 +126,7 @@ type RequestManager interface {
 	// could not be completed, either due to a network error, an internal error,
 	// or a similar issue. Responses should encode success or failure within
 	// the response type itself.
-	Process(ctx Contexts, request interface{}) (response interface{}, err error)
+	Process(ctx PairContext, request interface{}) (response interface{}, err error)
 }
 
 // PackagedRequest is a runnable closure which can invoke a RequestManager's
@@ -108,7 +154,7 @@ func (pr *PackagedRequest) Response() chan interface{} {
 // not run the request.
 func PackageRequest(
 	rm RequestManager,
-	ctx Contexts,
+	ctx PairContext,
 	request interface{},
 ) PackagedRequest {
 	return PackagedRequest{

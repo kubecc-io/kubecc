@@ -38,3 +38,6 @@ func IsCompilerError(err error) bool {
 	var e *CompilerError
 	return errors.As(err, &e)
 }
+
+var ErrNoAgentsRetry = errors.New("No agents available to handle the request; retrying")
+var ErrNoAgentsRunLocal = errors.New("No agents available to handle the request; running locally")

@@ -26,10 +26,10 @@ import (
 type localRunnerManager struct{}
 
 func (m localRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 	lg.Info("=> Running local")
 	req := request.(*types.RunRequest)
 
@@ -37,12 +37,9 @@ func (m localRunnerManager) Process(
 		Args: req.Args,
 	}
 	ap.Parse()
-	out, err := doTestAction(&ap)
+	out, err := doTestAction(ctx, &ap)
 	if err != nil {
-		return &types.RunResponse{
-			ReturnCode: 1,
-			Stderr:     []byte(err.Error()),
-		}, nil
+		return nil, err
 	}
 	return &types.RunResponse{
 		ReturnCode: 0,

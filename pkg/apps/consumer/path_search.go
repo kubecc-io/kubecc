@@ -30,6 +30,9 @@ import (
 )
 
 func samePath(a, b string) bool {
+	if a == b {
+		return true
+	}
 	var err error
 	a, err = filepath.EvalSymlinks(a)
 	if err != nil {

@@ -64,9 +64,11 @@ func (t *compileTask) Run() {
 			ext = ".o"
 		}
 		tmp, err := os.CreateTemp(
-			"", fmt.Sprintf("kubecc_*%s", ext))
+			util.PreferredTempDirectory, fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
-			t.Log.With(zap.Error(err)).Fatal("Can't create temporary files")
+			t.Log.With(zap.Error(err)).Error("Can't create temporary files")
+			t.SetErr(err)
+			return
 		}
 		tmpFileName = tmp.Name()
 		t.Log.With(

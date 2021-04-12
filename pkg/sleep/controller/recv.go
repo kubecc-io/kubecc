@@ -27,16 +27,16 @@ type recvRemoteRunnerManager struct {
 }
 
 func (m recvRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.CompileRequest)
 	t := run.NewExecCommandTask(req.GetToolchain(),
+		run.WithContext(ctx),
 		run.WithArgs(req.Args),
-		run.WithContext(ctx.ClientContext),
 	)
 	t.Run()
 	if err := t.Err(); err != nil {

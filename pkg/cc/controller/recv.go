@@ -19,44 +19,61 @@ package toolchain
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/run"
 	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type recvRemoteRunnerManager struct {
-	tc *types.Toolchain
-}
+type recvRemoteRunnerManager struct{}
 
 func (m *recvRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (interface{}, error) {
 	req := request.(*types.CompileRequest)
-	lg := meta.Log(ctx.ServerContext)
-	ap := cc.NewArgParser(ctx.ServerContext, req.Args)
+	lg := meta.Log(ctx)
+	ap := cc.NewArgParser(ctx, req.Args)
 	ap.Parse()
 	lg.With(zap.Object("args", ap)).Info("Compile starting")
-
 	stderrBuf := new(bytes.Buffer)
 	tmpFilename := new(bytes.Buffer)
-	task := cc.NewCompileTask(m.tc, ap,
-		run.WithContext(ctx.ClientContext),
-		run.WithLog(meta.Log(ctx.ServerContext)),
+
+	inputFilename := ap.Args[ap.InputArgIndex]
+	tmp, err := os.CreateTemp(
+		util.PreferredTempDirectory,
+		fmt.Sprintf("kubecc_*_%s", filepath.Base(inputFilename)))
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if _, err := io.Copy(tmp, bytes.NewReader(req.PreprocessedSource)); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	if err := ap.ReplaceInputPath(tmp.Name()); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	task := cc.NewCompileTask(req.GetToolchain(), ap,
+		run.WithContext(ctx),
+		run.WithLog(lg),
 		run.WithOutputWriter(tmpFilename),
 		run.WithOutputStreams(io.Discard, stderrBuf),
-		run.WithStdin(bytes.NewReader(req.GetPreprocessedSource())),
 	)
 	task.Run()
 
-	err := task.Err()
+	err = task.Err()
 	lg.With(zap.Error(err)).Info("Compile finished")
 	if err != nil && run.IsCompilerError(err) {
 		return &types.CompileResponse{
@@ -77,6 +94,9 @@ func (m *recvRemoteRunnerManager) Process(
 	err = os.Remove(tmpFilename.String())
 	if err != nil {
 		lg.With(zap.Error(err)).Info("Error removing temp file")
+	}
+	if len(data) == 0 {
+		return nil, status.Error(codes.Internal, "Compiled object is empty")
 	}
 	lg.With(zap.Error(err)).Info("Sending results")
 	return &types.CompileResponse{
