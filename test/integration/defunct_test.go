@@ -31,6 +31,7 @@ import (
 )
 
 var _ = Describe("Defunct Tasks", func() {
+	test.SkipInGithubWorkflow()
 	var testEnv *test.Environment
 	localJobs := 10
 	numTasks := 20
