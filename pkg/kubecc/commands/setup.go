@@ -276,6 +276,14 @@ func installConfig(option string) error {
 				ConcurrentProcessLimit: -1,
 			},
 		},
+		Kcctl: config.KcctlSpec{
+			GlobalSpec: config.GlobalSpec{
+				LogLevel: "warn",
+			},
+			MonitorAddress:   answers.MonitorAddress,
+			SchedulerAddress: answers.SchedulerAddress,
+			DisableTLS:       !answers.TLSEnabled,
+		},
 	}
 
 	printStatus("Writing config file... ")
@@ -563,27 +571,31 @@ func setupToolchains(binaryPath string, cc *grpc.ClientConn) error {
 }
 
 func makeAliases(binPath string) ([]string, error) {
-	aliases := []string{}
 	binDir, err := homedir.Expand("~/.kubecc/bin")
 	if err != nil {
 		return []string{}, err
 	}
-
-	entries, err := os.ReadDir(binDir)
-	if err != nil {
-		return []string{}, err
+	aliases := []string{
+		fmt.Sprintf(`alias make='PATH="%s${PATH:+:${PATH}}" make'`, binDir),
 	}
-
-	for _, f := range entries {
-		if f.IsDir() {
-			continue
-		}
-
-		aliases = append(aliases, fmt.Sprintf("alias %s='%s'", f.Name(),
-			filepath.Join(binDir, f.Name())))
-	}
-
 	return aliases, nil
+
+	// entries, err := os.ReadDir(binDir)
+	// if err != nil {
+	// 	return []string{}, err
+	// }
+
+	// for _, f := range entries {
+	// 	if f.IsDir() {
+	// 		continue
+	// 	}
+
+	// 	aliases = append(aliases, fmt.Sprintf("%s() { %s \"$@\"; }", f.Name(),
+	// 		filepath.Join(binDir, f.Name())))
+	// }
+
+	// aliases = append(aliases, "set +a")
+	// return aliases, nil
 }
 
 func doAppend(rc string) error {

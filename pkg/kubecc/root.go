@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package kubecc
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -76,6 +75,7 @@ func CreateRootCmd() *cobra.Command {
 				commands.SetupCmd,
 				commands.TeardownCmd,
 				commands.InstallCmd,
+				commands.CreateCmd,
 			},
 		},
 	}
@@ -88,7 +88,6 @@ func CreateRootCmd() *cobra.Command {
 
 func Execute() {
 	if err := CreateRootCmd().Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }
