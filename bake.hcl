@@ -2,20 +2,46 @@ group "default" {
   targets = ["kubecc", "environment"]
 }
 
-target "kubecc" {
-  dockerfile = "images/kubecc/Dockerfile"
-  tags = ["kubecc/kubecc:testing"]
-  platforms = ["linux/amd64", "linux/arm64"]
-  context = "."
-  cache-from = ["type=local,src=build/cache/kubecc"]
-  cache-to = ["type=local,dest=build/cache/kubecc"]
+group "kubecc" {
+  targets = ["kubecc-amd64"]#, "kubecc-arm64"]
 }
 
-target "environment" {
+group "environment" {
+  targets = ["environment-amd64", "environment-arm64"]
+}
+
+target "kubecc-amd64" {
+  dockerfile = "images/kubecc/Dockerfile"
+  tags = ["kubecc/kubecc"]
+  platforms = ["linux/amd64"]
+  context = "."
+  cache-from = ["kubecc/kubecc:cache-amd64"]
+  cache-to = ["kubecc/kubecc:cache-amd64"]
+}
+
+target "kubecc-arm64" {
+  dockerfile = "images/kubecc/Dockerfile"
+  tags = ["kubecc/kubecc"]
+  platforms = ["linux/arm64"]
+  context = "."
+  cache-from = ["kubecc/kubecc:cache-arm64"]
+  cache-to = ["kubecc/kubecc:cache-arm64"]
+}
+
+target "environment-amd64" {
   dockerfile = "images/environment/Dockerfile"
   tags = ["kubecc/environment"]
   platforms = ["linux/amd64", "linux/arm64"]
   context = "."
-  cache-from = ["type=local,src=build/cache/environment"]
-  cache-to = ["type=local,dest=build/cache/environment"]
+  cache-from = ["kubecc/environment:cache-amd64"]
+  cache-to = ["kubecc/environment:cache-amd64"]
+}
+
+target "environment-arm64" {
+  dockerfile = "images/environment/Dockerfile"
+  tags = ["kubecc/environment"]
+  platforms = ["linux/arm64"]
+  context = "."
+  cache-from = ["kubecc/environment:cache-arm64"]
+  cache-to = ["kubecc/environment:cache-arm64"]
 }

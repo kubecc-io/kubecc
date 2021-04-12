@@ -25,7 +25,7 @@ import (
 
 type BuildClusterSpec struct {
 	Components ComponentsSpec `json:"components"`
-	Tracing    TracingSpec    `json:"tracing,omitempty"` // +optional
+	Tracing    *TracingSpec   `json:"tracing,omitempty"` // +optional
 }
 
 type ComponentsSpec struct {

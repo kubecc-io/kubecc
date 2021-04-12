@@ -1,0 +1,62 @@
+apiVersion: kubecc.io/v1alpha1
+kind: BuildCluster
+metadata:
+  name: {{ .Spec.Name | quote }}
+  namespace: {{ .Spec.Namespace | quote }}
+spec:
+  components:
+    image: {{ .Spec.Image | quote }}
+    imagePullPolicy: Always
+    agents:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubecc-role
+                operator: In
+                values: 
+                  - "agent"
+      resources:
+        requests:
+{{- if not (eq .Spec.CpuRequest "") }}
+          cpu: {{ .Spec.CpuRequest | quote }}
+{{- end }}
+{{- if not (eq .Spec.MemRequest "") }}
+          memory: {{ .Spec.MemRequest  | quote }}
+{{- end }}
+        limits:
+{{- if not (eq .Spec.CpuLimit "") }}
+          cpu: {{ .Spec.CpuLimit | quote }}
+{{- end }}          
+{{- if not (eq .Spec.MemLimit "") }}
+          memory: {{ .Spec.MemLimit  | quote }}
+{{- end }}          
+      image: {{ .Spec.AgentImage | quote }}
+      imagePullPolicy: IfNotPresent
+    scheduler:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubecc-role
+                operator: In
+                values: 
+                  - "control-plane"
+    monitor:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubecc-role
+                operator: In
+                values: 
+                  - "control-plane"
+    cache:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubecc-role
+                operator: In
+                values: 
+                  - "control-plane"
