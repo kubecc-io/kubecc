@@ -42,6 +42,15 @@ var sourceExtensions map[string]string = map[string]string{
 	".s":   "assembler",
 	".S":   "assembler",
 	".go":  "go",
+	".h":   "c-header",
+	".H":   "c++-header",
+	".hpp": "c++-header",
+	".hp":  "c++-header",
+	".hxx": "c++-header",
+	".h++": "c++-header",
+	".HPP": "c++-header",
+	".tcc": "c++-header",
+	".hh":  "c++-header",
 }
 
 // IsSourceFile returns true if the given file is a

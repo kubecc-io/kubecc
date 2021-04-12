@@ -19,7 +19,11 @@ package cc
 
 import (
 	"context"
+	"embed"
+	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
@@ -27,6 +31,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 )
@@ -229,4 +234,28 @@ var _ = Describe("CC Arg Parser", func() {
 			info.Args,
 		)
 	}, 1000)
+})
+
+//go:embed testdata
+var testdata embed.FS
+
+var _ = Describe("Test Data", func() {
+	Context("Test cases should allow running remotely", func() {
+		entries, err := testdata.ReadDir("testdata/should_run_remote")
+		if err != nil {
+			panic(err)
+		}
+		for i, f := range entries {
+			name := filepath.Join("testdata/should_run_remote", f.Name())
+			Specify(fmt.Sprintf("Test %d", i), func() {
+				lines, err := fs.ReadFile(testdata, name)
+				if err != nil {
+					panic(err)
+				}
+				ap := NewArgParser(ctx, strings.Split(string(lines), "\n"))
+				ap.Parse()
+				Expect(ap.CanRunRemote()).To(BeTrue())
+			})
+		}
+	})
 })

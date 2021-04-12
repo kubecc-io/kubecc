@@ -35,7 +35,9 @@ import (
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -212,7 +214,7 @@ func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 		compileRequest := &types.CompileRequest{}
 		err := stream.RecvMsg(compileRequest)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if errors.Is(err, io.EOF) || status.Code(err) == codes.Canceled {
 				s.lg.Debug(err)
 			} else {
 				s.lg.Error(err)
@@ -225,7 +227,8 @@ func (s *AgentServer) HandleStream(stream grpc.ClientStream) error {
 			if err != nil {
 				s.lg.With(
 					zap.Error(err),
-				).Error("Error sending response to scheduler")
+					zap.String("id", compileRequest.RequestID),
+				).Warn("Task completed, but could not be returned")
 			}
 		}()
 	}
@@ -285,7 +288,7 @@ func (s *AgentServer) compile(
 	// Swap remote toolchain with the local toolchain in case the executable
 	// path is different locally
 	req.Toolchain = tc
-	resp, err := runner.RecvRemote().Process(run.Contexts{
+	resp, err := runner.RecvRemote().Process(run.PairContext{
 		ServerContext: s.srvContext,
 		ClientContext: sctx,
 	}, req)

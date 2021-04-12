@@ -95,9 +95,9 @@ func (tc *Toolchain) CommonNames() []string {
 		case C:
 			return []string{"gcc", "cc"}
 		case CXX:
-			return []string{"g++"}
+			return []string{"g++", "c++"}
 		case Multi:
-			return []string{"gcc", "g++"}
+			return []string{"gcc", "cc", "g++", "c++"}
 		}
 	}
 	return []string{}

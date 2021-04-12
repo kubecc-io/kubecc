@@ -81,8 +81,27 @@ func DefaultPaused() WorkerPoolOption {
 	}
 }
 
+type UpstreamQueue interface {
+	Select() (Task, bool)
+}
+
+type singularQueue struct {
+	c chan Task
+}
+
+func (s singularQueue) Select() (t Task, ok bool) {
+	t, ok = <-s.c
+	return
+}
+
+func SingularQueue(ch chan Task) UpstreamQueue {
+	return singularQueue{
+		c: ch,
+	}
+}
+
 // NewWorkerPool creates a new WorkerPool with the provided task queue.
-func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool {
+func NewWorkerPool(taskQueue UpstreamQueue, opts ...WorkerPoolOption) *WorkerPool {
 	options := WorkerPoolOptions{
 		runner: func(t Task) {
 			t.Run()
@@ -103,7 +122,7 @@ func NewWorkerPool(taskQueue <-chan Task, opts ...WorkerPoolOption) *WorkerPool 
 	return wp
 }
 
-func (wp *WorkerPool) manageQueue(upstream <-chan Task) {
+func (wp *WorkerPool) manageQueue(upstream UpstreamQueue) {
 	defer close(wp.taskQueue)
 	for {
 		// ensure the worker pool is not paused
@@ -120,7 +139,7 @@ func (wp *WorkerPool) manageQueue(upstream <-chan Task) {
 		// the upstream queue and write it on the futureTask's channel. This is
 		// done because if there are no available workers, a single task will be
 		// stuck here in limbo, unable to be processed by a different worker pool.
-		task, open := <-upstream
+		task, open := upstream.Select()
 		if !open {
 			// upstream is closed, we are done
 			return

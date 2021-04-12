@@ -33,15 +33,15 @@ type sendRemoteRunnerManager struct {
 }
 
 func (m sendRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
-	tracer := meta.Tracer(ctx.ServerContext)
+	lg := meta.Log(ctx)
+	tracer := meta.Tracer(ctx)
 
 	lg.Info("Sending remote")
 	span, _ := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "run-send")
+		ctx, tracer, "run-send")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 	resp, err := m.client.Compile(&types.CompileRequest{
@@ -55,29 +55,35 @@ func (m sendRemoteRunnerManager) Process(
 		}
 		panic(err)
 	}
-	switch data := resp.Data.(type) {
-	case *types.CompileResponse_CompiledSource:
+	switch resp.CompileResult {
+	case types.CompileResponse_Success:
 		return &types.RunResponse{
 			ReturnCode: 0,
-			Stdout:     data.CompiledSource,
+			Stdout:     resp.GetCompiledSource(),
 		}, nil
-	case *types.CompileResponse_Error:
+	case types.CompileResponse_Fail:
 		return &types.RunResponse{
 			ReturnCode: 0,
-			Stderr:     []byte(data.Error),
+			Stderr:     []byte(resp.GetError()),
 		}, nil
-	default:
-		panic("Invalid test")
+	case types.CompileResponse_Retry:
+		switch resp.GetRetryAction() {
+		case types.RetryAction_Retry:
+			return nil, run.ErrNoAgentsRetry
+		case types.RetryAction_DoNotRetry:
+			return nil, run.ErrNoAgentsRunLocal
+		}
 	}
+	panic("Invalid test")
 }
 
 type sendRemoteRunnerManagerSim struct{}
 
 func (m sendRemoteRunnerManagerSim) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 
 	lg.Info("=> Receiving remote")
 	req := request.(*types.RunRequest)
@@ -85,7 +91,7 @@ func (m sendRemoteRunnerManagerSim) Process(
 		Args: req.Args,
 	}
 	ap.Parse()
-	out, err := doTestAction(&ap)
+	out, err := doTestAction(ctx, &ap)
 	if err != nil {
 		return &types.RunResponse{
 			ReturnCode: 1,

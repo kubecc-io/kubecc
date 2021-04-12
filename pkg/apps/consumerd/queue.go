@@ -39,9 +39,10 @@ const (
 )
 
 type SplitTask struct {
-	Local  run.PackagedRequest
-	Remote run.PackagedRequest
-	which  SplitTaskLocation
+	Local       run.PackagedRequest
+	Remote      run.PackagedRequest
+	Exclusivity SplitTaskLocation
+	which       SplitTaskLocation
 }
 
 func (st *SplitTask) Wait() (interface{}, error) {
@@ -69,10 +70,12 @@ func (*SplitTask) Err() error {
 
 type SplitQueue struct {
 	*util.PauseController
-	ctx        context.Context
-	lg         *zap.SugaredLogger
-	avc        *clients.AvailabilityChecker
-	inputQueue chan run.Task
+	ctx         context.Context
+	lg          *zap.SugaredLogger
+	avc         *clients.AvailabilityChecker
+	sharedQueue chan run.Task
+	localQueue  chan run.Task
+	remoteQueue chan run.Task
 
 	localWorkers  *run.WorkerPool
 	remoteWorkers *run.WorkerPool
@@ -149,6 +152,18 @@ func AutoUsageLimits() run.ResizerManager {
 	}
 }
 
+type duoQueue struct {
+	a, b chan run.Task
+}
+
+func (d duoQueue) Select() (t run.Task, ok bool) {
+	select {
+	case t, ok = <-d.a:
+	case t, ok = <-d.b:
+	}
+	return
+}
+
 func NewSplitQueue(
 	ctx context.Context,
 	monClient types.MonitorClient,
@@ -162,11 +177,15 @@ func NewSplitQueue(
 	options.Apply(opts...)
 	capacity := int64(options.bufferSize)
 	queue := make(chan run.Task, capacity)
+	local := make(chan run.Task, capacity)
+	remote := make(chan run.Task, capacity)
 	sq := &SplitQueue{
 		PauseController: util.NewPauseController(),
 		ctx:             ctx,
 		lg:              meta.Log(ctx),
-		inputQueue:      queue,
+		sharedQueue:     queue,
+		localQueue:      local,
+		remoteQueue:     remote,
 		avc: clients.NewAvailabilityChecker(
 			clients.ComponentFilter(types.Scheduler),
 		),
@@ -179,10 +198,10 @@ func NewSplitQueue(
 	if sq.telemetry.conf.Enabled {
 		sq.telemetry.StartRecording()
 	}
-	sq.localWorkers = run.NewWorkerPool(queue,
+	sq.localWorkers = run.NewWorkerPool(duoQueue{a: queue, b: local},
 		run.WithRunner(sq.localRunner),
 	)
-	sq.remoteWorkers = run.NewWorkerPool(queue,
+	sq.remoteWorkers = run.NewWorkerPool(duoQueue{a: queue, b: remote},
 		run.WithRunner(sq.remoteRunner),
 		run.DefaultPaused(),
 	)
@@ -210,12 +229,20 @@ func (sq *SplitQueue) remoteRunner(t run.Task) {
 }
 
 func (sq *SplitQueue) Exec(task run.Task) error {
-	if _, ok := task.(*SplitTask); !ok {
+	if st, ok := task.(*SplitTask); !ok {
 		return run.ErrUnsupportedTask
+	} else {
+		sq.telemetry.incQueued()
+		switch st.Exclusivity {
+		case Local:
+			sq.localQueue <- task
+		case Remote:
+			sq.remoteQueue <- task
+		default:
+			sq.sharedQueue <- task
+		}
+		return nil
 	}
-	sq.telemetry.incQueued()
-	sq.inputQueue <- task
-	return nil
 }
 
 func (sq *SplitQueue) handleAvailabilityChanged() {

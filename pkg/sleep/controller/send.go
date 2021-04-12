@@ -33,15 +33,15 @@ type sendRemoteRunnerManager struct {
 }
 
 func (m sendRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
-	tracer := meta.Tracer(ctx.ServerContext)
+	lg := meta.Log(ctx)
+	tracer := meta.Tracer(ctx)
 
 	lg.Info("Sending remote")
 	span, _ := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "run-send")
+		ctx, tracer, "run-send")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
 

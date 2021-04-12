@@ -37,6 +37,7 @@ import (
 var ConsumerNames = []string{
 	"gcc",
 	"g++",
+	"c++",
 	"clang",
 	"clang++",
 	"cc",

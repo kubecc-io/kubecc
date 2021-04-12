@@ -28,18 +28,18 @@ import (
 type localRunnerManager struct{}
 
 func (m localRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (response interface{}, err error) {
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 	lg.Info("=> Running local")
 	req := request.(*types.RunRequest)
 	t := run.NewExecCommandTask(req.GetToolchain(),
+		run.WithContext(ctx),
 		run.WithArgs(req.Args),
 		run.WithEnv(req.Env),
 		run.WithWorkDir(req.WorkDir),
 		run.WithOutputStreams(os.Stdout, os.Stderr),
-		run.WithContext(ctx.ClientContext),
 	)
 	t.Run()
 	if err := t.Err(); err != nil {

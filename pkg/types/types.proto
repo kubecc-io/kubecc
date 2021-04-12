@@ -219,12 +219,20 @@ message CompileRequestManaged {
   string ComputedHash = 1;
 }
 
+enum RetryAction {
+  RetryAction_Unknown = 0;
+  Retry = 1;
+  DoNotRetry = 2;
+}
+
 // agent -> scheduler -> consumerd
 message CompileResponse {
   enum Result {
     Success = 0;
     Fail = 1;
     InternalError = 2;
+    Defunct = 3;
+    Retry = 4;
   }
   string RequestID = 1;
   Result CompileResult = 2;
@@ -232,6 +240,7 @@ message CompileResponse {
   oneof Data {
     string Error = 4;
     bytes CompiledSource = 5;
+    RetryAction RetryAction = 6;
   }
 }
 

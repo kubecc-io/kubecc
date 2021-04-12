@@ -41,6 +41,7 @@ type remoteCompileTask struct {
 	util.NullableError
 	run.TaskOptions
 
+	source []byte
 	tc     *types.Toolchain
 	client run.SchedulerClientStream
 }
@@ -48,10 +49,12 @@ type remoteCompileTask struct {
 func makeRemoteCompileTask(
 	client run.SchedulerClientStream,
 	tc *types.Toolchain,
+	source []byte,
 	opts ...run.TaskOption,
 ) run.Task {
 	m := &remoteCompileTask{
 		tc:     tc,
+		source: source,
 		client: client,
 	}
 	m.Apply(opts...)
@@ -59,36 +62,33 @@ func makeRemoteCompileTask(
 }
 
 func (m *remoteCompileTask) Run() {
-	preprocessedSource, err := io.ReadAll(m.Stdin)
-	if err != nil {
-		m.SetErr(err)
-		return
-	}
 	resp, err := m.client.Compile(&types.CompileRequest{
 		RequestID:          uuid.NewString(),
 		Toolchain:          m.tc,
 		Args:               m.Args,
-		PreprocessedSource: preprocessedSource,
+		PreprocessedSource: m.source,
 	})
 	if err != nil {
 		m.SetErr(err)
 		return
 	}
 	if m.OutputVar != nil {
-		m.OutputVar = resp
+		out := m.OutputVar.(*types.CompileResponse)
+		out.CompileResult = resp.CompileResult
+		out.CpuSecondsUsed = resp.CpuSecondsUsed
+		out.Data = resp.Data
+		out.RequestID = resp.RequestID
 	}
 	m.SetErr(nil)
 }
 
 type sendRemoteRunnerManager struct {
-	tc        *types.Toolchain
 	reqClient run.SchedulerClientStream
 	ap        *cc.ArgParser
 }
 
 func runPreprocessor(
 	ctx context.Context,
-	tc *types.Toolchain,
 	ap *cc.ArgParser,
 	req *types.RunRequest,
 ) ([]byte, *types.RunResponse) {
@@ -102,7 +102,7 @@ func runPreprocessor(
 	stdoutBuf := new(bytes.Buffer)
 	stderrBuf := new(bytes.Buffer)
 
-	task := cc.NewPreprocessTask(tc, ap,
+	task := cc.NewPreprocessTask(req.GetToolchain(), ap,
 		run.WithContext(sctx),
 		run.WithLog(lg),
 		run.WithEnv(req.Env),
@@ -129,15 +129,15 @@ func runPreprocessor(
 }
 
 func (m sendRemoteRunnerManager) Process(
-	ctx run.Contexts,
+	ctx run.PairContext,
 	request interface{},
 ) (interface{}, error) {
-	tracer := meta.Tracer(ctx.ServerContext)
+	tracer := meta.Tracer(ctx)
 	span, sctx := opentracing.StartSpanFromContextWithTracer(
-		ctx.ClientContext, tracer, "run-remote")
+		ctx, tracer, "run-remote")
 	defer span.Finish()
 	req := request.(*types.RunRequest)
-	lg := meta.Log(ctx.ServerContext)
+	lg := meta.Log(ctx)
 	ap := m.ap
 
 	ap.ConfigurePreprocessorOptions()
@@ -146,13 +146,13 @@ func (m sendRemoteRunnerManager) Process(
 
 	lg.Debug("Preprocessing")
 	ap.SetActionOpt(cc.Preprocess)
-	preprocessedSource, errResp := runPreprocessor(sctx, m.tc, ap, req)
+	preprocessedSource, errResp := runPreprocessor(sctx, ap, req)
 	if errResp != nil {
 		return errResp, nil
 	}
 	ap.SetActionOpt(opt)
 
-	ap.ReplaceInputPath("-") // Read from stdin
+	// ap.ReplaceInputPath("-") // Read from stdin
 
 	var outputPath string
 	if ap.OutputArgIndex >= 0 && ap.OutputArgIndex < len(ap.Args) {
@@ -167,12 +167,12 @@ func (m sendRemoteRunnerManager) Process(
 	// Compile remote
 	ap.RemoveLocalArgs()
 	lg.Debug("Starting remote compile")
-	resp := &types.CompileResponse{}
-	task := makeRemoteCompileTask(m.reqClient, req.GetToolchain(),
+	resp := types.CompileResponse{}
+	task := makeRemoteCompileTask(
+		m.reqClient, req.GetToolchain(), preprocessedSource,
 		run.WithContext(sctx),
 		run.WithArgs(ap.Args),
-		run.WithStdin(bytes.NewReader(preprocessedSource)),
-		run.WithOutputVar(resp),
+		run.WithOutputVar(&resp),
 	)
 	task.Run()
 
@@ -185,6 +185,7 @@ func (m sendRemoteRunnerManager) Process(
 	case types.CompileResponse_Success:
 		f, err := os.OpenFile(outputPath,
 			os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0777)
+		defer f.Close()
 		if err != nil {
 			lg.With(zap.Error(err)).Debug("Failed to open output file")
 			return nil, err
@@ -209,7 +210,13 @@ func (m sendRemoteRunnerManager) Process(
 			Stdout:     []byte{},
 			Stderr:     []byte(resp.GetError()),
 		}, nil
-	default:
-		return nil, status.Error(codes.Internal, "Bad response from server")
+	case types.CompileResponse_Retry:
+		switch resp.GetRetryAction() {
+		case types.RetryAction_Retry:
+			return nil, run.ErrNoAgentsRetry
+		case types.RetryAction_DoNotRetry:
+			return nil, run.ErrNoAgentsRunLocal
+		}
 	}
+	return nil, status.Error(codes.Internal, "Bad response from server")
 }

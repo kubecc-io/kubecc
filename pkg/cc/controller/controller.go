@@ -26,32 +26,23 @@ import (
 )
 
 type CCToolchainCtrl struct {
-	tc *types.Toolchain
-}
-
-func (r *CCToolchainCtrl) With(tc *types.Toolchain) {
-	r.tc = tc
 }
 
 func (r *CCToolchainCtrl) RunLocal(ap run.ArgParser) run.RequestManager {
 	return &localRunnerManager{
-		tc: r.tc,
 		ap: ap.(*cc.ArgParser),
 	}
 }
 
 func (r *CCToolchainCtrl) SendRemote(ap run.ArgParser, client run.SchedulerClientStream) run.RequestManager {
 	return &sendRemoteRunnerManager{
-		tc:        r.tc,
 		ap:        ap.(*cc.ArgParser),
 		reqClient: client,
 	}
 }
 
 func (r *CCToolchainCtrl) RecvRemote() run.RequestManager {
-	return &recvRemoteRunnerManager{
-		tc: r.tc,
-	}
+	return &recvRemoteRunnerManager{}
 }
 
 func (r *CCToolchainCtrl) NewArgParser(ctx context.Context, args []string) run.ArgParser {

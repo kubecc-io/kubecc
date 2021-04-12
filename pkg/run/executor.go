@@ -81,7 +81,7 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 	s := &QueuedExecutor{
 		ExecutorOptions: options,
 		taskQueue:       queue,
-		workerPool:      NewWorkerPool(queue),
+		workerPool:      NewWorkerPool(SingularQueue(queue)),
 		numRunning:      atomic.NewInt32(0),
 		numQueued:       atomic.NewInt32(0),
 	}

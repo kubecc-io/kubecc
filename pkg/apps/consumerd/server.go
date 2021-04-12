@@ -316,28 +316,43 @@ func (c *consumerdServer) Run(
 	ap := runner.NewArgParser(c.srvContext, req.Args)
 	ap.Parse()
 
-	ctxs := run.Contexts{
+	ctxs := run.PairContext{
 		ServerContext: c.srvContext,
 		ClientContext: ctx,
 	}
 
-	st := &SplitTask{
-		Local:  run.PackageRequest(runner.RunLocal(ap), ctxs, req),
-		Remote: run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
+	exclusivity := Unknown
+	if !ap.CanRunRemote() {
+		exclusivity = Local
 	}
+	for {
+		st := &SplitTask{
+			Local:       run.PackageRequest(runner.RunLocal(ap), ctxs, req),
+			Remote:      run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
+			Exclusivity: exclusivity,
+		}
 
-	// Exec does not block unless the queue's buffer is full
-	if err := c.executor.Exec(st); err != nil {
-		panic(err)
+		// Exec does not block unless the queue's buffer is full
+		if err := c.executor.Exec(st); err != nil {
+			panic(err)
+		}
+
+		// Wait will block until either the local or remote task completes
+		resp, err := st.Wait()
+
+		if err != nil {
+			if errors.Is(err, run.ErrNoAgentsRetry) {
+				c.lg.Warn(err.Error())
+				continue
+			} else if errors.Is(err, run.ErrNoAgentsRunLocal) {
+				c.lg.Warn(err.Error())
+				exclusivity = Local
+				continue
+			}
+			return nil, err
+		}
+		return resp.(*types.RunResponse), nil
 	}
-
-	// Wait will block until either the local or remote task completes
-	resp, err := st.Wait()
-
-	if err != nil {
-		return nil, err
-	}
-	return resp.(*types.RunResponse), nil
 }
 
 func (c *consumerdServer) HandleStream(stream grpc.ClientStream) error {

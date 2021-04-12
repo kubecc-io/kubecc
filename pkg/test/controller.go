@@ -83,10 +83,11 @@ func AddToStoreSim(store *run.ToolchainRunnerStore) {
 	store.Add(types.TestToolchain, &TestToolchainCtrlLocal{})
 }
 
-func doTestAction(ap *TestArgParser) ([]byte, error) {
+func doTestAction(ctx context.Context, ap *TestArgParser) ([]byte, error) {
 	switch ap.Action {
 	case Sleep:
 		t := &SleepTask{
+			Context:  ctx,
 			Duration: ap.Duration,
 		}
 		t.Run()
@@ -162,12 +163,17 @@ func (f TestToolchainFinder) FindToolchains(
 
 type SleepTask struct {
 	util.NullableError
+	Context  context.Context
 	Duration time.Duration
 }
 
 func (t *SleepTask) Run() {
-	time.Sleep(t.Duration)
-	t.SetErr(nil)
+	select {
+	case <-time.After(t.Duration):
+		t.SetErr(nil)
+	case <-t.Context.Done():
+		t.SetErr(t.Context.Err())
+	}
 }
 
 // HashTask will compute the md5 sum of the Input string and write the output

@@ -78,6 +78,10 @@ var (
 		"-iprefix",
 		"-iwithprefix",
 		"-isystem",
+		"-imultilib",
+		"-iplugindir",
+		"-iquote",
+		"-isysroot",
 		"-iwithprefixbefore",
 		"-idirafter",
 	)
@@ -248,6 +252,8 @@ func (ap *ArgParser) Parse() {
 				// OK
 			case strings.HasPrefix(a, "-dr"):
 				ap.Mode = RunLocal
+			case LocalArgsWithValues.Contains(a):
+				skip = true
 			case a == "-c":
 				ap.FlagIndexMap[a] = i
 				seenOptC = true

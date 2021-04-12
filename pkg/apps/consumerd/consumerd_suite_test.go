@@ -70,7 +70,7 @@ var (
 func makeTaskPool(numTasks int) chan *consumerd.SplitTask {
 	taskPool := make(chan *consumerd.SplitTask, numTasks)
 	for i := 0; i < numTasks; i++ {
-		contexts := run.Contexts{
+		contexts := run.PairContext{
 			ServerContext: testCtx,
 			ClientContext: testCtx,
 		}
@@ -106,7 +106,7 @@ type infiniteTaskPool struct {
 }
 
 func (i *infiniteTaskPool) Run() {
-	contexts := run.Contexts{
+	contexts := run.PairContext{
 		ServerContext: testCtx,
 		ClientContext: testCtx,
 	}
