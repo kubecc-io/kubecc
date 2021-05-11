@@ -27,33 +27,33 @@ import (
 )
 
 var _ = Describe("Sleep test", func() {
-	var testEnv *test.Environment
+	var testEnv test.Environment
 	localJobs := 20
 
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.WarnLevel)
 
-		testEnv.SpawnMonitor(test.WaitForReady())
-		testEnv.SpawnScheduler(test.WaitForReady())
-		testEnv.SpawnConsumerd(test.WaitForReady())
+		test.SpawnMonitor(testEnv, test.WaitForReady())
+		test.SpawnScheduler(testEnv, test.WaitForReady())
+		test.SpawnConsumerd(testEnv, test.WaitForReady())
 	})
 
 	Specify("Starting consumerd", func() {
-		testEnv.SpawnConsumerd(test.WaitForReady())
+		test.SpawnConsumerd(testEnv, test.WaitForReady())
 	})
 	Specify("1 agent, no cache", func() {
-		testEnv.SpawnAgent(test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WaitForReady())
 		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(100), 5*time.Second)
 	})
 
 	Specify("2 agents, no cache", func() {
-		testEnv.SpawnAgent(test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WaitForReady())
 		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(200), 5*time.Second)
 	})
 
 	Specify("4 agents, no cache", func() {
-		testEnv.SpawnAgent(test.WaitForReady())
-		testEnv.SpawnAgent(test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WaitForReady())
 		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(400), 5*time.Second)
 	})
 

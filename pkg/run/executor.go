@@ -72,9 +72,11 @@ func NewQueuedExecutor(opts ...ExecutorOption) *QueuedExecutor {
 		options.UsageLimits = &metrics.UsageLimits{
 			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
 		}
-	} else if options.UsageLimits.ConcurrentProcessLimit == -1 {
-		options.UsageLimits.ConcurrentProcessLimit =
-			host.AutoConcurrentProcessLimit()
+	} else if options.UsageLimits.GetConcurrentProcessLimit() == -1 {
+		options.UsageLimits = &metrics.UsageLimits{
+			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
+		}
+
 	}
 
 	queue := make(chan Task)

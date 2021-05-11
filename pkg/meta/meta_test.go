@@ -162,6 +162,13 @@ var _ = Describe("Meta", func() {
 			Expect(ctx2.Value(mdkeys.TracingKey)).To(Equal(meta.Tracer(ctx)))
 			Expect(ctx2.Value(mdkeys.SystemInfoKey)).To(Equal(meta.SystemInfo(ctx)))
 		})
+		It("Should cancel properly", func() {
+			ctx, ca := context.WithCancel(context.Background())
+			ctx2 := meta.NewContextWithParent(ctx)
+			ca()
+			Eventually(ctx2.Done()).Should(BeClosed())
+			Eventually(ctx2.Err()).Should(MatchError(context.Canceled))
+		})
 	})
 	When("Using meta.Context with gRPC", func() {
 		It("Should export and import values across unary gRPC boundaries", func() {

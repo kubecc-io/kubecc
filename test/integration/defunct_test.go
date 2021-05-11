@@ -31,7 +31,7 @@ import (
 )
 
 var _ = Describe("Defunct Tasks", func() {
-	var testEnv *test.Environment
+	var testEnv test.Environment
 	localJobs := 10
 	numTasks := 20
 
@@ -39,17 +39,17 @@ var _ = Describe("Defunct Tasks", func() {
 	var agentCancel context.CancelFunc
 	Specify("setup", func() {
 		test.SkipInGithubWorkflow()
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
 
-		testEnv.SpawnMonitor(test.WaitForReady())
-		testEnv.SpawnScheduler(test.WaitForReady())
-		cdCtx, _ = testEnv.SpawnConsumerd(test.WaitForReady(), test.WithConsumerdOptions(
+		test.SpawnMonitor(testEnv, test.WaitForReady())
+		test.SpawnScheduler(testEnv, test.WaitForReady())
+		cdCtx, _ = test.SpawnConsumerd(testEnv, test.WaitForReady(), test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(5)),
 				consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(5)),
 			),
 		))
-		_, agentCancel = testEnv.SpawnAgent(test.WaitForReady(), test.WithAgentOptions(
+		_, agentCancel = test.SpawnAgent(testEnv, test.WaitForReady(), test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit: 5,
 			}),

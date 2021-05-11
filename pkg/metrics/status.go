@@ -20,6 +20,9 @@ package metrics
 import (
 	"context"
 	"sync"
+
+	"github.com/kubecc-io/kubecc/pkg/meta"
+	"go.uber.org/zap"
 )
 
 type activeCondition struct {
@@ -28,16 +31,21 @@ type activeCondition struct {
 }
 
 type StatusController struct {
+	srvCtx        context.Context
+	lg            *zap.SugaredLogger
 	conditions    map[context.Context]*activeCondition
 	statusLock    sync.Mutex
 	changed       *sync.Cond
 	cancelPending context.CancelFunc
 }
 
-func (sm *StatusController) BeginInitialize() {
+func (sm *StatusController) BeginInitialize(srvCtx context.Context) {
+	sm.srvCtx = srvCtx
+	sm.lg = meta.Log(srvCtx)
 	sm.changed = sync.NewCond(&sm.statusLock)
 	sm.conditions = make(map[context.Context]*activeCondition)
 
+	// Not parented to srvCtx, that logic is handled in ApplyCondition
 	ctx, ca := context.WithCancel(context.Background())
 	sm.ApplyCondition(ctx, StatusConditions_Pending, "Component is initializing")
 	sm.cancelPending = ca
@@ -58,6 +66,9 @@ func (sm *StatusController) ApplyCondition(
 	cond StatusConditions,
 	msgs ...string,
 ) {
+	sm.lg.With(
+		"cond", cond.String(),
+	).Debug("Applying condition")
 	sm.statusLock.Lock()
 	sm.conditions[while] = &activeCondition{
 		condition: cond,
@@ -67,7 +78,11 @@ func (sm *StatusController) ApplyCondition(
 	sm.changed.Broadcast()
 
 	go func() {
-		<-while.Done()
+		select {
+		case <-while.Done():
+		case <-sm.srvCtx.Done(): // cancel all conditions when server is done
+			print("111")
+		}
 		sm.statusLock.Lock()
 		delete(sm.conditions, while)
 		sm.statusLock.Unlock()
@@ -78,6 +93,9 @@ func (sm *StatusController) ApplyCondition(
 // requires sm.statusLock to be locked
 func (sm *StatusController) health() *Health {
 	overall := OverallStatus_Ready
+	if sm.srvCtx.Err() != nil {
+		overall = OverallStatus_Unavailable
+	}
 	msgs := []string{}
 
 	for _, v := range sm.conditions {
@@ -117,9 +135,18 @@ func (sm *StatusController) GetHealth() *Health {
 func (sm *StatusController) StreamHealthUpdates() chan *Health {
 	ch := make(chan *Health)
 	go func() {
+		defer sm.lg.Debug("Status controller is done")
+		defer close(ch)
 		for {
+			if sm.srvCtx.Err() != nil {
+				return
+			}
 			sm.statusLock.Lock()
-			ch <- sm.health()
+			h := sm.health()
+			ch <- h
+			sm.lg.With(
+				zap.Object("health", h),
+			).Debug("Health changed")
 			sm.changed.Wait()
 			sm.statusLock.Unlock()
 		}

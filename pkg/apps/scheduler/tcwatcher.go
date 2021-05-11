@@ -46,12 +46,13 @@ type tcWatcher struct {
 
 func (w tcWatcher) WatchToolchains(uuid string) chan *metrics.Toolchains {
 	ch := make(chan *metrics.Toolchains)
-	listener := clients.NewMetricsListener(w.Context, w.Client)
+	lctx, cancel := context.WithCancel(w.Context)
+	listener := clients.NewMetricsListener(lctx, w.Client)
 	listener.OnProviderAdded(func(ctx context.Context, id string) {
 		if id != uuid {
 			return
 		}
-		defer listener.Stop()
+		defer cancel()
 		listener.OnValueChanged(id, func(tc *metrics.Toolchains) {
 			ch <- tc
 		})

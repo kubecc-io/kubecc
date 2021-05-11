@@ -48,7 +48,7 @@ func (a *agent) rowData() []string {
 		a.address,
 		types.FormatShortID(a.uuid, 6, types.ElideCenter),
 		a.health.Status.String(),
-		fmt.Sprintf("%d/%d", a.taskStatus.NumRunning, a.usageLimits.ConcurrentProcessLimit),
+		fmt.Sprintf("%d/%d", a.taskStatus.NumRunning, a.usageLimits.GetConcurrentProcessLimit()),
 	}
 }
 
@@ -68,7 +68,7 @@ func (c *consumerd) rowData() []string {
 		c.address,
 		types.FormatShortID(c.uuid, 6, types.ElideCenter),
 		c.health.Status.String(),
-		fmt.Sprintf("%d/%d", c.taskStatus.NumRunning, c.usageLimits.ConcurrentProcessLimit),
+		fmt.Sprintf("%d/%d", c.taskStatus.NumRunning, c.usageLimits.GetConcurrentProcessLimit()),
 		fmt.Sprintf("%d/%d", c.taskStatus.NumDelegated, c.usageLimits.DelegatedTaskLimit),
 		fmt.Sprint(c.taskStatus.NumQueued),
 	}

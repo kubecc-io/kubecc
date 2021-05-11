@@ -134,9 +134,9 @@ func linReg(e consumerd.Entries, start, end time.Time) float64 {
 var _ = Describe("Basic Functionality", func() {
 	var queue *consumerd.SplitQueue
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
 		queue = consumerd.NewSplitQueue(testCtx,
-			testEnv.NewMonitorClient(testCtx),
+			test.NewMonitorClient(testEnv, testCtx),
 			consumerd.WithTelemetryConfig(consumerd.TelemetryConfig{
 				Enabled:        true,
 				RecordInterval: collectionPeriod,
@@ -145,7 +145,7 @@ var _ = Describe("Basic Functionality", func() {
 			consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(35)),
 			consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(50)),
 		)
-		testEnv.SpawnMonitor()
+		test.SpawnMonitor(testEnv)
 	})
 	Describe("Tasks complete immediately, executors are not queued", func() {
 		numTasks := 300
@@ -169,14 +169,14 @@ var _ = Describe("Basic Functionality", func() {
 		})
 		When("a scheduler is available", func() {
 			Specify("startup", func() {
-				testEnv.SpawnScheduler(test.WaitForReady())
+				test.SpawnScheduler(testEnv, test.WaitForReady())
 			})
 			Measure("the queue should split tasks between local and remote evenly", func(b Benchmarker) {
 				time.Sleep(100 * time.Millisecond) // important
 				eventTimestamps = append(eventTimestamps, time.Now())
 				numTasks = 1000
 				taskPool := makeTaskPool(numTasks)
-				monClient := testEnv.NewMonitorClient(testCtx)
+				monClient := test.NewMonitorClient(testEnv, testCtx)
 				avc := clients.NewAvailabilityChecker(
 					clients.ComponentFilter(types.Scheduler),
 				)
@@ -240,16 +240,16 @@ var _ = Describe("Task Redirection", func() {
 	}
 	Specify("setup", func() {
 		test.SkipInGithubWorkflow()
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
 		queue = consumerd.NewSplitQueue(testCtx,
-			testEnv.NewMonitorClient(testCtx),
+			test.NewMonitorClient(testEnv, testCtx),
 			consumerd.WithTelemetryConfig(consumerd.TelemetryConfig{
 				Enabled: false,
 			}),
 			consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(10)),
 			consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(10)),
 		)
-		testEnv.SpawnMonitor()
+		test.SpawnMonitor(testEnv)
 		countsCh = runTasksInf(taskPool.C, queue, requestCounts)
 	})
 	When("no remote is available yet", func() {
@@ -270,7 +270,7 @@ var _ = Describe("Task Redirection", func() {
 		var cancel context.CancelFunc
 		Specify("starting scheduler", func() {
 			test.SkipInGithubWorkflow()
-			_, cancel = testEnv.SpawnScheduler()
+			_, cancel = test.SpawnScheduler(testEnv)
 		})
 		It("should split tasks between local and remote", func() {
 			test.SkipInGithubWorkflow()

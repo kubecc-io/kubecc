@@ -34,10 +34,10 @@ import (
 
 var _ = Describe("Consumerd Server", func() {
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
-		testEnv.SpawnMonitor()
-		testEnv.SpawnScheduler(test.WaitForReady())
-		testEnv.SpawnAgent(test.WaitForReady(), test.WithAgentOptions(
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		test.SpawnMonitor(testEnv)
+		test.SpawnScheduler(testEnv, test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WaitForReady(), test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit: 5,
 			}),
@@ -46,7 +46,7 @@ var _ = Describe("Consumerd Server", func() {
 
 	var cdCtx context.Context
 	It("should eventually become ready", func() {
-		cdCtx, _ = testEnv.SpawnConsumerd(test.WaitForReady(), test.WithConsumerdOptions(
+		cdCtx, _ = test.SpawnConsumerd(testEnv, test.WaitForReady(), test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(5)),
 				consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(5)),

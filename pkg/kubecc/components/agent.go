@@ -54,6 +54,8 @@ func runAgent(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
+	host.RunPreflightChecks(lg)
+
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress)
 	lg.With("address", schedulerCC.Target()).Info("Dialing scheduler")
 	if err != nil {
@@ -71,7 +73,7 @@ func runAgent(cmd *cobra.Command, args []string) {
 
 	a := agent.NewAgentServer(ctx,
 		agent.WithUsageLimits(&metrics.UsageLimits{
-			ConcurrentProcessLimit: int32(conf.UsageLimits.ConcurrentProcessLimit),
+			ConcurrentProcessLimit: int32(conf.UsageLimits.GetConcurrentProcessLimit()),
 		}),
 		agent.WithToolchainFinders(
 			toolchains.FinderWithOptions{

@@ -141,9 +141,15 @@ func (sp *ChainStorageProvider) Query(
 }
 
 func (sp *ChainStorageProvider) UsageInfo() *metrics.CacheUsage {
+	if len(sp.providers) == 0 {
+		return &metrics.CacheUsage{}
+	}
 	return sp.providers[0].UsageInfo() // todo
 }
 
 func (sp *ChainStorageProvider) CacheHits() *metrics.CacheHits {
+	if len(sp.providers) == 0 {
+		return &metrics.CacheHits{}
+	}
 	return sp.providers[0].CacheHits() // todo
 }

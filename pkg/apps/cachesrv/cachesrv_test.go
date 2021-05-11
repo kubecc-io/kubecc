@@ -27,8 +27,8 @@ import (
 )
 
 var _ = Describe("Cache Server", func() {
-	testEnv := test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
+	testEnv := test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
 	Specify("setup", func() {
-		testEnv.SpawnCache()
+		test.SpawnCache(testEnv)
 	})
 })

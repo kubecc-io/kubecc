@@ -35,20 +35,20 @@ import (
 
 var _ = Describe("Scheduler Server", func() {
 	var schedCtx context.Context
-	var testEnv *test.Environment
+	var testEnv test.Environment
 	var agentID string
 	var consumerdID string
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
-		testEnv.SpawnMonitor()
-		schedCtx, _ = testEnv.SpawnScheduler(test.WaitForReady())
-		ctx, _ := testEnv.SpawnAgent(test.WaitForReady(), test.WithAgentOptions(
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		test.SpawnMonitor(testEnv)
+		schedCtx, _ = test.SpawnScheduler(testEnv, test.WaitForReady())
+		ctx, _ := test.SpawnAgent(testEnv, test.WaitForReady(), test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit: 20,
 			}),
 		))
 		agentID = meta.UUID(ctx)
-		ctx, _ = testEnv.SpawnConsumerd(test.WaitForReady(), test.WithConsumerdOptions(
+		ctx, _ = test.SpawnConsumerd(testEnv, test.WaitForReady(), test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(consumerd.FixedUsageLimits(20)),
 				consumerd.WithRemoteUsageManager(consumerd.FixedUsageLimits(20)),

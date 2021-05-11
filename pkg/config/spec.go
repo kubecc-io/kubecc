@@ -129,7 +129,12 @@ type KcctlSpec struct {
 }
 
 type UsageLimitsSpec struct {
-	QueuePressureMultiplier float64 `json:"queuePressureMultiplier,omitempty"`
-	QueueRejectMultiplier   float64 `json:"queueRejectMultiplier,omitempty"`
-	ConcurrentProcessLimit  int     `json:"concurrentProcessLimit,omitempty"`
+	ConcurrentProcessLimit int `json:"concurrentProcessLimit,omitempty"`
+}
+
+func (ul *UsageLimitsSpec) GetConcurrentProcessLimit() int {
+	if ul == nil {
+		return -1
+	}
+	return ul.ConcurrentProcessLimit
 }

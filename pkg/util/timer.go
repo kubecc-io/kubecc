@@ -56,12 +56,16 @@ func RunPeriodic(
 	now bool,
 	funcs ...func(),
 ) {
+	shouldRun := new(bool)
 	if now {
-		for _, fn := range funcs {
-			go fn()
-		}
+		*shouldRun = true
 	}
 	go wait.JitterUntil(func() {
+		if !*shouldRun {
+			// Skip the first call (it will run immediately)
+			*shouldRun = true
+			return
+		}
 		for _, fn := range funcs {
 			go fn()
 		}

@@ -215,7 +215,7 @@ func NewContextWithParent(
 		providerMap[mp.KeyProvider.Key()] = mp.KeyProvider
 	}
 	ctx := &contextImpl{
-		Context:   context.Background(),
+		Context:   parentCtx,
 		providers: providerMap,
 		values:    make(map[interface{}]interface{}),
 	}
