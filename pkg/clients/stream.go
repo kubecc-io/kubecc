@@ -19,6 +19,7 @@ package clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -177,6 +178,7 @@ func (sm *StreamManager) waitBackoff() {
 	}()
 
 	select {
+	case <-sm.ctx.Done():
 	case <-sm.backoffMgr.Backoff().C():
 		lg.Debug("Backoff timer completed")
 	case <-sm.immediate:
@@ -187,7 +189,7 @@ func (sm *StreamManager) waitBackoff() {
 	}
 }
 
-func (sm *StreamManager) applyCondition() context.CancelFunc {
+func (sm *StreamManager) applyCondition() (context.Context, context.CancelFunc) {
 	condCtx, condCancel := context.WithCancel(context.Background())
 	if sm.statusCtrl != nil {
 		var cond metrics.StatusConditions
@@ -200,24 +202,35 @@ func (sm *StreamManager) applyCondition() context.CancelFunc {
 		sm.statusCtrl.ApplyCondition(condCtx, cond,
 			fmt.Sprintf("Attempting to connect to %s", sm.handler.Target()))
 	}
-	return condCancel
+	return condCtx, condCancel
 }
 
 func (sm *StreamManager) Run() {
 	lg := meta.Log(sm.ctx)
-	color := meta.Component(sm.ctx).Color()
 
-	cancelCond := sm.applyCondition()
+	condCtx, cancelCond := sm.applyCondition()
+	defer func() {
+		cancelCond()
+	}()
+
 	for {
 		if stream, err := sm.handler.TryConnect(); err != nil {
 			if e, ok := sm.handler.(OnConnectFailedEventHandler); ok {
 				e.OnConnectFailed()
 			}
+
 			if sm.logEvents&LogConnectionFailed != 0 {
 				lg.With(
 					zap.String("err", status.Convert(err).Message()),
 					zap.String("target", sm.handler.Target()),
 				).Warn(zapkc.Red.Add("Failed to connect"))
+			}
+			if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
+				// If the context was canceled, we are done
+				return
+			}
+			if condCtx.Err() != nil {
+				condCtx, cancelCond = sm.applyCondition()
 			}
 			sm.waitBackoff()
 		} else {
@@ -226,15 +239,17 @@ func (sm *StreamManager) Run() {
 				e.OnConnected()
 			}
 			if sm.logEvents&LogConnected != 0 {
-				lg.Infof(color.Add("Connected to %s"), sm.handler.Target())
+				lg.Infof(zapkc.Green.Add("Connected to %s"), sm.handler.Target())
 			}
 			err := sm.handler.HandleStream(stream)
-			cancelCond = sm.applyCondition()
+			if condCtx.Err() != nil {
+				condCtx, cancelCond = sm.applyCondition()
+			}
 			if e, ok := sm.handler.(OnLostConnectionEventHandler); ok {
 				e.OnLostConnection()
 			}
 			if err != nil {
-				if status.Code(err) == codes.Canceled {
+				if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
 					// If the context was canceled, we are done
 					return
 				}

@@ -44,7 +44,6 @@ type MetricsProvider interface {
 type MetricsListener interface {
 	OnValueChanged(bucket string, handler interface{}) ChangeListener
 	OnProviderAdded(func(context.Context, string))
-	Stop()
 }
 
 type ChangeListener interface {

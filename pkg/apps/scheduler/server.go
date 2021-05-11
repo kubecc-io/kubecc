@@ -103,14 +103,14 @@ func NewSchedulerServer(
 		usageLimitMultiplier: atomic.NewFloat64(0.0),
 	}
 	srv.optimizer = NewOptimizer(ctx, options.monClient, srv.broker)
-	srv.BeginInitialize()
+	srv.BeginInitialize(ctx)
 	srv.applyNoAgentsCond()
 	srv.applyNoCdsCond()
 	defer srv.EndInitialize()
 
 	if options.monClient != nil {
 		srv.metricsProvider = clients.NewMetricsProvider(
-			ctx, options.monClient, clients.Discard,
+			ctx, options.monClient, clients.Buffered|clients.Discard,
 			clients.StatusCtrl(&srv.StatusController))
 	} else {
 		srv.metricsProvider = clients.NewNoopMetricsProvider()

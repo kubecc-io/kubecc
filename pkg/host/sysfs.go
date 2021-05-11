@@ -49,7 +49,7 @@ func readInt64(path string) (int64, error) {
 func CfsQuota() int64 {
 	value, err := readInt64("cpu/cpu.cfs_quota_us")
 	if err != nil {
-		fmt.Printf("Warning: could not read CFS quota from %s. Your kernel may not be compiled with CFS Bandwidth support.\n", cgroupDir)
+		fmt.Fprintf(os.Stderr, "Warning: could not read CFS quota from %s. Your kernel may not be compiled with CFS Bandwidth support.\n", cgroupDir)
 		// Assuming CfsPeriod() will fail and return 1
 		return int64(runtime.NumCPU())
 	}
@@ -59,7 +59,7 @@ func CfsQuota() int64 {
 func CfsPeriod() int64 {
 	value, err := readInt64("cpu/cpu.cfs_period_us")
 	if err != nil {
-		fmt.Printf("Warning: could not read CFS period from %s. Your kernel may not be compiled with CFS Bandwidth support.\n", cgroupDir)
+		fmt.Fprintf(os.Stderr, "Warning: could not read CFS period from %s. Your kernel may not be compiled with CFS Bandwidth support.\n", cgroupDir)
 		return 1
 	}
 	return value

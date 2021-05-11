@@ -36,6 +36,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/util"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/peer"
@@ -97,7 +98,7 @@ func NewMonitorServer(
 			},
 		},
 	}
-	srv.BeginInitialize()
+	srv.BeginInitialize(ctx)
 	defer srv.EndInitialize()
 
 	srv.providerMutex.Lock()
@@ -175,12 +176,16 @@ func (m *MonitorServer) postProviders() {
 func (m *MonitorServer) postHealthUpdates() {
 	c := m.StreamHealthUpdates()
 	for {
-		health := <-c
-		any, err := anypb.New(health)
-		if err != nil {
-			panic(err)
+		select {
+		case health := <-c:
+			any, err := anypb.New(health)
+			if err != nil {
+				panic(err)
+			}
+			m.postInternal(any)
+		case <-m.srvContext.Done():
+			return
 		}
-		m.postInternal(any)
 	}
 }
 
@@ -211,6 +216,9 @@ func (m *MonitorServer) runPrometheusListener() {
 				},
 			),
 			grpc.WithInsecure(),
+			grpc.FailOnNonTempDialError(true),
+			grpc.WithBlock(),
+			grpc.WithDisableRetry(),
 		),
 	)
 	if err != nil {
@@ -370,9 +378,16 @@ func (m *MonitorServer) post(metric *types.Metric) error {
 			return err
 		}
 		if store.CAS(metric.Key.Name, contents) {
-			m.lg.With(
-				zap.String("key", metric.Key.ShortID()),
-			).Debug("Metric updated")
+			if marshaler, ok := contents.(zapcore.ObjectMarshaler); ok {
+				m.lg.With(
+					zap.String("key", metric.Key.ShortID()),
+					zap.Object("value", marshaler),
+				).Debug("Metric updated")
+			} else {
+				m.lg.With(
+					zap.String("key", metric.Key.ShortID()),
+				).Debug("Metric updated")
+			}
 			m.incMetricsPostedTotal()
 			m.notify(metric)
 		}

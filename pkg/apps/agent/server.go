@@ -118,8 +118,10 @@ func NewAgentServer(
 		add(runStore)
 	}
 
-	if options.usageLimits.ConcurrentProcessLimit == -1 {
-		options.usageLimits.ConcurrentProcessLimit = host.AutoConcurrentProcessLimit()
+	if options.usageLimits.GetConcurrentProcessLimit() == -1 {
+		options.usageLimits = &metrics.UsageLimits{
+			ConcurrentProcessLimit: host.AutoConcurrentProcessLimit(),
+		}
 	}
 
 	srv := &AgentServer{
@@ -134,7 +136,7 @@ func NewAgentServer(
 		usageLimits:      options.usageLimits,
 		schedulerClient:  options.schedulerClient,
 	}
-	srv.BeginInitialize()
+	srv.BeginInitialize(ctx)
 	defer srv.EndInitialize()
 
 	if options.monitorClient != nil {

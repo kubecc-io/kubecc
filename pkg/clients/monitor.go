@@ -20,9 +20,11 @@ package clients
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"sync"
+	"time"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/kubecc-io/kubecc/pkg/meta"
@@ -119,9 +121,9 @@ func (p *monitorMetricsProvider) HandleStream(stream grpc.ClientStream) error {
 				Bucket: meta.UUID(p.ctx),
 				Name:   any.GetTypeUrl(),
 			}
-			p.lg.With(
-				types.ShortID(key.ShortID()),
-			).Debug("Posting metric")
+			// p.lg.With(
+			// 	types.ShortID(key.ShortID()),
+			// ).Debug("Posting metric")
 			err = stream.SendMsg(&types.Metric{
 				Key:   key,
 				Value: any,
@@ -149,7 +151,7 @@ func (p *monitorMetricsProvider) TryConnect() (grpc.ClientStream, error) {
 }
 
 func (p *monitorMetricsProvider) Target() string {
-	return "monitor"
+	return "monitor [Metrics Provider]"
 }
 
 func (p *monitorMetricsProvider) PostContext(metric proto.Message, ctx context.Context) {
@@ -233,15 +235,10 @@ func (p *monitorMetricsProvider) watchStatus(ctrl *metrics.StatusController) {
 }
 
 type monitorListener struct {
-	parentCtx  context.Context
-	cancel     context.CancelFunc
+	ctx        context.Context
 	monClient  types.MonitorClient
 	lg         *zap.SugaredLogger
 	streamOpts []StreamManagerOption
-}
-
-func (m *monitorListener) newContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(m.parentCtx)
 }
 
 func NewMetricsListener(
@@ -249,10 +246,8 @@ func NewMetricsListener(
 	client types.MonitorClient,
 	streamOpts ...StreamManagerOption,
 ) MetricsListener {
-	parent, cancel := context.WithCancel(ctx)
 	listener := &monitorListener{
-		parentCtx: parent,
-		cancel:    cancel,
+		ctx:       ctx,
 		lg:        meta.Log(ctx),
 		monClient: client,
 		streamOpts: append([]StreamManagerOption{
@@ -290,7 +285,7 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 		})
 		added.Each(func(i interface{}) (stop bool) {
 			uuid := i.(string)
-			pctx, cancel := l.newContext()
+			pctx, cancel := context.WithCancel(l.ctx)
 			knownProviders[uuid] = cancel
 			go handler(pctx, uuid)
 			return
@@ -299,7 +294,7 @@ func (l *monitorListener) OnProviderAdded(handler func(context.Context, string))
 
 	l.OnValueChanged(MetaBucket, doUpdate).
 		OrExpired(func() RetryOptions {
-			doUpdate(&metrics.Providers{})
+			doUpdate(nil)
 			return Retry
 		})
 }
@@ -326,18 +321,18 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 	}
 	for {
 		any, err := stream.Recv()
-		if errors.Is(err, io.EOF) || errors.Is(err, context.Canceled) {
-			lg.Debug(err)
-			return nil
-		}
-		switch status.Code(err) {
+		switch code := status.Code(err); code {
 		case codes.OK:
 			if err := any.UnmarshalTo(msgReflect); err != nil {
 				lg.With(zap.Error(err)).Error("Error decoding value")
 				return err
 			}
 			cl.handler.Call([]reflect.Value{argValue})
-		case codes.Aborted, codes.Unavailable:
+		case codes.Aborted, codes.Unavailable, codes.Canceled:
+			if code == codes.Canceled && errors.Is(cl.ctx.Err(), context.Canceled) {
+				// the caller's context was canceled, we are done
+				return nil
+			}
 			cl.ehMutex.Lock()
 			if cl.expiredHandler != nil {
 				retryOp := cl.expiredHandler()
@@ -347,8 +342,6 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 				}
 			}
 			cl.ehMutex.Unlock()
-			return nil
-		case codes.Canceled:
 			return nil
 		default:
 			lg.With(
@@ -362,11 +355,13 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 }
 
 func (s *changeListener) TryConnect() (grpc.ClientStream, error) {
-	return s.monClient.Listen(s.ctx, s.key)
+	ctx, ca := context.WithTimeout(s.ctx, 1*time.Second)
+	defer ca()
+	return s.monClient.Listen(ctx, s.key)
 }
 
 func (s *changeListener) Target() string {
-	return "monitor"
+	return fmt.Sprintf("monitor [Change Listener: %s]", s.key.Name)
 }
 
 func (c *changeListener) OrExpired(handler func() RetryOptions) {
@@ -399,7 +394,7 @@ func (l *monitorListener) OnValueChanged(
 ) ChangeListener {
 	argType, funcValue, typeUrl := handlerArgType(handler)
 	cl := &changeListener{
-		ctx:       l.parentCtx,
+		ctx:       l.ctx,
 		handler:   funcValue,
 		argType:   argType,
 		ehMutex:   &sync.Mutex{},
@@ -410,11 +405,7 @@ func (l *monitorListener) OnValueChanged(
 		},
 	}
 
-	mgr := NewStreamManager(l.parentCtx, cl, l.streamOpts...)
+	mgr := NewStreamManager(l.ctx, cl, l.streamOpts...)
 	go mgr.Run()
 	return cl
-}
-
-func (l *monitorListener) Stop() {
-	l.cancel()
 }

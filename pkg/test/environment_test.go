@@ -42,7 +42,7 @@ var _ = Describe("Test Environment", func() {
 		meta.WithProvider(tracing.Tracer),
 	)
 	var cancel1, cancel2, cancel3, cancel4, cancel5, cancel6 context.CancelFunc
-	var env *test.Environment
+	var env test.Environment
 	var client types.MonitorClient
 	bucketCount := func() int {
 		b, err := client.GetBuckets(ctx, &types.Empty{})
@@ -53,21 +53,21 @@ var _ = Describe("Test Environment", func() {
 	}
 	When("spawning components", func() {
 		It("should have the correct number of components", func() {
-			env = test.NewEnvironmentWithLogLevel(zapcore.PanicLevel)
-			env.SpawnMonitor()
-			_, cancel1 = env.SpawnScheduler(test.WaitForReady())
-			_, cancel2 = env.SpawnCache(test.WaitForReady())
-			_, cancel3 = env.SpawnAgent(test.WaitForReady())
-			_, cancel4 = env.SpawnConsumerd(test.WaitForReady())
-			client = env.NewMonitorClient(ctx)
+			env = test.NewBufconnEnvironmentWithLogLevel(zapcore.PanicLevel)
+			test.SpawnMonitor(env)
+			_, cancel1 = test.SpawnScheduler(env, test.WaitForReady())
+			_, cancel2 = test.SpawnCache(env, test.WaitForReady())
+			_, cancel3 = test.SpawnAgent(env, test.WaitForReady())
+			_, cancel4 = test.SpawnConsumerd(env, test.WaitForReady())
+			client = test.NewMonitorClient(env, ctx)
 			Eventually(bucketCount).Should(Equal(6))
 		})
 	})
 	When("adding additional components", func() {
 		Specify("the number of components should update", func() {
-			_, cancel5 = env.SpawnAgent(test.WithName("agent1"), test.WaitForReady())
+			_, cancel5 = test.SpawnAgent(env, test.WithName("agent1"), test.WaitForReady())
 			Eventually(bucketCount).Should(Equal(7))
-			_, cancel6 = env.SpawnConsumerd(test.WithName("cd1"), test.WaitForReady())
+			_, cancel6 = test.SpawnConsumerd(env, test.WithName("cd1"), test.WaitForReady())
 			Eventually(bucketCount).Should(Equal(8))
 		})
 	})

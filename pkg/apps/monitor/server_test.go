@@ -31,11 +31,11 @@ import (
 
 var _ = Describe("Monitor Server", func() {
 	var monCtx context.Context
-	var testEnv *test.Environment
+	var testEnv test.Environment
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
-		monCtx, _ = testEnv.SpawnMonitor()
-		testEnv.SpawnScheduler() // the scheduler posts a lot of metrics
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		monCtx, _ = test.SpawnMonitor(testEnv)
+		test.SpawnScheduler(testEnv) // the scheduler posts a lot of metrics
 
 	})
 

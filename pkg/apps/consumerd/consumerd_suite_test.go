@@ -56,7 +56,7 @@ var _ = AfterSuite(func() {
 })
 
 var (
-	testEnv *test.Environment
+	testEnv test.Environment
 	testCtx = meta.NewContext(
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),

@@ -135,7 +135,7 @@ func NewConsumerdServer(
 		monitorClient:   options.monitorClient,
 		requestClient:   clients.NewCompileRequestClient(ctx, nil),
 	}
-	srv.BeginInitialize()
+	srv.BeginInitialize(ctx)
 	defer srv.EndInitialize()
 
 	srv.streamMgr = clients.NewStreamManager(srv.srvContext, srv, clients.WithStatusCtrl(

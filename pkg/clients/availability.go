@@ -130,13 +130,13 @@ func WatchAvailability(
 	al AvailabilityListener,
 ) {
 	listener := NewMetricsListener(ctx, monClient, WithLogEvents(0))
-	listener.OnProviderAdded(func(ctx context.Context, uuid string) {
+	listener.OnProviderAdded(func(c context.Context, uuid string) {
 		info, err := monClient.Whois(ctx, &types.WhoisRequest{
 			UUID: uuid,
 		})
 		if err != nil {
 			return
 		}
-		al.OnComponentAvailable(ctx, info)
+		al.OnComponentAvailable(c, info)
 	})
 }

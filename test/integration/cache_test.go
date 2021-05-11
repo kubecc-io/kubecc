@@ -32,28 +32,28 @@ import (
 )
 
 var _ = Describe("Cache test", func() {
-	var testEnv *test.Environment
+	var testEnv test.Environment
 	localJobs := runtime.NumCPU()
 
 	Specify("setup", func() {
-		testEnv = test.NewEnvironmentWithLogLevel(zapcore.WarnLevel)
+		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.WarnLevel)
 
-		testEnv.SpawnMonitor(test.WaitForReady())
-		testEnv.SpawnScheduler(test.WaitForReady())
-		testEnv.SpawnCache(test.WaitForReady())
-		testEnv.SpawnAgent(test.WithAgentOptions(
+		test.SpawnMonitor(testEnv, test.WaitForReady())
+		test.SpawnScheduler(testEnv, test.WaitForReady())
+		test.SpawnCache(testEnv, test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WithAgentOptions(
 			agent.WithUsageLimits(&metrics.UsageLimits{
 				ConcurrentProcessLimit: int32(localJobs),
 			}),
 		), test.WaitForReady())
-		testEnv.SpawnConsumerd(test.WithConsumerdOptions(
+		test.SpawnConsumerd(testEnv, test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(
 					consumerd.FixedUsageLimits(0), // disable local
 				),
 				consumerd.WithRemoteUsageManager(
 					clients.NewRemoteUsageManager(testCtx,
-						testEnv.NewMonitorClient(testCtx))),
+						test.NewMonitorClient(testEnv, testCtx))),
 			),
 		), test.WaitForReady())
 	})

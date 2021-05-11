@@ -457,14 +457,15 @@ var _ = Describe("Monitor Clients", func() {
 		})
 	})
 	Context("Connection", func() {
-		var testEnv *test.Environment
+		var testEnv test.Environment
 		addAgent := make(chan struct{}, 1)
 		removeAgent := make(chan struct{}, 1)
 		addCd := make(chan struct{}, 1)
 		removeCd := make(chan struct{}, 1)
+		var monitorCancel context.CancelFunc
 		Specify("setup", func() {
-			testEnv = test.NewEnvironmentWithLogLevel(zapcore.ErrorLevel)
-			testEnv.SpawnMonitor(test.WaitForReady())
+			testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
+			_, monitorCancel = test.SpawnMonitor(testEnv, test.WaitForReady())
 		})
 
 		It("should handle disconnect/reconnect", func() {
@@ -479,7 +480,7 @@ var _ = Describe("Monitor Clients", func() {
 					logkc.WithLogLevel(zapcore.ErrorLevel)))),
 				meta.WithProvider(tracing.Tracer),
 			)
-			client := testEnv.NewMonitorClient(ctx)
+			client := test.NewMonitorClient(testEnv, ctx)
 			l := clients.NewMetricsListener(ctx, client)
 			l.OnProviderAdded(func(c context.Context, s string) {
 				whois, err := client.Whois(ctx, &types.WhoisRequest{
@@ -520,9 +521,9 @@ var _ = Describe("Monitor Clients", func() {
 				var caConsumerd context.CancelFunc
 				randomOrder(
 					func() {
-						_, caAgent = testEnv.SpawnAgent(test.WaitForReady())
+						_, caAgent = test.SpawnAgent(testEnv, test.WaitForReady())
 					}, func() {
-						_, caConsumerd = testEnv.SpawnConsumerd(test.WaitForReady())
+						_, caConsumerd = test.SpawnConsumerd(testEnv, test.WaitForReady())
 					},
 				)
 				randomOrder(
@@ -549,6 +550,9 @@ var _ = Describe("Monitor Clients", func() {
 						Eventually(removeCd).Should(Receive())
 					},
 				)
+
+				monitorCancel()
+				_, monitorCancel = test.SpawnMonitor(testEnv)
 			}
 		})
 	})

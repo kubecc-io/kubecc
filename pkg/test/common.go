@@ -24,7 +24,7 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func EventuallyHealthStatusShouldBeReady(ctx context.Context, env *Environment) {
+func EventuallyHealthStatusShouldBeReady(ctx context.Context, env Environment) {
 	gomega.Eventually(env.MetricF(ctx, &metrics.Health{})).Should(EqualProto(
 		&metrics.Health{
 			Status: metrics.OverallStatus_Ready,

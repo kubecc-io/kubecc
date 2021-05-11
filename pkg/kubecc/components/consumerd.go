@@ -57,6 +57,8 @@ func runConsumerd(cmd *cobra.Command, args []string) {
 	)
 	lg := meta.Log(ctx)
 
+	host.RunPreflightChecks(lg)
+
 	schedulerCC, err := servers.Dial(ctx, conf.SchedulerAddress,
 		servers.WithTLS(!conf.DisableTLS),
 	)
@@ -77,11 +79,11 @@ func runConsumerd(cmd *cobra.Command, args []string) {
 	srv := servers.NewServer(ctx)
 
 	var localUsageMgr run.ResizerManager
-	if conf.UsageLimits.ConcurrentProcessLimit < 0 {
+	if conf.UsageLimits.GetConcurrentProcessLimit() < 0 {
 		localUsageMgr = consumerd.AutoUsageLimits()
 	} else {
 		localUsageMgr = consumerd.FixedUsageLimits(
-			int64(conf.UsageLimits.ConcurrentProcessLimit))
+			int64(conf.UsageLimits.GetConcurrentProcessLimit()))
 	}
 	d := consumerd.NewConsumerdServer(ctx,
 		consumerd.WithQueueOptions(

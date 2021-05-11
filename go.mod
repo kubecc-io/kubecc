@@ -53,16 +53,19 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/exp v0.0.0-20210220032938-85be41e4509f // indirect
+	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/net v0.0.0-20210326220855-61e056675ecf // indirect
+	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c // indirect
 	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
+	golang.org/x/tools v0.1.1-0.20210408155258-593413344da1 // indirect
 	gonum.org/v1/gonum v0.9.0
 	gonum.org/v1/plot v0.9.0
 	google.golang.org/grpc v1.36.1
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	honnef.co/go/tools v0.1.1 // indirect
+	honnef.co/go/tools v0.1.3 // indirect
 	k8s.io/api v0.20.5
 	k8s.io/apiextensions-apiserver v0.20.5 // indirect
 	k8s.io/apimachinery v0.20.5
@@ -70,6 +73,7 @@ require (
 	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210323165736-1a6458611d18 // indirect
 	k8s.io/kubectl v0.20.5
+	k8s.io/system-validators v1.4.0 // indirect
 	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/yaml v1.2.0
 )

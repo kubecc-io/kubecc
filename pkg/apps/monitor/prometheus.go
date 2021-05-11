@@ -266,7 +266,7 @@ func watchAgentKeys(
 		agentTasksQueued.With(labels).Set(float64(value.NumQueued))
 	})
 	listener.OnValueChanged(info.UUID, func(value *metrics.UsageLimits) {
-		agentTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
+		agentTasksMax.With(labels).Set(float64(value.GetConcurrentProcessLimit()))
 	})
 }
 
@@ -320,7 +320,7 @@ func watchConsumerdKeys(
 		cdLocalTasksQueued.With(labels).Set(float64(value.NumQueued))
 	})
 	listener.OnValueChanged(info.UUID, func(value *metrics.UsageLimits) {
-		cdTasksMax.With(labels).Set(float64(value.ConcurrentProcessLimit))
+		cdTasksMax.With(labels).Set(float64(value.GetConcurrentProcessLimit()))
 	})
 	listener.OnValueChanged(info.UUID, func(value *metrics.LocalTasksCompleted) {
 		cdLocalTasksTotal.With(labels).Set(float64(value.Total))

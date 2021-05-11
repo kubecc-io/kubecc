@@ -81,7 +81,7 @@ func NewCacheServer(
 		cfg:        cfg,
 		lg:         meta.Log(ctx),
 	}
-	srv.BeginInitialize()
+	srv.BeginInitialize(ctx)
 	defer srv.EndInitialize()
 
 	if options.storageProvider == nil {

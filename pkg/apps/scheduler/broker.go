@@ -168,7 +168,7 @@ func (b *Broker) handleAgentStream(
 	agent.AvailableTokens = make(chan struct{}, MaxTokens)
 	agent.LockedTokens = make(chan struct{}, MaxTokens)
 	agent.Lock()
-	for i := 0; i < int(agent.UsageLimits.ConcurrentProcessLimit); i++ {
+	for i := 0; i < int(agent.UsageLimits.GetConcurrentProcessLimit()); i++ {
 		agent.AvailableTokens <- struct{}{}
 	}
 	agent.Unlock()
