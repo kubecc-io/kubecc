@@ -63,7 +63,7 @@ var _ = Describe("Scheduler Server", func() {
 
 	It("should post metrics", func() {
 		numTasks := 100
-		go test.ProcessTaskPool(testEnv, 100, test.MakeHashTaskPool(numTasks), 1*time.Second)
+		go test.ProcessTaskPool(testEnv, "default", 100, test.MakeHashTaskPool(numTasks), 1*time.Second)
 		Eventually(testEnv.MetricF(schedCtx, &metrics.PreferredUsageLimits{})).
 			Should(Not(BeNil()))
 

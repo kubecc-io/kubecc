@@ -30,7 +30,6 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -225,11 +224,15 @@ func (sm *StreamManager) Run() {
 					zap.String("target", sm.handler.Target()),
 				).Warn(zapkc.Red.Add("Failed to connect"))
 			}
-			if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
-				// If the context was canceled, we are done
+			if errors.Is(sm.ctx.Err(), context.Canceled) {
+				// If our context was canceled, we are done
+				lg.With(
+					zap.String("target", sm.handler.Target()),
+				).Error(zapkc.Red.Add("Stream manager shutting down"))
 				return
 			}
 			if condCtx.Err() != nil {
+				lg.Debug(err)
 				condCtx, cancelCond = sm.applyCondition()
 			}
 			sm.waitBackoff()
@@ -249,8 +252,12 @@ func (sm *StreamManager) Run() {
 				e.OnLostConnection()
 			}
 			if err != nil {
-				if errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled {
-					// If the context was canceled, we are done
+				lg.Debug(err)
+				if errors.Is(sm.ctx.Err(), context.Canceled) {
+					// If our context was canceled, we are done
+					lg.With(
+						zap.String("target", sm.handler.Target()),
+					).Error(zapkc.Red.Add("Stream manager shutting down"))
 					return
 				}
 				if sm.logEvents&LogConnectionLost != 0 {

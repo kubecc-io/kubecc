@@ -81,10 +81,13 @@ func WithCacheClient(cacheClient types.CacheClient) SchedulerServerOption {
 	}
 }
 
+var SchedulerServerContext context.Context
+
 func NewSchedulerServer(
 	ctx context.Context,
 	opts ...SchedulerServerOption,
 ) *schedulerServer {
+	SchedulerServerContext = ctx
 	options := SchedulerServerOptions{}
 	options.Apply(opts...)
 

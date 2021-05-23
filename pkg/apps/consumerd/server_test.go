@@ -85,7 +85,7 @@ var _ = Describe("Consumerd Server", func() {
 			defer GinkgoRecover()
 			// timeout of 4000ms to ensure the tasks complete before the consumerd
 			// can send out its first XTasksCompleted metrics
-			test.ProcessTaskPool(testEnv, numTasks, test.MakeSleepTaskPool(numTasks, func() string {
+			test.ProcessTaskPool(testEnv, "default", numTasks, test.MakeSleepTaskPool(numTasks, func() string {
 				return "1s"
 			}), 4000*time.Millisecond)
 		}()

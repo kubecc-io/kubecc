@@ -20,6 +20,7 @@ package metrics
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"go.uber.org/zap"
@@ -68,7 +69,7 @@ func (sm *StatusController) ApplyCondition(
 ) {
 	sm.lg.With(
 		"cond", cond.String(),
-	).Debug("Applying condition")
+	).Debug("Applying status condition")
 	sm.statusLock.Lock()
 	sm.conditions[while] = &activeCondition{
 		condition: cond,
@@ -78,11 +79,31 @@ func (sm *StatusController) ApplyCondition(
 	sm.changed.Broadcast()
 
 	go func() {
+		// Display status updates for long-running conditions
+		go func() {
+			tick := time.NewTicker(30 * time.Second)
+			defer tick.Stop()
+			for {
+				select {
+				case <-while.Done():
+					return
+				case <-sm.srvCtx.Done():
+					return
+				case <-tick.C:
+					sm.lg.With(
+						"cond", cond.String(),
+						"msgs", msgs,
+					).Warn("Still waiting on status condition")
+				}
+			}
+		}()
 		select {
 		case <-while.Done():
 		case <-sm.srvCtx.Done(): // cancel all conditions when server is done
-			print("111")
 		}
+		sm.lg.With(
+			"cond", cond.String(),
+		).Debug("Clearing status condition")
 		sm.statusLock.Lock()
 		delete(sm.conditions, while)
 		sm.statusLock.Unlock()

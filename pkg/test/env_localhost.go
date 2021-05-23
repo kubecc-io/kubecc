@@ -60,7 +60,7 @@ func NewLocalhostEnvironment(cfg config.KubeccSpec) *LocalhostEnvironment {
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
-			logkc.WithLogLevel(zapcore.ErrorLevel),
+			logkc.WithLogLevel(zapcore.InfoLevel),
 		))),
 		meta.WithProvider(tracing.Tracer),
 	)
@@ -155,7 +155,7 @@ func (e *LocalhostEnvironment) Shutdown() {
 	e.envCancel()
 }
 
-func (e *LocalhostEnvironment) WaitForReady(uuid string) {
+func (e *LocalhostEnvironment) WaitForReady(uuid string, timeout ...time.Duration) {
 	ctx, ca := context.WithCancel(e.envContext)
 	client := NewMonitorClient(e, ctx)
 	listener := clients.NewMetricsListener(ctx, client)
@@ -173,7 +173,14 @@ func (e *LocalhostEnvironment) WaitForReady(uuid string) {
 			}
 		})
 	})
-	<-done
+	if len(timeout) == 0 {
+		timeout = []time.Duration{time.Second * 10}
+	}
+	select {
+	case <-time.After(timeout[0]):
+		panic("WaitForReady timed out")
+	case <-done:
+	}
 	ca()
 }
 
@@ -216,12 +223,25 @@ func (e *LocalhostEnvironment) Serve(ctx context.Context, server interface{}, na
 	srv := servers.NewServer(ctx)
 	component := meta.Component(ctx)
 	e.listenersMu.Lock()
-	if _, ok := e.listeners[component][name]; !ok {
+	if existingListener, ok := e.listeners[component][name]; !ok {
 		listener, err := net.Listen("tcp", "127.0.0.1:")
 		if err != nil {
 			panic(err)
 		}
 		e.listeners[component][name] = listener
+	} else {
+		if c, err := net.Dial("tcp", existingListener.Addr().String()); err == nil {
+			// existing socket is ok to use
+			c.Close()
+		} else {
+			// existing socket has been closed, reuse its port
+			existingAddr := existingListener.Addr()
+			listener, err := net.Listen("tcp", existingAddr.String())
+			if err != nil {
+				panic(err)
+			}
+			e.listeners[component][name] = listener
+		}
 	}
 	e.listenersMu.Unlock()
 	switch s := server.(type) {
@@ -241,7 +261,7 @@ func (e *LocalhostEnvironment) Serve(ctx context.Context, server interface{}, na
 				"component", component.Name(),
 				"name", name,
 			).Warn(zapkc.Red.Add("Server shutting down"))
-			srv.GracefulStop()
+			srv.Stop() // DO NOT USE GRACEFULSTOP
 		}()
 		e.listenersMu.Lock()
 		listener := e.listeners[component][name]
@@ -250,8 +270,5 @@ func (e *LocalhostEnvironment) Serve(ctx context.Context, server interface{}, na
 		if err != nil {
 			meta.Log(ctx).Error(err)
 		}
-		e.listenersMu.Lock()
-		delete(e.listeners[component], name)
-		e.listenersMu.Unlock()
 	}()
 }

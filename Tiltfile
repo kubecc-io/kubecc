@@ -1,4 +1,5 @@
-k8s_yaml(kustomize('config/default'))
+allow_k8s_contexts('default')
+k8s_yaml('staging/staging_autogen.yaml')
 local_resource(
   'go-compile', 
   'CGO_ENABLED=0 GOARCH=amd64 go build -o bin/kubecc ./cmd/kubecc',

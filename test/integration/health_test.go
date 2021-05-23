@@ -23,6 +23,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/util"
@@ -70,7 +71,7 @@ var _ = Describe("Health Metrics", func() {
 		cdHealth = testEnv.MetricF(cdCtx, &metrics.Health{})
 		agentHealth = testEnv.MetricF(agentCtx, &metrics.Health{})
 	})
-	Specify("components should set health to ready on startup", func() {
+	Specify("components should set health on startup", func() {
 		Eventually(monitorHealth).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))
 		Eventually(schedulerHealth).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))
 		Eventually(cdHealth).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))
@@ -95,15 +96,17 @@ var _ = Describe("Health Metrics", func() {
 				_, err := agentHealth()
 				return err
 			}).Should(Not(BeNil()))
+			time.Sleep(3 * time.Second)
 		})
 	})
 	When("the monitor is restarted", func() {
-		Specify("components should set health to ready", func() {
-			var ca context.CancelFunc
-			monitorCtx, ca = test.SpawnMonitor(testEnv, test.WaitForReady())
-			monitorCancel = ca
+		Specify("components should set health", func() {
+			monitorCtx, _ = test.SpawnMonitor(testEnv, test.WithUUID(meta.UUID(monitorCtx)))
+			time.Sleep(1 * time.Second)
 			monitorHealth = testEnv.MetricF(monitorCtx, &metrics.Health{})
-
+			schedulerHealth = testEnv.MetricF(schedulerCtx, &metrics.Health{})
+			cdHealth = testEnv.MetricF(cdCtx, &metrics.Health{})
+			agentHealth = testEnv.MetricF(agentCtx, &metrics.Health{})
 			Eventually(monitorHealth, 15*time.Second).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))
 			Eventually(schedulerHealth, 15*time.Second).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))
 			Eventually(cdHealth, 15*time.Second).Should(WithTransform(status, Equal(metrics.OverallStatus_Ready)))

@@ -24,7 +24,6 @@ import (
 	"io"
 	"reflect"
 	"sync"
-	"time"
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/kubecc-io/kubecc/pkg/meta"
@@ -104,7 +103,9 @@ func NewMetricsProvider(
 		go provider.watchStatus(options.statusCtrl)
 	}
 
-	mgr := NewStreamManager(ctx, provider)
+	mgr := NewStreamManager(ctx, provider,
+		WithStatusCtrl(options.statusCtrl, Required),
+	)
 	go mgr.Run()
 	return provider
 }
@@ -141,7 +142,7 @@ func (p *monitorMetricsProvider) HandleStream(stream grpc.ClientStream) error {
 		case <-stream.Context().Done():
 			return stream.RecvMsg(nil)
 		case <-p.ctx.Done():
-			return nil
+			return p.ctx.Err()
 		}
 	}
 }
@@ -226,7 +227,10 @@ func (p *monitorMetricsProvider) watchStatus(ctrl *metrics.StatusController) {
 	stream := ctrl.StreamHealthUpdates()
 	for {
 		select {
-		case h := <-stream:
+		case h, open := <-stream:
+			if !open {
+				return
+			}
 			p.Post(h)
 		case <-p.ctx.Done():
 			return
@@ -247,12 +251,10 @@ func NewMetricsListener(
 	streamOpts ...StreamManagerOption,
 ) MetricsListener {
 	listener := &monitorListener{
-		ctx:       ctx,
-		lg:        meta.Log(ctx),
-		monClient: client,
-		streamOpts: append([]StreamManagerOption{
-			WithLogEvents(LogConnectionFailed),
-		}, streamOpts...),
+		ctx:        ctx,
+		lg:         meta.Log(ctx),
+		monClient:  client,
+		streamOpts: append([]StreamManagerOption{}, streamOpts...),
 	}
 	return listener
 }
@@ -355,9 +357,7 @@ func (cl *changeListener) HandleStream(clientStream grpc.ClientStream) error {
 }
 
 func (s *changeListener) TryConnect() (grpc.ClientStream, error) {
-	ctx, ca := context.WithTimeout(s.ctx, 1*time.Second)
-	defer ca()
-	return s.monClient.Listen(ctx, s.key)
+	return s.monClient.Listen(s.ctx, s.key)
 }
 
 func (s *changeListener) Target() string {

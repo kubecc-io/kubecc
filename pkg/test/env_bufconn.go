@@ -82,8 +82,8 @@ func (e *BufconnEnvironment) Serve(ctx context.Context, server interface{}, name
 			e.Log().With(
 				"component", component.Name(),
 				"name", name,
-			).Warn(zapkc.Red.Add("Server shutting down"))
-			srv.GracefulStop()
+			).Info(zapkc.Red.Add("Server shutting down"))
+			srv.Stop() // DO NOT USE GRACEFULSTOP
 		}()
 		e.listenersMu.Lock()
 		listener := e.listeners[component][name]
@@ -136,7 +136,7 @@ func NewBufconnEnvironment(cfg config.KubeccSpec) Environment {
 		meta.WithProvider(identity.Component, meta.WithValue(types.TestComponent)),
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.TestComponent,
-			logkc.WithLogLevel(zapcore.ErrorLevel),
+			logkc.WithLogLevel(zapcore.InfoLevel),
 		))),
 		meta.WithProvider(tracing.Tracer),
 	)
@@ -217,7 +217,7 @@ func (e *BufconnEnvironment) Shutdown() {
 	e.envCancel()
 }
 
-func (e *BufconnEnvironment) WaitForReady(uuid string) {
+func (e *BufconnEnvironment) WaitForReady(uuid string, timeout ...time.Duration) {
 	ctx, ca := context.WithCancel(e.envContext)
 	client := NewMonitorClient(e, ctx)
 	listener := clients.NewMetricsListener(ctx, client)
@@ -235,7 +235,15 @@ func (e *BufconnEnvironment) WaitForReady(uuid string) {
 			}
 		})
 	})
-	<-done
+	if len(timeout) == 0 {
+		timeout = []time.Duration{time.Second * 10}
+	}
+	select {
+	case <-time.After(timeout[0]):
+		e.Log().Fatal("WaitForReady timed out")
+	case <-done:
+	}
+
 	ca()
 }
 
@@ -256,7 +264,7 @@ func (e *BufconnEnvironment) MetricF(srvCtx context.Context, out proto.Message) 
 		if err := srvCtx.Err(); err != nil {
 			return nil, err
 		}
-		ctx, ca := context.WithTimeout(srvCtx, 100*time.Millisecond)
+		ctx, ca := context.WithTimeout(srvCtx, 1*time.Second)
 		defer ca()
 		metric, err := client.GetMetric(ctx, &types.Key{
 			Bucket: meta.UUID(srvCtx),
