@@ -208,7 +208,7 @@ var _ = Describe("Meta", func() {
 			)
 			test.RegisterFooServer(srv, fooSrv)
 			go srv.Serve(listener)
-			defer srv.GracefulStop()
+			defer srv.Stop()
 			By("Creating a gRPC client with the meta interceptor")
 			cc, err := grpc.Dial("bufconn",
 				grpc.WithContextDialer(

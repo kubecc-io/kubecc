@@ -30,27 +30,27 @@ var _ = Describe("Hash test", func() {
 	localJobs := 20
 
 	Specify("setup", func() {
-		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.WarnLevel)
+		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.WarnLevel)
 
 		test.SpawnMonitor(testEnv, test.WaitForReady())
 		test.SpawnScheduler(testEnv, test.WaitForReady())
-		test.SpawnConsumerd(testEnv, test.WaitForReady())
+		test.SpawnConsumerd(testEnv, test.WithName("c0"), test.WaitForReady())
 	})
 
 	Specify("minimal test, 1 agent, no cache", func() {
-		test.SpawnAgent(testEnv, test.WaitForReady())
-		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(100), 5*time.Second)
+		test.SpawnAgent(testEnv, test.WithName("a0"), test.WaitForReady())
+		test.ProcessTaskPool(testEnv, "c0", localJobs, test.MakeHashTaskPool(100), 5*time.Second)
 	})
 
 	Specify("minimal test, 2 agents, no cache", func() {
-		test.SpawnAgent(testEnv, test.WaitForReady())
-		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(200), 5*time.Second)
+		test.SpawnAgent(testEnv, test.WithName("a1"), test.WaitForReady())
+		test.ProcessTaskPool(testEnv, "c0", localJobs, test.MakeHashTaskPool(200), 5*time.Second)
 	})
 
 	Specify("minimal test, 4 agents, no cache", func() {
-		test.SpawnAgent(testEnv, test.WaitForReady())
-		test.SpawnAgent(testEnv, test.WaitForReady())
-		test.ProcessTaskPool(testEnv, localJobs, test.MakeHashTaskPool(400), 5*time.Second)
+		test.SpawnAgent(testEnv, test.WithName("a2"), test.WaitForReady())
+		test.SpawnAgent(testEnv, test.WithName("a3"), test.WaitForReady())
+		test.ProcessTaskPool(testEnv, "c0", localJobs, test.MakeHashTaskPool(400), 5*time.Second)
 	})
 
 	Specify("shutdown", func() {

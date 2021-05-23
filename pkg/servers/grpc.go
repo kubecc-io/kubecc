@@ -25,7 +25,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cobalt77/grpc-opentracing/go/otgrpc"
+	"github.com/kralicky/grpc-opentracing/go/otgrpc"
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/cluster"
 	"github.com/kubecc-io/kubecc/pkg/host"

@@ -39,7 +39,7 @@ var _ = Describe("Defunct Tasks", func() {
 	var agentCancel context.CancelFunc
 	Specify("setup", func() {
 		test.SkipInGithubWorkflow()
-		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
+		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.ErrorLevel)
 
 		test.SpawnMonitor(testEnv, test.WaitForReady())
 		test.SpawnScheduler(testEnv, test.WaitForReady())
@@ -63,7 +63,7 @@ var _ = Describe("Defunct Tasks", func() {
 				time.Sleep(500 * time.Millisecond)
 				agentCancel()
 			}()
-			test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(numTasks,
+			test.ProcessTaskPool(testEnv, "default", localJobs, test.MakeSleepTaskPool(numTasks,
 				func() string {
 					return "1s"
 				}), 5*time.Second)

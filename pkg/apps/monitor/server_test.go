@@ -44,7 +44,7 @@ var _ = Describe("Monitor Server", func() {
 	})
 
 	It("should post metrics", func() {
-		// these metrics are posted evbery 5-7.5s
+		// these metrics are posted every 5-7.5s
 
 		Eventually(testEnv.MetricF(monCtx, &metrics.MetricsPostedTotal{}),
 			9*time.Second, 100*time.Millisecond).

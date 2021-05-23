@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package integration
 
 import (
+	"context"
 	"runtime"
 	"time"
 
@@ -29,14 +30,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"go.uber.org/zap/zapcore"
+	"google.golang.org/protobuf/proto"
 )
 
 var _ = Describe("Cache test", func() {
 	var testEnv test.Environment
 	localJobs := runtime.NumCPU()
-
+	var cdCtx context.Context
 	Specify("setup", func() {
-		testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.WarnLevel)
+		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.DebugLevel)
 
 		test.SpawnMonitor(testEnv, test.WaitForReady())
 		test.SpawnScheduler(testEnv, test.WaitForReady())
@@ -46,7 +48,7 @@ var _ = Describe("Cache test", func() {
 				ConcurrentProcessLimit: int32(localJobs),
 			}),
 		), test.WaitForReady())
-		test.SpawnConsumerd(testEnv, test.WithConsumerdOptions(
+		cdCtx, _ = test.SpawnConsumerd(testEnv, test.WithConsumerdOptions(
 			consumerd.WithQueueOptions(
 				consumerd.WithLocalUsageManager(
 					consumerd.FixedUsageLimits(0), // disable local
@@ -58,15 +60,23 @@ var _ = Describe("Cache test", func() {
 		), test.WaitForReady())
 	})
 
+	Specify("consumerd queue should enable remote tasks", func() {
+		Eventually(testEnv.MetricF(cdCtx, &metrics.UsageLimits{}), 10*time.Second, 100*time.Millisecond).Should(
+			WithTransform(func(m proto.Message) int32 {
+				return m.(*metrics.UsageLimits).DelegatedTaskLimit
+			}, BeEquivalentTo(localJobs)),
+		)
+	})
+
 	Measure("1 agent, cache online", func(b Benchmarker) {
 		start := time.Now()
-		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(localJobs, func() string {
+		test.ProcessTaskPool(testEnv, "default", localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration1 := time.Since(start)
 		b.RecordValueWithPrecision("No cached results", float64(duration1.Milliseconds()), "ms", 2)
 		start2 := time.Now()
-		test.ProcessTaskPool(testEnv, localJobs, test.MakeSleepTaskPool(localJobs, func() string {
+		test.ProcessTaskPool(testEnv, "default", localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration2 := time.Since(start2)

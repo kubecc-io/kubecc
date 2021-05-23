@@ -129,7 +129,7 @@ func WatchAvailability(
 	monClient types.MonitorClient,
 	al AvailabilityListener,
 ) {
-	listener := NewMetricsListener(ctx, monClient, WithLogEvents(0))
+	listener := NewMetricsListener(ctx, monClient, WithLogEvents(LogNone))
 	listener.OnProviderAdded(func(c context.Context, uuid string) {
 		info, err := monClient.Whois(ctx, &types.WhoisRequest{
 			UUID: uuid,

@@ -19,7 +19,9 @@ package test
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/imdario/mergo"
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/apps/agent"
@@ -37,6 +39,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/toolchains"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
+	"github.com/kubecc-io/kubecc/pkg/util/ctxutil"
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
@@ -49,6 +52,7 @@ type SpawnOptions struct {
 	schedulerOptions []scheduler.SchedulerServerOption
 	cacheOptions     []cachesrv.CacheServerOption
 	name             string
+	uuid             string
 	waitForReady     bool
 }
 
@@ -120,6 +124,12 @@ func WithCacheOptions(opts ...cachesrv.CacheServerOption) SpawnOption {
 	}
 }
 
+func WithUUID(uuid string) SpawnOption {
+	return func(o *SpawnOptions) {
+		o.uuid = uuid
+	}
+}
+
 type Environment interface {
 	// Context returns the top level environment context.
 	Context() context.Context
@@ -137,7 +147,7 @@ type Environment interface {
 
 	// WaitForReady blocks until the component with the given UUID posts a
 	// Ready status. Requires a running monitor.
-	WaitForReady(uuid string)
+	WaitForReady(uuid string, timeout ...time.Duration)
 
 	// MetricF returns a function that when called will populate out with the
 	// current values of the metric of the matching type.
@@ -171,14 +181,15 @@ type Spawner interface {
 
 // these counts are only used to give the agents and consumerds unique names
 var (
-	agentCount     *atomic.Int32
-	consumerdCount *atomic.Int32
+	agentCount     = atomic.NewInt32(0)
+	consumerdCount = atomic.NewInt32(0)
 )
 
 func makeOptions(e Environment, opts ...SpawnOption) (SpawnOptions, *config.KubeccSpec) {
 	so := SpawnOptions{
 		config: e.DefaultConfig(),
 		name:   "default",
+		uuid:   uuid.NewString(),
 	}
 	so.Apply(opts...)
 	cfg := e.DefaultConfig()
@@ -190,11 +201,11 @@ func makeOptions(e Environment, opts ...SpawnOption) (SpawnOptions, *config.Kube
 
 func SpawnAgent(e Environment, opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so, cfg := makeOptions(e, opts...)
-	parentCtx, cancel := context.WithCancel(e.Context())
+	parentCtx, cancel := ctxutil.WithCancel(e.Context())
 
 	ctx := meta.NewContextWithParent(parentCtx,
 		meta.WithProvider(identity.Component, meta.WithValue(types.Agent)),
-		meta.WithProvider(identity.UUID),
+		meta.WithProvider(identity.UUID, meta.WithValue(so.uuid)),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Agent,
 				logkc.WithName(string('a'+agentCount.Load())),
@@ -234,11 +245,11 @@ func SpawnAgent(e Environment, opts ...SpawnOption) (context.Context, context.Ca
 
 func SpawnScheduler(e Environment, opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so, cfg := makeOptions(e, opts...)
-	parentCtx, cancel := context.WithCancel(e.Context())
+	parentCtx, cancel := ctxutil.WithCancel(e.Context())
 
 	ctx := meta.NewContextWithParent(parentCtx,
 		meta.WithProvider(identity.Component, meta.WithValue(types.Scheduler)),
-		meta.WithProvider(identity.UUID),
+		meta.WithProvider(identity.UUID, meta.WithValue(so.uuid)),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Scheduler,
 				logkc.WithName("a"),
@@ -266,11 +277,11 @@ func SpawnScheduler(e Environment, opts ...SpawnOption) (context.Context, contex
 
 func SpawnConsumerd(e Environment, opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so, cfg := makeOptions(e, opts...)
-	parentCtx, cancel := context.WithCancel(e.Context())
+	parentCtx, cancel := ctxutil.WithCancel(e.Context())
 
 	ctx := meta.NewContextWithParent(parentCtx,
 		meta.WithProvider(identity.Component, meta.WithValue(types.Consumerd)),
-		meta.WithProvider(identity.UUID),
+		meta.WithProvider(identity.UUID, meta.WithValue(so.uuid)),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Consumerd,
 				logkc.WithName(string('a'+consumerdCount.Load())),
@@ -309,11 +320,11 @@ func SpawnConsumerd(e Environment, opts ...SpawnOption) (context.Context, contex
 
 func SpawnMonitor(e Environment, opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so, cfg := makeOptions(e, opts...)
-	parentCtx, cancel := context.WithCancel(e.Context())
+	parentCtx, cancel := ctxutil.WithCancel(e.Context())
 
 	ctx := meta.NewContextWithParent(parentCtx,
 		meta.WithProvider(identity.Component, meta.WithValue(types.Monitor)),
-		meta.WithProvider(identity.UUID),
+		meta.WithProvider(identity.UUID, meta.WithValue(so.uuid)),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Monitor,
 				logkc.WithName("a"),
@@ -331,11 +342,11 @@ func SpawnMonitor(e Environment, opts ...SpawnOption) (context.Context, context.
 
 func SpawnCache(e Environment, opts ...SpawnOption) (context.Context, context.CancelFunc) {
 	so, cfg := makeOptions(e, opts...)
-	parentCtx, cancel := context.WithCancel(e.Context())
+	parentCtx, cancel := ctxutil.WithCancel(e.Context())
 
 	ctx := meta.NewContextWithParent(parentCtx,
 		meta.WithProvider(identity.Component, meta.WithValue(types.Cache)),
-		meta.WithProvider(identity.UUID),
+		meta.WithProvider(identity.UUID, meta.WithValue(so.uuid)),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Cache,
 				logkc.WithName("a"),
@@ -368,6 +379,9 @@ func SpawnCache(e Environment, opts ...SpawnOption) (context.Context, context.Ca
 	go cacheSrv.StartMetricsProvider()
 	e.Serve(ctx, cacheSrv, so.name)
 
+	if so.waitForReady {
+		e.WaitForReady(meta.UUID(ctx))
+	}
 	return ctx, cancel
 }
 

@@ -464,8 +464,8 @@ var _ = Describe("Monitor Clients", func() {
 		removeCd := make(chan struct{}, 1)
 		var monitorCancel context.CancelFunc
 		Specify("setup", func() {
-			testEnv = test.NewBufconnEnvironmentWithLogLevel(zapcore.ErrorLevel)
-			_, monitorCancel = test.SpawnMonitor(testEnv, test.WaitForReady())
+			testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.WarnLevel)
+			_, monitorCancel = test.SpawnMonitor(testEnv)
 		})
 
 		It("should handle disconnect/reconnect", func() {
@@ -516,7 +516,9 @@ var _ = Describe("Monitor Clients", func() {
 					a()
 				}
 			}
-			for i := 0; i < 10; i++ {
+			// Can't do this too many times otherwise reconnect backoff timers will
+			// exceed the timeout
+			for i := 0; i < 5; i++ {
 				var caAgent context.CancelFunc
 				var caConsumerd context.CancelFunc
 				randomOrder(
@@ -528,10 +530,10 @@ var _ = Describe("Monitor Clients", func() {
 				)
 				randomOrder(
 					func() {
-						Eventually(addAgent).Should(Receive())
+						Eventually(addAgent, 5*time.Second, 50*time.Millisecond).Should(Receive())
 					},
 					func() {
-						Eventually(addCd).Should(Receive())
+						Eventually(addCd, 5*time.Second, 50*time.Millisecond).Should(Receive())
 					},
 				)
 				randomOrder(
@@ -544,15 +546,16 @@ var _ = Describe("Monitor Clients", func() {
 				)
 				randomOrder(
 					func() {
-						Eventually(removeAgent).Should(Receive())
+						Eventually(removeAgent, 5*time.Second, 50*time.Millisecond).Should(Receive())
 					},
 					func() {
-						Eventually(removeCd).Should(Receive())
+						Eventually(removeCd, 5*time.Second, 50*time.Millisecond).Should(Receive())
 					},
 				)
 
 				monitorCancel()
 				_, monitorCancel = test.SpawnMonitor(testEnv)
+				time.Sleep(100 * time.Millisecond)
 			}
 		})
 	})

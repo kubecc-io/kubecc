@@ -24,15 +24,20 @@ import (
 
 func RunPreflightChecks(lg *zap.SugaredLogger) {
 	lg.Debug("Running preflight checks")
-	warns, errs := (&validators.KernelValidator{}).Validate(validators.SysSpec{
-		OS: "Linux",
-		KernelSpec: validators.KernelSpec{
-			Versions: []string{`^3\.[1-9][0-9].*$`, `^([4-9]|[1-9][0-9]+)\.([0-9]+)\.([0-9]+).*$`}, // Requires 3.10+, or newer,
-			Optional: []validators.KernelConfig{
-				{Name: "CFS_BANDWIDTH", Description: "Required for CPU quota."},
+	warns, errs := (&validators.KernelValidator{
+		Reporter: validators.DefaultReporter,
+	}).Validate(
+		validators.SysSpec{
+			OS: "Linux",
+			KernelSpec: validators.KernelSpec{
+				Versions: []string{`^3\.[1-9][0-9].*$`, `^([4-9]|[1-9][0-9]+)\.([0-9]+)\.([0-9]+).*$`}, // Requires 3.10+, or newer,
+				Optional: []validators.KernelConfig{
+					{Name: "CFS_BANDWIDTH", Description: "Required for CPU quota."},
+				},
+				Required:  []validators.KernelConfig{},
+				Forbidden: []validators.KernelConfig{},
 			},
-		},
-	})
+		})
 
 	if len(warns) == 0 && len(errs) == 0 {
 		lg.Debug("Checks passed")
