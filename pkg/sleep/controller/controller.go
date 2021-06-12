@@ -52,6 +52,10 @@ type NoopArgParser struct{}
 
 func (ap *NoopArgParser) Parse() {}
 
+func (ap *NoopArgParser) DeepCopy() run.ArgParser {
+	return ap
+}
+
 func (NoopArgParser) CanRunRemote() bool {
 	return true
 }

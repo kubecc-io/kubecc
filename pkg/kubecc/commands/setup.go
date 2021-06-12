@@ -578,24 +578,27 @@ func makeAliases(binPath string) ([]string, error) {
 	aliases := []string{
 		fmt.Sprintf(`alias make='PATH="%s${PATH:+:${PATH}}" make'`, binDir),
 	}
+
+	entries, err := os.ReadDir(binDir)
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, f := range entries {
+		if f.IsDir() {
+			continue
+		}
+
+		aliases = append(aliases,
+			fmt.Sprintf(`alias %s='PATH="%s${PATH:+:${PATH}}" %s'`,
+				f.Name(),
+				binDir,
+				f.Name(),
+			),
+		)
+	}
+
 	return aliases, nil
-
-	// entries, err := os.ReadDir(binDir)
-	// if err != nil {
-	// 	return []string{}, err
-	// }
-
-	// for _, f := range entries {
-	// 	if f.IsDir() {
-	// 		continue
-	// 	}
-
-	// 	aliases = append(aliases, fmt.Sprintf("%s() { %s \"$@\"; }", f.Name(),
-	// 		filepath.Join(binDir, f.Name())))
-	// }
-
-	// aliases = append(aliases, "set +a")
-	// return aliases, nil
 }
 
 func doAppend(rc string) error {
