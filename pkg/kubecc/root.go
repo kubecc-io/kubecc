@@ -56,6 +56,7 @@ func CreateRootCmd() *cobra.Command {
 		{
 			Message: "Tools:",
 			Commands: []*cobra.Command{
+				tools.ExecCmd,
 				tools.ConsumerCmd,
 				tools.MakeCmd,
 				tools.SleepCmd,

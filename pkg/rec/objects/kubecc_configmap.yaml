@@ -9,8 +9,6 @@ data:
     agent:
       usageLimits:
         concurrentProcessLimit: -1
-        queuePressureMultiplier: 1
-        queueRejectMultiplier: 2
       schedulerAddress: kubecc-scheduler:9090
       monitorAddress: kubecc-monitor:9090
     scheduler:

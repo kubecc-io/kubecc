@@ -174,6 +174,7 @@ func PackageRequest(
 type ArgParser interface {
 	Parse()
 	CanRunRemote() bool
+	DeepCopy() ArgParser
 }
 
 // Controller represents an object that can control requests for a particular

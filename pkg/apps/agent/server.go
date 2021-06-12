@@ -41,8 +41,8 @@ import (
 )
 
 var (
-	cfsQuota  = host.CfsQuota()
-	cfsPeriod = host.CfsPeriod()
+	cfsQuota  int64
+	cfsPeriod int64
 )
 
 type AgentServer struct {
@@ -110,6 +110,9 @@ func NewAgentServer(
 	ctx context.Context,
 	opts ...AgentServerOption,
 ) *AgentServer {
+	cfsQuota = host.CfsQuota()
+	cfsPeriod = host.CfsPeriod()
+
 	options := AgentServerOptions{}
 	options.Apply(opts...)
 

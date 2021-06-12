@@ -242,6 +242,10 @@ func (TestArgParser) CanRunRemote() bool {
 	return true
 }
 
+func (t TestArgParser) DeepCopy() run.ArgParser {
+	return &t
+}
+
 type NoopArgParser struct{}
 
 func (*NoopArgParser) Parse() {}

@@ -326,9 +326,14 @@ func (c *consumerdServer) Run(
 		exclusivity = Local
 	}
 	for {
+		// Need to duplicate the arg parser so that each retry starts with the
+		// original arguments, not modified ones
+		tmpArgParser := ap.DeepCopy()
+
 		st := &SplitTask{
-			Local:       run.PackageRequest(runner.RunLocal(ap), ctxs, req),
-			Remote:      run.PackageRequest(runner.SendRemote(ap, c.requestClient), ctxs, req),
+			// Only one of these will end up running, so they can both use the same arg parser
+			Local:       run.PackageRequest(runner.RunLocal(tmpArgParser), ctxs, req),
+			Remote:      run.PackageRequest(runner.SendRemote(tmpArgParser, c.requestClient), ctxs, req),
 			Exclusivity: exclusivity,
 		}
 

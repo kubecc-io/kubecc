@@ -26,6 +26,7 @@ import (
 
 	mapset "github.com/deckarep/golang-set"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/run"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -494,4 +495,19 @@ func (ap *ArgParser) PrependLanguageFlag(input string) error {
 	ap.Args = append([]string{"-x", lang}, ap.Args...)
 	ap.Parse()
 	return nil
+}
+
+func (ap *ArgParser) DeepCopy() run.ArgParser {
+	indexMap := map[string]int{}
+	for k, v := range ap.FlagIndexMap {
+		indexMap[k] = v
+	}
+	return &ArgParser{
+		lg:             ap.lg,
+		Args:           append([]string{}, ap.Args...),
+		Mode:           ap.Mode,
+		InputArgIndex:  ap.InputArgIndex,
+		OutputArgIndex: ap.OutputArgIndex,
+		FlagIndexMap:   indexMap,
+	}
 }
