@@ -317,7 +317,7 @@ func (b *Broker) handleResponseQueue() {
 			return
 		}
 		if value, ok := b.inflightRequests.LoadAndDelete(resp.RequestID); ok {
-			b.requestCount.Dec()
+			b.requestCount.Inc()
 			ir := value.(inflightRequest)
 			consumerd := ir.requester
 			request := ir.request
