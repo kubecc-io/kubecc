@@ -1,0 +1,5 @@
+FROM opensuse/tumbleweed:latest
+WORKDIR /
+RUN zypper update \
+ && zypper install -y gcc11 gcc11-c++
+USER 65532:65532

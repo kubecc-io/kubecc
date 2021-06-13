@@ -99,7 +99,8 @@ docker-kubecc:
 	docker buildx bake -f bake.hcl kubecc --push
 
 docker-environment:
-	docker buildx bake -f bake.hcl environment --push
+	DOCKER_BUILDKIT=1 docker build -t kubecc/environment:ubuntu -f images/environment/Dockerfile.ubuntu .
+	DOCKER_BUILDKIT=1 docker build -t kubecc/environment:opensuse -f images/environment/Dockerfile.opensuse .
 
 docker: 
 	docker buildx bake -f bake.hcl --push
