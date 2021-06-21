@@ -86,7 +86,7 @@ var _ = Describe("CC Arg Parser", func() {
 		b.Time("Configure Preprocessor Options", func() {
 			info.ConfigurePreprocessorOptions()
 		})
-		assert.Equal(GinkgoT(), append(os.Args[1:], "-fdirectives-only"),
+		assert.Equal(GinkgoT(), os.Args[1:],
 			info.Args,
 		)
 
@@ -97,7 +97,7 @@ var _ = Describe("CC Arg Parser", func() {
 		b.Time("Configure Preprocessor Options", func() {
 			info.ConfigurePreprocessorOptions()
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c -fdirectives-only`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c`, " "),
 			info.Args,
 		)
 
@@ -108,7 +108,7 @@ var _ = Describe("CC Arg Parser", func() {
 		b.Time("Configure Preprocessor Options", func() {
 			info.ConfigurePreprocessorOptions()
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c -fdirectives-only`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
 			info.Args,
 		)
 
@@ -119,7 +119,7 @@ var _ = Describe("CC Arg Parser", func() {
 		b.Time("Configure Preprocessor Options", func() {
 			info.ConfigurePreprocessorOptions()
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c -fdirectives-only`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c`, " "),
 			info.Args,
 		)
 	}, 1000)
@@ -203,7 +203,7 @@ var _ = Describe("CC Arg Parser", func() {
 		b.Time("Remove local arguments", func() {
 			info.RemoveLocalArgs()
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c src/test.c -fpreprocessed`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c src/test.c`, " "),
 			info.Args,
 		)
 	}, 1000)
@@ -234,6 +234,15 @@ var _ = Describe("CC Arg Parser", func() {
 			info.Args,
 		)
 	}, 1000)
+	It("should standardize arguments where necessary", func() {
+		os.Args = strings.Split(`gcc -o/path/to/test.o -c src/test.cpp`, " ")
+
+		info := NewArgParserFromOS(ctx)
+		info.Parse()
+		assert.Equal(GinkgoT(), strings.Split(`-o /path/to/test.o -c src/test.cpp`, " "),
+			info.Args,
+		)
+	})
 })
 
 //go:embed testdata

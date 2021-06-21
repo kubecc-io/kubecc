@@ -53,6 +53,24 @@ type OnConnectFailedEventHandler interface {
 	OnConnectFailed()
 }
 
+type safeCloseChannel struct {
+	C    chan struct{}
+	once sync.Once
+}
+
+func (s *safeCloseChannel) Close() {
+	s.once.Do(func() {
+		close(s.C)
+	})
+}
+
+func newSafeCloseChannel() *safeCloseChannel {
+	return &safeCloseChannel{
+		once: sync.Once{},
+		C:    make(chan struct{}),
+	}
+}
+
 // StreamManager is used to manage automatic reconnect and backoff logic
 // for gRPC streams, as well as providing a means to handle connection
 // events.
@@ -61,8 +79,7 @@ type StreamManager struct {
 	ctx        context.Context
 	handler    StreamHandler
 	backoffMgr wait.BackoffManager
-	immediate  chan struct{}
-	immLock    *sync.Mutex
+	immediate  *safeCloseChannel
 }
 
 type EventKind uint
@@ -138,8 +155,7 @@ func NewStreamManager(
 		ctx:                  ctx,
 		handler:              handler,
 		backoffMgr:           makeBackoffMgr(),
-		immediate:            make(chan struct{}),
-		immLock:              &sync.Mutex{},
+		immediate:            newSafeCloseChannel(),
 	}
 }
 
@@ -150,12 +166,7 @@ func NewStreamManager(
 // defaults, but only if a backoff timer is currently active. If the
 // backoff timer is not currently active, this function will do nothing.
 func (sm *StreamManager) TryImmediately() {
-	sm.immLock.Lock()
-	defer sm.immLock.Unlock()
-	if sm.immediate != nil {
-		close(sm.immediate)
-	}
-	sm.immediate = nil
+	sm.immediate.Close()
 }
 
 // this must only be called by Run() which should be running in a separate
@@ -163,24 +174,16 @@ func (sm *StreamManager) TryImmediately() {
 func (sm *StreamManager) waitBackoff() {
 	lg := meta.Log(sm.ctx)
 	lg.Debug("Backing off")
-	sm.immLock.Lock()
-	sm.immediate = make(chan struct{})
-	sm.immLock.Unlock()
+	immediateCh := newSafeCloseChannel()
+	sm.immediate = immediateCh
 
-	defer func() {
-		sm.immLock.Lock()
-		defer sm.immLock.Unlock()
-		if sm.immediate != nil {
-			close(sm.immediate)
-		}
-		sm.immediate = nil
-	}()
+	defer immediateCh.Close()
 
 	select {
 	case <-sm.ctx.Done():
 	case <-sm.backoffMgr.Backoff().C():
 		lg.Debug("Backoff timer completed")
-	case <-sm.immediate:
+	case <-immediateCh.C:
 		lg.Debug(zapkc.Yellow.Add("Requested to try connecting immediately"))
 		// We need to reset the backoff manager since its timer is most likely
 		// still waiting.
