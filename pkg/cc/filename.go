@@ -71,8 +71,10 @@ func SourceFileLanguage(f string) (string, error) {
 // should be compiled locally as a special case.
 func ShouldRunLocal(f string) bool {
 	basename := filepath.Base(f)
+	// autotools tests, cmake tests
 	if strings.HasPrefix(basename, "conftest.") ||
-		strings.HasPrefix(basename, "tmp.conftest.") {
+		strings.HasPrefix(basename, "tmp.conftest.") ||
+		strings.Contains(f, "CMakeTmp/src.") {
 		return true
 	}
 	return false

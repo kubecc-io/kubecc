@@ -342,6 +342,7 @@ func (ap *ArgParser) Parse() {
 			// If preprocessing, output goes to stdout
 			ap.Args = append(ap.Args, "-o", "a.out")
 			ap.OutputArgIndex = len(ap.Args) - 1
+			ap.Mode = RunLocal
 		}
 	}
 
@@ -428,7 +429,6 @@ func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 // according to the following rules:
 // 1. Replace "-Wp,-X,-Y,-Z" with "-X -Y -Z"
 // 2. Replace "-Wp,-MD,path" or "-Wp,-MMD,path" with "-M[M]D -MF path"
-// It also adds the -fdirectives-only option.
 func (ap *ArgParser) ConfigurePreprocessorOptions() {
 	for i := 0; i < len(ap.Args); i++ {
 		arg := ap.Args[i]
@@ -452,14 +452,12 @@ func (ap *ArgParser) ConfigurePreprocessorOptions() {
 		ap.Args = append(left, ap.Args[i+1:]...)
 		i = len(left) - 1
 	}
-	ap.Args = append(ap.Args, "-fdirectives-only")
 	ap.Parse()
 }
 
 // RemoveLocalArgs removes arguments that do not need to be
 // sent to the remote agent for compiling. These args are
 // related to preprocessing and linking.
-// It also adds -fpreprocessed.
 func (ap *ArgParser) RemoveLocalArgs() {
 	newArgs := []string{}
 	for i := 0; i < len(ap.Args); i++ {
@@ -480,7 +478,6 @@ func (ap *ArgParser) RemoveLocalArgs() {
 		}
 		newArgs = append(newArgs, arg)
 	}
-	newArgs = append(newArgs, "-fpreprocessed")
 	ap.Args = newArgs
 	ap.Parse()
 }

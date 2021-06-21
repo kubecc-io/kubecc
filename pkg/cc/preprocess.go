@@ -77,7 +77,7 @@ func (t *preprocessTask) Run() {
 	go func() {
 		select {
 		case <-t.Context.Done():
-			if !cmd.ProcessState.Exited() {
+			if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
 				if err := cmd.Process.Kill(); err != nil {
 					info.lg.With(zap.Error(err)).
 						Warn("Error trying to kill preprocessor")
@@ -93,5 +93,4 @@ func (t *preprocessTask) Run() {
 		return
 	}
 	t.SetErr(nil)
-	return
 }
