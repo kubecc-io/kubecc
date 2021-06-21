@@ -28,10 +28,13 @@ import (
 )
 
 var ExecCmd = &cobra.Command{
-	Use:     "exec ...",
-	Short:   "Run commands with the kubecc environment configured",
-	Aliases: []string{"x"},
-	Args:    cobra.ArbitraryArgs,
+	Use:                   "exec ...",
+	Short:                 "Run commands with the kubecc environment configured",
+	Aliases:               []string{"x"},
+	Args:                  cobra.ArbitraryArgs,
+	DisableFlagsInUseLine: true,
+	DisableFlagParsing:    true,
+	PersistentPreRun:      InitCLI,
 	Run: func(cmd *cobra.Command, args []string) {
 		command := exec.Command(args[0], args[1:]...)
 		wd, err := os.Getwd()
