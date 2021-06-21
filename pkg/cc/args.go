@@ -162,6 +162,22 @@ func (a *ArgParser) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+// standardize will modify the argument list if necessary to re-format
+// arguments that may be difficult to parse.
+func (ap *ArgParser) standardize() {
+	for i, a := range ap.Args {
+		// Replace ["-o/path/to/file"] -> ["-o", "/path/to/file"]
+		if len(a) >= 3 && a[:3] == "-o/" {
+			ap.Args = append(ap.Args, "")
+			copy(ap.Args[i+1:], ap.Args[i:]) // shift everything from here on by 1
+			// Split current arg into 2 args
+			ap.Args[i] = "-o"
+			ap.Args[i+1] = a[2:]
+			break
+		}
+	}
+}
+
 // Parse will parse the arguments in argsInfo.Args and store indexes of
 // several flags and values.
 // Most of this logic is borrowed from distcc, with some adjustments.
@@ -174,6 +190,8 @@ func (ap *ArgParser) Parse() {
 		skip, seenOptC, seenOptS, seenOptE bool
 		inputArg, outputArg                string
 	)
+
+	ap.standardize()
 
 	for i, a := range ap.Args {
 		lg := ap.lg.With(zap.String("arg", a))
