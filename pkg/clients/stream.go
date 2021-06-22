@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sync"
 	"time"
 
 	"github.com/kubecc-io/kubecc/internal/zapkc"
@@ -53,24 +52,6 @@ type OnConnectFailedEventHandler interface {
 	OnConnectFailed()
 }
 
-type safeCloseChannel struct {
-	C    chan struct{}
-	once sync.Once
-}
-
-func (s *safeCloseChannel) Close() {
-	s.once.Do(func() {
-		close(s.C)
-	})
-}
-
-func newSafeCloseChannel() *safeCloseChannel {
-	return &safeCloseChannel{
-		once: sync.Once{},
-		C:    make(chan struct{}),
-	}
-}
-
 // StreamManager is used to manage automatic reconnect and backoff logic
 // for gRPC streams, as well as providing a means to handle connection
 // events.
@@ -79,7 +60,7 @@ type StreamManager struct {
 	ctx        context.Context
 	handler    StreamHandler
 	backoffMgr wait.BackoffManager
-	immediate  *safeCloseChannel
+	immediate  chan struct{}
 }
 
 type EventKind uint
@@ -155,7 +136,7 @@ func NewStreamManager(
 		ctx:                  ctx,
 		handler:              handler,
 		backoffMgr:           makeBackoffMgr(),
-		immediate:            newSafeCloseChannel(),
+		immediate:            make(chan struct{}),
 	}
 }
 
@@ -165,8 +146,12 @@ func NewStreamManager(
 // This function has the side effect of resetting the backoff manager to its
 // defaults, but only if a backoff timer is currently active. If the
 // backoff timer is not currently active, this function will do nothing.
+// This function is not safe to call concurrently.
 func (sm *StreamManager) TryImmediately() {
-	sm.immediate.Close()
+	select {
+	case sm.immediate <- struct{}{}:
+	default:
+	}
 }
 
 // this must only be called by Run() which should be running in a separate
@@ -174,16 +159,23 @@ func (sm *StreamManager) TryImmediately() {
 func (sm *StreamManager) waitBackoff() {
 	lg := meta.Log(sm.ctx)
 	lg.Debug("Backing off")
-	immediateCh := newSafeCloseChannel()
-	sm.immediate = immediateCh
 
-	defer immediateCh.Close()
+	clear := func() {
+		select {
+		case <-sm.immediate:
+		default:
+		}
+	}
+	// clear the immediate channel if necessary, and clear it again at the end
+	// to prevent blocking
+	clear()
+	defer clear()
 
 	select {
 	case <-sm.ctx.Done():
 	case <-sm.backoffMgr.Backoff().C():
 		lg.Debug("Backoff timer completed")
-	case <-immediateCh.C:
+	case <-sm.immediate:
 		lg.Debug(zapkc.Yellow.Add("Requested to try connecting immediately"))
 		// We need to reset the backoff manager since its timer is most likely
 		// still waiting.
