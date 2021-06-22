@@ -40,11 +40,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	cfsQuota  int64
-	cfsPeriod int64
-)
-
 type AgentServer struct {
 	metrics.StatusController
 	srvContext       context.Context
@@ -58,6 +53,8 @@ type AgentServer struct {
 	monitorClient    types.MonitorClient
 	usageLimits      *metrics.UsageLimits
 	runningTasks     *atomic.Int32
+	cfsQuota         int64
+	cfsPeriod        int64
 }
 
 type AgentServerOptions struct {
@@ -110,9 +107,6 @@ func NewAgentServer(
 	ctx context.Context,
 	opts ...AgentServerOption,
 ) *AgentServer {
-	cfsQuota = host.CfsQuota()
-	cfsPeriod = host.CfsPeriod()
-
 	options := AgentServerOptions{}
 	options.Apply(opts...)
 
@@ -138,6 +132,8 @@ func NewAgentServer(
 		monitorClient:    options.monitorClient,
 		usageLimits:      options.usageLimits,
 		schedulerClient:  options.schedulerClient,
+		cfsQuota:         host.CfsQuota(),
+		cfsPeriod:        host.CfsPeriod(),
 	}
 	srv.BeginInitialize(ctx)
 	defer srv.EndInitialize()
@@ -190,8 +186,8 @@ func (s *AgentServer) postCpuStats() {
 	s.metricsProvider.Post(&metrics.CpuStats{
 		CpuUsage: &metrics.CpuUsage{
 			TotalUsage: stats.CpuStats.CpuUsage.TotalUsage,
-			CfsQuota:   cfsQuota,
-			CfsPeriod:  cfsPeriod,
+			CfsQuota:   s.cfsQuota,
+			CfsPeriod:  s.cfsPeriod,
 		},
 		ThrottlingData: &metrics.ThrottlingData{
 			Periods:          stats.CpuStats.ThrottlingData.Periods,
