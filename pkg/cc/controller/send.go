@@ -152,8 +152,6 @@ func (m sendRemoteRunnerManager) Process(
 	}
 	ap.SetActionOpt(opt)
 
-	// ap.ReplaceInputPath("-") // Read from stdin
-
 	var outputPath string
 	if ap.OutputArgIndex >= 0 && ap.OutputArgIndex < len(ap.Args) {
 		outputPath = ap.Args[ap.OutputArgIndex]

@@ -80,10 +80,37 @@ ExecStart=%s consumerd
 Restart=on-failure
 `
 
-	envTmpl = `# This file is auto-generated, do not edit!
-export KUBECC_HOME="$HOME/.kubecc"
-export KUBECC_BINARY="%s"
-%s
+	envEnabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
+export KUBECC_ENABLED=1
+source $(dirname $0)/.env
+`
+
+	envDisabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
+export KUBECC_ENABLED=0
+source $(dirname $0)/.env
+`
+
+	dotEnvTmpl = `# This file is auto-generated, do not edit!
+export KUBECC_HOME="$(dirname $0)"
+export KUBECC_BINARY="{bin}"
+
+kubecc_enable() {
+  if [ "$KUBECC_ENABLED" = "1" ]; then
+    return
+  fi
+{aliases}
+  eval ${KUBECC_BINARY} enable
+  export KUBECC_ENABLED="1"
+}
+
+kubecc_disable() {
+  if [ "$KUBECC_ENABLED" = "0" ]; then
+    return
+  fi
+{unaliases}
+  eval ${KUBECC_BINARY} disable
+  export KUBECC_ENABLED="0"
+}
 `
 
 	defaultConsumerdPort  = "10991"
@@ -650,9 +677,18 @@ func appendToShellRC() error {
 	}
 }
 
+func indent(str string) string {
+	return "  " + strings.ReplaceAll(strings.TrimSpace(str), "\n", "\n  ")
+}
+
 func setupEnv(binPath string) error {
-	printStatus("Writing environment file... ")
+	printStatus("Writing environment files... ")
 	envPath, err := homedir.Expand("~/.kubecc/env")
+	if err != nil {
+		printFailed()
+		return err
+	}
+	dotEnvPath, err := homedir.Expand("~/.kubecc/.env")
 	if err != nil {
 		printFailed()
 		return err
@@ -662,15 +698,29 @@ func setupEnv(binPath string) error {
 		printFailed()
 		return err
 	}
-	contents := fmt.Sprintf(envTmpl, binPath, strings.Join(aliases, "\n"))
-	if err := os.WriteFile(envPath, []byte(contents), 0644); err != nil {
+	unaliases := []string{}
+	for _, alias := range aliases {
+		unaliases = append(unaliases,
+			strings.Split(strings.Replace(alias, "alias", "unalias", 1), "=")[0],
+		)
+	}
+	contents := strings.NewReplacer(
+		"{bin}", binPath,
+		"{aliases}", indent(strings.Join(aliases, "\n")),
+		"{unaliases}", indent(strings.Join(unaliases, "\n")),
+	)
+	if err := os.WriteFile(dotEnvPath, []byte(contents.Replace(dotEnvTmpl)), 0644); err != nil {
+		printFailed()
+		return err
+	}
+	if err := os.WriteFile(envPath, []byte(envEnabled), 0644); err != nil {
 		printFailed()
 		return err
 	}
 	printDone()
 
 	for {
-		printStatus("Checking if environment file is being sourced... ")
+		printStatus("Checking if environment files are being sourced... ")
 		shell, err := loginshell.Shell()
 		if err != nil {
 			printFailed()
@@ -766,5 +816,37 @@ var SetupCmd = &cobra.Command{
 			printErr(err.Error())
 			os.Exit(1)
 		}
+	},
+}
+
+func writeEnvFileOrDie(contents string) {
+	if value, ok := os.LookupEnv("KUBECC_HOME"); !ok {
+		printErr("Kubecc is not configured. Try running 'kubecc setup' first.")
+		os.Exit(1)
+	} else {
+		if err := os.WriteFile(path.Join(value, "env"), []byte(contents), 0644); err != nil {
+			printErr(err.Error())
+			os.Exit(1)
+		}
+	}
+}
+
+var EnableCmd = &cobra.Command{
+	Use:    "enable",
+	Short:  "Re-enable kubecc in your local environment",
+	PreRun: InitCLI,
+	Run: func(cmd *cobra.Command, args []string) {
+		writeEnvFileOrDie(envEnabled)
+		CLILog.Info(zapkc.Green.Add("Kubecc enabled"))
+	},
+}
+
+var DisableCmd = &cobra.Command{
+	Use:    "disable",
+	Short:  "Temporarily disable kubecc in your local environment",
+	PreRun: InitCLI,
+	Run: func(cmd *cobra.Command, args []string) {
+		writeEnvFileOrDie(envDisabled)
+		CLILog.Info(zapkc.Yellow.Add("Kubecc disabled"))
 	},
 }

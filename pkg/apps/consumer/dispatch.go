@@ -33,8 +33,6 @@ import (
 func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 	lg := meta.Log(ctx)
 
-	lg.Info("Dispatching to consumerd")
-
 	consumerd := types.NewConsumerdClient(cc)
 	wd, err := os.Getwd()
 	if err != nil {
@@ -61,10 +59,11 @@ func DispatchAndWait(ctx context.Context, cc *grpc.ClientConn) {
 		GID:     uint32(os.Getgid()),
 		Stdin:   stdin.Bytes(),
 		WorkDir: wd,
-	}, grpc.WaitForReady(true))
+	})
 	if err != nil {
-		lg.With(zap.Error(err)).Error("Dispatch error")
-		os.Exit(1)
+		lg.With(
+			zap.Error(err),
+		).Fatal("Dispatch error")
 	}
 	if _, err := io.Copy(os.Stdout, bytes.NewReader(resp.Stdout)); err != nil {
 		lg.With(

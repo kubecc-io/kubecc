@@ -50,8 +50,6 @@ func run() {
 		meta.WithProvider(identity.UUID),
 		meta.WithProvider(logkc.Logger, meta.WithValue(
 			logkc.New(types.Consumer,
-				logkc.WithOutputPaths([]string{"/tmp/consumer.log"}),
-				logkc.WithErrorOutputPaths([]string{"/tmp/consumer.log"}),
 				logkc.WithLogLevel(conf.LogLevel.Level()),
 			),
 		)),

@@ -20,7 +20,9 @@ package cc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -423,7 +425,8 @@ func (ap *ArgParser) ReplaceOutputPath(newPath string) error {
 
 // ReplaceInputPath replaces the input path (the path after the action opt)
 // with a new path.
-// If the new input path is '-', this function adds '-x <language>' to the arguments.
+// This function will append '-ffile-prefix-map=old=new' to the args list.
+// This definitely will not work with paths with spaces
 func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 	if ap.InputArgIndex != -1 {
 		old := ap.Args[ap.InputArgIndex]
@@ -432,12 +435,9 @@ func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 		}
 		ap.Args[ap.InputArgIndex] = newPath
 		if newPath == "-" {
-			ap.lg.Debug("Replacing input flag with '-', adding language flag to args")
-			err := ap.PrependLanguageFlag(old)
-			if err != nil {
-				return err
-			}
+			panic("no longer supported")
 		}
+		ap.Args = append(ap.Args, fmt.Sprintf(`-ffile-prefix-map=%s=%s`, path.Dir(old), path.Dir(newPath)))
 		return nil
 	}
 	return errors.New("No input arg found")
