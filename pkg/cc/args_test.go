@@ -167,27 +167,30 @@ var _ = Describe("CC Arg Parser", func() {
 		info := NewArgParserFromOS(ctx)
 		info.Parse()
 		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("-")
+			info.ReplaceInputPath("src2/test.c")
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c -Werror -g -O2 -MD -W -Wall -o src/test.o -c -`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src2/test.c -ffile-prefix-map=src=src2`, " "),
 			info.Args,
 		)
 		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("-")
+			info.ReplaceInputPath("/test.c")
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c -Werror -g -O2 -MD -W -Wall -o src/test.o -c -`, " "),
+		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c /test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/`, " "),
+			info.Args,
+		)
+		b.Time("Replace input path", func() {
+			info.ReplaceInputPath("test.c")
+		})
+		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=.`, " "),
 			info.Args,
 		)
 		b.Time("Replace input path", func() {
 			info.ReplaceInputPath("src/test.c")
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
-		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("src/test.c")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
+		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=. -ffile-prefix-map=.=src`, " "),
 			info.Args,
 		)
 	}, 1000)
@@ -217,9 +220,9 @@ var _ = Describe("CC Arg Parser", func() {
 		info := NewArgParserFromOS(ctx)
 		info.Parse()
 		b.Time("Prepend language flag", func() {
-			info.ReplaceInputPath("-")
+			info.ReplaceInputPath("/path/to/test.c")
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c -o src/test.o -c -`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c /path/to/test.c -ffile-prefix-map=src=/path/to`, " "),
 			info.Args,
 		)
 
@@ -228,9 +231,9 @@ var _ = Describe("CC Arg Parser", func() {
 		info = NewArgParserFromOS(ctx)
 		info.Parse()
 		b.Time("Prepend language flag", func() {
-			info.ReplaceInputPath("-")
+			info.ReplaceInputPath("relative/path/test.cpp")
 		})
-		assert.Equal(GinkgoT(), strings.Split(`-x c++ -o src/test.o -c -`, " "),
+		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c relative/path/test.cpp -ffile-prefix-map=src=relative/path`, " "),
 			info.Args,
 		)
 	}, 1000)

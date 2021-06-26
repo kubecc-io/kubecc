@@ -75,6 +75,8 @@ func CreateRootCmd() *cobra.Command {
 			Commands: []*cobra.Command{
 				commands.SetupCmd,
 				commands.TeardownCmd,
+				commands.EnableCmd,
+				commands.DisableCmd,
 				commands.InstallCmd,
 				commands.CreateCmd,
 			},
