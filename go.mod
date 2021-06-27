@@ -14,11 +14,11 @@ require (
 	github.com/ajstarks/svgo v0.0.0-20210406150507-75cfd577ce75 // indirect
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/cloudflare/golibs v0.0.0-20201113145655-eb7a42c5e0be
+	github.com/containerd/console v1.0.2
 	github.com/coreos/go-systemd/v22 v22.3.2 // indirect
 	github.com/deckarep/golang-set v1.7.1
 	github.com/gizak/termui/v3 v3.1.0
 	github.com/go-logr/logr v0.4.0
-	github.com/go-logr/zapr v0.4.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/mock v1.5.0
 	github.com/golang/protobuf v1.5.2
@@ -38,6 +38,7 @@ require (
 	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/morikuni/aec v1.0.0
 	github.com/onsi/ginkgo v1.16.2
 	github.com/onsi/gomega v1.12.0
 	github.com/opencontainers/runc v1.0.0-rc95
@@ -71,7 +72,6 @@ require (
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
 	honnef.co/go/tools v0.1.4 // indirect
 	k8s.io/api v0.21.1
 	k8s.io/apiextensions-apiserver v0.21.1 // indirect
