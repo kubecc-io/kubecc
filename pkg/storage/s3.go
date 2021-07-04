@@ -45,7 +45,7 @@ import (
 var S3StorageError = errors.New("S3 Storage Error")
 var ConfigurationError = errors.New("Configuration Error")
 
-type s3StorageProvider struct {
+type S3StorageProvider struct {
 	ctx              context.Context
 	lg               *zap.SugaredLogger
 	client           *minio.Client
@@ -62,7 +62,7 @@ func NewS3StorageProvider(
 	if cfg.Bucket == "" {
 		cfg.Bucket = "kubecc"
 	}
-	sp := &s3StorageProvider{
+	sp := &S3StorageProvider{
 		ctx:              ctx,
 		lg:               meta.Log(ctx),
 		cfg:              cfg,
@@ -73,11 +73,11 @@ func NewS3StorageProvider(
 	return sp
 }
 
-func (*s3StorageProvider) Location() types.StorageLocation {
+func (*S3StorageProvider) Location() types.StorageLocation {
 	return types.S3
 }
 
-func (sp *s3StorageProvider) createBucketIfNotExists() error {
+func (sp *S3StorageProvider) createBucketIfNotExists() error {
 	switch exists, err := sp.client.BucketExists(sp.ctx, sp.bucket); {
 	case err != nil:
 		return fmt.Errorf("%w: %s", S3StorageError, err.Error())
@@ -114,7 +114,7 @@ func (sp *s3StorageProvider) createBucketIfNotExists() error {
 	return nil
 }
 
-func (sp *s3StorageProvider) Configure() (err error) {
+func (sp *S3StorageProvider) Configure() (err error) {
 	sp.client, err = minio.New(sp.cfg.Endpoint, &minio.Options{
 		Secure:       sp.cfg.TLS,
 		Creds:        credentials.NewStaticV4(sp.cfg.AccessKey, sp.cfg.SecretKey, ""),
@@ -156,7 +156,7 @@ func (sp *s3StorageProvider) Configure() (err error) {
 	return
 }
 
-func (sp *s3StorageProvider) Put(
+func (sp *S3StorageProvider) Put(
 	ctx context.Context,
 	key *types.CacheKey,
 	object *types.CacheObject,
@@ -185,7 +185,7 @@ func (sp *s3StorageProvider) Put(
 	return nil
 }
 
-func (sp *s3StorageProvider) Get(
+func (sp *S3StorageProvider) Get(
 	ctx context.Context,
 	key *types.CacheKey,
 ) (*types.CacheObject, error) {
@@ -277,7 +277,7 @@ func (sp *s3StorageProvider) Get(
 	}, nil
 }
 
-func (sp *s3StorageProvider) Query(
+func (sp *S3StorageProvider) Query(
 	ctx context.Context,
 	keys []*types.CacheKey,
 ) ([]*types.CacheObjectMeta, error) {
@@ -315,7 +315,7 @@ func (sp *s3StorageProvider) Query(
 	return results, nil
 }
 
-func (sp *s3StorageProvider) UsageInfo() *metrics.CacheUsage {
+func (sp *S3StorageProvider) UsageInfo() *metrics.CacheUsage {
 	info := &metrics.CacheUsage{
 		ObjectCount: 0,
 		TotalSize:   0,
@@ -327,7 +327,7 @@ func (sp *s3StorageProvider) UsageInfo() *metrics.CacheUsage {
 	return info
 }
 
-func (sp *s3StorageProvider) CacheHits() *metrics.CacheHits {
+func (sp *S3StorageProvider) CacheHits() *metrics.CacheHits {
 	hitTotal := sp.cacheHitsTotal.Load()
 	missTotal := sp.cacheMissesTotal.Load()
 	var percent float64

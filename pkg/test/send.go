@@ -73,8 +73,12 @@ func (m sendRemoteRunnerManager) Process(
 		case types.RetryAction_DoNotRetry:
 			return nil, run.ErrNoAgentsRunLocal
 		}
+	case types.CompileResponse_Defunct:
+		panic("Invalid test: received compile response \"Defunct\"")
+	case types.CompileResponse_InternalError:
+		panic("Invalid test: received compile response \"InternalError\"")
 	}
-	panic("Invalid test")
+	panic("Invalid test: unknown response")
 }
 
 type sendRemoteRunnerManagerSim struct{}

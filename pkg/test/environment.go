@@ -361,9 +361,13 @@ func SpawnCache(e Environment, opts ...SpawnOption) (context.Context, context.Ca
 	}
 
 	providers := []storage.StorageProvider{}
+	if cfg.Cache.VolatileStorage != nil {
+		providers = append(providers,
+			storage.NewVolatileStorageProvider(ctx, *cfg.Cache.VolatileStorage))
+	}
 	if cfg.Cache.LocalStorage != nil {
 		providers = append(providers,
-			storage.NewVolatileStorageProvider(ctx, *cfg.Cache.LocalStorage))
+			storage.NewLocalStorageProvider(ctx, *cfg.Cache.LocalStorage))
 	}
 	if cfg.Cache.RemoteStorage != nil {
 		providers = append(providers,

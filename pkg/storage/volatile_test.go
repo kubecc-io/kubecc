@@ -50,17 +50,17 @@ var _ = Describe("Volatile Storage Provider", func() {
 	Context("Configuration checking", func() {
 		It("Should fail when given an invalid configuration", func() {
 			By("Testing empty config")
-			vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{})
+			vsp := storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{})
 			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 			By("Testing wrong storage limit kind")
-			vsp = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			vsp = storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Disk: "1Mi",
 				},
 			})
 			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 			By("Invalid memory limit string")
-			vsp = storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			vsp = storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Memory: "",
 				},
@@ -68,7 +68,7 @@ var _ = Describe("Volatile Storage Provider", func() {
 			Expect(vsp.Configure()).To(MatchError(storage.ConfigurationError))
 		})
 		It("Should not fail when given a valid configuration", func() {
-			Expect(storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+			Expect(storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Memory: "1Mi",
 				},
@@ -76,7 +76,7 @@ var _ = Describe("Volatile Storage Provider", func() {
 		})
 	})
 	Context("Basic functionality", func() {
-		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 			Limits: config.StorageLimitsSpec{
 				Memory: "1Ki",
 			},
@@ -177,7 +177,7 @@ var _ = Describe("Volatile Storage Provider", func() {
 		})
 	})
 	Context("Expiration", func() {
-		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 			Limits: config.StorageLimitsSpec{
 				Memory: "1Ki",
 			},
@@ -230,7 +230,7 @@ var _ = Describe("Volatile Storage Provider", func() {
 		})
 	})
 	Context("Stats", func() {
-		vsp := storage.NewVolatileStorageProvider(testCtx, config.LocalStorageSpec{
+		vsp := storage.NewVolatileStorageProvider(testCtx, config.VolatileStorageSpec{
 			Limits: config.StorageLimitsSpec{
 				Memory: "1Ki",
 			},
