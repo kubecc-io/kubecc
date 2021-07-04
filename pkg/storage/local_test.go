@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("Local Storage Provider", func() {
+var _ = Describe("Local Storage Provider", func() {
 	Context("expiration heap", func() {
 		var heap *storage.ExpirationHeap
 		When("creating an expiration heap", func() {
