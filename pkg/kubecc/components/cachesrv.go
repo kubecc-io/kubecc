@@ -65,9 +65,15 @@ func runCache(cmd *cobra.Command, args []string) {
 	}
 
 	providers := []storage.StorageProvider{}
+	// order is important here, this is the priority order for the chain
+	// storage provider
+	if conf.VolatileStorage != nil {
+		providers = append(providers,
+			storage.NewVolatileStorageProvider(ctx, *conf.VolatileStorage))
+	}
 	if conf.LocalStorage != nil {
 		providers = append(providers,
-			storage.NewVolatileStorageProvider(ctx, *conf.LocalStorage))
+			storage.NewLocalStorageProvider(ctx, *conf.LocalStorage))
 	}
 	if conf.RemoteStorage != nil {
 		providers = append(providers,

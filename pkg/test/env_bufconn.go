@@ -109,7 +109,7 @@ func defaultBufconnConfig() config.KubeccSpec {
 			},
 		},
 		Cache: config.CacheSpec{
-			LocalStorage: &config.LocalStorageSpec{
+			VolatileStorage: &config.VolatileStorageSpec{
 				Limits: config.StorageLimitsSpec{
 					Memory: "1Gi",
 				},

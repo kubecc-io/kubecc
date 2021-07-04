@@ -34,11 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-type volatileStorageProvider struct {
+type VolatileStorageProvider struct {
 	ctx              context.Context
 	lg               *zap.SugaredLogger
 	cache            *ccache.Cache
-	cfg              config.LocalStorageSpec
+	cfg              config.VolatileStorageSpec
 	storageLimit     int64
 	totalSize        *atomic.Int64
 	cacheHitsTotal   *atomic.Int64
@@ -47,9 +47,9 @@ type volatileStorageProvider struct {
 
 func NewVolatileStorageProvider(
 	ctx context.Context,
-	cfg config.LocalStorageSpec,
+	cfg config.VolatileStorageSpec,
 ) StorageProvider {
-	sp := &volatileStorageProvider{
+	sp := &VolatileStorageProvider{
 		ctx:              ctx,
 		lg:               meta.Log(ctx),
 		cfg:              cfg,
@@ -59,11 +59,11 @@ func NewVolatileStorageProvider(
 	return sp
 }
 
-func (sp *volatileStorageProvider) Location() types.StorageLocation {
+func (sp *VolatileStorageProvider) Location() types.StorageLocation {
 	return types.Memory
 }
 
-func (sp *volatileStorageProvider) Configure() error {
+func (sp *VolatileStorageProvider) Configure() error {
 	q, err := resource.ParseQuantity(sp.cfg.Limits.Memory)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ConfigurationError, err.Error())
@@ -86,7 +86,7 @@ func (sp *volatileStorageProvider) Configure() error {
 	return nil
 }
 
-func (sp *volatileStorageProvider) Put(
+func (sp *VolatileStorageProvider) Put(
 	ctx context.Context,
 	key *types.CacheKey,
 	object *types.CacheObject,
@@ -109,7 +109,7 @@ func (sp *volatileStorageProvider) Put(
 	return nil
 }
 
-func (sp *volatileStorageProvider) Get(
+func (sp *VolatileStorageProvider) Get(
 	ctx context.Context,
 	key *types.CacheKey,
 ) (*types.CacheObject, error) {
@@ -128,7 +128,7 @@ func (sp *volatileStorageProvider) Get(
 	return obj, nil
 }
 
-func (sp *volatileStorageProvider) Query(
+func (sp *VolatileStorageProvider) Query(
 	ctx context.Context,
 	keys []*types.CacheKey,
 ) ([]*types.CacheObjectMeta, error) {
@@ -146,7 +146,7 @@ func (sp *volatileStorageProvider) Query(
 	return results, nil
 }
 
-func (sp *volatileStorageProvider) UsageInfo() *metrics.CacheUsage {
+func (sp *VolatileStorageProvider) UsageInfo() *metrics.CacheUsage {
 	totalSize := sp.totalSize.Load()
 	var usagePercent float64
 	if sp.storageLimit == 0 {
@@ -161,7 +161,7 @@ func (sp *volatileStorageProvider) UsageInfo() *metrics.CacheUsage {
 	}
 }
 
-func (sp *volatileStorageProvider) CacheHits() *metrics.CacheHits {
+func (sp *VolatileStorageProvider) CacheHits() *metrics.CacheHits {
 	hitTotal := sp.cacheHitsTotal.Load()
 	missTotal := sp.cacheMissesTotal.Load()
 	var percent float64

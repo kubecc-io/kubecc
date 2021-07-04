@@ -94,15 +94,20 @@ type MonitorSpec struct {
 
 type CacheSpec struct {
 	GlobalSpec
-	LocalStorage   *LocalStorageSpec  `json:"localStorage,omitempty"`
-	RemoteStorage  *RemoteStorageSpec `json:"remoteStorage,omitempty"`
-	ListenAddress  string             `json:"listenAddress,omitempty"`
-	MonitorAddress string             `json:"monitorAddress,omitempty"`
+	VolatileStorage *VolatileStorageSpec `json:"volatileStorage,omitempty"`
+	LocalStorage    *LocalStorageSpec    `json:"localStorage,omitempty"`
+	RemoteStorage   *RemoteStorageSpec   `json:"remoteStorage,omitempty"`
+	ListenAddress   string               `json:"listenAddress,omitempty"`
+	MonitorAddress  string               `json:"monitorAddress,omitempty"`
 }
 
 type LocalStorageSpec struct {
 	Limits StorageLimitsSpec `json:"limits,omitempty"`
 	Path   string            `json:"path,omitempty"`
+}
+
+type VolatileStorageSpec struct {
+	Limits StorageLimitsSpec `json:"limits,omitempty"`
 }
 
 type RemoteStorageSpec struct {

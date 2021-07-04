@@ -186,7 +186,7 @@ var _ = Describe("Local Storage Provider", func() {
 	Context("storage provider", func() {
 		// Test that the storage provider works as expected
 		var (
-			storageProvider *storage.LocalStorageProvider = new(storage.LocalStorageProvider)
+			storageProvider *storage.LocalStorageProvider
 			tempDir         string
 			itCtx           context.Context
 			itCancel        context.CancelFunc
@@ -201,7 +201,7 @@ var _ = Describe("Local Storage Provider", func() {
 			Expect(err).NotTo(HaveOccurred())
 			// Create a new local storage provider with a 10KiB limit. Each object
 			// we write to the storage provider will be 1KiB.
-			*storageProvider = *storage.NewLocalStorageProvider(itCtx, config.LocalStorageSpec{
+			storageProvider = storage.NewLocalStorageProvider(itCtx, config.LocalStorageSpec{
 				Path: tempDir,
 				Limits: config.StorageLimitsSpec{
 					Disk: "10Ki",
