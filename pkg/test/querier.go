@@ -70,9 +70,9 @@ func (q SampleQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Clang, nil
-	case strings.Contains(base, "g++"):
+	case strings.Contains(base, "++"):
 		return types.Gnu, nil
-	case strings.Contains(base, "gcc"):
+	case strings.Contains(base, "cc"):
 		return types.Gnu, nil
 	}
 	return 0, errors.New("Unknown compiler")
@@ -82,9 +82,9 @@ func (q SampleQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Multi, nil
-	case strings.Contains(base, "g++"):
+	case strings.Contains(base, "++"):
 		return types.CXX, nil
-	case strings.Contains(base, "gcc"):
+	case strings.Contains(base, "cc"):
 		return types.C, nil
 	}
 	return 0, errors.New("Unknown compiler")
