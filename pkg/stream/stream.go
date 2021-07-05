@@ -13,26 +13,23 @@ import (
 	"github.com/morikuni/aec"
 )
 
-type Writers struct {
-	Header io.Writer
-	Footer io.Writer
+type Display struct {
+	Header   io.Writer
+	Contents io.Writer
+	Footer   io.Writer
 }
 
-type Renderer func(console.Console, io.Writer)
+type Renderer func(console.Console, Display)
 
 type stream struct {
 	c             console.Console
 	renderedLines int
-	header        Renderer
-	footer        Renderer
 }
 
 type LogStreamOptions struct {
 	console console.Console
 	height  int
 	delay   time.Duration
-	header  Renderer
-	footer  Renderer
 }
 
 type LogStreamOption func(*LogStreamOptions)
@@ -61,18 +58,6 @@ func WithDelay(delay time.Duration) LogStreamOption {
 	}
 }
 
-func WithHeader(header Renderer) LogStreamOption {
-	return func(o *LogStreamOptions) {
-		o.header = header
-	}
-}
-
-func WithFooter(footer Renderer) LogStreamOption {
-	return func(o *LogStreamOptions) {
-		o.footer = footer
-	}
-}
-
 func getConsoleOrPty() console.Console {
 	for _, s := range []*os.File{os.Stderr, os.Stdout, os.Stdin} {
 		if c, err := console.ConsoleFromFile(s); err == nil {
@@ -83,12 +68,10 @@ func getConsoleOrPty() console.Console {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Fprintln(os.Stderr, "Note: streaming logs to a pseudo-terminal")
 	return c
 }
 
-func RenderLogStream(ctx context.Context, reader io.Reader, done chan struct{}, ops ...LogStreamOption) {
-	doneReading := make(chan struct{})
+func NewLogStream(ctx context.Context, renderer Renderer, ops ...LogStreamOption) {
 	options := LogStreamOptions{
 		height: 5,
 		delay:  time.Second / 8,
@@ -97,57 +80,19 @@ func RenderLogStream(ctx context.Context, reader io.Reader, done chan struct{}, 
 	if options.console == nil {
 		options.console = getConsoleOrPty()
 	}
-	if options.height < 0 {
-		// auto-detect
-		sz, err := options.console.Size()
-		if err != nil {
-			panic(err)
-		}
-		options.height = int(sz.Height - 1)
-		if options.header != nil {
-			options.height--
-		}
-		if options.footer != nil {
-			options.height--
-		}
-	}
-	// Minimum height of 1
-	if options.height < 1 {
-		options.height = 1
-	}
-
 	s := stream{
 		c:             options.console,
 		renderedLines: 0,
-		header:        options.header,
-		footer:        options.footer,
 	}
 	header := new(bytes.Buffer)
 	footer := new(bytes.Buffer)
 	contents := NewRingLineBuffer(options.height)
-
-	// Stream the contents of the reader into the ring buffer.
-	// This is done asynchronously so that we can render the most recent
-	// contents of the buffer at each tick.
-	go func() {
-		defer close(doneReading)
-		for ctx.Err() == nil {
-			if _, err := io.Copy(contents, reader); err != nil {
-				return
-			}
-		}
-	}()
-
-	doRender := func() {
-		if ctx.Err() != nil {
-			return
-		}
-
-		size, err := options.console.Size()
-		if err != nil {
-			panic(err)
-		}
-
+	disp := Display{
+		Header:   header,
+		Footer:   footer,
+		Contents: contents,
+	}
+	for {
 		lines := 0
 		b := aec.EmptyBuilder
 		for i := 0; i < s.renderedLines; i++ {
@@ -159,12 +104,7 @@ func RenderLogStream(ctx context.Context, reader io.Reader, done chan struct{}, 
 
 		header.Reset()
 		footer.Reset()
-		if s.header != nil {
-			s.header(s.c, header)
-		}
-		if s.footer != nil {
-			s.footer(s.c, footer)
-		}
+		renderer(s.c, disp)
 
 		scan := bufio.NewScanner(header)
 		for scan.Scan() {
@@ -173,19 +113,10 @@ func RenderLogStream(ctx context.Context, reader io.Reader, done chan struct{}, 
 			}
 			lines++
 			s.c.Write([]byte{'\n'})
-			break // only allow 1 line in the header
 		}
 
 		contents.Foreach(func(_ int, line []byte) {
-			if len(line) > int(size.Width) {
-				// Trim the line if it's too long
-				line = line[:size.Width-1]
-			}
-			count, _ := s.c.Write(line)
-			if count < int(size.Width) {
-				// Pad with spaces to fill the line.
-				s.c.Write(bytes.Repeat([]byte{' '}, int(size.Width)-count))
-			}
+			s.c.Write(line)
 			lines++
 			s.c.Write([]byte{'\n'})
 		})
@@ -197,24 +128,13 @@ func RenderLogStream(ctx context.Context, reader io.Reader, done chan struct{}, 
 			}
 			lines++
 			s.c.Write([]byte{'\n'})
-			break // only allow 1 line in the footer
 		}
 
 		s.renderedLines = lines
 		fmt.Fprint(s.c, aec.Show)
-	}
 
-	defer func() {
-		doRender()
-		close(done)
-	}()
-
-	for {
-		doRender()
 		select {
 		case <-time.After(options.delay):
-		case <-doneReading:
-			return
 		case <-ctx.Done():
 			return
 		}

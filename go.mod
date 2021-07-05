@@ -12,7 +12,6 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/ajstarks/svgo v0.0.0-20210406150507-75cfd577ce75 // indirect
-	github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883 // indirect
 	github.com/banzaicloud/k8s-objectmatcher v1.5.1
 	github.com/cloudflare/golibs v0.0.0-20201113145655-eb7a42c5e0be
 	github.com/containerd/console v1.0.2
@@ -66,7 +65,7 @@ require (
 	golang.org/x/net v0.0.0-20210521195947-fe42d452be8f // indirect
 	golang.org/x/sys v0.0.0-20210521203332-0cec03c779c1 // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
-	gonum.org/v1/gonum v0.9.3
+	gonum.org/v1/gonum v0.9.1
 	gonum.org/v1/plot v0.9.0
 	google.golang.org/genproto v0.0.0-20210521181308-5ccab8a35a9a // indirect
 	google.golang.org/grpc v1.38.0

@@ -20,7 +20,6 @@ package toolchains
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -47,8 +46,6 @@ var picCheck = `
 # error                                                    
 #endif                                                                          
 `
-
-var UnknownCompilerError = errors.New("Unknown compiler")
 
 func (q ExecQuerier) IsPicDefault(compiler string) (bool, error) {
 	cmd := exec.Command(compiler, "-E", "-o", "/dev/null", "-")
@@ -100,24 +97,24 @@ func (q ExecQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Clang, nil
-	case strings.Contains(base, "++"):
+	case strings.Contains(base, "g++"):
 		return types.Gnu, nil
-	case strings.Contains(base, "cc"):
+	case strings.Contains(base, "gcc"):
 		return types.Gnu, nil
 	}
-	return 0, fmt.Errorf("%w: %s", UnknownCompilerError, compiler)
+	return 0, errors.New("Unknown compiler")
 }
 
 func (q ExecQuerier) Lang(compiler string) (types.ToolchainLang, error) {
 	switch base := filepath.Base(compiler); {
 	case strings.Contains(base, "clang"):
 		return types.Multi, nil
-	case strings.Contains(base, "++"):
+	case strings.Contains(base, "g++"):
 		return types.CXX, nil
-	case strings.Contains(base, "cc"):
+	case strings.Contains(base, "gcc"):
 		return types.C, nil
 	}
-	return 0, fmt.Errorf("%w: %s", UnknownCompilerError, compiler)
+	return 0, errors.New("Unknown compiler")
 }
 
 func (q ExecQuerier) ModTime(compiler string) (time.Time, error) {
