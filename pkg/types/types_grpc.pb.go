@@ -4,10 +4,10 @@ package types
 
 import (
 	context "context"
-	any "github.com/golang/protobuf/ptypes/any"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -490,7 +490,7 @@ func (c *monitorClient) Listen(ctx context.Context, in *Key, opts ...grpc.CallOp
 }
 
 type Monitor_ListenClient interface {
-	Recv() (*any.Any, error)
+	Recv() (*anypb.Any, error)
 	grpc.ClientStream
 }
 
@@ -498,8 +498,8 @@ type monitorListenClient struct {
 	grpc.ClientStream
 }
 
-func (x *monitorListenClient) Recv() (*any.Any, error) {
-	m := new(any.Any)
+func (x *monitorListenClient) Recv() (*anypb.Any, error) {
+	m := new(anypb.Any)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -652,7 +652,7 @@ func _Monitor_Listen_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type Monitor_ListenServer interface {
-	Send(*any.Any) error
+	Send(*anypb.Any) error
 	grpc.ServerStream
 }
 
@@ -660,7 +660,7 @@ type monitorListenServer struct {
 	grpc.ServerStream
 }
 
-func (x *monitorListenServer) Send(m *any.Any) error {
+func (x *monitorListenServer) Send(m *anypb.Any) error {
 	return x.ServerStream.SendMsg(m)
 }
 

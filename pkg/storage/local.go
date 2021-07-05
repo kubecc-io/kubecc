@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -16,6 +17,8 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -73,6 +76,7 @@ func (p *LocalStorageProvider) Configure() error {
 	// size of all objects.
 	p.numObjects.Store(0)
 	p.totalSize.Store(0)
+	toDelete := []string{}
 	if err := filepath.Walk(p.root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -90,7 +94,12 @@ func (p *LocalStorageProvider) Configure() error {
 			return err
 		}
 		if err := proto.Unmarshal(data, object); err != nil {
-			return err
+			p.lg.With(
+				zap.String("path", path),
+				zap.Error(err),
+			).Error("failed to unmarshal object, deleting it from the cache")
+			toDelete = append(toDelete, path)
+			return nil
 		}
 		// Get the object's hash from the path.
 		hash := filepath.Base(path)
@@ -99,6 +108,17 @@ func (p *LocalStorageProvider) Configure() error {
 		return nil
 	}); err != nil {
 		return err
+	}
+
+	// Delete the objects that failed to unmarshal.
+	for _, path := range toDelete {
+		if err := os.Remove(path); err != nil {
+			// Log the error, but don't exit.
+			p.lg.With(
+				zap.String("path", path),
+				zap.Error(err),
+			).Error("failed to delete object from the cache")
+		}
 	}
 
 	// Log the current state of the cache.
@@ -224,14 +244,14 @@ func (p *LocalStorageProvider) Put(
 	objHash := key.Hash
 	objPath := path.Join(p.root, objHash[0:2])
 	if err := os.MkdirAll(objPath, 0755); err != nil {
-		return err
+		return status.Error(codes.Internal, err.Error())
 	}
 	data, err := proto.Marshal(object)
 	if err != nil {
-		return err
+		return status.Error(codes.Internal, err.Error())
 	}
 	if err := ioutil.WriteFile(path.Join(objPath, objHash), data, 0644); err != nil {
-		return err
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	// Add the object's size to the total size.
@@ -253,17 +273,23 @@ func (p *LocalStorageProvider) Get(
 	objHash := key.Hash
 	objPath := path.Join(p.root, objHash[0:2], objHash)
 	if _, err := os.Stat(objPath); err != nil {
-		return nil, err
+		// Increment cache misses.
+		p.cacheMissesTotal.Inc()
+		return nil, status.Error(codes.NotFound,
+			fmt.Errorf("Object not found: %w", err).Error())
 	}
 	// Read the object from disk.
 	data, err := ioutil.ReadFile(objPath)
 	if err != nil {
-		return nil, err
+		// Something went wrong reading the object, but it exists.
+		return nil, status.Error(codes.NotFound,
+			fmt.Errorf("Error retrieving object: %w", err).Error())
 	}
 	// Unmarshal the object from the data.
 	object := &types.CacheObject{}
 	if err := proto.Unmarshal(data, object); err != nil {
-		return nil, err
+		return nil, status.Error(codes.NotFound,
+			fmt.Errorf("Object is corrupted or invalid: %w", err).Error())
 	}
 
 	// Fill in some fields that are set to omitempty
@@ -289,17 +315,19 @@ func (p *LocalStorageProvider) Query(
 		objHash := key.Hash
 		objPath := path.Join(p.root, objHash[0:2], objHash)
 		if _, err := os.Stat(objPath); err != nil {
-			return nil, err
+			continue
 		}
 		// Read the object from disk.
 		data, err := ioutil.ReadFile(objPath)
 		if err != nil {
-			return nil, err
+			p.lg.Debug(err)
+			continue
 		}
 		// Unmarshal the object from the data.
 		object := &types.CacheObject{}
 		if err := proto.Unmarshal(data, object); err != nil {
-			return nil, err
+			p.lg.Debug(err)
+			continue
 		}
 		// Fill in some fields that are set to omitempty
 		if object.Metadata == nil {
@@ -318,9 +346,12 @@ func (p *LocalStorageProvider) Query(
 }
 
 func (p *LocalStorageProvider) UsageInfo() *metrics.CacheUsage {
+	count := p.numObjects.Load()
+	size := p.totalSize.Load()
 	return &metrics.CacheUsage{
-		ObjectCount: p.numObjects.Load(),
-		TotalSize:   p.totalSize.Load(),
+		ObjectCount:  count,
+		TotalSize:    size,
+		UsagePercent: float64(size) / float64(p.sizeLimit) * 100,
 	}
 }
 
