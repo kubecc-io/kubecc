@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"strings"
 
+	"github.com/andreyvit/diff"
 	"github.com/containerd/console"
+	"github.com/kubecc-io/kubecc/pkg/stream"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"github.com/kubecc-io/kubecc/pkg/stream"
 )
 
 func sampleOutput(sz console.WinSize) []byte {
@@ -63,20 +64,26 @@ var _ = Describe("Stream", func() {
 			Width:  5,
 		})
 		Expect(err).NotTo(HaveOccurred())
+		read, write := io.Pipe()
+
 		ctx, ca := context.WithCancel(context.Background())
-		stream.NewLogStream(ctx, func(c console.Console, d stream.Display) {
+		done := make(chan struct{})
+		stream.RenderLogStream(ctx, read, done, stream.WithConsole(pty), stream.WithHeader(func(c console.Console, w io.Writer) {
 			if i == 20 {
 				defer ca()
 			}
 			Expect(i).To(BeNumerically("<=", 20))
 			sz, _ := c.Size()
-			fmt.Fprintln(d.Header, strings.Repeat("H", int(sz.Width)))
+			fmt.Fprintln(w, strings.Repeat("H", int(sz.Width)))
 			if i > 0 {
-				fmt.Fprintln(d.Contents, strings.Repeat(string(rune('a'+i-1)), int(sz.Width)))
+				fmt.Fprintln(write, strings.Repeat(string(rune('a'+i-1)), int(sz.Width)))
 			}
-			fmt.Fprintln(d.Footer, strings.Repeat("F", int(sz.Width)))
 			i++
-		}, stream.WithConsole(pty))
+		}), stream.WithFooter(func(c console.Console, w io.Writer) {
+			sz, _ := c.Size()
+			fmt.Fprintln(w, strings.Repeat("F", int(sz.Width)))
+		}))
+
 		sz, err := pty.Size()
 		Expect(err).NotTo(HaveOccurred())
 
@@ -84,7 +91,8 @@ var _ = Describe("Stream", func() {
 		buf := make([]byte, len(sampleOut))
 		_, err = pty.Read(buf)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(bytes.TrimSpace(buf)).To(
-			BeEquivalentTo(bytes.TrimSpace(sampleOut)))
+		Expect(strings.TrimSpace(string(buf))).To(
+			BeEquivalentTo(strings.TrimSpace(string(sampleOut))),
+			diff.LineDiff(strings.TrimSpace(string(buf)), strings.TrimSpace(string(sampleOut))))
 	})
 })
