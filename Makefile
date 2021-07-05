@@ -1,15 +1,5 @@
 # Current Operator version
 VERSION ?= 0.0.1
-# Default bundle image tag
-BUNDLE_IMG ?= controller-bundle:$(VERSION)
-# Options for 'bundle-build'
-ifneq ($(origin CHANNELS), undefined)
-BUNDLE_CHANNELS := --channels=$(CHANNELS)
-endif
-ifneq ($(origin DEFAULT_CHANNEL), undefined)
-BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
-endif
-BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 GO ?= go
 
@@ -70,15 +60,11 @@ proto:
 	protoc pkg/test/test.proto -I. --go_out=. --go_opt=$(module_opt) --go-grpc_out=. --go-grpc_opt=$(module_opt)
 	protoc pkg/metrics/metrics.proto -I. --go_out=. --go_opt=$(module_opt)
 
-# Code generating, formatting, vetting
-.PHONY: fmt vet generate
+# Code generating, formatting
+.PHONY: fmt generate
 # Run go fmt against code
 fmt:
 	$(GO) fmt ./...
-
-# Run go vet against code
-vet:
-	$(GO) vet ./...
 
 # Generate code
 generate: 
@@ -87,7 +73,7 @@ generate:
 
 # Build binaries
 .PHONY: kubecc 
-kubecc: vet
+kubecc:
 	CGO_ENABLED=0 $(GO) build -ldflags '-w -s' -o ./bin/kubecc ./cmd/kubecc
 
 # Build container images

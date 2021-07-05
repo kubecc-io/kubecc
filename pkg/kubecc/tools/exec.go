@@ -18,12 +18,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package tools
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 
+	"github.com/containerd/console"
 	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
+	"github.com/kubecc-io/kubecc/pkg/stream"
 	"github.com/spf13/cobra"
 )
 
@@ -36,6 +41,9 @@ var ExecCmd = &cobra.Command{
 	DisableFlagParsing:    true,
 	PersistentPreRun:      InitCLI,
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) == 0 {
+			return
+		}
 		command := exec.Command(args[0], args[1:]...)
 		wd, err := os.Getwd()
 		if err != nil {
@@ -48,11 +56,30 @@ var ExecCmd = &cobra.Command{
 			if err := os.Setenv("PATH", fmt.Sprintf("%s:%s", path.Join(home, "bin"), os.Getenv("PATH"))); err != nil {
 				CLILog.Fatal(err)
 			}
+
+			read, write, err := os.Pipe()
+			if err != nil {
+				CLILog.Fatal(err)
+			}
 			command.Env = os.Environ()
-			command.Stdout = os.Stdout
-			command.Stderr = os.Stderr
 			command.Stdin = os.Stdin
-			if err := command.Run(); err != nil {
+			command.Stdout = write
+			command.Stderr = write
+
+			ctx, ca := context.WithCancel(context.Background())
+			defer ca()
+			streamDone := make(chan struct{})
+			go func() {
+				stream.RenderLogStream(ctx, read, streamDone, stream.WithHeader(func(c console.Console, w io.Writer) {
+					sz, _ := c.Size()
+					fmt.Fprintln(w, strings.Repeat("-", int(sz.Width)))
+				}), stream.WithMaxHeight(10))
+			}()
+			err = command.Run()
+			write.Close()
+			read.Close()
+			<-streamDone
+			if err != nil {
 				os.Exit(command.ProcessState.ExitCode())
 			}
 		}

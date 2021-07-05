@@ -1,6 +1,8 @@
 package stream_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -13,10 +15,10 @@ var _ = Describe("Ringlinebuffer", func() {
 		It("should keep track of the line count", func() {
 			for i := 0; i < 10; i++ {
 				Expect(b.LineCount()).To(Equal(i))
-				b.Write([]byte{byte(rune('a' + i))})
+				fmt.Fprintln(b, string(rune('a'+i)))
 				Expect(b.LineCount()).To(Equal(i + 1))
 			}
-			b.Write([]byte{'x'})
+			fmt.Fprintln(b, "x")
 			Expect(b.LineCount()).To(Equal(b.MaxLines()))
 			Expect(b.LineCount()).To(Equal(10))
 		})

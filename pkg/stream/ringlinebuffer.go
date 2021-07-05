@@ -1,9 +1,9 @@
 package stream
 
 import (
-	"bufio"
 	"bytes"
 	"container/ring"
+	"sync"
 )
 
 /*
@@ -56,6 +56,8 @@ type RingLineBuffer struct {
 	curLines int
 	first    *ring.Ring // []byte{}
 	last     *ring.Ring // []byte{}
+	buf      *bytes.Buffer
+	lock     sync.Mutex
 }
 
 func NewRingLineBuffer(max int) *RingLineBuffer {
@@ -63,6 +65,7 @@ func NewRingLineBuffer(max int) *RingLineBuffer {
 		maxLines: max,
 		curLines: 0,
 		first:    ring.New(max),
+		buf:      new(bytes.Buffer),
 	}
 	wb.last = wb.first
 	for i := 0; i < max; i++ {
@@ -71,28 +74,38 @@ func NewRingLineBuffer(max int) *RingLineBuffer {
 	return wb
 }
 
-func (wb *RingLineBuffer) writeLine(data []byte) int {
-	wb.last.Value = data
+func (wb *RingLineBuffer) addLine(line []byte) {
+	wb.last.Value = line
 	wb.last = wb.last.Next()
 	if wb.curLines < wb.maxLines {
 		wb.curLines++
 	} else {
 		wb.first = wb.last
 	}
-	return len(data)
 }
 
 func (wb *RingLineBuffer) Write(data []byte) (int, error) {
-	scan := bufio.NewScanner(bytes.NewReader(data))
-	scan.Split(bufio.ScanLines)
-	total := 0
-	for scan.Scan() {
-		total += wb.writeLine(scan.Bytes())
+	wb.lock.Lock()
+	defer wb.lock.Unlock()
+
+	// Write to buffer
+	for _, b := range data {
+		if b == '\n' {
+			// Ensure the contents of the buffer are copied
+			wb.addLine(append([]byte(nil), wb.buf.Bytes()...))
+			wb.buf.Reset()
+			// skip the \n
+		} else {
+			wb.buf.WriteByte(b)
+		}
 	}
-	return total, nil
+	return len(data), nil
 }
 
 func (wb *RingLineBuffer) LineCount() int {
+	wb.lock.Lock()
+	defer wb.lock.Unlock()
+
 	return wb.curLines
 }
 
@@ -101,8 +114,11 @@ func (wb *RingLineBuffer) MaxLines() int {
 }
 
 func (wb *RingLineBuffer) Foreach(f func(i int, line []byte)) {
+	wb.lock.Lock()
+	defer wb.lock.Unlock()
+
 	cur := wb.first
-	for i := 0; i < wb.LineCount(); i++ {
+	for i := 0; i < wb.curLines; i++ {
 		f(i, cur.Value.([]byte))
 		cur = cur.Next()
 	}
