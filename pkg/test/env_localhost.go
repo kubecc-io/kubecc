@@ -223,31 +223,24 @@ func (e *LocalhostEnvironment) Serve(ctx context.Context, server interface{}, na
 	srv := servers.NewServer(ctx)
 	component := meta.Component(ctx)
 	e.listenersMu.Lock()
-	for {
-		if existingListener, ok := e.listeners[component][name]; !ok {
-			listener, err := net.Listen("tcp", "127.0.0.1:")
+	if existingListener, ok := e.listeners[component][name]; !ok {
+		listener, err := net.Listen("tcp", "127.0.0.1:")
+		if err != nil {
+			panic(err)
+		}
+		e.listeners[component][name] = listener
+	} else {
+		if c, err := net.Dial("tcp", existingListener.Addr().String()); err == nil {
+			// existing socket is ok to use
+			c.Close()
+		} else {
+			// existing socket has been closed, reuse its port
+			existingAddr := existingListener.Addr()
+			listener, err := net.Listen("tcp", existingAddr.String())
 			if err != nil {
-				e.Log().Error(err)
-				time.Sleep(time.Second)
-				continue
+				panic(err)
 			}
 			e.listeners[component][name] = listener
-		} else {
-			if c, err := net.Dial("tcp", existingListener.Addr().String()); err == nil {
-				// existing socket is ok to use
-				c.Close()
-				break
-			} else {
-				// existing socket has been closed, reuse its port
-				existingAddr := existingListener.Addr()
-				listener, err := net.Listen("tcp", existingAddr.String())
-				if err != nil {
-					e.Log().Error(err)
-					time.Sleep(time.Second)
-					continue
-				}
-				e.listeners[component][name] = listener
-			}
 		}
 	}
 	e.listenersMu.Unlock()

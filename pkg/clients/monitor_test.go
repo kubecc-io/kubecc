@@ -469,6 +469,7 @@ var _ = Describe("Monitor Clients", func() {
 		})
 
 		It("should handle disconnect/reconnect", func() {
+			test.SkipInGithubWorkflow()
 			// very important that this context is not the environment's context
 			// this is because WaitForReady will create a listener under the
 			// environment's context, and when it is done, all listeners under
