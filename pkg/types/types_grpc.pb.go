@@ -54,14 +54,15 @@ func (c *consumerdClient) GetToolchains(ctx context.Context, in *Empty, opts ...
 }
 
 // ConsumerdServer is the server API for Consumerd service.
-// All implementations should embed UnimplementedConsumerdServer
+// All implementations must embed UnimplementedConsumerdServer
 // for forward compatibility
 type ConsumerdServer interface {
 	Run(context.Context, *RunRequest) (*RunResponse, error)
 	GetToolchains(context.Context, *Empty) (*ToolchainList, error)
+	mustEmbedUnimplementedConsumerdServer()
 }
 
-// UnimplementedConsumerdServer should be embedded to have forward compatible implementations.
+// UnimplementedConsumerdServer must be embedded to have forward compatible implementations.
 type UnimplementedConsumerdServer struct {
 }
 
@@ -71,6 +72,7 @@ func (UnimplementedConsumerdServer) Run(context.Context, *RunRequest) (*RunRespo
 func (UnimplementedConsumerdServer) GetToolchains(context.Context, *Empty) (*ToolchainList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetToolchains not implemented")
 }
+func (UnimplementedConsumerdServer) mustEmbedUnimplementedConsumerdServer() {}
 
 // UnsafeConsumerdServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to ConsumerdServer will
@@ -238,16 +240,17 @@ func (c *schedulerClient) GetRoutes(ctx context.Context, in *Empty, opts ...grpc
 }
 
 // SchedulerServer is the server API for Scheduler service.
-// All implementations should embed UnimplementedSchedulerServer
+// All implementations must embed UnimplementedSchedulerServer
 // for forward compatibility
 type SchedulerServer interface {
 	Compile(context.Context, *CompileRequest) (*CompileResponse, error)
 	StreamIncomingTasks(Scheduler_StreamIncomingTasksServer) error
 	StreamOutgoingTasks(Scheduler_StreamOutgoingTasksServer) error
 	GetRoutes(context.Context, *Empty) (*RouteList, error)
+	mustEmbedUnimplementedSchedulerServer()
 }
 
-// UnimplementedSchedulerServer should be embedded to have forward compatible implementations.
+// UnimplementedSchedulerServer must be embedded to have forward compatible implementations.
 type UnimplementedSchedulerServer struct {
 }
 
@@ -263,6 +266,7 @@ func (UnimplementedSchedulerServer) StreamOutgoingTasks(Scheduler_StreamOutgoing
 func (UnimplementedSchedulerServer) GetRoutes(context.Context, *Empty) (*RouteList, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRoutes not implemented")
 }
+func (UnimplementedSchedulerServer) mustEmbedUnimplementedSchedulerServer() {}
 
 // UnsafeSchedulerServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to SchedulerServer will
@@ -516,7 +520,7 @@ func (c *monitorClient) Whois(ctx context.Context, in *WhoisRequest, opts ...grp
 }
 
 // MonitorServer is the server API for Monitor service.
-// All implementations should embed UnimplementedMonitorServer
+// All implementations must embed UnimplementedMonitorServer
 // for forward compatibility
 type MonitorServer interface {
 	Stream(Monitor_StreamServer) error
@@ -525,9 +529,10 @@ type MonitorServer interface {
 	GetKeys(context.Context, *Bucket) (*KeyList, error)
 	Listen(*Key, Monitor_ListenServer) error
 	Whois(context.Context, *WhoisRequest) (*WhoisResponse, error)
+	mustEmbedUnimplementedMonitorServer()
 }
 
-// UnimplementedMonitorServer should be embedded to have forward compatible implementations.
+// UnimplementedMonitorServer must be embedded to have forward compatible implementations.
 type UnimplementedMonitorServer struct {
 }
 
@@ -549,6 +554,7 @@ func (UnimplementedMonitorServer) Listen(*Key, Monitor_ListenServer) error {
 func (UnimplementedMonitorServer) Whois(context.Context, *WhoisRequest) (*WhoisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Whois not implemented")
 }
+func (UnimplementedMonitorServer) mustEmbedUnimplementedMonitorServer() {}
 
 // UnsafeMonitorServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to MonitorServer will
@@ -798,16 +804,17 @@ func (x *cacheSyncClient) Recv() (*CacheObject, error) {
 }
 
 // CacheServer is the server API for Cache service.
-// All implementations should embed UnimplementedCacheServer
+// All implementations must embed UnimplementedCacheServer
 // for forward compatibility
 type CacheServer interface {
 	Push(context.Context, *PushRequest) (*Empty, error)
 	Pull(context.Context, *PullRequest) (*CacheObject, error)
 	Query(context.Context, *QueryRequest) (*QueryResponse, error)
 	Sync(*SyncRequest, Cache_SyncServer) error
+	mustEmbedUnimplementedCacheServer()
 }
 
-// UnimplementedCacheServer should be embedded to have forward compatible implementations.
+// UnimplementedCacheServer must be embedded to have forward compatible implementations.
 type UnimplementedCacheServer struct {
 }
 
@@ -823,6 +830,7 @@ func (UnimplementedCacheServer) Query(context.Context, *QueryRequest) (*QueryRes
 func (UnimplementedCacheServer) Sync(*SyncRequest, Cache_SyncServer) error {
 	return status.Errorf(codes.Unimplemented, "method Sync not implemented")
 }
+func (UnimplementedCacheServer) mustEmbedUnimplementedCacheServer() {}
 
 // UnsafeCacheServer may be embedded to opt out of forward compatibility for this service.
 // Use of this interface is not recommended, as added methods to CacheServer will

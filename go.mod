@@ -29,7 +29,7 @@ require (
 	github.com/karlseguin/ccache/v2 v2.0.8
 	github.com/klauspost/cpuid/v2 v2.0.8 // indirect
 	github.com/kralicky/grpc-opentracing v0.0.0-20210220041601-edf9159a6710
-	github.com/kralicky/ragu v0.1.0-rc3
+	github.com/kralicky/ragu v0.1.0
 	github.com/magefile/mage v1.11.0
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/minio/md5-simd v1.1.2
