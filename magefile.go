@@ -1,4 +1,4 @@
-//+build mage
+//go:build mage
 
 package main
 
@@ -19,6 +19,7 @@ var Default = All
 var (
 	operatorSdkPath   = "github.com/operator-framework/operator-sdk/cmd/operator-sdk@latest"
 	controllerGenPath = "sigs.k8s.io/controller-tools/cmd/controller-gen@latest"
+	ginkgoPath        = "github.com/onsi/ginkgo@latest"
 )
 
 func All() {
@@ -62,6 +63,14 @@ func SetupDev() error {
 	if _, err := exec.LookPath("operator-sdk"); err != nil {
 		fmt.Println("Installing dependency: operator-sdk")
 		return sh.RunV(mg.GoCmd(), "install", controllerGenPath)
+	}
+	return nil
+}
+
+func SetupTest() error {
+	if _, err := exec.LookPath("ginkgo"); err != nil {
+		fmt.Println("Installing dependency: ginkgo")
+		return sh.RunV(mg.GoCmd(), "install", ginkgoPath)
 	}
 	return nil
 }
@@ -117,4 +126,9 @@ func Docker() error {
 		"-f", "images/kubecc/Dockerfile",
 		".",
 	)
+}
+
+func Test() error {
+	mg.Deps(SetupTest)
+	return sh.RunV("ginkgo", "-race", "-coverprofile=cover.out", "-covermode=atomic", "./...")
 }
