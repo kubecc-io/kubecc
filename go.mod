@@ -167,3 +167,5 @@ require (
 )
 
 replace github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc => github.com/kralicky/grpc-opentracing/go/otgrpc v0.0.0-20210220041601-edf9159a6710
+
+replace sigs.k8s.io/controller-tools => github.com/kralicky/controller-tools v0.6.2-patched

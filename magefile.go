@@ -18,8 +18,8 @@ var Default = All
 
 var (
 	operatorSdkPath   = "github.com/operator-framework/operator-sdk/cmd/operator-sdk@latest"
-	controllerGenPath = "sigs.k8s.io/controller-tools/cmd/controller-gen@latest"
-	ginkgoPath        = "github.com/onsi/ginkgo@latest"
+	controllerGenPath = "https://github.com/kralicky/controller-tools/releases/download/v0.6.2-patched/controller-gen"
+	ginkgoPath        = "github.com/onsi/ginkgo/ginkgo@latest"
 )
 
 func All() {
@@ -53,7 +53,16 @@ func Build() error {
 func Setup() error {
 	if _, err := exec.LookPath("controller-gen"); err != nil {
 		fmt.Println("Installing dependency: controller-gen")
-		return sh.RunV(mg.GoCmd(), "install", controllerGenPath)
+		gopath, err := sh.Output("go", "env", "GOPATH")
+		if err != nil {
+			return err
+		}
+		gobin := filepath.Join(gopath, "bin")
+		err = sh.Run("curl", "-sfL", controllerGenPath, "-o", filepath.Join(gobin, "controller-gen"))
+		if err != nil {
+			return err
+		}
+		return sh.Run("chmod", "+x", filepath.Join(gobin, "controller-gen"))
 	}
 	return nil
 }
