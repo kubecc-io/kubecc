@@ -21,10 +21,12 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: "1.16.0"
+      - name: Install dependencies
+        run: go install github.com/magefile/mage@latest
       - name: Build
-        run: make kubecc
+        run: mage
       - name: Test
-        run: make test
+        run: mage test
         env:
           GITHUB_WORKFLOW: "1"
       - name: Upload coverage report
