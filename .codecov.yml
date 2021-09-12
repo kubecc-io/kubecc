@@ -2,3 +2,4 @@ ignore:
   - "pkg/test/mock_types/*"
   - "pkg/types/types.pb.go"
   - "pkg/types/types_grpc.pb.go"
+  - "pkg/metrics/metrics.pb.go"

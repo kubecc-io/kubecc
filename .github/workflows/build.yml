@@ -1,18 +1,15 @@
 name: Build
-
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
-    branches: [main, dev]
+    branches: [main]
   workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-
       - name: Cache
         uses: actions/cache@v2.1.4
         with:
@@ -20,19 +17,20 @@ jobs:
           key: ${{ runner.os }}-go
           restore-keys: |
             ${{ runner.os }}-go
-
       - name: Set up Go
         uses: actions/setup-go@v2
         with:
-          go-version: "1.16.0"
-
+          go-version: "1.17.1"
+      - name: Install dependencies
+        run: go install github.com/magefile/mage@latest
       - name: Build
-        run: make kubecc
-
+        run: mage
       - name: Test
-        run: make test
+        run: mage test
         env:
           GITHUB_WORKFLOW: "1"
-
       - name: Upload coverage report
-        run: bash <(curl -s https://codecov.io/bash)
+        uses: codecov/codecov-action@v1
+        with:
+          files: cover.out
+          verbose: true
