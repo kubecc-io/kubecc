@@ -9,6 +9,7 @@ import (
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
+	"github.com/kubecc-io/kubecc/pkg/test"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
@@ -46,6 +47,9 @@ func init() {
 }
 
 func TestE2e(t *testing.T) {
+	if test.InGithubWorkflow() {
+		t.Skip("Skipping e2e tests in GitHub workflow")
+	}
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "E2e Suite")
 }
