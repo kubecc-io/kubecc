@@ -7,6 +7,10 @@ import (
 	"fmt"
 	"io/fs"
 	"net/url"
+	"os"
+	"os/exec"
+	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -18,6 +22,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/orchestration/v1/stacks"
 	"github.com/gophercloud/gophercloud/pagination"
 	"github.com/gophercloud/utils/openstack/clientconfig"
+	"github.com/gophercloud/utils/openstack/objectstorage/v1/objects"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
@@ -29,11 +34,12 @@ import (
 var HeatTemplate embed.FS
 
 var (
-	keypairName   = "kubecc-e2e"
-	containerName = "kubecc-e2e"
-	stackName     = "kubecc-e2e"
-	novaService   = "nova"
-	region        = "RegionOne"
+	keypairName       = "kubecc-e2e"
+	containerName     = "kubecc-e2e-cache"
+	metaContainerName = "kubecc-e2e-meta"
+	stackName         = "kubecc-e2e"
+	novaService       = "nova"
+	region            = "RegionOne"
 )
 
 func getKeyPair(
@@ -49,19 +55,44 @@ func getKeyPair(
 	if err != nil {
 		return nil, err
 	}
-	result := keypairs.Get(novaClient, keypairName, keypairs.GetOpts{})
-	if result.Err != nil {
-		lg.Info("Keypair not found, creating")
-		cr := keypairs.Create(novaClient, keypairs.CreateOpts{
+	if _, err := os.Stat("id_rsa"); err != nil {
+		if keypairs.Get(novaClient, keypairName, keypairs.GetOpts{}).Err == nil {
+			lg.Info("Private key missing, recreating key")
+			r := keypairs.Delete(novaClient, keypairName, keypairs.DeleteOpts{})
+			if r.Err != nil {
+				return nil, r.Err
+			}
+		}
+		lg.Info("Creating keypair")
+		r := keypairs.Create(novaClient, keypairs.CreateOpts{
 			Name: keypairName,
 		})
-		if cr.Err != nil {
-			return nil, cr.Err
+		if r.Err != nil {
+			return nil, r.Err
 		}
 		lg.Info("Keypair created")
-		return cr.Extract()
+		kp, err := r.Extract()
+		if err != nil {
+			return nil, err
+		}
+		os.WriteFile("id_rsa", []byte(kp.PrivateKey), 0600)
+		return kp, nil
 	}
-	return result.Extract()
+	lg.Info("Loading existing private key")
+	r := keypairs.Get(novaClient, keypairName, keypairs.GetOpts{})
+	if r.Err != nil {
+		return nil, r.Err
+	}
+	kp, err := r.Extract()
+	if err != nil {
+		return nil, err
+	}
+	pk, err := os.ReadFile("id_rsa")
+	if err != nil {
+		return nil, err
+	}
+	kp.PrivateKey = string(pk)
+	return kp, nil
 }
 
 func NewClient() (*gophercloud.ProviderClient, error) {
@@ -120,12 +151,24 @@ func getEC2Credentials(
 	return credentials, nil
 }
 
-func CreateS3Bucket(
+func buildBinary() (string, error) {
+	cmd := exec.Command("mage")
+	topLevel := filepath.Clean("./../..")
+	cmd.Dir = topLevel
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", err
+	}
+	return filepath.Join(topLevel, "bin", "kubecc"), nil
+}
+
+func CreateS3Buckets(
 	ctx context.Context,
 	provider *gophercloud.ProviderClient,
 ) (*S3Info, error) {
 	lg := meta.Log(ctx)
-	lg.Info("Creating S3 bucket")
+	lg.Info("Creating S3 buckets")
 	swiftClient, err := openstack.NewObjectStorageV1(provider, gophercloud.EndpointOpts{
 		Region: region,
 	})
@@ -133,22 +176,47 @@ func CreateS3Bucket(
 		return nil, err
 	}
 	if r := containers.Get(swiftClient, containerName, containers.GetOpts{}); r.Err != nil {
-		lg.Info("S3 bucket not found, creating")
+		lg.Info("Cache bucket not found, creating")
 		cr := containers.Create(swiftClient, containerName, containers.CreateOpts{})
 		if cr.Err != nil {
 			return nil, cr.Err
 		}
-		lg.Info("S3 bucket created")
+		lg.Info("Cache bucket created")
 	} else {
-		// If the container already exists, delete and recreate it
-		lg.Info("S3 bucket already exists, recreating")
-		dr := containers.Delete(swiftClient, containerName)
-		if dr.Err != nil {
-			return nil, dr.Err
-		}
-		return CreateS3Bucket(ctx, provider)
+		lg.Info("Cache bucket already exists")
 	}
 
+	if r := containers.Get(swiftClient, metaContainerName, containers.GetOpts{}); r.Err != nil {
+		lg.Info("Meta bucket not found, creating")
+		cr := containers.Create(swiftClient, metaContainerName, containers.CreateOpts{
+			ContainerRead: `.r:*,.rlistings`, // Public
+		})
+		if cr.Err != nil {
+			return nil, cr.Err
+		}
+		lg.Info("Meta bucket created")
+	} else {
+		lg.Info("Meta bucket already exists")
+	}
+	lg.Info("Building kubecc binary")
+	binary, err := buildBinary()
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Error("Failed to build binary")
+		return nil, err
+	}
+	lg.Info("Uploading kubecc binary to meta s3 bucket")
+	r, err := objects.Upload(swiftClient, metaContainerName, "kubecc", &objects.UploadOpts{
+		Path: binary,
+	})
+	if err != nil {
+		lg.With(
+			zap.Error(err),
+		).Error("Failed to upload kubecc binary to s3 bucket")
+		return nil, err
+	}
+	lg.Info("Binary uploaded")
 	credentials, err := getEC2Credentials(ctx, provider)
 	if err != nil {
 		lg.With(
@@ -161,22 +229,26 @@ func CreateS3Bucket(
 		return nil, err
 	}
 	return &S3Info{
-		URL:       url.Host,
-		Bucket:    containerName,
-		AccessKey: credentials.Access,
-		SecretKey: credentials.Secret,
+		URL:         url.Host,
+		CacheBucket: containerName,
+		MetaBucket:  metaContainerName,
+		BinaryURL:   path.Join(swiftClient.ServiceURL(), r.Container, r.Object),
+		AccessKey:   credentials.Access,
+		SecretKey:   credentials.Secret,
 	}, nil
 }
 
 type CreateStackResult struct {
 	Stack *stacks.RetrievedStack
-	Err   error
+
+	Err error
 }
 
 func CreateStack(
 	ctx context.Context,
 	provider *gophercloud.ProviderClient,
 	stackName string,
+	binaryUrl string,
 ) (chan CreateStackResult, error) {
 	lg := meta.Log(ctx)
 	lg.Info("Creating stack (timeout=60s)")
@@ -203,7 +275,8 @@ func CreateStack(
 			},
 		},
 		Parameters: map[string]interface{}{
-			"key_name": keypair.Name,
+			"key_name":   keypair.Name,
+			"binary_url": binaryUrl,
 		},
 		Timeout: 120,
 	})
@@ -263,31 +336,36 @@ func CreateStack(
 }
 
 type S3Info struct {
-	URL       string
-	Bucket    string
-	AccessKey string
-	SecretKey string
+	URL         string
+	CacheBucket string
+	MetaBucket  string
+	BinaryURL   string
+	AccessKey   string
+	SecretKey   string
 }
 
 type TestInfra struct {
 	Kubeconfig *api.Config
 	S3Info     *S3Info
-	Client     *gophercloud.ProviderClient
+	Provider   *gophercloud.ProviderClient
 	Stack      *stacks.RetrievedStack
+	ClientIP   string
+	PrivateKey []byte
 }
 
 func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 	lg := meta.Log(ctx)
 	lg.Info("Setting up E2E infrastructure")
-	client, err := NewClient()
+	provider, err := NewClient()
 	if err != nil {
 		return nil, err
 	}
-	s3Info, err := CreateS3Bucket(ctx, client)
+	s3Info, err := CreateS3Buckets(ctx, provider)
 	if err != nil {
 		return nil, err
 	}
-	stackC, err := CreateStack(ctx, client, stackName)
+
+	stackC, err := CreateStack(ctx, provider, stackName, s3Info.BinaryURL)
 	if err != nil {
 		return nil, err
 	}
@@ -299,21 +377,26 @@ func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 		return nil, stack.Err
 	}
 	lg.Info("Stack created successfully")
-	var ip string
+	var controlPlaneIP, clientIP string
 	var kubeconfig *api.Config
 
 	for _, output := range stack.Stack.Outputs {
 		if output["output_key"] == "control_plane_ip" {
-			ip = output["output_value"].(string)
-			break
+			controlPlaneIP = output["output_value"].(string)
+		} else if output["output_key"] == "client_ip" {
+			clientIP = output["output_value"].(string)
 		}
 	}
-	if ip == "" {
+	if controlPlaneIP == "" {
 		return nil, fmt.Errorf("Could not find control_plane_ip in stack outputs")
 	}
+	if clientIP == "" {
+		return nil, fmt.Errorf("Could not find client_ip in stack outputs")
+	}
 	lg.With(
-		"ip", ip,
-	).Info("Found control plane IP")
+		"control_plane", controlPlaneIP,
+		"client", clientIP,
+	).Info("Found instance IP addresses")
 	for _, output := range stack.Stack.Outputs {
 		if output["output_key"] == "kubeconfig" {
 			data := []byte(output["output_value"].(string))
@@ -332,7 +415,7 @@ func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 			}
 			context := kubeconfig.Contexts[kubeconfig.CurrentContext]
 			cluster := kubeconfig.Clusters[context.Cluster]
-			cluster.Server = fmt.Sprintf("https://%s:6443", ip)
+			cluster.Server = fmt.Sprintf("https://%s:6443", controlPlaneIP)
 			break
 		}
 	}
@@ -340,10 +423,16 @@ func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 		return nil, fmt.Errorf("Could not find kubeconfig in stack outputs")
 	}
 	lg.Info("Found cluster kubeconfig")
+	privateKey, err := os.ReadFile("id_rsa")
+	if err != nil {
+		return nil, err
+	}
 	return &TestInfra{
 		Kubeconfig: kubeconfig,
 		S3Info:     s3Info,
-		Client:     client,
+		Provider:   provider,
+		ClientIP:   clientIP,
+		PrivateKey: privateKey,
 		Stack:      stack.Stack,
 	}, nil
 }
@@ -351,10 +440,10 @@ func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 func CleanupE2EInfra(ctx context.Context, infra *TestInfra) error {
 	lg := meta.Log(ctx)
 	lg.Info("Cleaning up E2E infrastructure")
-	if infra.Stack == nil {
+	if infra == nil || infra.Stack == nil {
 		return nil
 	}
-	heatClient, err := openstack.NewOrchestrationV1(infra.Client, gophercloud.EndpointOpts{})
+	heatClient, err := openstack.NewOrchestrationV1(infra.Provider, gophercloud.EndpointOpts{})
 	if err != nil {
 		return err
 	}

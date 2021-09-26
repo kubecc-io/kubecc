@@ -142,7 +142,7 @@ require (
 	github.com/yoheimuta/go-protoparser/v4 v4.3.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	golang.org/x/image v0.0.0-20210216034530-4410531fe030 // indirect
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023 // indirect
 	golang.org/x/oauth2 v0.0.0-20210628180205-a41e5a781914 // indirect

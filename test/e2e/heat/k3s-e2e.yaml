@@ -4,6 +4,9 @@ parameters:
   key_name:
     type: string
     description: Name of keypair to assign to servers
+  binary_url:
+    type: string
+    description: URL of kubecc binary (swift s3)
   image:
     type: string
     description: Name of image to use for servers
@@ -39,6 +42,10 @@ parameters:
     type: number
     description: Number of worker nodes
     default: 3
+  num_clients:
+    type: number
+    description: Number of client nodes
+    default: 1
 resources:
   # network
   private_net:
@@ -91,6 +98,33 @@ resources:
     properties:
       floating_network: { get_param: public_net }
       port_id: { get_resource: control_plane_port }
+  # client
+  client:
+    type: OS::Nova::Server
+    properties:
+      name:
+        str_replace:
+          template: name-client
+          params:
+            name: { get_param: OS::stack_name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: client_port }
+      user_data_format: SOFTWARE_CONFIG
+      user_data: { get_resource: client_config }
+  client_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+  client_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_net }
+      port_id: { get_resource: client_port }
   # agents
   agents_group:
     type: OS::Heat::ResourceGroup
@@ -98,7 +132,7 @@ resources:
       count: { get_param: num_workers }
       resource_def:
         type: OS::Nova::Server
-        properties:
+        properties: &agent_properties
           flavor: { get_param: flavor }
           image: { get_param: image }
           key_name: { get_param: key_name }
@@ -152,9 +186,27 @@ resources:
           params:
             $token: { get_attr: [k3s_token, value] }
             $control_plane_ip: { get_attr: [control_plane, first_address] }
+  # client setup
+  client_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh -x
+            sudo apt update
+            sudo apt -y install build-essential git curl
+            sudo curl -L $binary_url -o /usr/bin/kubecc
+            sudo chmod +x /usr/bin/kubecc
+          params:
+            $binary_url: { get_param: binary_url }
+
 outputs:
   control_plane_ip:
     value: { get_attr: [control_plane_floating_ip, floating_ip_address] }
+  client_ip:
+    value: { get_attr: [client_floating_ip, floating_ip_address] }
   kubeconfig:
     description: kubeconfig used to access the cluster
     value: { get_attr: [kubeconfig_wc, data] }

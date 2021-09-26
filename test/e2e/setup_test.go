@@ -1,12 +1,15 @@
 package e2e
 
 import (
+	"fmt"
+
 	. "github.com/kralicky/kmatch"
 	"github.com/kubecc-io/kubecc/api/v1alpha1"
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/util"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"golang.org/x/crypto/ssh"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +44,7 @@ var _ = Describe("E2E", func() {
 							AccessKey: infra.S3Info.AccessKey,
 							SecretKey: infra.S3Info.SecretKey,
 							TLS:       false,
-							Bucket:    infra.S3Info.Bucket,
+							Bucket:    infra.S3Info.CacheBucket,
 						},
 					},
 				},
@@ -50,5 +53,24 @@ var _ = Describe("E2E", func() {
 		err := k8sClient.Create(testCtx, buildCluster)
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(Object(buildCluster)).Should(Exist())
+	})
+	Specify("setting up SSH connection to client node", func() {
+		privateKey, err := ssh.ParsePrivateKey(infra.PrivateKey)
+		Expect(err).NotTo(HaveOccurred())
+
+		conf := ssh.ClientConfig{
+			User:            "ubuntu",
+			Auth:            []ssh.AuthMethod{ssh.PublicKeys(privateKey)},
+			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		}
+		client, err := ssh.Dial("tcp", infra.ClientIP+":22", &conf)
+		Expect(err).NotTo(HaveOccurred())
+
+		test, err := client.NewSession()
+
+		Expect(err).NotTo(HaveOccurred())
+		o, err := test.Output("kubecc")
+		Expect(err).NotTo(HaveOccurred())
+		fmt.Println(string(o))
 	})
 })
