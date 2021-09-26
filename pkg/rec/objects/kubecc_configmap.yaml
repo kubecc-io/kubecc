@@ -20,8 +20,15 @@ data:
     cache:
       monitorAddress: kubecc-monitor:9090
       listenAddress: :9090
+{{ if .Spec.Cache.VolatileStorage }}
+      volatileStorage:
+{{ .Spec.Cache.VolatileStorage | toYaml | indent 8 }}
+{{ end }}
+{{ if .Spec.Cache.LocalStorage }}
       localStorage:
-        path: /var/lib/kubecc/cache
-        limits:
-          disk: 50Gi
-          memory: 1Gi
+{{ .Spec.Cache.LocalStorage | toYaml | indent 8 }}
+{{ end }}
+{{ if .Spec.Cache.RemoteStorage }}
+      remoteStorage:
+{{ .Spec.Cache.RemoteStorage | toYaml | indent 8 }}
+{{ end }}

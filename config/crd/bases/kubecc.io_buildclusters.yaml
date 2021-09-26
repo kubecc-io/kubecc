@@ -290,15 +290,24 @@ spec:
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                             type: object
                         type: object
-                    required:
-                    - image
-                    - nodeAffinity
                     type: object
                   cache:
                     properties:
                       additionalLabels:
                         additionalProperties:
                           type: string
+                        type: object
+                      localStorage:
+                        properties:
+                          limits:
+                            properties:
+                              disk:
+                                type: string
+                              memory:
+                                type: string
+                            type: object
+                          path:
+                            type: string
                         type: object
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
@@ -513,6 +522,25 @@ spec:
                             - nodeSelectorTerms
                             type: object
                         type: object
+                      remoteStorage:
+                        properties:
+                          accessKey:
+                            type: string
+                          bucket:
+                            type: string
+                          certPath:
+                            type: string
+                          endpoint:
+                            type: string
+                          expirationDays:
+                            type: integer
+                          region:
+                            type: string
+                          secretKey:
+                            type: string
+                          tls:
+                            type: boolean
+                        type: object
                       resources:
                         description: ResourceRequirements describes the compute resource
                           requirements.
@@ -539,6 +567,16 @@ spec:
                               a container, it defaults to Limits if that is explicitly
                               specified, otherwise to an implementation-defined value.
                               More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                            type: object
+                        type: object
+                      volatileStorage:
+                        properties:
+                          limits:
+                            properties:
+                              disk:
+                                type: string
+                              memory:
+                                type: string
                             type: object
                         type: object
                     type: object
@@ -1045,7 +1083,6 @@ spec:
                         type: object
                     type: object
                 required:
-                - agents
                 - image
                 type: object
               tracing:
@@ -1062,8 +1099,6 @@ spec:
                             type: string
                           user:
                             type: string
-                        required:
-                        - endpoint
                         type: object
                       sampler:
                         properties:
@@ -1073,13 +1108,9 @@ spec:
                             type: string
                           type:
                             type: string
-                        required:
-                        - type
                         type: object
                     type: object
                 type: object
-            required:
-            - components
             type: object
           status:
             description: BuildClusterStatus defines the observed state of BuildCluster.

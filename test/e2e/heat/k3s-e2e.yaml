@@ -1,0 +1,160 @@
+heat_template_version: 2021-04-16
+description: kubecc e2e test cluster
+parameters:
+  key_name:
+    type: string
+    description: Name of keypair to assign to servers
+  image:
+    type: string
+    description: Name of image to use for servers
+    default: "Ubuntu 20.04"
+  flavor:
+    type: string
+    description: Flavor to use for servers
+    default: a3.xlarge
+    constraints:
+      - custom_constraint: nova.flavor
+  public_net:
+    type: string
+    default: public
+    description: >
+      ID or name of public network for which floating IP addresses will be allocated
+  private_net_cidr:
+    type: string
+    description: Private network address (CIDR notation)
+    default: "10.0.1.0/24"
+  private_net_gateway:
+    type: string
+    description: Private network gateway address
+    default: "10.0.1.1"
+  private_net_pool_start:
+    type: string
+    description: Start of private network IP address allocation pool
+    default: "10.0.1.6"
+  private_net_pool_end:
+    type: string
+    description: End of private network IP address allocation pool
+    default: "10.0.1.254"
+  num_workers:
+    type: number
+    description: Number of worker nodes
+    default: 3
+resources:
+  # network
+  private_net:
+    type: OS::Neutron::Net
+    properties:
+      name: { get_param: OS::stack_name }
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: private_net }
+      cidr: { get_param: private_net_cidr }
+      gateway_ip: { get_param: private_net_gateway }
+      allocation_pools:
+        - start: { get_param: private_net_pool_start }
+          end: { get_param: private_net_pool_end }
+  router:
+    type: OS::Neutron::Router
+    properties:
+      external_gateway_info:
+        network: { get_param: public_net }
+  router_interface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: router }
+      subnet_id: { get_resource: private_subnet }
+  # control plane
+  control_plane:
+    type: OS::Nova::Server
+    properties:
+      name:
+        str_replace:
+          template: name-control-plane
+          params:
+            name: { get_param: OS::stack_name }
+      image: { get_param: image }
+      flavor: { get_param: flavor }
+      key_name: { get_param: key_name }
+      networks:
+        - port: { get_resource: control_plane_port }
+      user_data_format: SOFTWARE_CONFIG
+      user_data: { get_resource: k3s_server_config }
+  control_plane_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+  control_plane_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network: { get_param: public_net }
+      port_id: { get_resource: control_plane_port }
+  # agents
+  agents_group:
+    type: OS::Heat::ResourceGroup
+    properties:
+      count: { get_param: num_workers }
+      resource_def:
+        type: OS::Nova::Server
+        properties:
+          flavor: { get_param: flavor }
+          image: { get_param: image }
+          key_name: { get_param: key_name }
+          networks:
+            - network: { get_resource: private_net }
+          user_data_format: SOFTWARE_CONFIG
+          user_data: { get_resource: k3s_agent_config }
+  # k3s installation
+  kubeconfig_handle:
+    type: OS::Heat::WaitConditionHandle
+  kubeconfig_wc:
+    type: OS::Heat::WaitCondition
+    properties:
+      handle: { get_resource: kubeconfig_handle }
+      count: 1
+      timeout: 60
+  k3s_token:
+    type: OS::Heat::RandomString
+    properties:
+      length: 64
+  k3s_server_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh -x
+            curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=testing sh -s - server \
+              --token=$token --write-kubeconfig-mode=644 --tls-san=$control_plane_ip
+            kubeconfig="$(cat /etc/rancher/k3s/k3s.yaml | base64 -w0)"
+            echo "{\"status\": \"SUCCESS\", \"data\": \"${kubeconfig}\"}" > /tmp/response
+            wc_notify -d @/tmp/response
+            rm /tmp/response
+          params:
+            $token: { get_attr: [k3s_token, value] }
+            $control_plane_ip:
+              { get_attr: [control_plane_floating_ip, floating_ip_address] }
+            wc_notify: { get_attr: [kubeconfig_handle, curl_cli] }
+  k3s_agent_config:
+    type: OS::Heat::SoftwareConfig
+    properties:
+      group: ungrouped
+      config:
+        str_replace:
+          template: |
+            #!/bin/sh -x
+            curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=testing sh -s - agent \
+              --server=https://$control_plane_ip:6443 \
+              --token=$token
+          params:
+            $token: { get_attr: [k3s_token, value] }
+            $control_plane_ip: { get_attr: [control_plane, first_address] }
+outputs:
+  control_plane_ip:
+    value: { get_attr: [control_plane_floating_ip, floating_ip_address] }
+  kubeconfig:
+    description: kubeconfig used to access the cluster
+    value: { get_attr: [kubeconfig_wc, data] }

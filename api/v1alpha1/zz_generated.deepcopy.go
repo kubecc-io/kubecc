@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package v1alpha1
 
 import (
+	"github.com/kubecc-io/kubecc/pkg/config"
 	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -165,6 +166,21 @@ func (in *CacheSpec) DeepCopyInto(out *CacheSpec) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.VolatileStorage != nil {
+		in, out := &in.VolatileStorage, &out.VolatileStorage
+		*out = new(config.VolatileStorageSpec)
+		**out = **in
+	}
+	if in.LocalStorage != nil {
+		in, out := &in.LocalStorage, &out.LocalStorage
+		*out = new(config.LocalStorageSpec)
+		**out = **in
+	}
+	if in.RemoteStorage != nil {
+		in, out := &in.RemoteStorage, &out.RemoteStorage
+		*out = new(config.RemoteStorageSpec)
+		**out = **in
 	}
 }
 

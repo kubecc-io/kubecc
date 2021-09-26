@@ -320,6 +320,9 @@ func (sp *S3StorageProvider) UsageInfo() *metrics.CacheUsage {
 		ObjectCount: 0,
 		TotalSize:   0,
 	}
+	if sp.client == nil {
+		return info
+	}
 	for object := range sp.client.ListObjects(sp.ctx, sp.bucket, minio.ListObjectsOptions{}) {
 		info.ObjectCount++
 		info.TotalSize += object.Size
