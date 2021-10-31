@@ -22,9 +22,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/kubecc-io/kubecc/pkg/apps/agent"
-	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
+	"github.com/kubecc-io/kubecc/pkg/agent"
 	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/metrics"
 	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"

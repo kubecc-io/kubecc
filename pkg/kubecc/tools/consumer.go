@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/apps/consumer"
+	"github.com/kubecc-io/kubecc/pkg/consumer"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
 	"github.com/kubecc-io/kubecc/pkg/meta"

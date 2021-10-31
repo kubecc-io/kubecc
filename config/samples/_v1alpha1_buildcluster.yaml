@@ -4,20 +4,22 @@ metadata:
   name: buildcluster-sample
   namespace: kubecc
 spec:
+  deployToolbox: true
+  toolchains:
+    - kind: gcc
+      version: "11.1.0"
   components:
-    image: kubecc/kubecc:testing
-    imagePullPolicy: Always
-    agents:
+    cache:
+      localStorage:
+        path: /opt/kubecc/cache
+        limits:
+          disk: "10Gi"
+    agent:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
           nodeSelectorTerms:
             - matchExpressions:
-              - key: allow-kubecc
-                operator: In
-                values: 
-                  - "true"
-      resources:
-        limits:
-          memory: "8Gi"
-      image: kubecc/environment:latest
-      imagePullPolicy: Always
+                - key: kubecc.io/role
+                  operator: NotIn
+                  values:
+                    - control-plane

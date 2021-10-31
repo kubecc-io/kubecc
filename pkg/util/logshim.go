@@ -31,13 +31,21 @@ func (lg ZapfLogShim) Enabled() bool {
 	return true
 }
 
+func translateKeyValuePairs(keysAndValues ...interface{}) []interface{} {
+	args := []interface{}{}
+	for i := 0; i < len(keysAndValues); i += 2 {
+		args = append(args, zap.Any(keysAndValues[i].(string), keysAndValues[i+1]))
+	}
+	return args
+}
+
 func (lg ZapfLogShim) Info(msg string, keysAndValues ...interface{}) {
-	lg.ZapLogger.With(keysAndValues...).Info(msg)
+	lg.ZapLogger.With(translateKeyValuePairs(keysAndValues...)...).Info(msg)
 }
 
 func (lg ZapfLogShim) Error(err error, msg string, keysAndValues ...interface{}) {
 	lg.ZapLogger.With(
-		append([]interface{}{zap.Error(err)}, keysAndValues...),
+		append([]interface{}{zap.Error(err)}, translateKeyValuePairs(keysAndValues...)...),
 	).Error(msg)
 }
 
@@ -47,7 +55,7 @@ func (lg ZapfLogShim) V(level int) logr.Logger {
 
 func (lg ZapfLogShim) WithValues(keysAndValues ...interface{}) logr.Logger {
 	return ZapfLogShim{
-		ZapLogger: lg.ZapLogger.With(keysAndValues...),
+		ZapLogger: lg.ZapLogger.With(translateKeyValuePairs(keysAndValues...)...),
 	}
 }
 

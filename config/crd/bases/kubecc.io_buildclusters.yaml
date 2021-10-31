@@ -36,15 +36,10 @@ spec:
           spec:
             properties:
               components:
+                description: Configuration for the Kubecc components
                 properties:
-                  agents:
+                  agent:
                     properties:
-                      additionalLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
-                      image:
-                        type: string
                       imagePullPolicy:
                         description: PullPolicy describes a policy for if/when to
                           pull a container image
@@ -293,10 +288,6 @@ spec:
                     type: object
                   cache:
                     properties:
-                      additionalLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
                       localStorage:
                         properties:
                           limits:
@@ -580,18 +571,8 @@ spec:
                             type: object
                         type: object
                     type: object
-                  image:
-                    type: string
-                  imagePullPolicy:
-                    description: PullPolicy describes a policy for if/when to pull
-                      a container image
-                    type: string
                   monitor:
                     properties:
-                      additionalLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
                           rules.
@@ -836,10 +817,6 @@ spec:
                     type: object
                   scheduler:
                     properties:
-                      additionalLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
                       nodeAffinity:
                         description: Node affinity is a group of node affinity scheduling
                           rules.
@@ -1082,9 +1059,58 @@ spec:
                             type: object
                         type: object
                     type: object
-                required:
-                - image
                 type: object
+              deployToolbox:
+                description: Whether to deploy the toolbox pod, which will provide
+                  a configured environment in which to use the Kubecc CLI.
+                type: boolean
+              image:
+                description: Image to use for Kubecc components. Optional, will default
+                  to the same image used by the Operator.
+                type: string
+              imagePullPolicy:
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
+                type: string
+              toolchains:
+                description: List of toolchains, each of which will deploy an Agent
+                  DaemonSet.
+                items:
+                  properties:
+                    arch:
+                      default: amd64
+                      description: Arch is one of ["amd64", "arm/v5", "arm/v7", "arm64/v8",
+                        "ppc64le", "s390x"] (default is "amd64")
+                      enum:
+                      - amd64
+                      - arm/v5
+                      - arm/v7
+                      - arm64/v8
+                      - ppc64le
+                      - s390x
+                      type: string
+                    image:
+                      description: CustomImage is the base image for the toolchain
+                        (without the tag) If Kind is gcc, this defaults to "docker.io/gcc",
+                        but can be overridden. If Kind is custom, this field is required.
+                      type: string
+                    kind:
+                      default: gcc
+                      description: Kind is one of ["gcc", "custom"] (default is "gcc")
+                      enum:
+                      - gcc
+                      - custom
+                      type: string
+                    name:
+                      description: Optional, defaults to "kind-version"
+                      type: string
+                    version:
+                      default: latest
+                      description: Version is the version of the toolchain image (default
+                        is "latest")
+                      type: string
+                  type: object
+                type: array
               tracing:
                 properties:
                   jaeger:
@@ -1114,6 +1140,9 @@ spec:
             type: object
           status:
             description: BuildClusterStatus defines the observed state of BuildCluster.
+            properties:
+              defaultImageName:
+                type: string
             type: object
         type: object
     served: true

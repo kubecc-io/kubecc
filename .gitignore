@@ -29,3 +29,4 @@ dev/*
 tilt_modules/
 **/id_rsa*
 test/e2e/*kubeconfig.yaml
+pkg/consumerd/stats.svg

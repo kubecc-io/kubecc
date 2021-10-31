@@ -1,8 +1,0 @@
-multilineString: |-
-{{ .Spec.MultilineString2 }}
-indent:
-  multilineString: |-
-{{ .Spec.MultilineString4 }}
-  indent:
-    multilineString: |-
-{{ .Spec.MultilineString6 }}

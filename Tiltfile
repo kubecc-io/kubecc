@@ -1,14 +1,31 @@
+load('ext://cert_manager', 'deploy_cert_manager')
+
 allow_k8s_contexts('default')
-k8s_yaml('staging/staging_autogen.yaml')
-local_resource(
-  'go-compile', 
-  'CGO_ENABLED=0 GOARCH=amd64 go build -o bin/kubecc ./cmd/kubecc',
+allow_k8s_contexts('tilt-kubecc')
+
+deploy_cert_manager(version="v1.6.0")
+
+k8s_yaml(kustomize("config/default"))
+
+local_resource('Sample YAML', 'kubectl apply -k ./config/samples', 
+    deps=["./config/samples"], resource_deps=["kubecc-operator"])
+
+local_resource('Watch & Compile', 
+  'mage', 
+  deps=['api','controllers','pkg'], 
+  ignore=['**/zz_generated.deepcopy.go','**/*.pb.go']
 )
+
+dockerfile = '''FROM alpine:latest
+WORKDIR /
+COPY ./bin/kubecc /
+ENTRYPOINT ["/kubecc"]
+'''
+
+default_registry("cr.lan.kralicky.dev")
 docker_build(
   'kubecc/kubecc', 
   '.', 
-  dockerfile='images/tilt/Dockerfile', 
-  only=[
-    './bin',
-  ]
+  dockerfile_contents=dockerfile,
+  only=['./bin/kubecc']
 )

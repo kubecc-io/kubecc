@@ -21,10 +21,10 @@ import (
 	"net"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/apps/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	ccctrl "github.com/kubecc-io/kubecc/pkg/cc/controller"
 	"github.com/kubecc-io/kubecc/pkg/clients"
+	"github.com/kubecc-io/kubecc/pkg/consumerd"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"

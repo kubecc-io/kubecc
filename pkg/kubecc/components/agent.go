@@ -19,7 +19,7 @@ package components
 
 import (
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/apps/agent"
+	"github.com/kubecc-io/kubecc/pkg/agent"
 	"github.com/kubecc-io/kubecc/pkg/cc"
 	ccctrl "github.com/kubecc-io/kubecc/pkg/cc/controller"
 	"github.com/kubecc-io/kubecc/pkg/config"

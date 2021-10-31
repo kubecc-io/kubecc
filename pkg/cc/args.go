@@ -97,6 +97,16 @@ var (
 		"-MG",
 		"-MP",
 	)
+	PICArgs = mapset.NewSet(
+		"-fPIC",
+		"-fPIE",
+		"-fpic",
+		"-fpie",
+		"-fno-pic",
+		"-fno-pie",
+		"-fno-PIC",
+		"-fno-PIE",
+	)
 	LocalPrefixArgs = []string{
 		"-Wp,",
 		"-Wl,",
@@ -231,6 +241,8 @@ func (ap *ArgParser) Parse() {
 				ap.Mode = RunLocal
 			case a == "-mtune=native":
 				ap.Mode = RunLocal
+			case PICArgs.Contains(a):
+				ap.FlagIndexMap[a] = i
 			case strings.HasPrefix(a, "-Wa,"):
 				ap.FlagIndexMap["-Wa"] = i
 				if strings.Contains(a, ",-a") || strings.Contains(a, "--MD") {
@@ -498,6 +510,25 @@ func (ap *ArgParser) RemoveLocalArgs() {
 	}
 	ap.Args = newArgs
 	ap.Parse()
+}
+
+// ConfigurePIC prepends -fPIC and/or -fPIE to the arguments if the toolchain
+// has these enabled by default.
+func (ap *ArgParser) PrependExplicitPICArgs(tc *types.Toolchain) {
+	if tc.PicDefault {
+		_, noLowerPic := ap.FlagIndexMap["-fno-pic"]
+		_, noUpperPic := ap.FlagIndexMap["-fno-PIC"]
+		if !noLowerPic && !noUpperPic { // no-pic is not explicitly set
+			ap.Args = append([]string{"-fPIC"}, ap.Args...)
+		}
+	}
+	if tc.PieDefault {
+		_, noLowerPie := ap.FlagIndexMap["-fno-pie"]
+		_, noUpperPie := ap.FlagIndexMap["-fno-PIE"]
+		if !noLowerPie && !noUpperPie { // no-pie is not explicitly set
+			ap.Args = append([]string{"-fPIE"}, ap.Args...)
+		}
+	}
 }
 
 // PrependLanguageFlag adds the necessary -x <lang> argument. Used when

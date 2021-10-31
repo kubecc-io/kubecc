@@ -31,7 +31,6 @@ func (tc *Toolchain) EquivalentTo(other *Toolchain) bool {
 	return tc.GetKind() == other.GetKind() &&
 		tc.GetLang() == other.GetLang() &&
 		tc.GetTargetArch() == other.GetTargetArch() &&
-		tc.GetPicDefault() == other.GetPicDefault() &&
 		tc.GetVersion() == other.GetVersion()
 }
 
@@ -49,11 +48,6 @@ func (tc *Toolchain) Hash(hasher md5simd.Hasher) {
 	util.Must(hasher.Write([]byte(ToolchainKind_name[int32(tc.Kind)])))
 	util.Must(hasher.Write([]byte(ToolchainLang_name[int32(tc.Lang)])))
 	util.Must(hasher.Write([]byte(tc.Version)))
-	if tc.PicDefault {
-		util.Must(hasher.Write([]byte{1}))
-	} else {
-		util.Must(hasher.Write([]byte{0}))
-	}
 }
 
 func (req *CompileRequest) Hash(hasher md5simd.Hasher) {

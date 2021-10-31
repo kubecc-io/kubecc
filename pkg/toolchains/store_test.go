@@ -65,6 +65,7 @@ type querier struct {
 	version    string
 	targetArch string
 	picDefault bool
+	pieDefault bool
 	kind       types.ToolchainKind
 	lang       types.ToolchainLang
 	modTime    time.Time
@@ -75,6 +76,7 @@ func defaultQuerier() *querier {
 		version:    "0",
 		targetArch: "testarch",
 		picDefault: true,
+		pieDefault: true,
 		kind:       types.Gnu,
 		lang:       types.CXX,
 		modTime:    time.Now(),
@@ -97,6 +99,10 @@ func (q *querier) TargetArch(compiler string) (string, error) {
 
 func (q *querier) IsPicDefault(compiler string) (bool, error) {
 	return q.picDefault, nil
+}
+
+func (q *querier) IsPieDefault(compiler string) (bool, error) {
+	return q.pieDefault, nil
 }
 
 func (q *querier) Kind(compiler string) (types.ToolchainKind, error) {

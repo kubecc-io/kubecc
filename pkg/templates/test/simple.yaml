@@ -1,5 +1,0 @@
-test:
-  string: {{ .Spec.String }}
-  int: {{ .Spec.Int }}
-  more:
-  - data: {{ .Spec.Float }}

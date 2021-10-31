@@ -25,18 +25,45 @@ import (
 )
 
 type BuildClusterSpec struct {
+	// Image to use for Kubecc components. Optional, will default to the same
+	// image used by the Operator.
+	Image           string        `json:"image"`
+	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+	// Configuration for the Kubecc components
 	Components ComponentsSpec `json:"components"`
-	Tracing    *TracingSpec   `json:"tracing,omitempty"`
+	// List of toolchains, each of which will deploy an Agent DaemonSet.
+	Toolchains []ToolchainSpec `json:"toolchains"`
+	// Whether to deploy the toolbox pod, which will provide a configured
+	// environment in which to use the Kubecc CLI.
+	DeployToolbox bool         `json:"deployToolbox,omitempty"`
+	Tracing       *TracingSpec `json:"tracing,omitempty"`
+}
+
+type ToolchainSpec struct {
+	// Optional, defaults to "kind-version"
+	Name *string `json:"name"`
+	// Kind is one of ["gcc", "custom"] (default is "gcc")
+	// +kubebuilder:validation:Enum=gcc;custom
+	// +kubebuilder:default=gcc
+	Kind string `json:"kind,omitempty"`
+	// Version is the version of the toolchain image (default is "latest")
+	// +kubebuilder:default=latest
+	Version string `json:"version,omitempty"`
+	// Arch is one of ["amd64", "arm/v5", "arm/v7", "arm64/v8", "ppc64le", "s390x"] (default is "amd64")
+	// +kubebuilder:validation:Enum=amd64;arm/v5;arm/v7;arm64/v8;ppc64le;s390x
+	// +kubebuilder:default=amd64
+	Arch string `json:"arch,omitempty"`
+	// CustomImage is the base image for the toolchain (without the tag)
+	// If Kind is gcc, this defaults to "docker.io/gcc", but can be overridden.
+	// If Kind is custom, this field is required.
+	CustomImage *string `json:"image,omitempty"`
 }
 
 type ComponentsSpec struct {
-	// +kubebuilder:validation:Required
-	Image           string        `json:"image"`
-	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	Agents          AgentSpec     `json:"agents,omitempty"`
-	Scheduler       SchedulerSpec `json:"scheduler,omitempty"`
-	Monitor         MonitorSpec   `json:"monitor,omitempty"`
-	Cache           CacheSpec     `json:"cache,omitempty"`
+	Agent     AgentSpec     `json:"agent,omitempty"`
+	Scheduler SchedulerSpec `json:"scheduler,omitempty"`
+	Monitor   MonitorSpec   `json:"monitor,omitempty"`
+	Cache     CacheSpec     `json:"cache,omitempty"`
 }
 
 type TracingSpec struct {
@@ -62,38 +89,32 @@ type SamplerSpec struct {
 }
 
 type AgentSpec struct {
-	Image            string                  `json:"image,omitempty"`
-	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
-	ImagePullPolicy  v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
-	Resources        v1.ResourceRequirements `json:"resources,omitempty"`
-	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"`
+	NodeAffinity    *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
+	ImagePullPolicy v1.PullPolicy           `json:"imagePullPolicy,omitempty"`
+	Resources       v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type SchedulerSpec struct {
-	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
-	Resources        v1.ResourceRequirements `json:"resources,omitempty"`
-	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"`
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type MonitorSpec struct {
-	NodeAffinity     *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
-	Resources        v1.ResourceRequirements `json:"resources,omitempty"`
-	AdditionalLabels map[string]string       `json:"additionalLabels,omitempty"`
+	NodeAffinity *v1.NodeAffinity        `json:"nodeAffinity,omitempty"`
+	Resources    v1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type CacheSpec struct {
-	NodeAffinity     *v1.NodeAffinity            `json:"nodeAffinity,omitempty"`
-	Resources        v1.ResourceRequirements     `json:"resources,omitempty"`
-	AdditionalLabels map[string]string           `json:"additionalLabels,omitempty"`
-	VolatileStorage  *config.VolatileStorageSpec `json:"volatileStorage,omitempty"`
-	LocalStorage     *config.LocalStorageSpec    `json:"localStorage,omitempty"`
-	RemoteStorage    *config.RemoteStorageSpec   `json:"remoteStorage,omitempty"`
+	NodeAffinity    *v1.NodeAffinity            `json:"nodeAffinity,omitempty"`
+	Resources       v1.ResourceRequirements     `json:"resources,omitempty"`
+	VolatileStorage *config.VolatileStorageSpec `json:"volatileStorage,omitempty"`
+	LocalStorage    *config.LocalStorageSpec    `json:"localStorage,omitempty"`
+	RemoteStorage   *config.RemoteStorageSpec   `json:"remoteStorage,omitempty"`
 }
 
 // BuildClusterStatus defines the observed state of BuildCluster.
 type BuildClusterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	DefaultImageName string `json:"defaultImageName,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -81,13 +81,13 @@ Restart=on-failure
 `
 
 	envEnabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
-export KUBECC_ENABLED=1
 source $(dirname $0)/.env
+kubecc_enable
 `
 
 	envDisabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
-export KUBECC_ENABLED=0
 source $(dirname $0)/.env
+kubecc_disable
 `
 
 	dotEnvTmpl = `# This file is auto-generated, do not edit!

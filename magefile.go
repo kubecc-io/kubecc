@@ -12,7 +12,6 @@ import (
 	"github.com/kralicky/ragu/pkg/ragu"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"sigs.k8s.io/kustomize/kustomize/v4/commands"
 )
 
 var Default = All
@@ -24,17 +23,7 @@ var (
 )
 
 func All() {
-	mg.SerialDeps(Setup, Generate, StagingAndVet, Build)
-}
-
-func Staging() error {
-	kustomize := commands.NewDefaultCommand()
-	kustomize.SetArgs([]string{"build", "./config/default", "-o", "./staging/staging_autogen.yaml"})
-	return kustomize.Execute()
-}
-
-func StagingAndVet() {
-	mg.Deps(Staging, Vet)
+	mg.SerialDeps(Setup, Generate, Vet, Build)
 }
 
 func Generate() {

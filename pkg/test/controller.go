@@ -131,6 +131,10 @@ func (q TestQuerier) IsPicDefault(compiler string) (bool, error) {
 	return true, nil
 }
 
+func (q TestQuerier) IsPieDefault(compiler string) (bool, error) {
+	return true, nil
+}
+
 func (q TestQuerier) Kind(compiler string) (types.ToolchainKind, error) {
 	return types.TestToolchain, nil
 }

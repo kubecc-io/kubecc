@@ -164,6 +164,7 @@ message Toolchain {
   string TargetArch = 4;
   string Version = 5;
   bool PicDefault = 6;
+  bool PieDefault = 7;
 }
 
 message ToolchainList {

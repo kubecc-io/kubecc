@@ -1,15 +1,12 @@
 FROM golang:1.17 as builder
 
-WORKDIR /workspace
-
 RUN git clone https://github.com/magefile/mage \
   && cd mage \
   && go run bootstrap.go
 
+WORKDIR /workspace
 COPY . .
-
 RUN go mod download
-
 RUN mage
 
 # Use distroless as minimal base image to package the binary

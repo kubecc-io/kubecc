@@ -42,6 +42,18 @@ func (q SampleQuerier) IsPicDefault(compiler string) (bool, error) {
 	return false, errors.New("Unknown compiler")
 }
 
+func (q SampleQuerier) IsPieDefault(compiler string) (bool, error) {
+	switch filepath.Base(compiler) {
+	case "x86_64-linux-gnu-gcc-10", "x86_64-linux-gnu-g++-10":
+		return true, nil
+	case "x86_64-linux-gnu-gcc-9", "x86_64-linux-gnu-g++-9":
+		return true, nil
+	case "clang":
+		return false, nil
+	}
+	return false, errors.New("Unknown compiler")
+}
+
 func (q SampleQuerier) TargetArch(compiler string) (string, error) {
 	switch filepath.Base(compiler) {
 	case "x86_64-linux-gnu-gcc-10", "x86_64-linux-gnu-g++-10":

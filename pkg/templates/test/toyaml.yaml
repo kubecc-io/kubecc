@@ -1,6 +1,0 @@
-strTest: {{ .Spec.StrTest | toYaml }}
-numTest: {{ .Spec.NumTest | toYaml }}
-stringSliceTest:
-{{ .Spec.StringSliceTest | toYaml | indent 2 }}
-nestedStruct:
-{{ .Spec.NestedStruct | toYaml | indent 2 }}

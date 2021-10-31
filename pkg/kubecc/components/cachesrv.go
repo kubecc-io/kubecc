@@ -21,7 +21,7 @@ import (
 	"net"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/apps/cachesrv"
+	"github.com/kubecc-io/kubecc/pkg/cachesrv"
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"

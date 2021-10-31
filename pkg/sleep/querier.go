@@ -30,6 +30,10 @@ func (q SleepQuerier) IsPicDefault(compiler string) (bool, error) {
 	return true, nil
 }
 
+func (q SleepQuerier) IsPieDefault(compiler string) (bool, error) {
+	return true, nil
+}
+
 func (q SleepQuerier) TargetArch(compiler string) (string, error) {
 	return "internal", nil
 }

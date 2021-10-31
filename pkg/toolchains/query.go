@@ -34,6 +34,7 @@ type Querier interface {
 	Version(compiler string) (string, error)
 	TargetArch(compiler string) (string, error)
 	IsPicDefault(compiler string) (bool, error)
+	IsPieDefault(compiler string) (bool, error)
 	Kind(compiler string) (types.ToolchainKind, error)
 	Lang(compiler string) (types.ToolchainLang, error)
 	ModTime(compiler string) (time.Time, error)
@@ -42,7 +43,13 @@ type Querier interface {
 type ExecQuerier struct{}
 
 var picCheck = `
-#if defined __PIC__ || defined __pic__ || defined PIC || defined pic            
+#if defined __PIC__ || defined __pic__       
+# error                                                    
+#endif                                                                          
+`
+
+var pieCheck = `
+#if defined __PIE__ || defined __pie__  
 # error                                                    
 #endif                                                                          
 `
@@ -51,6 +58,20 @@ func (q ExecQuerier) IsPicDefault(compiler string) (bool, error) {
 	cmd := exec.Command(compiler, "-E", "-o", "/dev/null", "-")
 	stderrBuf := new(bytes.Buffer)
 	cmd.Stdin = strings.NewReader(picCheck)
+	cmd.Stdout = nil
+	cmd.Stderr = stderrBuf
+	cmd.Env = []string{}
+	err := cmd.Run()
+	if err == nil {
+		return false, nil
+	}
+	return strings.Contains(stderrBuf.String(), "#error"), nil
+}
+
+func (q ExecQuerier) IsPieDefault(compiler string) (bool, error) {
+	cmd := exec.Command(compiler, "-E", "-o", "/dev/null", "-")
+	stderrBuf := new(bytes.Buffer)
+	cmd.Stdin = strings.NewReader(pieCheck)
 	cmd.Stdout = nil
 	cmd.Stderr = stderrBuf
 	cmd.Env = []string{}
