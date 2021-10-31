@@ -1,6 +1,8 @@
 package buildcluster
 
 import (
+	"fmt"
+
 	"github.com/kubecc-io/kubecc/pkg/config"
 	"github.com/kubecc-io/kubecc/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
@@ -19,24 +21,24 @@ func (r *Reconciler) configMap() ([]resources.Resource, error) {
 			UsageLimits: &config.UsageLimitsSpec{
 				ConcurrentProcessLimit: -1,
 			},
-			SchedulerAddress: "kubecc-scheduler:9090",
-			MonitorAddress:   "kubecc-monitor:9090",
+			SchedulerAddress: fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
+			MonitorAddress:   fmt.Sprintf("kubecc-monitor.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
 		},
 		Scheduler: config.SchedulerSpec{
-			MonitorAddress: "kubecc-monitor:9090",
-			CacheAddress:   "kubecc-cache:9090",
+			MonitorAddress: fmt.Sprintf("kubecc-monitor.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
+			CacheAddress:   fmt.Sprintf("kubecc-cache.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
 			ListenAddress:  ":9090",
 		},
 		Monitor: config.MonitorSpec{
 			ListenAddress: ":9090",
 		},
 		Cache: config.CacheSpec{
-			MonitorAddress: "kubecc-monitor:9090",
+			MonitorAddress: fmt.Sprintf("kubecc-monitor.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
 			ListenAddress:  ":9090",
 		},
 		Kcctl: config.KcctlSpec{
-			MonitorAddress:   "kubecc-monitor:9090",
-			SchedulerAddress: "kubecc-scheduler:9090",
+			MonitorAddress:   fmt.Sprintf("kubecc-monitor.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
+			SchedulerAddress: fmt.Sprintf("kubecc-scheduler.%s.svc.cluster.local:9090", r.buildCluster.Namespace),
 			DisableTLS:       true,
 		},
 	}

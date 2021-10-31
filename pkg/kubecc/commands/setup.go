@@ -20,6 +20,7 @@ package commands
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"fmt"
 	"io"
 	"net"
@@ -81,11 +82,13 @@ Restart=on-failure
 `
 
 	envEnabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
+unset KUBECC_ENABLED
 source $(dirname $0)/.env
 kubecc_enable
 `
 
 	envDisabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
+unset KUBECC_ENABLED
 source $(dirname $0)/.env
 kubecc_disable
 `
@@ -99,7 +102,7 @@ kubecc_enable() {
     return
   fi
 {aliases}
-  eval ${KUBECC_BINARY} enable
+  eval ${KUBECC_BINARY} enable > /dev/null
   export KUBECC_ENABLED="1"
 }
 
@@ -108,7 +111,7 @@ kubecc_disable() {
     return
   fi
 {unaliases}
-  eval ${KUBECC_BINARY} disable
+  eval ${KUBECC_BINARY} disable > /dev/null
   export KUBECC_ENABLED="0"
 }
 `
@@ -133,14 +136,100 @@ func inPath() (string, bool) {
 	return path, err == nil
 }
 
-func installBinary() (string, error) {
+func md5sum(path string) ([]byte, error) {
+	hash := md5.New()
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if _, err := io.Copy(hash, f); err != nil {
+		return nil, err
+	}
+	return hash.Sum(nil), nil
+}
+
+func copySelfTo(destFolder string) (string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	self, err := os.Open(executable)
+	if err != nil {
+		return "", err
+	}
+	defer self.Close()
+	// If the file already exists, remove it first. It may be in use by the
+	// consumerd service, which will prevent us from truncating it in-place.
+	// However, removing the file first will keep it around in memory for the
+	// consumerd service to use until it is restarted.
+	destFilePath := filepath.Join(destFolder, filepath.Base(executable))
+	if _, err := os.Stat(destFilePath); err == nil {
+		if err := os.Remove(destFilePath); err != nil {
+			return "", err
+		}
+	}
+	dest, err := os.OpenFile(destFilePath, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0o755)
+	if err != nil {
+		return "", err
+	}
+	defer dest.Close()
+	_, err = io.Copy(dest, self)
+	if err != nil {
+		return "", err
+	}
+	return dest.Name(), nil
+}
+
+func binaryNeedsUpdate(existing string) (bool, error) {
+	printStatus("Checking if the existing binary needs to be updated... ")
+	self, err := os.Executable()
+	if err != nil {
+		return false, err
+	}
+	selfMd5, err := md5sum(self)
+	if err != nil {
+		return false, err
+	}
+	pathMd5, err := md5sum(existing)
+	if err != nil {
+		return false, err
+	}
+	return !bytes.Equal(selfMd5, pathMd5), nil
+}
+
+type installResult int
+
+const (
+	installResultInstalled installResult = iota
+	installResultUpdated
+	installResultUpToDate
+	installResultFailed
+)
+
+func installOrUpdateBinary() (string, installResult, error) {
 	printStatus("Checking if kubecc is in your PATH... ")
 	if path, ok := inPath(); ok {
 		printYes()
-		return path, nil
+		needsUpdate, err := binaryNeedsUpdate(path)
+		if err != nil {
+			return "", installResultFailed, err
+		}
+		if needsUpdate {
+			printYes()
+			printStatus("Updating the existing binary... ")
+			if _, err := copySelfTo(filepath.Dir(path)); err != nil {
+				printFailed()
+				return "", installResultFailed, err
+			}
+			printDone()
+			return path, installResultUpdated, nil
+		}
+		printNo()
+		return path, installResultUpToDate, nil
 	}
-	fmt.Println(zapkc.Red.Add("no"))
-	var pathName string
+	printNo()
+	var dirName string
 	for {
 		defaultPath := "~/.local/bin"
 		if sudo {
@@ -150,25 +239,25 @@ func installBinary() (string, error) {
 			Message: "Choose an install location for the kubecc binary",
 			Options: []string{"~/.local/bin", "~/bin", "/usr/local/bin", "(other)"},
 			Default: defaultPath,
-		}, &pathName)
+		}, &dirName)
 		if err != nil {
-			return "", err
+			return "", installResultFailed, err
 		}
-		if pathName == "(other)" {
+		if dirName == "(other)" {
 			err := survey.AskOne(&survey.Input{
 				Message: "Enter an install path",
 				Default: "",
-			}, &pathName)
+			}, &dirName)
 			if err != nil {
-				return "", err
+				return "", installResultFailed, err
 			}
 		}
-		pathName, err = homedir.Expand(pathName)
+		dirName, err = homedir.Expand(dirName)
 		if err != nil {
-			return "", err
+			return "", installResultFailed, err
 		}
-		if f, err := os.Stat(pathName); os.IsNotExist(err) {
-			err = os.MkdirAll(pathName, 0o775)
+		if f, err := os.Stat(dirName); os.IsNotExist(err) {
+			err = os.MkdirAll(dirName, 0o775)
 			if err != nil {
 				printErr(fmt.Sprintf("Could not create necessary directories: %s", err.Error()))
 				continue
@@ -179,30 +268,13 @@ func installBinary() (string, error) {
 		}
 		break
 	}
-	executable, err := os.Executable()
+	dest, err := copySelfTo(dirName)
 	if err != nil {
-		return "", err
+		printErr(err.Error())
+		return "", installResultFailed, err
 	}
-	self, err := os.Open(executable)
-	if err != nil {
-		return "", err
-	}
-	defer self.Close()
-	dest, err := os.Create(filepath.Join(pathName, filepath.Base(executable)))
-	if err != nil {
-		return "", err
-	}
-	defer dest.Close()
-	err = dest.Chmod(0o0775)
-	if err != nil {
-		return "", err
-	}
-	_, err = io.Copy(dest, self)
-	if err != nil {
-		return "", err
-	}
-	fmt.Printf(zapkc.Green.Add("Installed kubecc to %s\n"), dest.Name())
-	return dest.Name(), nil
+	fmt.Printf(zapkc.Green.Add("Installed kubecc to %s\n"), dest)
+	return dest, installResultInstalled, nil
 }
 
 func configExists(option string) bool {
@@ -517,6 +589,20 @@ func startConsumerd(sd systemd.Systemd) error {
 	return nil
 }
 
+func restartConsumerd(sd systemd.Systemd) error {
+	if err := sd.DaemonReload(); err != nil {
+		return err
+	}
+
+	printStatus("Restarting service... ")
+	if err := sd.Restart(consumerdUnit, systemdTimeout); err != nil {
+		printFailed()
+		return err
+	}
+	printDone()
+	return nil
+}
+
 func connectToConsumerd() (*grpc.ClientConn, error) {
 	printStatus("Connecting to consumerd... ")
 	conf := config.ConfigMapProvider.Load()
@@ -778,7 +864,7 @@ var SetupCmd = &cobra.Command{
 	PreRun:  sudoPreRun,
 	PostRun: sudoPostRun,
 	Run: func(cmd *cobra.Command, args []string) {
-		binPath, err := installBinary()
+		binPath, result, err := installOrUpdateBinary()
 		if err != nil {
 			printErr(err.Error())
 			os.Exit(1)
@@ -787,6 +873,12 @@ var SetupCmd = &cobra.Command{
 		if err != nil {
 			printErr(err.Error())
 			os.Exit(1)
+		}
+		if result == installResultUpdated {
+			if err := restartConsumerd(sd); err != nil {
+				printErr(err.Error())
+				os.Exit(1)
+			}
 		}
 		if err := checkConfig(option); err != nil {
 			printErr(err.Error())

@@ -51,9 +51,9 @@ func printYes() {
 
 func printStatus(msg string) {
 	if sudo {
-		fmt.Print(zapkc.Yellow.Add("❯ ") + msg)
+		fmt.Print(zapkc.Yellow.Add("❯ ") + zapkc.White.Add(msg))
 	} else {
-		fmt.Print(zapkc.Blue.Add("❯ ") + msg)
+		fmt.Print(zapkc.Blue.Add("❯ ") + zapkc.White.Add(msg))
 	}
 }
 

@@ -18,8 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package commands
 
 import (
+	"context"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/clients"
 	. "github.com/kubecc-io/kubecc/pkg/kubecc/internal"
@@ -248,7 +250,9 @@ var getMetrics = &cobra.Command{
 			keys = append(keys, k)
 		}
 		for _, key := range keys {
-			metric, err := c.GetMetric(CLIContext, key)
+			ctx, ca := context.WithTimeout(CLIContext, time.Second*5)
+			defer ca()
+			metric, err := c.GetMetric(ctx, key)
 			if err != nil {
 				CLILog.With("key", key.Canonical()).Error(err)
 				continue
@@ -264,7 +268,9 @@ var getBuckets = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		c := monitorClient()
-		buckets, err := c.GetBuckets(CLIContext, &types.Empty{})
+		ctx, ca := context.WithTimeout(CLIContext, time.Second*5)
+		defer ca()
+		buckets, err := c.GetBuckets(ctx, &types.Empty{})
 		if err != nil {
 			CLILog.Error(err)
 			return
@@ -281,7 +287,9 @@ var getKeys = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		c := monitorClient()
-		keys, err := c.GetKeys(CLIContext, &types.Bucket{
+		ctx, ca := context.WithTimeout(CLIContext, time.Second*5)
+		defer ca()
+		keys, err := c.GetKeys(ctx, &types.Bucket{
 			Name: args[0],
 		})
 		if err != nil {
@@ -300,7 +308,9 @@ var getRoutes = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		c := schedulerClient()
-		keys, err := c.GetRoutes(CLIContext, &types.Empty{})
+		ctx, ca := context.WithTimeout(CLIContext, time.Second*5)
+		defer ca()
+		keys, err := c.GetRoutes(ctx, &types.Empty{})
 		if err != nil {
 			CLILog.Error(err)
 			return
@@ -315,7 +325,9 @@ var getHealth = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		c := monitorClient()
-		buckets, err := c.GetBuckets(CLIContext, &types.Empty{})
+		ctx, ca := context.WithTimeout(CLIContext, time.Second*5)
+		defer ca()
+		buckets, err := c.GetBuckets(ctx, &types.Empty{})
 		if err != nil {
 			CLILog.Error(err)
 			return
