@@ -19,7 +19,7 @@ var Default = All
 var (
 	operatorSdkPath   = "github.com/operator-framework/operator-sdk/cmd/operator-sdk@latest"
 	controllerGenPath = "https://github.com/kralicky/controller-tools/releases/download/v0.6.2-patched/controller-gen"
-	ginkgoPath        = "github.com/onsi/ginkgo/ginkgo@latest"
+	ginkgoPath        = "github.com/onsi/ginkgo/ginkgo@ver2"
 )
 
 func All() {

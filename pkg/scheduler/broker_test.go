@@ -33,6 +33,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/tracing"
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega/gmeasure"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -81,172 +82,174 @@ func safeClose(c chan struct{}) {
 }
 
 var _ = Describe("Broker", func() {
-	Measure("stream event order test", func(b Benchmarker) {
-		ctrl = gomock.NewController(GinkgoT())
+	Specify("stream event order", func() {
+		experiment := gmeasure.NewExperiment("stream event order")
+		for loop := 0; loop < 100; loop++ {
+			ctrl = gomock.NewController(GinkgoT())
 
-		ctx := makeCtx(types.Scheduler)
+			ctx := makeCtx(types.Scheduler)
 
-		incomingCtx1 := makeCtx(types.Agent)
-		incomingCtx2 := makeCtx(types.Agent)
+			incomingCtx1 := makeCtx(types.Agent)
+			incomingCtx2 := makeCtx(types.Agent)
 
-		outgoingCtx1 := makeCtx(types.Consumerd)
-		outgoingCtx2 := makeCtx(types.Consumerd)
+			outgoingCtx1 := makeCtx(types.Consumerd)
+			outgoingCtx2 := makeCtx(types.Consumerd)
 
-		tcw := mockTcWatcher{
-			C: map[string]chan *metrics.Toolchains{
-				meta.UUID(incomingCtx1): make(chan *metrics.Toolchains),
-				meta.UUID(incomingCtx2): make(chan *metrics.Toolchains),
-				meta.UUID(outgoingCtx1): make(chan *metrics.Toolchains),
-				meta.UUID(outgoingCtx2): make(chan *metrics.Toolchains),
-			},
-		}
+			tcw := mockTcWatcher{
+				C: map[string]chan *metrics.Toolchains{
+					meta.UUID(incomingCtx1): make(chan *metrics.Toolchains),
+					meta.UUID(incomingCtx2): make(chan *metrics.Toolchains),
+					meta.UUID(outgoingCtx1): make(chan *metrics.Toolchains),
+					meta.UUID(outgoingCtx2): make(chan *metrics.Toolchains),
+				},
+			}
 
-		broker := NewBroker(ctx, tcw)
+			broker := NewBroker(ctx, tcw)
 
-		incoming1 := mock_types.NewMockScheduler_StreamIncomingTasksServer(ctrl)
-		incoming2 := mock_types.NewMockScheduler_StreamIncomingTasksServer(ctrl)
+			incoming1 := mock_types.NewMockScheduler_StreamIncomingTasksServer(ctrl)
+			incoming2 := mock_types.NewMockScheduler_StreamIncomingTasksServer(ctrl)
 
-		outgoing1 := mock_types.NewMockScheduler_StreamOutgoingTasksServer(ctrl)
-		outgoing2 := mock_types.NewMockScheduler_StreamOutgoingTasksServer(ctrl)
+			outgoing1 := mock_types.NewMockScheduler_StreamOutgoingTasksServer(ctrl)
+			outgoing2 := mock_types.NewMockScheduler_StreamOutgoingTasksServer(ctrl)
 
-		incoming1.EXPECT().Context().Return(incomingCtx1).AnyTimes()
-		incoming2.EXPECT().Context().Return(incomingCtx2).AnyTimes()
-		outgoing1.EXPECT().Context().Return(outgoingCtx1).AnyTimes()
-		outgoing2.EXPECT().Context().Return(outgoingCtx2).AnyTimes()
+			incoming1.EXPECT().Context().Return(incomingCtx1).AnyTimes()
+			incoming2.EXPECT().Context().Return(incomingCtx2).AnyTimes()
+			outgoing1.EXPECT().Context().Return(outgoingCtx1).AnyTimes()
+			outgoing2.EXPECT().Context().Return(outgoingCtx2).AnyTimes()
 
-		/*
-			Order of operations
-			a. Scheduler (outgoing1) calls Recv() and receives sample_req1
-			b. Scheduler (incoming1) calls Send(sample_req1)
-			c. Scheduler (incoming1) calls Recv() and receives sample_resp1
-			d. Scheduler (outgoing1) calls Send(sample_resp1)
-		*/
+			/*
+				Order of operations
+				a. Scheduler (outgoing1) calls Recv() and receives sample_req1
+				b. Scheduler (incoming1) calls Send(sample_req1)
+				c. Scheduler (incoming1) calls Recv() and receives sample_resp1
+				d. Scheduler (outgoing1) calls Send(sample_resp1)
+			*/
 
-		// onceXY channels ensure Recv functions block the second time they are called
-		once1a := make(chan struct{}, 1)
-		once1b := make(chan struct{}, 1)
-		once2a := make(chan struct{}, 1)
-		once2b := make(chan struct{}, 1)
-		once1a <- struct{}{}
-		once1b <- struct{}{}
-		once2a <- struct{}{}
-		once2b <- struct{}{}
+			// onceXY channels ensure Recv functions block the second time they are called
+			once1a := make(chan struct{}, 1)
+			once1b := make(chan struct{}, 1)
+			once2a := make(chan struct{}, 1)
+			once2b := make(chan struct{}, 1)
+			once1a <- struct{}{}
+			once1b <- struct{}{}
+			once2a <- struct{}{}
+			once2b <- struct{}{}
 
-		// sequence of 4 channels allow mock calls to block until conditions are met
-		seq1 := make([]chan struct{}, 4)
-		seq2 := make([]chan struct{}, 4)
+			// sequence of 4 channels allow mock calls to block until conditions are met
+			seq1 := make([]chan struct{}, 4)
+			seq2 := make([]chan struct{}, 4)
 
-		for i := 0; i < 4; i++ {
-			seq1[i] = make(chan struct{})
-			seq2[i] = make(chan struct{})
-		}
+			for i := 0; i < 4; i++ {
+				seq1[i] = make(chan struct{})
+				seq2[i] = make(chan struct{})
+			}
 
-		// set 1
-		outgoing1.EXPECT().Recv().DoAndReturn(func() (*types.CompileRequest, error) {
-			<-once1a // block the second time
-			defer safeClose(seq1[0])
-			return sample_req1, nil
-		}).MinTimes(1).MaxTimes(2)
+			// set 1
+			outgoing1.EXPECT().Recv().DoAndReturn(func() (*types.CompileRequest, error) {
+				<-once1a // block the second time
+				defer safeClose(seq1[0])
+				return sample_req1, nil
+			}).MinTimes(1).MaxTimes(2)
 
-		incoming1.EXPECT().Send(gomock.Eq(sample_req1)).DoAndReturn(func(r *types.CompileRequest) error {
-			defer safeClose(seq1[1])
-			<-seq1[0] // wait for previous
-			return nil
-		}).Times(1)
+			incoming1.EXPECT().Send(gomock.Eq(sample_req1)).DoAndReturn(func(r *types.CompileRequest) error {
+				defer safeClose(seq1[1])
+				<-seq1[0] // wait for previous
+				return nil
+			}).Times(1)
 
-		incoming1.EXPECT().Recv().DoAndReturn(func() (*types.CompileResponse, error) {
-			<-once1b // block the second time
-			defer safeClose(seq1[2])
-			<-seq1[1] // wait for previous
-			return sample_resp1, nil
-		}).MinTimes(1).MaxTimes(2)
+			incoming1.EXPECT().Recv().DoAndReturn(func() (*types.CompileResponse, error) {
+				<-once1b // block the second time
+				defer safeClose(seq1[2])
+				<-seq1[1] // wait for previous
+				return sample_resp1, nil
+			}).MinTimes(1).MaxTimes(2)
 
-		outgoing1.EXPECT().Send(gomock.Eq(sample_resp1)).DoAndReturn(func(r *types.CompileResponse) error {
-			defer safeClose(seq1[3])
-			<-seq1[2] // wait for previous
-			return nil
-		}).Times(1)
+			outgoing1.EXPECT().Send(gomock.Eq(sample_resp1)).DoAndReturn(func(r *types.CompileResponse) error {
+				defer safeClose(seq1[3])
+				<-seq1[2] // wait for previous
+				return nil
+			}).Times(1)
 
-		// set 2
-		outgoing2.EXPECT().Recv().DoAndReturn(func() (*types.CompileRequest, error) {
-			<-once2a // block the second time
-			defer safeClose(seq2[0])
-			return sample_req2, nil
-		}).MinTimes(1).MaxTimes(2)
+			// set 2
+			outgoing2.EXPECT().Recv().DoAndReturn(func() (*types.CompileRequest, error) {
+				<-once2a // block the second time
+				defer safeClose(seq2[0])
+				return sample_req2, nil
+			}).MinTimes(1).MaxTimes(2)
 
-		incoming2.EXPECT().Send(gomock.Eq(sample_req2)).DoAndReturn(func(r *types.CompileRequest) error {
-			defer safeClose(seq2[1])
-			<-seq2[0] // wait for previous
-			return nil
-		}).Times(1)
+			incoming2.EXPECT().Send(gomock.Eq(sample_req2)).DoAndReturn(func(r *types.CompileRequest) error {
+				defer safeClose(seq2[1])
+				<-seq2[0] // wait for previous
+				return nil
+			}).Times(1)
 
-		incoming2.EXPECT().Recv().DoAndReturn(func() (*types.CompileResponse, error) {
-			<-once2b // block the second time
-			defer safeClose(seq2[2])
-			<-seq2[1] // wait for previous
-			return sample_resp2, nil
-		}).MinTimes(1).MaxTimes(2)
+			incoming2.EXPECT().Recv().DoAndReturn(func() (*types.CompileResponse, error) {
+				<-once2b // block the second time
+				defer safeClose(seq2[2])
+				<-seq2[1] // wait for previous
+				return sample_resp2, nil
+			}).MinTimes(1).MaxTimes(2)
 
-		outgoing2.EXPECT().Send(gomock.Eq(sample_resp2)).DoAndReturn(func(r *types.CompileResponse) error {
-			defer safeClose(seq2[3])
-			<-seq2[2] // wait for previous
-			return nil
-		}).Times(1)
+			outgoing2.EXPECT().Send(gomock.Eq(sample_resp2)).DoAndReturn(func(r *types.CompileResponse) error {
+				defer safeClose(seq2[3])
+				<-seq2[2] // wait for previous
+				return nil
+			}).Times(1)
 
-		// Add agents first, they need to be available to process the requests.
-		// The broker will not wait for agents to become available if it receives
-		// a request it cannot satisfy immediately.
+			// Add agents first, they need to be available to process the requests.
+			// The broker will not wait for agents to become available if it receives
+			// a request it cannot satisfy immediately.
 
-		start := time.Now()
+			start := time.Now()
 
-		// Add agent 1
-		go func() {
-			tcw.C[meta.UUID(incoming1.Context())] <- testAgent1.Toolchains
-		}()
-		broker.NewAgentTaskStream(incoming1)
+			// Add agent 1
+			go func() {
+				tcw.C[meta.UUID(incoming1.Context())] <- testAgent1.Toolchains
+			}()
+			broker.NewAgentTaskStream(incoming1)
 
-		// Add agent 2
-		go func() {
-			tcw.C[meta.UUID(incoming2.Context())] <- testAgent2.Toolchains
-		}()
-		broker.NewAgentTaskStream(incoming2)
+			// Add agent 2
+			go func() {
+				tcw.C[meta.UUID(incoming2.Context())] <- testAgent2.Toolchains
+			}()
+			broker.NewAgentTaskStream(incoming2)
 
-		// Add consumerds (order here is not important)
-		go broker.NewConsumerdTaskStream(outgoing1)
-		go broker.NewConsumerdTaskStream(outgoing2)
-		go func() {
-			tcw.C[meta.UUID(outgoing1.Context())] <- testCd1.Toolchains
-		}()
-		go func() {
-			tcw.C[meta.UUID(outgoing2.Context())] <- testCd2.Toolchains
-		}()
+			// Add consumerds (order here is not important)
+			go broker.NewConsumerdTaskStream(outgoing1)
+			go broker.NewConsumerdTaskStream(outgoing2)
+			go func() {
+				tcw.C[meta.UUID(outgoing1.Context())] <- testCd1.Toolchains
+			}()
+			go func() {
+				tcw.C[meta.UUID(outgoing2.Context())] <- testCd2.Toolchains
+			}()
 
-		// wait until the final channel of each sequence closes
-		wg := &sync.WaitGroup{}
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			<-seq1[3]
-		}()
-		go func() {
-			defer wg.Done()
-			<-seq2[3]
-		}()
-		completed := make(chan struct{})
-		go func() {
-			wg.Wait()
-			close(completed)
-		}()
-		// wait until completed or timed out
-		select {
-		case <-completed:
-			b.RecordValueWithPrecision(
-				"scenario duration",
-				float64(time.Since(start).Microseconds()),
-				"µs", 2,
-			)
-		case <-time.After(2 * time.Second):
-			Fail(fmt.Sprintf(`-- Timed out --
+			// wait until the final channel of each sequence closes
+			wg := &sync.WaitGroup{}
+			wg.Add(2)
+			go func() {
+				defer wg.Done()
+				<-seq1[3]
+			}()
+			go func() {
+				defer wg.Done()
+				<-seq2[3]
+			}()
+			completed := make(chan struct{})
+			go func() {
+				wg.Wait()
+				close(completed)
+			}()
+			// wait until completed or timed out
+			select {
+			case <-completed:
+				experiment.RecordDuration(
+					"scenario duration",
+					time.Since(start),
+					gmeasure.Precision(time.Microsecond),
+				)
+			case <-time.After(2 * time.Second):
+				Fail(fmt.Sprintf(`-- Timed out --
 
 Event status:
 
@@ -260,15 +263,17 @@ Sequence 2:
 [%s] Scheduler (incoming2) calls Send(sample_req2)
 [%s] Scheduler (incoming2) calls Recv() and receives sample_resp2
 [%s] Scheduler (outgoing2) calls Send(sample_resp2)`,
-				checkStatus(seq1[0]),
-				checkStatus(seq1[1]),
-				checkStatus(seq1[2]),
-				checkStatus(seq1[3]),
-				checkStatus(seq2[0]),
-				checkStatus(seq2[1]),
-				checkStatus(seq2[2]),
-				checkStatus(seq2[3])))
+					checkStatus(seq1[0]),
+					checkStatus(seq1[1]),
+					checkStatus(seq1[2]),
+					checkStatus(seq1[3]),
+					checkStatus(seq2[0]),
+					checkStatus(seq2[1]),
+					checkStatus(seq2[2]),
+					checkStatus(seq2[3])))
+			}
+			ctrl.Finish() // will print an error if calls didn't match
 		}
-		ctrl.Finish() // will print an error if calls didn't match
-	}, 100)
+		AddReportEntry(experiment.Name, experiment)
+	})
 })

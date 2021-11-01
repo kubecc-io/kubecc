@@ -23,6 +23,7 @@ import (
 
 	"github.com/kubecc-io/kubecc/internal/zapkc"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega/gmeasure"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -97,36 +98,38 @@ var _ = Describe("Encoder", func() {
 		assert.Equal(GinkgoT(), "    ", string(zapkc.FormatEntryCaller("", 4)))
 		assert.Equal(GinkgoT(), "     ", string(zapkc.FormatEntryCaller("", 5)))
 	})
-	Measure("performance", func(b Benchmarker) {
-		testCases := []string{
-			"zxxxxxx/yxxxxxxxxxxx.go:123",
-			"zxxxxxx/yxxxxxx.go:123",
-		}
+	Specify("performance", func() {
+		experiment := gmeasure.NewExperiment("zapkc performance")
+		for i := 0; i < 10; i++ {
+			testCases := []string{
+				"zxxxxxx/yxxxxxxxxxxx.go:123",
+				"zxxxxxx/yxxxxxx.go:123",
+			}
 
-		go func() {
 			for i, test := range testCases {
 				func(test string) {
-					b.Time(fmt.Sprintf("FormatEntryCaller (%d)", i), func() {
+					experiment.MeasureDuration(fmt.Sprintf("FormatEntryCaller (%d)", i), func() {
 						for ii := 0; ii < 1e5; ii++ {
 							_ = zapkc.FormatEntryCaller(test, 16)
 						}
 					})
 				}(test)
 			}
-		}()
-		go b.Time("fmt.Sprintf (0)", func() {
-			for i := 0; i < 1e5; i++ {
-				spl := strings.Split(testCases[0], "/")
-				spl2 := strings.Split(spl[1], ".")
-				_ = fmt.Sprintf("%16s", fmt.Sprintf("%-8s+.%s", spl2[0], spl2[1]))
-			}
-		})
-		b.Time("fmt.Sprintf (1)", func() {
-			for i := 0; i < 1e5; i++ {
-				spl := strings.Split(testCases[1], "/")
-				spl2 := strings.Split(spl[1], ".")
-				_ = fmt.Sprintf("%16s", fmt.Sprintf("%c+.%s", spl2[0][0], spl2[1]))
-			}
-		})
-	}, 5)
+			experiment.MeasureDuration("fmt.Sprintf (0)", func() {
+				for i := 0; i < 1e5; i++ {
+					spl := strings.Split(testCases[0], "/")
+					spl2 := strings.Split(spl[1], ".")
+					_ = fmt.Sprintf("%16s", fmt.Sprintf("%-8s+.%s", spl2[0], spl2[1]))
+				}
+			})
+			experiment.MeasureDuration("fmt.Sprintf (1)", func() {
+				for i := 0; i < 1e5; i++ {
+					spl := strings.Split(testCases[1], "/")
+					spl2 := strings.Split(spl[1], ".")
+					_ = fmt.Sprintf("%16s", fmt.Sprintf("%c+.%s", spl2[0][0], spl2[1]))
+				}
+			})
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
 })

@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kubecc-io/kubecc/internal/logkc"
 	"github.com/kubecc-io/kubecc/pkg/identity"
@@ -32,6 +33,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap/zapcore"
 )
@@ -48,195 +50,223 @@ func init() {
 }
 
 var _ = Describe("CC Arg Parser", func() {
-	Measure("basic command parsing", func(b Benchmarker) {
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-		info := NewArgParserFromOS(ctx)
-		b.Time("Parse", func() {
+	Specify("basic command parsing", func() {
+		experiment := gmeasure.NewExperiment("basic command parsing")
+		for i := 0; i < 1000; i++ {
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
+			info := NewArgParserFromOS(ctx)
+			experiment.MeasureDuration("Parse", func() {
+				info.Parse()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), Compile, info.ActionOpt())
+			assert.Equal(GinkgoT(), 9, info.InputArgIndex)
+			assert.Equal(GinkgoT(), 7, info.OutputArgIndex)
+			assert.Equal(GinkgoT(), 6, info.FlagIndexMap["-o"])
+			assert.Equal(GinkgoT(), 8, info.FlagIndexMap["-c"])
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("changing the action opt", func() {
+		experiment := gmeasure.NewExperiment("changing the action opt")
+		for i := 0; i < 1000; i++ {
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
+			info := NewArgParserFromOS(ctx)
 			info.Parse()
-		})
-		assert.Equal(GinkgoT(), Compile, info.ActionOpt())
-		assert.Equal(GinkgoT(), 9, info.InputArgIndex)
-		assert.Equal(GinkgoT(), 7, info.OutputArgIndex)
-		assert.Equal(GinkgoT(), 6, info.FlagIndexMap["-o"])
-		assert.Equal(GinkgoT(), 8, info.FlagIndexMap["-c"])
-	}, 1000)
-	Measure("changing the action opt", func(b Benchmarker) {
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		assert.Equal(GinkgoT(), Compile, info.ActionOpt())
-		b.Time("Set action opt", func() {
-			info.SetActionOpt(GenAssembly)
-		})
-		assert.Equal(GinkgoT(), GenAssembly, info.ActionOpt())
-		b.Time("Set action opt", func() {
-			info.SetActionOpt(Preprocess)
-		})
-		assert.Equal(GinkgoT(), Preprocess, info.ActionOpt())
-	}, 1000)
-	Measure("Substituting preprocessor options", func(b Benchmarker) {
-		oldArgs := os.Args
-		defer func() {
-			os.Args = oldArgs
-		}()
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
+			assert.Equal(GinkgoT(), Compile, info.ActionOpt())
+			experiment.MeasureDuration("Set action opt", func() {
+				info.SetActionOpt(GenAssembly)
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), GenAssembly, info.ActionOpt())
+			experiment.MeasureDuration("Set action opt", func() {
+				info.SetActionOpt(Preprocess)
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), Preprocess, info.ActionOpt())
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Substituting preprocessor options", func() {
+		experiment := gmeasure.NewExperiment("Substituting preprocessor options")
+		for i := 0; i < 1000; i++ {
+			oldArgs := os.Args
+			defer func() {
+				os.Args = oldArgs
+			}()
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Configure Preprocessor Options", func() {
-			info.ConfigurePreprocessorOptions()
-		})
-		assert.Equal(GinkgoT(), os.Args[1:],
-			info.Args,
-		)
+			info := NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Configure Preprocessor Options", func() {
+				info.ConfigurePreprocessorOptions()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), os.Args[1:],
+				info.Args,
+			)
 
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y -Wp,-MD,path -o src/test.o -c src/test.c`, " ")
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y -Wp,-MD,path -o src/test.o -c src/test.c`, " ")
 
-		info = NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Configure Preprocessor Options", func() {
-			info.ConfigurePreprocessorOptions()
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
+			info = NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Configure Preprocessor Options", func() {
+				info.ConfigurePreprocessorOptions()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -MD -MF path -o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
 
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-Z,-ZZ -o src/test.o -c src/test.c`, " ")
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-Z,-ZZ -o src/test.o -c src/test.c`, " ")
 
-		info = NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Configure Preprocessor Options", func() {
-			info.ConfigurePreprocessorOptions()
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
+			info = NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Configure Preprocessor Options", func() {
+				info.ConfigurePreprocessorOptions()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -Z -ZZ -o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
 
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-MMD,path2 -o src/test.o -c src/test.c`, " ")
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -Wp,-X -Wp,-Y,-YY -Wp,-MD,path,-MMD,path2 -o src/test.o -c src/test.c`, " ")
 
-		info = NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Configure Preprocessor Options", func() {
-			info.ConfigurePreprocessorOptions()
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
-	}, 1000)
-	Measure("Replacing output paths", func(b Benchmarker) {
-		oldArgs := os.Args
-		defer func() {
-			os.Args = oldArgs
-		}()
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
+			info = NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Configure Preprocessor Options", func() {
+				info.ConfigurePreprocessorOptions()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -X -Y -YY -MD -MF path -MMD -MF path2 -o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Replacing output paths", func() {
+		experiment := gmeasure.NewExperiment("Replacing output paths")
+		for i := 0; i < 1000; i++ {
+			oldArgs := os.Args
+			defer func() {
+				os.Args = oldArgs
+			}()
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Replace output path", func() {
-			info.ReplaceOutputPath("-")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o - -c src/test.c`, " "),
-			info.Args,
-		)
-		b.Time("Replace output path", func() {
-			info.ReplaceOutputPath("-")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o - -c src/test.c`, " "),
-			info.Args,
-		)
-		b.Time("Replace output path", func() {
-			info.ReplaceOutputPath("src/test.o")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
-		b.Time("Replace output path", func() {
-			info.ReplaceOutputPath("src/test.o")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
-	}, 1000)
-	Measure("Replacing input paths", func(b Benchmarker) {
-		oldArgs := os.Args
-		defer func() {
-			os.Args = oldArgs
-		}()
-		os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
+			info := NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Replace output path", func() {
+				info.ReplaceOutputPath("-")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o - -c src/test.c`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace output path", func() {
+				info.ReplaceOutputPath("-")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o - -c src/test.c`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace output path", func() {
+				info.ReplaceOutputPath("src/test.o")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace output path", func() {
+				info.ReplaceOutputPath("src/test.o")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Replacing input paths", func() {
+		experiment := gmeasure.NewExperiment("Replacing input paths")
+		for i := 0; i < 1000; i++ {
+			oldArgs := os.Args
+			defer func() {
+				os.Args = oldArgs
+			}()
+			os.Args = strings.Split(`gcc -Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c`, " ")
 
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("src2/test.c")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src2/test.c -ffile-prefix-map=src=src2`, " "),
-			info.Args,
-		)
-		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("/test.c")
-		})
-		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c /test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/`, " "),
-			info.Args,
-		)
-		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("test.c")
-		})
-		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=.`, " "),
-			info.Args,
-		)
-		b.Time("Replace input path", func() {
-			info.ReplaceInputPath("src/test.c")
-		})
-		// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-		assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=. -ffile-prefix-map=.=src`, " "),
-			info.Args,
-		)
-	}, 1000)
-	Measure("Removing local-only arguments", func(b Benchmarker) {
-		oldArgs := os.Args
-		defer func() {
-			os.Args = oldArgs
-		}()
-		os.Args = strings.Split(`gcc -Wp,a,b -MD -L test -Ltest -l test -ltest -Da=b -I. -I test -D a=b -o src/test.o -c src/test.c`, " ")
+			info := NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Replace input path", func() {
+				info.ReplaceInputPath("src2/test.c")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src2/test.c -ffile-prefix-map=src=src2`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace input path", func() {
+				info.ReplaceInputPath("/test.c")
+			}, gmeasure.Precision(time.Microsecond))
+			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c /test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace input path", func() {
+				info.ReplaceInputPath("test.c")
+			}, gmeasure.Precision(time.Microsecond))
+			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=.`, " "),
+				info.Args,
+			)
+			experiment.MeasureDuration("Replace input path", func() {
+				info.ReplaceInputPath("src/test.c")
+			}, gmeasure.Precision(time.Microsecond))
+			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=. -ffile-prefix-map=.=src`, " "),
+				info.Args,
+			)
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Removing local-only arguments", func() {
+		experiment := gmeasure.NewExperiment("Removing local-only arguments")
+		for i := 0; i < 1000; i++ {
+			oldArgs := os.Args
+			defer func() {
+				os.Args = oldArgs
+			}()
+			os.Args = strings.Split(`gcc -Wp,a,b -MD -L test -Ltest -l test -ltest -Da=b -I. -I test -D a=b -o src/test.o -c src/test.c`, " ")
 
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Remove local arguments", func() {
-			info.RemoveLocalArgs()
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c src/test.c`, " "),
-			info.Args,
-		)
-	}, 1000)
-	Measure("Prepending the language flag", func(b Benchmarker) {
-		oldArgs := os.Args
-		defer func() {
-			os.Args = oldArgs
-		}()
-		os.Args = strings.Split(`gcc -o src/test.o -c src/test.c`, " ")
+			info := NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Remove local arguments", func() {
+				info.RemoveLocalArgs()
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c src/test.c`, " "),
+				info.Args,
+			)
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Prepending the language flag", func() {
+		experiment := gmeasure.NewExperiment("Prepending the language flag")
+		for i := 0; i < 1000; i++ {
+			oldArgs := os.Args
+			defer func() {
+				os.Args = oldArgs
+			}()
+			os.Args = strings.Split(`gcc -o src/test.o -c src/test.c`, " ")
 
-		info := NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Prepend language flag", func() {
-			info.ReplaceInputPath("/path/to/test.c")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c /path/to/test.c -ffile-prefix-map=src=/path/to`, " "),
-			info.Args,
-		)
+			info := NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Prepend language flag", func() {
+				info.ReplaceInputPath("/path/to/test.c")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c /path/to/test.c -ffile-prefix-map=src=/path/to`, " "),
+				info.Args,
+			)
 
-		os.Args = strings.Split(`gcc -o src/test.o -c src/test.cpp`, " ")
+			os.Args = strings.Split(`gcc -o src/test.o -c src/test.cpp`, " ")
 
-		info = NewArgParserFromOS(ctx)
-		info.Parse()
-		b.Time("Prepend language flag", func() {
-			info.ReplaceInputPath("relative/path/test.cpp")
-		})
-		assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c relative/path/test.cpp -ffile-prefix-map=src=relative/path`, " "),
-			info.Args,
-		)
-	}, 1000)
+			info = NewArgParserFromOS(ctx)
+			info.Parse()
+			experiment.MeasureDuration("Prepend language flag", func() {
+				info.ReplaceInputPath("relative/path/test.cpp")
+			}, gmeasure.Precision(time.Microsecond))
+			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c relative/path/test.cpp -ffile-prefix-map=src=relative/path`, " "),
+				info.Args,
+			)
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
 	It("should standardize arguments where necessary", func() {
 		os.Args = strings.Split(`gcc -o/path/to/test.o -c src/test.cpp`, " ")
 

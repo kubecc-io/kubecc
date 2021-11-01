@@ -25,6 +25,7 @@ import (
 	mapset "github.com/deckarep/golang-set"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 
 	"github.com/kubecc-io/kubecc/pkg/monitor"
 	"github.com/kubecc-io/kubecc/pkg/test"
@@ -109,52 +110,60 @@ var _ = Describe("Store", func() {
 		Expect(ok).To(BeTrue())
 		Expect(value).To(BeEquivalentTo(&test.Test1{Counter: 2}))
 	})
-	Measure("Performance", func(b Benchmarker) {
-		store = monitor.InMemoryStoreCreator.NewStore(context.Background())
-		b.Time("10B payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: "0123456789"})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("100B payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("1KB payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 100)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("10KB payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1000)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("100KB payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10000)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("1MB payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e5)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		b.Time("10MB payload Set/Get", func() {
-			store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e6)})
-			_, _ = store.Get("key1")
-		})
-		store.Delete("key1")
-		Expect(store.Len()).To(Equal(0))
-	}, 100)
-	Measure("Throughput", func(b Benchmarker) {
-		start := time.Now()
-		for i := 0; i < 1000; i++ {
-			store.CAS("throughput", &test.Test1{Counter: int32(i)})
+	Specify("Performance", func() {
+		experiment := gmeasure.NewExperiment("In-memory store performance")
+		for i := 0; i < 100; i++ {
+			store = monitor.InMemoryStoreCreator.NewStore(context.Background())
+			experiment.MeasureDuration("10B payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: "0123456789"})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("100B payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("1KB payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 100)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("10KB payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1000)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("100KB payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 10000)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("1MB payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e5)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			experiment.MeasureDuration("10MB payload Set/Get", func() {
+				store.Set("key1", &test.Test2{Value: strings.Repeat("0123456789", 1e6)})
+				_, _ = store.Get("key1")
+			})
+			store.Delete("key1")
+			Expect(store.Len()).To(Equal(0))
 		}
-		elapsed := time.Since(start)
-		b.RecordValueWithPrecision("Updates per second",
-			float64(1e12/elapsed.Nanoseconds())/1e6, "M", 3)
-	}, 100)
+		AddReportEntry(experiment.Name, experiment)
+	})
+	Specify("Throughput", func() {
+		experiment := gmeasure.NewExperiment("In-memory store throughput")
+		for loop := 0; loop < 100; loop++ {
+			start := time.Now()
+			for i := 0; i < 1000; i++ {
+				store.CAS("throughput", &test.Test1{Counter: int32(i)})
+			}
+			elapsed := time.Since(start)
+			experiment.RecordValue("Updates per second",
+				float64(1e12/elapsed.Nanoseconds())/1e6, gmeasure.Units("millions"), gmeasure.Precision(3))
+		}
+		AddReportEntry(experiment.Name, experiment)
+	})
 })

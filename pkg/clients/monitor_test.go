@@ -38,6 +38,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/types"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 	"go.uber.org/atomic"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
@@ -342,109 +343,121 @@ var _ = Describe("Monitor Clients", func() {
 		})
 		sampleIdx := 0
 		allActiveListeners := atomic.NewInt32(0)
-		Measure("Creating listeners for each key", func(b Benchmarker) {
+		Specify("Creating listeners for each key", func() {
 			test.SkipInGithubWorkflow()
-			defer func() {
-				sampleIdx++
-			}()
-			ctx := meta.NewContext(
-				meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
-				meta.WithProvider(identity.UUID),
-				meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
-					logkc.WithLogLevel(zapcore.ErrorLevel)))),
-				meta.WithProvider(tracing.Tracer),
-			)
-			cc, _ := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
-				grpc.WithContextDialer(
-					func(context.Context, string) (net.Conn, error) {
-						return listener.Dial()
-					}),
-			))
-			mc := types.NewMonitorClient(cc)
-			l := clients.NewMetricsListener(ctx, mc)
-			listeners[sampleIdx] = l
-			handler := handlers[sampleIdx%4]
-			activeListeners := atomic.NewInt32(0)
-			l.OnProviderAdded(func(ctx context.Context, uuid string) {
-				if _, ok := uuids[uuid]; !ok {
-					return
-				}
-				activeListeners.Inc()
-				defer activeListeners.Dec()
-				allActiveListeners.Inc()
-				defer allActiveListeners.Dec()
-				l.OnValueChanged(uuid, handler)
-				<-ctx.Done()
-			})
-			Eventually(func() int {
-				return int(activeListeners.Load())
-			}, 5*time.Second, 10*time.Millisecond).Should(Equal(len(providers)))
-		}, len(listeners)) // This is the loop
-		Measure("Updating keys rapidly for each provider", func(b Benchmarker) {
+			experiment := gmeasure.NewExperiment("Creating listeners for each key")
+			for i := 0; i < len(listeners); i++ {
+				experiment.MeasureDuration("Creating listeners for each key", func() {
+					defer func() {
+						sampleIdx++
+					}()
+					ctx := meta.NewContext(
+						meta.WithProvider(identity.Component, meta.WithValue(types.CLI)),
+						meta.WithProvider(identity.UUID),
+						meta.WithProvider(logkc.Logger, meta.WithValue(logkc.New(types.CLI,
+							logkc.WithLogLevel(zapcore.ErrorLevel)))),
+						meta.WithProvider(tracing.Tracer),
+					)
+					cc, _ := servers.Dial(ctx, uuid.NewString(), servers.WithDialOpts(
+						grpc.WithContextDialer(
+							func(context.Context, string) (net.Conn, error) {
+								return listener.Dial()
+							}),
+					))
+					mc := types.NewMonitorClient(cc)
+					l := clients.NewMetricsListener(ctx, mc)
+					listeners[sampleIdx] = l
+					handler := handlers[sampleIdx%4]
+					activeListeners := atomic.NewInt32(0)
+					l.OnProviderAdded(func(ctx context.Context, uuid string) {
+						if _, ok := uuids[uuid]; !ok {
+							return
+						}
+						activeListeners.Inc()
+						defer activeListeners.Dec()
+						allActiveListeners.Inc()
+						defer allActiveListeners.Dec()
+						l.OnValueChanged(uuid, handler)
+						<-ctx.Done()
+					})
+					Eventually(func() int {
+						return int(activeListeners.Load())
+					}, 5*time.Second, 10*time.Millisecond).Should(Equal(len(providers)))
+				})
+			}
+			AddReportEntry(experiment.Name, experiment)
+		})
+		Specify("Updating keys rapidly for each provider", func() {
 			test.SkipInGithubWorkflow()
+			experiment := gmeasure.NewExperiment("Updating keys rapidly for each provider")
 			if test.IsRaceDetectorEnabled() {
 				testLog.Warn("Race detector enabled: Data volume limited to 10%")
 			}
-			go func() {
-				defer GinkgoRecover()
-				b.Time(fmt.Sprintf("%d Key 1 updates", numUpdatesPerKey), func() {
-					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.Test1{Counter: int32(i)})
-					}
-				})
-			}()
-			go func() {
-				defer GinkgoRecover()
-				b.Time(fmt.Sprintf("%d Key 2 updates", numUpdatesPerKey), func() {
-					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.Test2{Value: fmt.Sprint(i)})
-					}
-				})
-			}()
-			go func() {
-				defer GinkgoRecover()
-				b.Time(fmt.Sprintf("%d Key 3 updates", numUpdatesPerKey), func() {
-					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.Test3{Counter: int32(i)})
-					}
-				})
-			}()
-			go func() {
-				defer GinkgoRecover()
-				b.Time(fmt.Sprintf("%d Key 4 updates", numUpdatesPerKey), func() {
-					for i := 0; i < numUpdatesPerKey; i++ {
-						providers[i%len(providers)].Post(&test.Test4{Value: fmt.Sprint(i)})
-					}
-				})
-			}()
-			total := int32(numUpdatesPerKey * numListenersPerKey)
-			var wg sync.WaitGroup
-			wg.Add(4)
-			for i := 0; i < 4; i++ {
-				go func(i int) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					b.Time(fmt.Sprintf("%d key %d callbacks", total, i+1), func() {
-						timeout := time.NewTimer(callbackTimeout)
-						for totals[i].Load() < total {
-							select {
-							case <-timeout.C:
-								return
-							default:
+			for loop := 0; loop < perfTestLoops; loop++ {
+				func() {
+					go func() {
+						defer GinkgoRecover()
+						experiment.MeasureDuration(fmt.Sprintf("%d Key 1 updates", numUpdatesPerKey), func() {
+							for i := 0; i < numUpdatesPerKey; i++ {
+								providers[i%len(providers)].Post(&test.Test1{Counter: int32(i)})
 							}
-							time.Sleep(10 * time.Millisecond)
-						}
-					})
-				}(i)
+						})
+					}()
+					go func() {
+						defer GinkgoRecover()
+						experiment.MeasureDuration(fmt.Sprintf("%d Key 2 updates", numUpdatesPerKey), func() {
+							for i := 0; i < numUpdatesPerKey; i++ {
+								providers[i%len(providers)].Post(&test.Test2{Value: fmt.Sprint(i)})
+							}
+						})
+					}()
+					go func() {
+						defer GinkgoRecover()
+						experiment.MeasureDuration(fmt.Sprintf("%d Key 3 updates", numUpdatesPerKey), func() {
+							for i := 0; i < numUpdatesPerKey; i++ {
+								providers[i%len(providers)].Post(&test.Test3{Counter: int32(i)})
+							}
+						})
+					}()
+					go func() {
+						defer GinkgoRecover()
+						experiment.MeasureDuration(fmt.Sprintf("%d Key 4 updates", numUpdatesPerKey), func() {
+							for i := 0; i < numUpdatesPerKey; i++ {
+								providers[i%len(providers)].Post(&test.Test4{Value: fmt.Sprint(i)})
+							}
+						})
+					}()
+					total := int32(numUpdatesPerKey * numListenersPerKey)
+					var wg sync.WaitGroup
+					wg.Add(4)
+					for i := 0; i < 4; i++ {
+						go func(i int) {
+							defer GinkgoRecover()
+							defer wg.Done()
+							experiment.MeasureDuration(fmt.Sprintf("%d key %d callbacks", total, i+1), func() {
+								timeout := time.NewTimer(callbackTimeout)
+								for totals[i].Load() < total {
+									select {
+									case <-timeout.C:
+										return
+									default:
+									}
+									time.Sleep(10 * time.Millisecond)
+								}
+							})
+						}(i)
+					}
+					wg.Wait()
+					Expect([]int32{
+						totals[0].Swap(0),
+						totals[1].Swap(0),
+						totals[2].Swap(0),
+						totals[3].Swap(0),
+					}).To(Equal([]int32{total, total, total, total}))
+				}()
 			}
-			wg.Wait()
-			Expect([]int32{
-				totals[0].Swap(0),
-				totals[1].Swap(0),
-				totals[2].Swap(0),
-				totals[3].Swap(0),
-			}).To(Equal([]int32{total, total, total, total}))
-		}, perfTestLoops)
+			AddReportEntry(experiment.Name, experiment)
+		})
 		When("the provider is canceled", func() {
 			It("should cancel associated listeners", func() {
 				for _, cancel := range cancels {

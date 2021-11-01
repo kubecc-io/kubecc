@@ -171,28 +171,28 @@ var _ = Describe("Basic Functionality", func() {
 			Specify("startup", func() {
 				test.SpawnScheduler(testEnv, test.WaitForReady())
 			})
-			Measure("the queue should split tasks between local and remote evenly", func(b Benchmarker) {
-				time.Sleep(100 * time.Millisecond) // important
-				eventTimestamps = append(eventTimestamps, time.Now())
-				numTasks = 1000
-				taskPool := makeTaskPool(numTasks)
-				monClient := test.NewMonitorClient(testEnv, testCtx)
-				avc := clients.NewAvailabilityChecker(
-					clients.ComponentFilter(types.Scheduler),
-				)
-				clients.WatchAvailability(testCtx, monClient, avc)
-				By("Waiting for scheduler")
-				avc.EnsureAvailable()
+			for i := 0; i < iterations; i++ {
+				Specify("the queue should split tasks between local and remote evenly", func() {
+					time.Sleep(100 * time.Millisecond) // important
+					eventTimestamps = append(eventTimestamps, time.Now())
+					numTasks = 1000
+					taskPool := makeTaskPool(numTasks)
+					monClient := test.NewMonitorClient(testEnv, testCtx)
+					avc := clients.NewAvailabilityChecker(
+						clients.ComponentFilter(types.Scheduler),
+					)
+					clients.WatchAvailability(testCtx, monClient, avc)
+					By("Waiting for scheduler")
+					avc.EnsureAvailable()
 
-				By("Running tasks")
-				local, remote := runAllTasks(taskPool, queue)
-				Expect(local + remote).To(BeEquivalentTo(numTasks))
-				Expect(local).To(BeNumerically(">", 0))
-				Expect(remote).To(BeNumerically(">", 0))
-				b.RecordValue("local", float64(local))
-				b.RecordValue("remote", float64(remote))
-				eventTimestamps = append(eventTimestamps, time.Now())
-			}, iterations)
+					By("Running tasks")
+					local, remote := runAllTasks(taskPool, queue)
+					Expect(local + remote).To(BeEquivalentTo(numTasks))
+					Expect(local).To(BeNumerically(">", 0))
+					Expect(remote).To(BeNumerically(">", 0))
+					eventTimestamps = append(eventTimestamps, time.Now())
+				})
+			}
 		})
 		Specify("Analyzing telemetry", func() {
 			Expect(len(eventTimestamps)).To(Equal(iterations*2 + 2))

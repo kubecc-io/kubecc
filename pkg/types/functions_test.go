@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package types_test
 
 import (
+	"math/rand"
+
 	"github.com/google/uuid"
 	md5simd "github.com/minio/md5-simd"
 	. "github.com/onsi/ginkgo"
@@ -35,16 +37,15 @@ var _ = Describe("Functions", func() {
 				for _, lang := range []types.ToolchainLang{types.C, types.CXX, types.Multi, types.ToolchainLang_ToolchainLang_Unknown} {
 					for _, version := range []string{"7", "8", "9", "10", "10.1", "test"} {
 						for _, arch := range []string{"amd64", "aarch64", "testarch"} {
-							for _, pic := range []bool{true, false} {
-								toolchains = append(toolchains, &types.Toolchain{
-									Kind:       kind,
-									Lang:       lang,
-									TargetArch: arch,
-									Version:    version,
-									PicDefault: pic,
-									Executable: uuid.NewString(), // executable path shouldn't matter
-								})
-							}
+							toolchains = append(toolchains, &types.Toolchain{
+								Kind:       kind,
+								Lang:       lang,
+								TargetArch: arch,
+								Version:    version,
+								PicDefault: rand.Intn(2) == 1, // pic default shouldn't affect the hash
+								PieDefault: rand.Intn(2) == 1, // pie default shouldn't affect the hash
+								Executable: uuid.NewString(),  // executable path shouldn't affect the hash
+							})
 						}
 					}
 				}

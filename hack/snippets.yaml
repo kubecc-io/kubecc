@@ -42,15 +42,6 @@ When:
     When("$1", func() {
       $0
     })
-Measure:
-  prefix: measure
-  body: |-
-    Measure("$1", func(b Benchmarker) {
-      $0
-      b.Time("TODO", func() {
-          "",
-      })
-    })
 It:
   prefix: it
   body: |-
@@ -87,4 +78,4 @@ Eventually Int:
     Eventually(func() int {
       $1
     }).Should(BeEquivalentTo($2))
-        
+

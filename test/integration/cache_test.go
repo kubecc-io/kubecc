@@ -19,6 +19,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"time"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/test"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gmeasure"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 )
@@ -68,20 +70,21 @@ var _ = Describe("Cache test", func() {
 		)
 	})
 
-	Measure("1 agent, cache online", func(b Benchmarker) {
+	Specify("1 agent, cache online", func() {
+		experiment := gmeasure.NewExperiment(fmt.Sprintf("time to process %d sleep-100ms tasks", localJobs))
 		start := time.Now()
 		test.ProcessTaskPool(testEnv, "default", localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration1 := time.Since(start)
-		b.RecordValueWithPrecision("No cached results", float64(duration1.Milliseconds()), "ms", 2)
+		experiment.RecordDuration("No cached results", duration1, gmeasure.Precision(time.Millisecond))
 		start2 := time.Now()
 		test.ProcessTaskPool(testEnv, "default", localJobs, test.MakeSleepTaskPool(localJobs, func() string {
 			return "100ms"
 		}), 5*time.Second)
 		duration2 := time.Since(start2)
-		b.RecordValueWithPrecision("With cached results", float64(duration2.Milliseconds()), "ms", 2)
+		experiment.RecordDuration("With cached results", duration2, gmeasure.Precision(time.Millisecond))
 		Expect(duration2.Milliseconds()).To(BeNumerically("<", duration1.Milliseconds()))
-	}, 1)
-
+		AddReportEntry(experiment.Name, experiment)
+	})
 })

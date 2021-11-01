@@ -189,7 +189,8 @@ func (o *Optimizer) run() {
 		case types.Cache:
 			o.runCacheOptimizer(listener, c, s)
 		case types.Agent:
-			o.runAgentOptimizer(listener, c, s)
+			// todo
+			// o.runAgentOptimizer(listener, c, s)
 		}
 	})
 }
