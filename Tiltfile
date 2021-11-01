@@ -1,9 +1,5 @@
-load('ext://cert_manager', 'deploy_cert_manager')
-
 allow_k8s_contexts('default')
 allow_k8s_contexts('tilt-kubecc')
-
-deploy_cert_manager(version="v1.6.0")
 
 k8s_yaml(kustomize("config/default"))
 

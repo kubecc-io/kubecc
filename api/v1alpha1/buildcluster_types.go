@@ -105,6 +105,7 @@ type MonitorSpec struct {
 }
 
 type CacheSpec struct {
+	Enabled         bool                        `json:"enabled,omitempty"`
 	NodeAffinity    *v1.NodeAffinity            `json:"nodeAffinity,omitempty"`
 	Resources       v1.ResourceRequirements     `json:"resources,omitempty"`
 	VolatileStorage *config.VolatileStorageSpec `json:"volatileStorage,omitempty"`

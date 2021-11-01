@@ -14,7 +14,8 @@ func (r *Reconciler) toolbox() ([]resources.Resource, error) {
 		return nil, err
 	}
 	labels := map[string]string{
-		"app": "kubecc-toolbox",
+		"app":         "kubecc-toolbox",
+		"kubecc-role": "control-plane",
 	}
 	toolbox := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,6 +32,10 @@ func (r *Reconciler) toolbox() ([]resources.Resource, error) {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName: "kubecc-low-priority",
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: agentAntiAffinity(),
+					},
 					InitContainers: []corev1.Container{
 						{
 							Name:            "copy-binaries",

@@ -10,6 +10,7 @@ spec:
       version: "11.1.0"
   components:
     cache:
+      enabled: false
       localStorage:
         path: /opt/kubecc/cache
         limits:

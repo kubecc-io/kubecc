@@ -70,7 +70,7 @@ func NewOptimizer(
 		broker: broker,
 		usageC: make(chan float64, 1),
 	}
-	o.usageC <- 0
+	o.usageC <- 1.0
 	go o.run()
 	return o
 }

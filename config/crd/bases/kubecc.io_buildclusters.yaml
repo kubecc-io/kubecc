@@ -288,6 +288,8 @@ spec:
                     type: object
                   cache:
                     properties:
+                      enabled:
+                        type: boolean
                       localStorage:
                         properties:
                           limits:

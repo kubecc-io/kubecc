@@ -53,6 +53,13 @@ func (r *Reconciler) Reconcile() (*reconcile.Result, error) {
 		return &reconcile.Result{Requeue: true}, nil
 	}
 
+	pc, err := r.priorityClasses()
+	if err != nil {
+		lg.Error(err)
+		return nil, err
+	}
+	items = append(items, pc...)
+
 	cm, err := r.configMap()
 	if err != nil {
 		lg.Error(err)

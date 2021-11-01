@@ -98,3 +98,32 @@ func (r *Reconciler) kubeccImage() (string, corev1.PullPolicy, error) {
 	}
 	return "", corev1.PullPolicy(""), errors.New("failed to get default image name, retrying")
 }
+
+func agentAntiAffinity() *corev1.PodAntiAffinity {
+	return &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"kubecc-role": "agent",
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			},
+		},
+	}
+}
+func controlPlaneAntiAffinity() *corev1.PodAntiAffinity {
+	return &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			{
+				LabelSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"kubecc-role": "control-plane",
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			},
+		},
+	}
+}

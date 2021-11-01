@@ -21,6 +21,8 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+
+	mapset "github.com/deckarep/golang-set"
 )
 
 var sourceExtensions map[string]string = map[string]string{
@@ -53,6 +55,20 @@ var sourceExtensions map[string]string = map[string]string{
 	".hh":  "c++-header",
 }
 
+var knownCmakeTestFiles = mapset.NewSetWith(
+	"DummyCXXFile.cxx",
+	"TestForAnsiForScope.cxx",
+	"TestForANSIStreamHeaders.cxx",
+	"TestForSSTREAM.cxx",
+	"TestForSTDNamespace.cxx",
+	"CMakeCXXCompilerABI.cpp",
+	"CheckForPthreads.c",
+	"CheckFunctionExists.c",
+	"CheckVariableExists.c",
+	"CMakeCCompilerABI.c",
+	"CMakeTestGNU.c",
+)
+
 // IsSourceFile returns true if the given file is a
 // source file recognized by GCC, otherwise false.
 func IsSourceFile(f string) bool {
@@ -72,12 +88,10 @@ func SourceFileLanguage(f string) (string, error) {
 func ShouldRunLocal(f string) bool {
 	basename := filepath.Base(f)
 	// autotools tests, cmake tests
-	if strings.HasPrefix(basename, "conftest.") ||
+	return strings.HasPrefix(basename, "conftest.") ||
 		strings.HasPrefix(basename, "tmp.conftest.") ||
-		strings.Contains(f, "CMakeTmp/src.") {
-		return true
-	}
-	return false
+		strings.Contains(f, "CMakeTmp/src.") ||
+		knownCmakeTestFiles.Contains(basename)
 }
 
 // ReplaceExtension replaces the file extension of the given path.

@@ -518,17 +518,43 @@ func (ap *ArgParser) PrependExplicitPICArgs(tc *types.Toolchain) {
 	if tc.PicDefault {
 		_, noLowerPic := ap.FlagIndexMap["-fno-pic"]
 		_, noUpperPic := ap.FlagIndexMap["-fno-PIC"]
-		if !noLowerPic && !noUpperPic { // no-pic is not explicitly set
+		_, upperPic := ap.FlagIndexMap["-fPIC"]
+		_, lowerPic := ap.FlagIndexMap["-fpic"]
+		if !noLowerPic && !noUpperPic && // no-pic is not explicitly set
+			!upperPic && !lowerPic { // pic is not explicitly set
 			ap.Args = append([]string{"-fPIC"}, ap.Args...)
 		}
 	}
 	if tc.PieDefault {
 		_, noLowerPie := ap.FlagIndexMap["-fno-pie"]
 		_, noUpperPie := ap.FlagIndexMap["-fno-PIE"]
-		if !noLowerPie && !noUpperPie { // no-pie is not explicitly set
+		_, upperPie := ap.FlagIndexMap["-fPIE"]
+		_, lowerPie := ap.FlagIndexMap["-fpie"]
+		if !noLowerPie && !noUpperPie && // no-pie is not explicitly set
+			!upperPie && !lowerPie { // pie is not explicitly set
 			ap.Args = append([]string{"-fPIE"}, ap.Args...)
 		}
 	}
+	ap.Parse()
+}
+
+// RemoveWPedantic removes the -Wpedantic and -pedantic-errors options if
+// they are present. At the moment these options are not supported because
+// compiling previously-preprocessed code tends to generate warnings about
+// compiler extensions and such.
+func (ap *ArgParser) RemoveWPedantic() {
+	newArgs := []string{}
+	for i := 0; i < len(ap.Args); i++ {
+		arg := ap.Args[i]
+		switch arg {
+		case "-Wpedantic", "-pedantic-errors", "-pedantic":
+			continue
+		default:
+			newArgs = append(newArgs, arg)
+		}
+	}
+	ap.Args = newArgs
+	ap.Parse()
 }
 
 // PrependLanguageFlag adds the necessary -x <lang> argument. Used when

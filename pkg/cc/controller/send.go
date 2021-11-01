@@ -165,6 +165,7 @@ func (m sendRemoteRunnerManager) Process(
 	// Compile remote
 	ap.RemoveLocalArgs()
 	ap.PrependExplicitPICArgs(req.GetToolchain())
+	ap.RemoveWPedantic()
 	lg.Debug("Starting remote compile")
 	resp := types.CompileResponse{}
 	task := makeRemoteCompileTask(

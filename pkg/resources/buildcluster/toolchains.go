@@ -20,8 +20,9 @@ func (r *Reconciler) toolchain(toolchain v1alpha1.ToolchainSpec) ([]resources.Re
 		toolchainName = *toolchain.Name
 	}
 	labels := map[string]string{
-		"app":       "kubecc-agent",
-		"toolchain": toolchainName,
+		"app":         "kubecc-agent",
+		"kubecc-role": "agent",
+		"toolchain":   toolchainName,
 	}
 
 	var compilerImage string
@@ -61,8 +62,10 @@ func (r *Reconciler) toolchain(toolchain v1alpha1.ToolchainSpec) ([]resources.Re
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName: "kubecc-high-priority",
 					Affinity: &corev1.Affinity{
-						NodeAffinity: r.buildCluster.Spec.Components.Agent.NodeAffinity,
+						PodAntiAffinity: controlPlaneAntiAffinity(),
+						NodeAffinity:    r.buildCluster.Spec.Components.Agent.NodeAffinity,
 					},
 					Containers: []corev1.Container{
 						{

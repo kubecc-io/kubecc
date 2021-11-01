@@ -7,10 +7,34 @@ import (
 	"github.com/kubecc-io/kubecc/pkg/resources"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	schedulingv1 "k8s.io/api/scheduling/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/yaml"
 )
+
+func (r *Reconciler) priorityClasses() ([]resources.Resource, error) {
+	highPriority := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubecc-high-priority",
+		},
+		Value:         1000,
+		GlobalDefault: false,
+	}
+	lowPriority := &schedulingv1.PriorityClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kubecc-low-priority",
+		},
+		Value:         500,
+		GlobalDefault: false,
+	}
+	ctrl.SetControllerReference(r.buildCluster, highPriority, r.client.Scheme())
+	ctrl.SetControllerReference(r.buildCluster, lowPriority, r.client.Scheme())
+	return []resources.Resource{
+		resources.Present(highPriority),
+		resources.Present(lowPriority),
+	}, nil
+}
 
 func (r *Reconciler) configMap() ([]resources.Resource, error) {
 	conf := config.KubeccSpec{
@@ -76,7 +100,8 @@ func (r *Reconciler) monitor() ([]resources.Resource, error) {
 		return nil, err
 	}
 	labels := map[string]string{
-		"app": "kubecc-monitor",
+		"app":         "kubecc-monitor",
+		"kubecc-role": "control-plane",
 	}
 	svc := genericService("kubecc-monitor", r.buildCluster.Namespace, labels)
 	deployment := &appsv1.Deployment{
@@ -93,6 +118,10 @@ func (r *Reconciler) monitor() ([]resources.Resource, error) {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName: "kubecc-low-priority",
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: agentAntiAffinity(),
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "kubecc-monitor",
@@ -130,7 +159,8 @@ func (r *Reconciler) scheduler() ([]resources.Resource, error) {
 		return nil, err
 	}
 	labels := map[string]string{
-		"app": "kubecc-scheduler",
+		"app":         "kubecc-scheduler",
+		"kubecc-role": "control-plane",
 	}
 	svc := genericService("kubecc-scheduler", r.buildCluster.Namespace, labels)
 	deployment := &appsv1.Deployment{
@@ -147,6 +177,10 @@ func (r *Reconciler) scheduler() ([]resources.Resource, error) {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName: "kubecc-low-priority",
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: agentAntiAffinity(),
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "kubecc-scheduler",
@@ -184,7 +218,8 @@ func (r *Reconciler) cacheSrv() ([]resources.Resource, error) {
 		return nil, err
 	}
 	labels := map[string]string{
-		"app": "kubecc-cache",
+		"app":         "kubecc-cache",
+		"kubecc-role": "control-plane",
 	}
 	svc := genericService("kubecc-cache", r.buildCluster.Namespace, labels)
 	deployment := &appsv1.Deployment{
@@ -201,6 +236,10 @@ func (r *Reconciler) cacheSrv() ([]resources.Resource, error) {
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					PriorityClassName: "kubecc-low-priority",
+					Affinity: &corev1.Affinity{
+						PodAntiAffinity: agentAntiAffinity(),
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "kubecc-cache",
@@ -226,8 +265,15 @@ func (r *Reconciler) cacheSrv() ([]resources.Resource, error) {
 	}
 	ctrl.SetControllerReference(r.buildCluster, svc, r.client.Scheme())
 	ctrl.SetControllerReference(r.buildCluster, deployment, r.client.Scheme())
-	return []resources.Resource{
+
+	items := []resources.Resource{
 		resources.Created(svc),
-		resources.Present(deployment),
-	}, nil
+	}
+
+	if r.buildCluster.Spec.Components.Cache.Enabled {
+		items = append(items, resources.Present(deployment))
+	} else {
+		items = append(items, resources.Absent(deployment))
+	}
+	return items, nil
 }

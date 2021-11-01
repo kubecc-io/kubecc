@@ -230,12 +230,19 @@ func (p *LocalStorageProvider) Put(
 	key *types.CacheKey,
 	object *types.CacheObject,
 ) error {
+	lg := meta.Log(ctx)
 	// Fill in the object's managed fields
 	object.Metadata.ManagedFields = &types.CacheObjectManaged{
 		Size:      int64(len(object.Data)),
 		Timestamp: time.Now().UnixNano(),
 		Location:  types.Disk,
 	}
+
+	lg.With(
+		"size", fmt.Sprintf("%d Ki", len(object.Data)/1024),
+		"tags", object.Metadata.GetTags(),
+		"ttl", time.Until(time.UnixMicro(object.Metadata.GetExpirationDate())),
+	).Info("Storing new object")
 
 	// Store objects as flat files in the directory named by the object hash
 	// (which is the object's cache key).	Use a two level directory structure
@@ -278,6 +285,7 @@ func (p *LocalStorageProvider) Get(
 		return nil, status.Error(codes.NotFound,
 			fmt.Errorf("Object not found: %w", err).Error())
 	}
+	p.cacheHitsTotal.Inc()
 	// Read the object from disk.
 	data, err := ioutil.ReadFile(objPath)
 	if err != nil {
@@ -364,7 +372,7 @@ func (p *LocalStorageProvider) CacheHits() *metrics.CacheHits {
 		return &metrics.CacheHits{
 			CacheHitsTotal:   hits,
 			CacheMissesTotal: misses,
-			CacheHitPercent:  float64(hits) / float64(total) * 100,
+			CacheHitPercent:  float64(hits) / float64(total),
 		}
 	}
 	return nil
