@@ -182,7 +182,6 @@ func copySelfTo(destFolder string) (string, error) {
 }
 
 func binaryNeedsUpdate(existing string) (bool, error) {
-	printStatus("Checking if the existing binary needs to be updated... ")
 	self, err := os.Executable()
 	if err != nil {
 		return false, err
@@ -211,8 +210,10 @@ func installOrUpdateBinary() (string, installResult, error) {
 	printStatus("Checking if kubecc is in your PATH... ")
 	if path, ok := inPath(); ok {
 		printYes()
+		printStatus("Checking if the existing binary needs to be updated... ")
 		needsUpdate, err := binaryNeedsUpdate(path)
 		if err != nil {
+			printFailed()
 			return "", installResultFailed, err
 		}
 		if needsUpdate {

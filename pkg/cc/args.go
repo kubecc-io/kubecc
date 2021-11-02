@@ -121,6 +121,11 @@ var (
 		"-isystem",
 		"-stdlib",
 	}
+	LinkTimeOptimizationFlags = []string{
+		"-flto",
+		"-flto-partition",
+		"-flto-compression-level",
+	}
 
 	Compile     ActionOpt = "-c"
 	Preprocess  ActionOpt = "-E"
@@ -190,6 +195,37 @@ func (ap *ArgParser) standardize() {
 	}
 }
 
+// Unsupported arguments:
+//
+// -Wpedantic, -pedantic-errors, -pedantic:
+//   At the moment these options are not supported because compiling
+//   previously-preprocessed code with -Wpedantic tends to generate
+//   warnings about compiler extensions and such.
+//
+// -flto*:
+//   If link-time optimization is used, we need to set the compression level
+//   explicitly, as compilers may have different defaults. For example, the
+//   consumer's compiler might default to using compression, but the agent's
+//   compiler might default to not using compression. Trying to link object
+//   files with uncompressed GIMPL when the consumer's compiler expects it
+//   to be compressed will cause an ICE.
+
+// todo: disabling link-time optimization for now, figure out how to
+// make sure the consumer and agent compilers have compatible lto
+// algorithms available.
+func (ap *ArgParser) stripUnsupportedArgs() {
+	for i := 0; i < len(ap.Args); i++ {
+		a := ap.Args[i]
+		if a == "-Wpedantic" || a == "-pedantic-errors" || a == "-pedantic" || strings.HasPrefix(a, "-flto") {
+			ap.lg.With(
+				zap.String("arg", a),
+			).Debug("ignoring unsupported argument")
+			ap.Args = append(ap.Args[:i], ap.Args[i+1:]...)
+			i--
+		}
+	}
+}
+
 // Parse will parse the arguments in argsInfo.Args and store indexes of
 // several flags and values.
 // Most of this logic is borrowed from distcc, with some adjustments.
@@ -204,6 +240,7 @@ func (ap *ArgParser) Parse() {
 	)
 
 	ap.standardize()
+	ap.stripUnsupportedArgs()
 
 	for i, a := range ap.Args {
 		lg := ap.lg.With(zap.String("arg", a))
@@ -535,25 +572,6 @@ func (ap *ArgParser) PrependExplicitPICArgs(tc *types.Toolchain) {
 			ap.Args = append([]string{"-fPIE"}, ap.Args...)
 		}
 	}
-	ap.Parse()
-}
-
-// RemoveWPedantic removes the -Wpedantic and -pedantic-errors options if
-// they are present. At the moment these options are not supported because
-// compiling previously-preprocessed code tends to generate warnings about
-// compiler extensions and such.
-func (ap *ArgParser) RemoveWPedantic() {
-	newArgs := []string{}
-	for i := 0; i < len(ap.Args); i++ {
-		arg := ap.Args[i]
-		switch arg {
-		case "-Wpedantic", "-pedantic-errors", "-pedantic":
-			continue
-		default:
-			newArgs = append(newArgs, arg)
-		}
-	}
-	ap.Args = newArgs
 	ap.Parse()
 }
 
