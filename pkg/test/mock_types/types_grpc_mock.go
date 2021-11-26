@@ -9,10 +9,10 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	any "github.com/golang/protobuf/ptypes/any"
 	types "github.com/kubecc-io/kubecc/pkg/types"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
 // MockConsumerdClient is a mock of ConsumerdClient interface.
@@ -36,6 +36,26 @@ func NewMockConsumerdClient(ctrl *gomock.Controller) *MockConsumerdClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConsumerdClient) EXPECT() *MockConsumerdClientMockRecorder {
 	return m.recorder
+}
+
+// GetToolchains mocks base method.
+func (m *MockConsumerdClient) GetToolchains(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.ToolchainList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetToolchains", varargs...)
+	ret0, _ := ret[0].(*types.ToolchainList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetToolchains indicates an expected call of GetToolchains.
+func (mr *MockConsumerdClientMockRecorder) GetToolchains(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToolchains", reflect.TypeOf((*MockConsumerdClient)(nil).GetToolchains), varargs...)
 }
 
 // Run mocks base method.
@@ -79,6 +99,21 @@ func NewMockConsumerdServer(ctrl *gomock.Controller) *MockConsumerdServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockConsumerdServer) EXPECT() *MockConsumerdServerMockRecorder {
 	return m.recorder
+}
+
+// GetToolchains mocks base method.
+func (m *MockConsumerdServer) GetToolchains(arg0 context.Context, arg1 *types.Empty) (*types.ToolchainList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetToolchains", arg0, arg1)
+	ret0, _ := ret[0].(*types.ToolchainList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetToolchains indicates an expected call of GetToolchains.
+func (mr *MockConsumerdServerMockRecorder) GetToolchains(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetToolchains", reflect.TypeOf((*MockConsumerdServer)(nil).GetToolchains), arg0, arg1)
 }
 
 // Run mocks base method.
@@ -184,6 +219,26 @@ func (mr *MockSchedulerClientMockRecorder) Compile(ctx, in interface{}, opts ...
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Compile", reflect.TypeOf((*MockSchedulerClient)(nil).Compile), varargs...)
+}
+
+// GetRoutes mocks base method.
+func (m *MockSchedulerClient) GetRoutes(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.RouteList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetRoutes", varargs...)
+	ret0, _ := ret[0].(*types.RouteList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRoutes indicates an expected call of GetRoutes.
+func (mr *MockSchedulerClientMockRecorder) GetRoutes(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoutes", reflect.TypeOf((*MockSchedulerClient)(nil).GetRoutes), varargs...)
 }
 
 // StreamIncomingTasks mocks base method.
@@ -536,6 +591,21 @@ func (m *MockSchedulerServer) Compile(arg0 context.Context, arg1 *types.CompileR
 func (mr *MockSchedulerServerMockRecorder) Compile(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Compile", reflect.TypeOf((*MockSchedulerServer)(nil).Compile), arg0, arg1)
+}
+
+// GetRoutes mocks base method.
+func (m *MockSchedulerServer) GetRoutes(arg0 context.Context, arg1 *types.Empty) (*types.RouteList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRoutes", arg0, arg1)
+	ret0, _ := ret[0].(*types.RouteList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRoutes indicates an expected call of GetRoutes.
+func (mr *MockSchedulerServerMockRecorder) GetRoutes(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRoutes", reflect.TypeOf((*MockSchedulerServer)(nil).GetRoutes), arg0, arg1)
 }
 
 // StreamIncomingTasks mocks base method.
@@ -904,6 +974,66 @@ func (m *MockMonitorClient) EXPECT() *MockMonitorClientMockRecorder {
 	return m.recorder
 }
 
+// GetBuckets mocks base method.
+func (m *MockMonitorClient) GetBuckets(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.BucketList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetBuckets", varargs...)
+	ret0, _ := ret[0].(*types.BucketList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBuckets indicates an expected call of GetBuckets.
+func (mr *MockMonitorClientMockRecorder) GetBuckets(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBuckets", reflect.TypeOf((*MockMonitorClient)(nil).GetBuckets), varargs...)
+}
+
+// GetKeys mocks base method.
+func (m *MockMonitorClient) GetKeys(ctx context.Context, in *types.Bucket, opts ...grpc.CallOption) (*types.KeyList, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetKeys", varargs...)
+	ret0, _ := ret[0].(*types.KeyList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKeys indicates an expected call of GetKeys.
+func (mr *MockMonitorClientMockRecorder) GetKeys(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeys", reflect.TypeOf((*MockMonitorClient)(nil).GetKeys), varargs...)
+}
+
+// GetMetric mocks base method.
+func (m *MockMonitorClient) GetMetric(ctx context.Context, in *types.Key, opts ...grpc.CallOption) (*types.Metric, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetMetric", varargs...)
+	ret0, _ := ret[0].(*types.Metric)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetric indicates an expected call of GetMetric.
+func (mr *MockMonitorClientMockRecorder) GetMetric(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockMonitorClient)(nil).GetMetric), varargs...)
+}
+
 // Listen mocks base method.
 func (m *MockMonitorClient) Listen(ctx context.Context, in *types.Key, opts ...grpc.CallOption) (types.Monitor_ListenClient, error) {
 	m.ctrl.T.Helper()
@@ -1168,10 +1298,10 @@ func (mr *MockMonitor_ListenClientMockRecorder) Header() *gomock.Call {
 }
 
 // Recv mocks base method.
-func (m *MockMonitor_ListenClient) Recv() (*any.Any, error) {
+func (m *MockMonitor_ListenClient) Recv() (*anypb.Any, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Recv")
-	ret0, _ := ret[0].(*any.Any)
+	ret0, _ := ret[0].(*anypb.Any)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1245,6 +1375,51 @@ func NewMockMonitorServer(ctrl *gomock.Controller) *MockMonitorServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockMonitorServer) EXPECT() *MockMonitorServerMockRecorder {
 	return m.recorder
+}
+
+// GetBuckets mocks base method.
+func (m *MockMonitorServer) GetBuckets(arg0 context.Context, arg1 *types.Empty) (*types.BucketList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBuckets", arg0, arg1)
+	ret0, _ := ret[0].(*types.BucketList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBuckets indicates an expected call of GetBuckets.
+func (mr *MockMonitorServerMockRecorder) GetBuckets(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBuckets", reflect.TypeOf((*MockMonitorServer)(nil).GetBuckets), arg0, arg1)
+}
+
+// GetKeys mocks base method.
+func (m *MockMonitorServer) GetKeys(arg0 context.Context, arg1 *types.Bucket) (*types.KeyList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetKeys", arg0, arg1)
+	ret0, _ := ret[0].(*types.KeyList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKeys indicates an expected call of GetKeys.
+func (mr *MockMonitorServerMockRecorder) GetKeys(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeys", reflect.TypeOf((*MockMonitorServer)(nil).GetKeys), arg0, arg1)
+}
+
+// GetMetric mocks base method.
+func (m *MockMonitorServer) GetMetric(arg0 context.Context, arg1 *types.Key) (*types.Metric, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetMetric", arg0, arg1)
+	ret0, _ := ret[0].(*types.Metric)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetMetric indicates an expected call of GetMetric.
+func (mr *MockMonitorServerMockRecorder) GetMetric(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMetric", reflect.TypeOf((*MockMonitorServer)(nil).GetMetric), arg0, arg1)
 }
 
 // Listen mocks base method.
@@ -1523,7 +1698,7 @@ func (mr *MockMonitor_ListenServerMockRecorder) RecvMsg(m interface{}) *gomock.C
 }
 
 // Send mocks base method.
-func (m *MockMonitor_ListenServer) Send(arg0 *any.Any) error {
+func (m *MockMonitor_ListenServer) Send(arg0 *anypb.Any) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Send", arg0)
 	ret0, _ := ret[0].(error)

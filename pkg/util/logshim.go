@@ -27,6 +27,8 @@ type ZapfLogShim struct {
 	ZapLogger *zap.SugaredLogger
 }
 
+var _ logr.Logger = ZapfLogShim{}
+
 func (lg ZapfLogShim) Enabled() bool {
 	return true
 }

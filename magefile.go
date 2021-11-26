@@ -18,7 +18,7 @@ var Default = All
 
 var (
 	operatorSdkPath   = "github.com/operator-framework/operator-sdk/cmd/operator-sdk@latest"
-	controllerGenPath = "https://github.com/kralicky/controller-tools/releases/download/v0.6.2-patched/controller-gen"
+	controllerGenPath = "https://github.com/kralicky/controller-tools/releases/download/v0.7.0-patched/controller-gen"
 	ginkgoPath        = "github.com/onsi/ginkgo/ginkgo@ver2"
 )
 
@@ -27,7 +27,8 @@ func All() {
 }
 
 func Generate() {
-	mg.Deps(GenProto, ControllerGen)
+	mg.Deps(GenProto, MockGen)
+	mg.SerialDeps(ControllerGen)
 }
 
 func Vet() error {
@@ -102,18 +103,48 @@ func GenMetrics() error {
 	return nil
 }
 
+func GenTest() error {
+	test, err := ragu.GenerateCode("pkg/test/test.proto", false)
+	if err != nil {
+		return err
+	}
+	for _, f := range test {
+		err := os.WriteFile(filepath.Join("pkg/test", f.GetName()), []byte(f.GetContent()), 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func GenProto() {
-	mg.Deps(GenTypes, GenMetrics)
+	mg.Deps(GenTypes, GenMetrics, GenTest)
 }
 
 func ControllerGen() error {
 	return sh.RunV("controller-gen",
 		`object:headerFile="hack/boilerplate.go.txt"`,
-		`crd:trivialVersions=true,preserveUnknownFields=false`,
+		`crd`,
 		`rbac:roleName=manager-role`,
 		`paths="./..."`,
 		`output:crd:artifacts:config=config/crd/bases`,
 	)
+}
+
+func MockGen() error {
+	if err := sh.RunV("mockgen",
+		"-source=pkg/types/types.pb.go",
+		"-destination=pkg/test/mock_types/types_mock.go",
+	); err != nil {
+		return err
+	}
+	if err := sh.RunV("mockgen",
+		"-source=pkg/types/types_grpc.pb.go",
+		"-destination=pkg/test/mock_types/types_grpc_mock.go",
+	); err != nil {
+		return err
+	}
+	return nil
 }
 
 func Docker() error {

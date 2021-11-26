@@ -22,17 +22,14 @@ package servers
 import (
 	"context"
 	"crypto/x509"
-	"fmt"
-	"strings"
+	"math"
 
 	"github.com/kralicky/grpc-opentracing/go/otgrpc"
 	"github.com/kubecc-io/kubecc/internal/logkc"
-	"github.com/kubecc-io/kubecc/pkg/cluster"
 	"github.com/kubecc-io/kubecc/pkg/host"
 	"github.com/kubecc-io/kubecc/pkg/identity"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/tracing"
-	"github.com/kubecc-io/kubecc/pkg/types"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
 	"go.uber.org/zap"
@@ -98,6 +95,8 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	return grpc.NewServer(
 		append(options.serverOptions,
 			grpc.MaxRecvMsgSize(1e8), // 100MB
+			grpc.MaxConcurrentStreams(math.MaxUint32),
+			// grpc.MaxSendMsgSize(math.MaxInt),
 			grpc.ChainUnaryInterceptor(
 				otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
 				meta.ServerContextInterceptor(importOptions),
@@ -107,20 +106,6 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 			),
 		)...,
 	)
-}
-
-func DialService(
-	ctx context.Context,
-	component types.Component,
-	port int,
-	opts ...grpcOption,
-) (*grpc.ClientConn, error) {
-	addr := fmt.Sprintf("kubecc-%s.%s.svc.cluster.local:%d",
-		strings.ToLower(component.Name()),
-		cluster.GetNamespace(),
-		port,
-	)
-	return Dial(ctx, addr, opts...)
 }
 
 func Dial(
@@ -142,7 +127,8 @@ func Dial(
 			meta.StreamClientContextInterceptor(),
 		),
 		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(1e8),
+			grpc.MaxCallRecvMsgSize(math.MaxInt32),
+			// grpc.MaxCallSendMsgSize(math.MaxInt),
 			// note: this maybe causes massive slowdowns when used with anypb
 			// grpc.UseCompressor(gzip.Name),
 		),

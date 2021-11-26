@@ -31,7 +31,7 @@ var _ = Describe("Sleep test", func() {
 	localJobs := 20
 
 	Specify("setup", func() {
-		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.WarnLevel)
+		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.DebugLevel)
 
 		test.SpawnMonitor(testEnv, test.WaitForReady())
 		test.SpawnScheduler(testEnv, test.WaitForReady())

@@ -28,12 +28,12 @@ func NewReconciler(
 	ctx context.Context,
 	client client.Client,
 	buildCluster *v1alpha1.BuildCluster,
-	opts ...func(*reconciler.ReconcilerOpts),
+	opts ...reconciler.ResourceReconcilerOption,
 ) *Reconciler {
 	lg := meta.Log(ctx)
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
-			append(opts, reconciler.WithLog(&util.ZapfLogShim{
+			append(opts, reconciler.WithLog(util.ZapfLogShim{
 				ZapLogger: lg,
 			}))...),
 		ctx:          ctx,

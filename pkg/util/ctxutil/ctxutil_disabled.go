@@ -1,4 +1,5 @@
-//+build !context_tracking
+//go:build !context_tracking
+// +build !context_tracking
 
 package ctxutil
 
