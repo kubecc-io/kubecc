@@ -18,6 +18,7 @@ var Default = All
 
 var (
 	operatorSdkPath   = "github.com/operator-framework/operator-sdk/cmd/operator-sdk@latest"
+	mockGenPath       = "github.com/golang/mock/mockgen@latest"
 	controllerGenPath = "https://github.com/kralicky/controller-tools/releases/download/v0.7.0-patched/controller-gen"
 	ginkgoPath        = "github.com/onsi/ginkgo/ginkgo@ver2"
 )
@@ -53,7 +54,15 @@ func Setup() error {
 		if err != nil {
 			return err
 		}
-		return sh.Run("chmod", "+x", filepath.Join(gobin, "controller-gen"))
+		if err := sh.Run("chmod", "+x", filepath.Join(gobin, "controller-gen")); err != nil {
+			return err
+		}
+	}
+	if _, err := exec.LookPath("mockgen"); err != nil {
+		fmt.Println("Installing dependency: mockgen")
+		if err := sh.RunV(mg.GoCmd(), "install", mockGenPath); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -62,7 +71,7 @@ func SetupDev() error {
 	mg.Deps(Setup)
 	if _, err := exec.LookPath("operator-sdk"); err != nil {
 		fmt.Println("Installing dependency: operator-sdk")
-		return sh.RunV(mg.GoCmd(), "install", controllerGenPath)
+		return sh.RunV(mg.GoCmd(), "install", operatorSdkPath)
 	}
 	return nil
 }
