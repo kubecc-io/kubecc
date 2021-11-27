@@ -13,6 +13,10 @@ service Bar {
   rpc Bar(stream Baz) returns (stream Baz);
 }
 
+service Benchmark {
+  rpc Stream(stream Payload) returns (stream Payload);
+}
+
 message Test1 {
   int32 Counter = 1;
 }
@@ -27,4 +31,8 @@ message Test3 {
 
 message Test4 {
   string Value = 1;
+}
+
+message Payload {
+  bytes Data = 1;
 }

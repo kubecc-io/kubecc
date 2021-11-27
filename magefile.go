@@ -113,7 +113,7 @@ func GenMetrics() error {
 }
 
 func GenTest() error {
-	test, err := ragu.GenerateCode("pkg/test/test.proto", false)
+	test, err := ragu.GenerateCode("pkg/test/test.proto", true)
 	if err != nil {
 		return err
 	}

@@ -95,8 +95,6 @@ func NewServer(ctx context.Context, opts ...grpcOption) *grpc.Server {
 	return grpc.NewServer(
 		append(options.serverOptions,
 			grpc.MaxRecvMsgSize(1e8), // 100MB
-			grpc.MaxConcurrentStreams(math.MaxUint32),
-			// grpc.MaxSendMsgSize(math.MaxInt),
 			grpc.ChainUnaryInterceptor(
 				otgrpc.OpenTracingServerInterceptor(meta.Tracer(ctx)),
 				meta.ServerContextInterceptor(importOptions),
@@ -128,7 +126,6 @@ func Dial(
 		),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(math.MaxInt32),
-			// grpc.MaxCallSendMsgSize(math.MaxInt),
 			// note: this maybe causes massive slowdowns when used with anypb
 			// grpc.UseCompressor(gzip.Name),
 		),
