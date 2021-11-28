@@ -63,8 +63,12 @@ func (t *compileTask) Run() {
 		if ext == "" && info.Args[info.OutputArgIndex] == "-" {
 			ext = ".o"
 		}
-		tmp, err := os.CreateTemp(
-			util.PreferredTempDirectory, fmt.Sprintf("kubecc_*%s", ext))
+		topLevelDir, err := util.TopLevelTempDir()
+		if err != nil {
+			t.SetErr(err)
+			return
+		}
+		tmp, err := os.CreateTemp(topLevelDir, fmt.Sprintf("kubecc_*%s", ext))
 		if err != nil {
 			t.Log.With(zap.Error(err)).Error("Can't create temporary files")
 			t.SetErr(err)

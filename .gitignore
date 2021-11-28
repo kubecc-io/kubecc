@@ -8,6 +8,7 @@
 bin/*
 testbin/*
 build/*
+*.o
 
 # Test binary, build with `go test -c`
 *.test

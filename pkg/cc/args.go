@@ -486,7 +486,7 @@ func (ap *ArgParser) ReplaceInputPath(newPath string) error {
 		if newPath == "-" {
 			panic("no longer supported")
 		}
-		ap.Args = append(ap.Args, fmt.Sprintf(`-ffile-prefix-map=%s=%s`, path.Dir(old), path.Dir(newPath)))
+		ap.Args = append(ap.Args, fmt.Sprintf(`-ffile-prefix-map=%s=%s`, path.Dir(newPath), path.Dir(old)))
 		return nil
 	}
 	return errors.New("No input arg found")

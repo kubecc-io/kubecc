@@ -20,6 +20,7 @@ package util
 import (
 	"io/fs"
 	"os"
+	"path/filepath"
 )
 
 type ReadDirStatFS interface {
@@ -51,4 +52,14 @@ func init() {
 		PreferredTempDirectory = "/dev/shm"
 	}
 	PreferredTempDirectory = "/tmp"
+}
+
+func TopLevelTempDir() (string, error) {
+	dir := filepath.Join(PreferredTempDirectory, "kubecc-build")
+	if _, err := os.Stat(dir); err != nil {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return "", err
+		}
+	}
+	return dir, nil
 }

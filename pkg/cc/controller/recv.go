@@ -19,7 +19,6 @@ package toolchain
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -46,12 +45,18 @@ func (m *recvRemoteRunnerManager) Process(
 	ap.Parse()
 	lg.With(zap.Object("args", ap)).Info("Compile starting")
 	stderrBuf := new(bytes.Buffer)
-	tmpFilename := new(bytes.Buffer)
+	outputFilename := new(bytes.Buffer)
 
 	inputFilename := ap.Args[ap.InputArgIndex]
-	tmp, err := os.CreateTemp(
-		util.PreferredTempDirectory,
-		fmt.Sprintf("kubecc_*_%s", filepath.Base(inputFilename)))
+	topLevelDir, err := util.TopLevelTempDir()
+	if err != nil {
+		return nil, err
+	}
+	tmpDir, err := os.MkdirTemp(topLevelDir, "*")
+	if err != nil {
+		return nil, err
+	}
+	tmp, err := os.Create(filepath.Join(tmpDir, filepath.Base(inputFilename)))
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -59,7 +64,7 @@ func (m *recvRemoteRunnerManager) Process(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	tmp.Close()
-	defer os.Remove(tmp.Name())
+	defer os.RemoveAll(tmpDir)
 
 	if err := ap.ReplaceInputPath(tmp.Name()); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -68,7 +73,7 @@ func (m *recvRemoteRunnerManager) Process(
 	task := cc.NewCompileTask(req.GetToolchain(), ap,
 		run.WithContext(ctx),
 		run.WithLog(lg),
-		run.WithOutputWriter(tmpFilename),
+		run.WithOutputWriter(outputFilename),
 		run.WithOutputStreams(io.Discard, stderrBuf),
 	)
 	task.Run()
@@ -86,12 +91,12 @@ func (m *recvRemoteRunnerManager) Process(
 	} else if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	data, err := os.ReadFile(tmpFilename.String())
+	data, err := os.ReadFile(outputFilename.String())
 	if err != nil {
 		lg.With(zap.Error(err)).Info("Error reading temp file")
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	err = os.Remove(tmpFilename.String())
+	err = os.Remove(outputFilename.String())
 	if err != nil {
 		lg.With(zap.Error(err)).Info("Error removing temp file")
 	}

@@ -189,28 +189,28 @@ var _ = Describe("CC Arg Parser", func() {
 			experiment.MeasureDuration("Replace input path", func() {
 				info.ReplaceInputPath("src2/test.c")
 			}, gmeasure.Precision(time.Microsecond))
-			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src2/test.c -ffile-prefix-map=src=src2`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src2/test.c -ffile-prefix-map=src2=src`, " "),
 				info.Args,
 			)
 			experiment.MeasureDuration("Replace input path", func() {
 				info.ReplaceInputPath("/test.c")
 			}, gmeasure.Precision(time.Microsecond))
 			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c /test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c /test.c -ffile-prefix-map=src2=src -ffile-prefix-map=/=src2`, " "),
 				info.Args,
 			)
 			experiment.MeasureDuration("Replace input path", func() {
 				info.ReplaceInputPath("test.c")
 			}, gmeasure.Precision(time.Microsecond))
 			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=.`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c test.c -ffile-prefix-map=src2=src -ffile-prefix-map=/=src2 -ffile-prefix-map=.=/`, " "),
 				info.Args,
 			)
 			experiment.MeasureDuration("Replace input path", func() {
 				info.ReplaceInputPath("src/test.c")
 			}, gmeasure.Precision(time.Microsecond))
 			// this wouldn't be a valid use of ReplaceInputPath but it shouldn't break
-			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c -ffile-prefix-map=src=src2 -ffile-prefix-map=src2=/ -ffile-prefix-map=/=. -ffile-prefix-map=.=src`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-Werror -g -O2 -MD -W -Wall -o src/test.o -c src/test.c -ffile-prefix-map=src2=src -ffile-prefix-map=/=src2 -ffile-prefix-map=.=/ -ffile-prefix-map=src=.`, " "),
 				info.Args,
 			)
 		}
@@ -250,7 +250,7 @@ var _ = Describe("CC Arg Parser", func() {
 			experiment.MeasureDuration("Prepend language flag", func() {
 				info.ReplaceInputPath("/path/to/test.c")
 			}, gmeasure.Precision(time.Microsecond))
-			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c /path/to/test.c -ffile-prefix-map=src=/path/to`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c /path/to/test.c -ffile-prefix-map=/path/to=src`, " "),
 				info.Args,
 			)
 
@@ -261,7 +261,7 @@ var _ = Describe("CC Arg Parser", func() {
 			experiment.MeasureDuration("Prepend language flag", func() {
 				info.ReplaceInputPath("relative/path/test.cpp")
 			}, gmeasure.Precision(time.Microsecond))
-			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c relative/path/test.cpp -ffile-prefix-map=src=relative/path`, " "),
+			assert.Equal(GinkgoT(), strings.Split(`-o src/test.o -c relative/path/test.cpp -ffile-prefix-map=relative/path=src`, " "),
 				info.Args,
 			)
 		}
