@@ -1,9 +1,0 @@
-#include <iostream>
-
-{{ range $i := until 100 }}
-{{ `#include "header` -}} {{- $i -}} {{- `.h"` }}
-{{ end }}
-
-int main(int argc, char** argv) {
-  std::cout << "Hello world"" << std::endl;
-}
