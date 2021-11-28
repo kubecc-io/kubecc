@@ -18,9 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 package integration
 
 import (
+	"fmt"
+	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	"github.com/kubecc-io/kubecc/pkg/agent"
 	"github.com/kubecc-io/kubecc/pkg/cc"
@@ -34,10 +35,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var _ = FDescribe("Debug Prefix Map Test", func() {
+var _ = Describe("Debug Prefix Map", func() {
 	var testEnv test.Environment
 
 	Specify("setup", func() {
+		test.SkipInGithubWorkflow()
 		testEnv = test.NewLocalhostEnvironmentWithLogLevel(zapcore.DebugLevel)
 
 		test.SpawnMonitor(testEnv, test.WaitForReady())
@@ -45,6 +47,7 @@ var _ = FDescribe("Debug Prefix Map Test", func() {
 	})
 
 	Specify("Starting consumerd", func() {
+		test.SkipInGithubWorkflow()
 		test.SpawnConsumerd(testEnv,
 			test.WaitForReady(),
 			test.WithConsumerdOptions(
@@ -60,6 +63,7 @@ var _ = FDescribe("Debug Prefix Map Test", func() {
 	})
 
 	Specify("1 agent, no cache", func() {
+		test.SkipInGithubWorkflow()
 		test.SpawnAgent(testEnv,
 			test.WaitForReady(),
 			test.WithAgentOptions(
@@ -71,37 +75,57 @@ var _ = FDescribe("Debug Prefix Map Test", func() {
 		)
 	})
 
-	It("should compile", func() {
+	It("should compile with the correct debug prefix map", func() {
+		test.SkipInGithubWorkflow()
 		ctx := testEnv.Context()
 		cdClient := test.NewConsumerdClient(testEnv, ctx)
-		time.Sleep(time.Second)
+		By("compiling a C program")
+		source := "testdata/fast_inverse_sqrt/fast_inverse_sqrt.c"
+		object := "testdata/fast_inverse_sqrt/fast_inverse_sqrt.o"
 		resp, err := cdClient.Run(ctx, &types.RunRequest{
 			Compiler: &types.RunRequest_Path{
 				Path: "/usr/bin/gcc",
 			},
-			Args: []string{"-g", "-c", "-o", "testdata/fast_inverse_sqrt/fast_inverse_sqrt.o", "testdata/fast_inverse_sqrt/fast_inverse_sqrt.c"},
+			Args: []string{"-g", "-c", "-o", object, source},
 			UID:  1000,
 			GID:  1000,
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp.ReturnCode).To(BeEquivalentTo(0))
-
-		// Check dwarf info to make sure the prefix map applied correctly
-		cmd := exec.Command("/bin/sh", "-c",
-			`/usr/bin/readelf -W --debug-dump=decodedline testdata/fast_inverse_sqrt/fast_inverse_sqrt.o --dwarf-depth=1 | tail -n +5 | awk '{print $1}'`)
-		output, err := cmd.CombinedOutput()
+		checkDwarfInfo(source, object)
+		By("compiling a C++ program")
+		Expect(os.Remove(object)).To(Succeed())
+		source = "testdata/fast_inverse_sqrt/fast_inverse_sqrt.cc"
+		resp, err = cdClient.Run(ctx, &types.RunRequest{
+			Compiler: &types.RunRequest_Path{
+				Path: "/usr/bin/g++",
+			},
+			Args: []string{"-g", "-c", "-o", object, source},
+			UID:  1000,
+			GID:  1000,
+		})
 		Expect(err).NotTo(HaveOccurred())
-		lines := strings.Split(string(output), "\n")
-		filtered := make([]string, 0, len(lines))
-		for _, line := range lines {
-			if line == "" {
-				continue
-			}
-			filtered = append(filtered, line)
-		}
-		Expect(filtered).To(HaveLen(22))
-		for _, line := range filtered {
-			Expect(line).To(Equal("testdata/fast_inverse_sqrt/fast_inverse_sqrt.c"))
-		}
+		Expect(resp.ReturnCode).To(BeEquivalentTo(0))
+		checkDwarfInfo(source, object)
 	})
 })
+
+func checkDwarfInfo(source, object string) {
+	// Check dwarf info to make sure the prefix map applied correctly
+	cmd := exec.Command("/bin/sh", "-c",
+		fmt.Sprintf(`/usr/bin/readelf -W --debug-dump=decodedline %s --dwarf-depth=1 | tail -n +5 | awk '{print $1}'`, object))
+	output, err := cmd.CombinedOutput()
+	Expect(err).NotTo(HaveOccurred())
+	lines := strings.Split(string(output), "\n")
+	filtered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	Expect(filtered).NotTo(BeEmpty())
+	for _, line := range filtered {
+		Expect(line).To(Equal(source))
+	}
+}
