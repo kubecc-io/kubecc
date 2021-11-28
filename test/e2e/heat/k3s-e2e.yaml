@@ -10,16 +10,13 @@ parameters:
   image:
     type: string
     description: Name of image to use for servers
-    default: "Ubuntu 20.04"
   flavor:
     type: string
     description: Flavor to use for servers
-    default: a3.xlarge
     constraints:
       - custom_constraint: nova.flavor
   public_net:
     type: string
-    default: public
     description: >
       ID or name of public network for which floating IP addresses will be allocated
   private_net_cidr:
@@ -46,6 +43,9 @@ parameters:
     type: number
     description: Number of client nodes
     default: 1
+  dns_nameserver:
+    type: string
+    description: DNS nameserver to use for private network
 resources:
   # network
   private_net:
@@ -61,6 +61,8 @@ resources:
       allocation_pools:
         - start: { get_param: private_net_pool_start }
           end: { get_param: private_net_pool_end }
+      dns_nameservers:
+        - { get_param: dns_nameserver }
   router:
     type: OS::Neutron::Router
     properties:
@@ -111,20 +113,9 @@ resources:
       flavor: { get_param: flavor }
       key_name: { get_param: key_name }
       networks:
-        - port: { get_resource: client_port }
+        - network: { get_param: public_net }
       user_data_format: SOFTWARE_CONFIG
       user_data: { get_resource: client_config }
-  client_port:
-    type: OS::Neutron::Port
-    properties:
-      network_id: { get_resource: private_net }
-      fixed_ips:
-        - subnet_id: { get_resource: private_subnet }
-  client_floating_ip:
-    type: OS::Neutron::FloatingIP
-    properties:
-      floating_network: { get_param: public_net }
-      port_id: { get_resource: client_port }
   # agents
   agents_group:
     type: OS::Heat::ResourceGroup
@@ -195,10 +186,12 @@ resources:
         str_replace:
           template: |
             #!/bin/sh -x
-            sudo apt update
-            sudo apt -y install build-essential git curl
-            sudo curl -L $binary_url -o /usr/bin/kubecc
-            sudo chmod +x /usr/bin/kubecc
+            apt update
+            apt -y install build-essential git curl
+            curl -L $binary_url -o /usr/bin/kubecc
+            chmod +x /usr/bin/kubecc
+            echo 'AcceptEnv KUBECC_*' > /etc/ssh/sshd_config.d/kubecc.conf
+            systemctl restart sshd
           params:
             $binary_url: { get_param: binary_url }
 
@@ -206,7 +199,7 @@ outputs:
   control_plane_ip:
     value: { get_attr: [control_plane_floating_ip, floating_ip_address] }
   client_ip:
-    value: { get_attr: [client_floating_ip, floating_ip_address] }
+    value: { get_attr: [client, first_address] }
   kubeconfig:
     description: kubeconfig used to access the cluster
     value: { get_attr: [kubeconfig_wc, data] }

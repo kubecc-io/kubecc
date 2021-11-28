@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kralicky/kmatch"
@@ -35,10 +36,11 @@ var (
 		)),
 		meta.WithProvider(tracing.Tracer),
 	)
-	testLog      = meta.Log(testCtx)
-	infra        *TestInfra
-	k8sClient    client.Client
-	clientConfig *rest.Config
+	testLog        = meta.Log(testCtx)
+	infra          *TestInfra
+	k8sClient      client.Client
+	clientConfig   *rest.Config
+	kubeconfigPath string
 )
 
 func init() {
@@ -59,6 +61,8 @@ var _ = BeforeSuite(func() {
 	infra, err = SetupE2EInfra(testCtx)
 	Expect(err).NotTo(HaveOccurred())
 	err = clientcmd.WriteToFile(*infra.Kubeconfig, "e2e-kubeconfig.yaml")
+	Expect(err).NotTo(HaveOccurred())
+	kubeconfigPath, err = filepath.Abs("e2e-kubeconfig.yaml")
 	Expect(err).NotTo(HaveOccurred())
 	cmd := clientcmd.NewDefaultClientConfig(*infra.Kubeconfig, nil)
 	clientConfig, err = cmd.ClientConfig()

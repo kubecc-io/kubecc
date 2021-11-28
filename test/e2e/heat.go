@@ -267,6 +267,28 @@ func CreateStack(
 	if err != nil {
 		return nil, err
 	}
+	parameters := map[string]interface{}{
+		"key_name":   keypair.Name,
+		"binary_url": binaryUrl,
+	}
+	// Read parameters.yaml if it exists
+	if _, err := os.Stat("parameters.yaml"); err == nil {
+		data, err := os.ReadFile("parameters.yaml")
+		if err == nil {
+			lg.Info("Using parameters from parameters.yaml")
+			var params map[string]interface{}
+			if err := yaml.Unmarshal(data, &params); err != nil {
+				return nil, err
+			}
+			for k, v := range params {
+				parameters[k] = v
+				lg.With(
+					zap.String("key", k),
+					zap.Any("value", v),
+				).Info()
+			}
+		}
+	}
 	cr := stacks.Create(heatClient, stacks.CreateOpts{
 		Name: stackName,
 		TemplateOpts: &stacks.Template{
@@ -274,11 +296,8 @@ func CreateStack(
 				Bin: tmplData,
 			},
 		},
-		Parameters: map[string]interface{}{
-			"key_name":   keypair.Name,
-			"binary_url": binaryUrl,
-		},
-		Timeout: 120,
+		Parameters: parameters,
+		Timeout:    120,
 	})
 	if cr.Err != nil {
 		lg.With(
@@ -345,12 +364,13 @@ type S3Info struct {
 }
 
 type TestInfra struct {
-	Kubeconfig *api.Config
-	S3Info     *S3Info
-	Provider   *gophercloud.ProviderClient
-	Stack      *stacks.RetrievedStack
-	ClientIP   string
-	PrivateKey []byte
+	Kubeconfig     *api.Config
+	S3Info         *S3Info
+	Provider       *gophercloud.ProviderClient
+	Stack          *stacks.RetrievedStack
+	ClientIP       string
+	ControlPlaneIP string
+	PrivateKey     []byte
 }
 
 func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
@@ -428,12 +448,13 @@ func SetupE2EInfra(ctx context.Context) (*TestInfra, error) {
 		return nil, err
 	}
 	return &TestInfra{
-		Kubeconfig: kubeconfig,
-		S3Info:     s3Info,
-		Provider:   provider,
-		ClientIP:   clientIP,
-		PrivateKey: privateKey,
-		Stack:      stack.Stack,
+		Kubeconfig:     kubeconfig,
+		S3Info:         s3Info,
+		Provider:       provider,
+		ClientIP:       clientIP,
+		ControlPlaneIP: controlPlaneIP,
+		PrivateKey:     privateKey,
+		Stack:          stack.Stack,
 	}, nil
 }
 

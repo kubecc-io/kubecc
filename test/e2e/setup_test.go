@@ -1,7 +1,9 @@
 package e2e
 
 import (
-	"fmt"
+	"os"
+	"os/exec"
+	"time"
 
 	. "github.com/kralicky/kmatch"
 	"github.com/kubecc-io/kubecc/api/v1alpha1"
@@ -14,7 +16,14 @@ import (
 
 var _ = Describe("E2E", func() {
 	It("should install into a new cluster", func() {
-		// TODO: fix
+		cmd := exec.Command("/bin/sh", "-c",
+			`kubectl create -k ../../config/default`,
+		)
+		cmd.Env = append(os.Environ(), "KUBECONFIG="+kubeconfigPath)
+		cmd.Stdout = GinkgoWriter
+		cmd.Stderr = GinkgoWriter
+		Expect(cmd.Run()).To(Succeed())
+
 		buildCluster := &v1alpha1.BuildCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-cluster",
@@ -38,6 +47,7 @@ var _ = Describe("E2E", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(Object(buildCluster)).Should(Exist())
 	})
+	var sshClient *ssh.Client
 	Specify("setting up SSH connection to client node", func() {
 		privateKey, err := ssh.ParsePrivateKey(infra.PrivateKey)
 		Expect(err).NotTo(HaveOccurred())
@@ -46,15 +56,20 @@ var _ = Describe("E2E", func() {
 			User:            "ubuntu",
 			Auth:            []ssh.AuthMethod{ssh.PublicKeys(privateKey)},
 			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+			Timeout:         10 * time.Second,
 		}
-		client, err := ssh.Dial("tcp", infra.ClientIP+":22", &conf)
+		sshClient, err = ssh.Dial("tcp", infra.ClientIP+":22", &conf)
 		Expect(err).NotTo(HaveOccurred())
+	})
 
-		test, err := client.NewSession()
-
+	It("should setup the client", func() {
+		setup, err := sshClient.NewSession()
 		Expect(err).NotTo(HaveOccurred())
-		o, err := test.Output("kubecc")
+		setup.Stdout = GinkgoWriter
+		setup.Stderr = GinkgoWriter
+		Expect(setup.Setenv("KUBECC_SETUP_SCHEDULER_ADDRESS", infra.ControlPlaneIP+":9091")).To(Succeed())
+		Expect(setup.Setenv("KUBECC_SETUP_MONITOR_ADDRESS", infra.ControlPlaneIP+":9092")).To(Succeed())
+		err = setup.Run("kubecc setup")
 		Expect(err).NotTo(HaveOccurred())
-		fmt.Println(string(o))
 	})
 })

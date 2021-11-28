@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -83,18 +84,18 @@ Restart=on-failure
 
 	envEnabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
 unset KUBECC_ENABLED
-source $(dirname $0)/.env
+source %s/.env
 kubecc_enable
 `
 
 	envDisabled = `# Edit this file using 'kubecc enable' and 'kubecc disable'
 unset KUBECC_ENABLED
-source $(dirname $0)/.env
+source %s/.env
 kubecc_disable
 `
 
 	dotEnvTmpl = `# This file is auto-generated, do not edit!
-export KUBECC_HOME="$(dirname $0)"
+export KUBECC_HOME="{home}"
 export KUBECC_BINARY="{bin}"
 
 kubecc_enable() {
@@ -125,6 +126,21 @@ kubecc_disable() {
 	}
 	consumerdUnit  = "consumerd"
 	systemdTimeout = 10 * time.Second
+
+	nonInteractiveConfig = struct {
+		Enabled             bool
+		SchedulerAddress    string
+		MonitorAddress      string
+		InstallDir          string
+		ConsumerdListenPort string
+		TLSEnabled          bool
+		ShellRCConfig       bool
+	}{
+		Enabled:             false,
+		TLSEnabled:          false,
+		ShellRCConfig:       true,
+		ConsumerdListenPort: defaultConsumerdPort,
+	}
 )
 
 func systemdClients() (system, user systemd.Systemd) {
@@ -236,24 +252,32 @@ func installOrUpdateBinary() (string, installResult, error) {
 		if sudo {
 			defaultPath = "/usr/local/bin"
 		}
-		err := survey.AskOne(&survey.Select{
-			Message: "Choose an install location for the kubecc binary",
-			Options: []string{"~/.local/bin", "~/bin", "/usr/local/bin", "(other)"},
-			Default: defaultPath,
-		}, &dirName)
-		if err != nil {
-			return "", installResultFailed, err
-		}
-		if dirName == "(other)" {
-			err := survey.AskOne(&survey.Input{
-				Message: "Enter an install path",
-				Default: "",
+		if nonInteractiveConfig.Enabled {
+			if nonInteractiveConfig.InstallDir != "" {
+				dirName = nonInteractiveConfig.InstallDir
+			} else {
+				dirName = defaultPath
+			}
+		} else {
+			err := survey.AskOne(&survey.Select{
+				Message: "Choose an install location for the kubecc binary",
+				Options: []string{"~/.local/bin", "~/bin", "/usr/local/bin", "(other)"},
+				Default: defaultPath,
 			}, &dirName)
 			if err != nil {
 				return "", installResultFailed, err
 			}
+			if dirName == "(other)" {
+				err := survey.AskOne(&survey.Input{
+					Message: "Enter an install path",
+					Default: "",
+				}, &dirName)
+				if err != nil {
+					return "", installResultFailed, err
+				}
+			}
 		}
-		dirName, err = homedir.Expand(dirName)
+		dirName, err := homedir.Expand(dirName)
 		if err != nil {
 			return "", installResultFailed, err
 		}
@@ -355,9 +379,16 @@ func installConfig(option string) error {
 		MonitorAddress   string `survey:"monitorAddress"`
 		TLSEnabled       bool   `survey:"tlsEnabled"`
 	}{}
-	err := survey.Ask(questions, &answers)
-	if err != nil {
-		return err
+	if nonInteractiveConfig.Enabled {
+		answers.LocalPort = nonInteractiveConfig.ConsumerdListenPort
+		answers.SchedulerAddress = nonInteractiveConfig.SchedulerAddress
+		answers.MonitorAddress = nonInteractiveConfig.MonitorAddress
+		answers.TLSEnabled = nonInteractiveConfig.TLSEnabled
+	} else {
+		err := survey.Ask(questions, &answers)
+		if err != nil {
+			return err
+		}
 	}
 
 	conf := &config.KubeccSpec{
@@ -747,21 +778,30 @@ func doAppend(rc string) error {
 	return nil
 }
 
+var ErrShellUnsupported = errors.New("Sorry, your shell is not supported yet.")
+
+func rcPath(shell string) (string, error) {
+	switch filepath.Base(shell) {
+	case "bash":
+		return "~/.bashrc", nil
+	case "zsh":
+		return "~/.zshrc", nil
+	case "ash":
+		return "~/.ashrc", nil
+	}
+	return "", ErrShellUnsupported
+}
+
 func appendToShellRC() error {
 	shell, err := loginshell.Shell()
 	if err != nil {
 		return err
 	}
-	switch filepath.Base(shell) {
-	case "bash":
-		return doAppend("~/.bashrc")
-	case "zsh":
-		return doAppend("~/.zshrc")
-	case "ash":
-		return doAppend("~/.ashrc")
-	default:
-		return fmt.Errorf("Sorry, your shell is not supported.")
+	rc, err := rcPath(shell)
+	if err != nil {
+		return err
 	}
+	return doAppend(rc)
 }
 
 func indent(str string) string {
@@ -770,6 +810,11 @@ func indent(str string) string {
 
 func setupEnv(binPath string) error {
 	printStatus("Writing environment files... ")
+	kubeccHome, err := homedir.Expand("~/.kubecc")
+	if err != nil {
+		printFailed()
+		return err
+	}
 	envPath, err := homedir.Expand("~/.kubecc/env")
 	if err != nil {
 		printFailed()
@@ -795,12 +840,13 @@ func setupEnv(binPath string) error {
 		"{bin}", binPath,
 		"{aliases}", indent(strings.Join(aliases, "\n")),
 		"{unaliases}", indent(strings.Join(unaliases, "\n")),
+		"{home}", kubeccHome,
 	)
 	if err := os.WriteFile(dotEnvPath, []byte(contents.Replace(dotEnvTmpl)), 0644); err != nil {
 		printFailed()
 		return err
 	}
-	if err := os.WriteFile(envPath, []byte(envEnabled), 0644); err != nil {
+	if err := os.WriteFile(envPath, []byte(fmt.Sprintf(envEnabled, kubeccHome)), 0644); err != nil {
 		printFailed()
 		return err
 	}
@@ -826,29 +872,42 @@ func setupEnv(binPath string) error {
 		if strings.TrimSpace(outBuf.String()) != binPath {
 			printNo()
 			var response string
-			err := survey.AskOne(&survey.Select{
-				Message: fmt.Sprintf("Please add '%s' to your shell's RC file, then select Retry to check again", `source "$HOME/.kubecc/env"`),
-				Options: []string{"Retry", "Do this for me", "Skip this step"},
-				Default: "Retry",
-			}, &response)
-			if err != nil {
-				return err
+			if nonInteractiveConfig.Enabled {
+				if nonInteractiveConfig.ShellRCConfig {
+					response = "Do this for me"
+				} else {
+					response = "Skip this step"
+				}
+			} else {
+				err := survey.AskOne(&survey.Select{
+					Message: fmt.Sprintf("Please add '%s' to your shell's RC file, then select Retry to check again", `source "$HOME/.kubecc/env"`),
+					Options: []string{"Retry", "Do this for me", "Skip this step"},
+					Default: "Retry",
+				}, &response)
+				if err != nil {
+					return err
+				}
 			}
 			if response == "Skip this step" {
 				break
 			} else if response == "Do this for me" {
 				var confirm bool
-				err := survey.AskOne(&survey.Confirm{
-					Message: "This will attempt to append the necessary line to your shell RC file. Continue?",
-					Default: false,
-				}, &confirm)
-				if err != nil {
-					return err
+				if nonInteractiveConfig.Enabled {
+					confirm = true
+				} else {
+					err := survey.AskOne(&survey.Confirm{
+						Message: "This will attempt to append the necessary line to your shell RC file. Continue?",
+						Default: false,
+					}, &confirm)
+					if err != nil {
+						return err
+					}
 				}
 				if confirm {
 					if err := appendToShellRC(); err != nil {
 						printErr(err.Error())
 					}
+					break
 				}
 			}
 		} else {
@@ -859,12 +918,62 @@ func setupEnv(binPath string) error {
 	return nil
 }
 
+func checkNonInteractiveConfig() {
+	if sch, ok := os.LookupEnv("KUBECC_SETUP_SCHEDULER_ADDRESS"); ok {
+		if mon, ok := os.LookupEnv("KUBECC_SETUP_MONITOR_ADDRESS"); ok {
+			nonInteractiveConfig.Enabled = true
+			nonInteractiveConfig.SchedulerAddress = sch
+			nonInteractiveConfig.MonitorAddress = mon
+
+			if dir, ok := os.LookupEnv("KUBECC_SETUP_INSTALL_DIR"); ok {
+				nonInteractiveConfig.InstallDir = dir
+			}
+			if port, ok := os.LookupEnv("KUBECC_SETUP_CONSUMERD_LISTEN_PORT"); ok {
+				nonInteractiveConfig.ConsumerdListenPort = port
+			}
+			if tls, ok := os.LookupEnv("KUBECC_SETUP_TLS_ENABLED"); ok {
+				if fmt.Sprint(tls) == "true" {
+					nonInteractiveConfig.TLSEnabled = true
+				}
+			}
+			if rc, ok := os.LookupEnv("KUBECC_SETUP_SHELL_RC_CONFIG"); ok {
+				if fmt.Sprint(rc) == "false" {
+					nonInteractiveConfig.ShellRCConfig = false
+				}
+			}
+		}
+	}
+}
+
 var SetupCmd = &cobra.Command{
-	Use:     "setup",
-	Short:   "Set up and configure Kubecc on your machine",
+	Use:   "setup",
+	Short: "Set up and configure Kubecc on your machine",
+	Long: `The setup command will configure the client-side components needed to connect
+to and use a kubecc cluster. This includes the consumerd service, config files,
+and toolchain discovery. 
+
+By default, the setup command will run interactively. If you need to run setup
+non-interactively (i.e. through a script), you can set the following environment
+variables which will skip the prompts:
+
+Required:
+KUBECC_SETUP_SCHEDULER_ADDRESS       [ip/fqdn:port to connect to the scheduler]
+KUBECC_SETUP_MONITOR_ADDRESS 			   [ip/fqdn:port to connect to the monitor]
+
+Optional:
+KUBECC_SETUP_INSTALL_DIR             [default: ~/.local/bin or /usr/local/bin]
+KUBECC_SETUP_CONSUMERD_LISTEN_PORT   [default: 10991]
+KUBECC_SETUP_TLS_ENABLED 					   [true/false, default: false]
+KUBECC_SETUP_SHELL_RC_CONFIG         [true/false, default: true]
+
+If both of the required environment variables are set, the setup command will
+run non-interactively. The optional environment variables can be set to
+override the default values.
+`,
 	PreRun:  sudoPreRun,
 	PostRun: sudoPostRun,
 	Run: func(cmd *cobra.Command, args []string) {
+		checkNonInteractiveConfig()
 		binPath, result, err := installOrUpdateBinary()
 		if err != nil {
 			printErr(err.Error())
@@ -928,9 +1037,14 @@ var EnableCmd = &cobra.Command{
 	Use:    "enable",
 	Short:  "Re-enable kubecc in your local environment",
 	PreRun: InitCLI,
-	Run: func(cmd *cobra.Command, args []string) {
-		writeEnvFileOrDie(envEnabled)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		kubeccHome, err := homedir.Expand("~/.kubecc")
+		if err != nil {
+			return err
+		}
+		writeEnvFileOrDie(fmt.Sprintf(envEnabled, kubeccHome))
 		CLILog.Info(zapkc.Green.Add("Kubecc enabled"))
+		return nil
 	},
 }
 
@@ -938,8 +1052,13 @@ var DisableCmd = &cobra.Command{
 	Use:    "disable",
 	Short:  "Temporarily disable kubecc in your local environment",
 	PreRun: InitCLI,
-	Run: func(cmd *cobra.Command, args []string) {
-		writeEnvFileOrDie(envDisabled)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		kubeccHome, err := homedir.Expand("~/.kubecc")
+		if err != nil {
+			return err
+		}
+		writeEnvFileOrDie(fmt.Sprintf(envDisabled, kubeccHome))
 		CLILog.Info(zapkc.Yellow.Add("Kubecc disabled"))
+		return nil
 	},
 }
