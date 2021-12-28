@@ -38,8 +38,8 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/apimachinery/pkg/util/clock"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/clock"
 )
 
 var S3StorageError = errors.New("S3 Storage Error")
@@ -130,13 +130,14 @@ func (sp *S3StorageProvider) Configure() (err error) {
 		return
 	}
 	go func() {
+		realClock := &clock.RealClock{}
 		backoff := wait.NewExponentialBackoffManager(
 			2*time.Second,  // Initial
 			16*time.Second, // Max
 			30*time.Second, // Reset (not used here)
 			2.0,            // Factor
 			0.1,            // Jitter
-			clock.RealClock{},
+			realClock,
 		)
 		for {
 			err = sp.createBucketIfNotExists()

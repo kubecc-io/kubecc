@@ -3,6 +3,7 @@ package e2e
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/kralicky/kmatch"
@@ -59,6 +60,7 @@ func TestE2e(t *testing.T) {
 var _ = BeforeSuite(func() {
 	var err error
 	infra, err = SetupE2EInfra(testCtx)
+
 	Expect(err).NotTo(HaveOccurred())
 	err = clientcmd.WriteToFile(*infra.Kubeconfig, "e2e-kubeconfig.yaml")
 	Expect(err).NotTo(HaveOccurred())
@@ -75,6 +77,12 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	if value, ok := os.LookupEnv("SKIP_CLEANUP"); ok {
+		if b, _ := strconv.ParseBool(value); b {
+			testLog.Warn("Skipping cleanup")
+			return
+		}
+	}
 	os.Remove("e2e-kubeconfig.yaml")
 	err := CleanupE2EInfra(testCtx, infra)
 	Expect(err).NotTo(HaveOccurred())

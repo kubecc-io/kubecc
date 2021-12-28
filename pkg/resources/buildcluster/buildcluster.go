@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/banzaicloud/operator-tools/pkg/reconciler"
+	"github.com/go-logr/logr"
 	"github.com/kubecc-io/kubecc/api/v1alpha1"
 	"github.com/kubecc-io/kubecc/pkg/meta"
 	"github.com/kubecc-io/kubecc/pkg/resources"
@@ -33,9 +34,9 @@ func NewReconciler(
 	lg := meta.Log(ctx)
 	return &Reconciler{
 		ResourceReconciler: reconciler.NewReconcilerWith(client,
-			append(opts, reconciler.WithLog(util.ZapfLogShim{
+			append(opts, reconciler.WithLog(logr.New(util.ZapfLogShim{
 				ZapLogger: lg,
-			}))...),
+			})))...),
 		ctx:          ctx,
 		client:       client,
 		buildCluster: buildCluster,

@@ -27,9 +27,12 @@ type ZapfLogShim struct {
 	ZapLogger *zap.SugaredLogger
 }
 
-var _ logr.Logger = ZapfLogShim{}
+var _ logr.LogSink = ZapfLogShim{}
 
-func (lg ZapfLogShim) Enabled() bool {
+func (lg ZapfLogShim) Init(info logr.RuntimeInfo) {
+
+}
+func (lg ZapfLogShim) Enabled(level int) bool {
 	return true
 }
 
@@ -41,7 +44,7 @@ func translateKeyValuePairs(keysAndValues ...interface{}) []interface{} {
 	return args
 }
 
-func (lg ZapfLogShim) Info(msg string, keysAndValues ...interface{}) {
+func (lg ZapfLogShim) Info(level int, msg string, keysAndValues ...interface{}) {
 	lg.ZapLogger.With(translateKeyValuePairs(keysAndValues...)...).Info(msg)
 }
 
@@ -51,17 +54,17 @@ func (lg ZapfLogShim) Error(err error, msg string, keysAndValues ...interface{})
 	).Error(msg)
 }
 
-func (lg ZapfLogShim) V(level int) logr.Logger {
+func (lg ZapfLogShim) V(level int) logr.LogSink {
 	return lg
 }
 
-func (lg ZapfLogShim) WithValues(keysAndValues ...interface{}) logr.Logger {
+func (lg ZapfLogShim) WithValues(keysAndValues ...interface{}) logr.LogSink {
 	return ZapfLogShim{
 		ZapLogger: lg.ZapLogger.With(translateKeyValuePairs(keysAndValues...)...),
 	}
 }
 
-func (lg ZapfLogShim) WithName(name string) logr.Logger {
+func (lg ZapfLogShim) WithName(name string) logr.LogSink {
 	return ZapfLogShim{
 		ZapLogger: lg.ZapLogger.Named(name),
 	}

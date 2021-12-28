@@ -32,6 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 
+	"github.com/go-logr/logr"
 	"github.com/kubecc-io/kubecc/api/v1alpha1"
 	"github.com/kubecc-io/kubecc/controllers"
 	"github.com/kubecc-io/kubecc/internal/logkc"
@@ -58,7 +59,7 @@ func runController(cmd *cobra.Command, args []string) {
 	lg = meta.Log(mctx).Desugar().WithOptions(zap.WithCaller(false)).Sugar()
 	flag.Parse()
 
-	ctrl.SetLogger(util.ZapfLogShim{ZapLogger: lg})
+	ctrl.SetLogger(logr.New(util.ZapfLogShim{ZapLogger: lg}))
 
 	var err error
 	options := ctrl.Options{Scheme: scheme}
